@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;family=Outfit:wght@300;400;500;600;700;800;900&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-error": "#690005",
+                        "surface-container-highest": "#353439",
+                        "surface-dim": "#131317",
+                        "on-error-container": "#ffdad6",
+                        "primary-fixed-dim": "#d2bbff",
+                        "on-tertiary": "#4f2500",
+                        "on-primary-container": "#ede0ff",
+                        "on-secondary": "#002e6a",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "on-tertiary-fixed": "#301400",
+                        "primary": "#d2bbff",
+                        "surface-variant": "#353439",
+                        "background": "#131317",
+                        "surface-container-low": "#1b1b1f",
+                        "error-container": "#93000a",
+                        "surface-container": "#1f1f23",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "secondary-container": "#0566d9",
+                        "tertiary-fixed-dim": "#ffb784",
+                        "on-secondary-fixed-variant": "#004395",
+                        "surface-container-lowest": "#0e0e12",
+                        "surface": "#131317",
+                        "on-primary": "#3f008e",
+                        "secondary-fixed": "#d8e2ff",
+                        "inverse-primary": "#732ee4",
+                        "inverse-surface": "#e4e1e7",
+                        "tertiary-fixed": "#ffdcc6",
+                        "surface-container-high": "#2a292e",
+                        "surface-tint": "#d2bbff",
+                        "on-secondary-container": "#e6ecff",
+                        "tertiary": "#ffb784",
+                        "on-tertiary-container": "#ffe0cd",
+                        "on-primary-fixed": "#25005a",
+                        "inverse-on-surface": "#303034",
+                        "on-tertiary-fixed-variant": "#713700",
+                        "outline": "#958da1",
+                        "surface-bright": "#39393d",
+                        "on-background": "#e4e1e7",
+                        "error": "#ffb4ab",
+                        "on-secondary-fixed": "#001a42",
+                        "tertiary-container": "#a15100",
+                        "primary-fixed": "#eaddff",
+                        "primary-container": "#7c3aed",
+                        "on-surface-variant": "#ccc3d8",
+                        "on-surface": "#e4e1e7",
+                        "outline-variant": "#4a4455",
+                        "secondary": "#adc6ff"
+                    },
+                    fontFamily: {
+                        "headline": ["Outfit", "Plus Jakarta Sans"],
+                        "body": ["Plus Jakarta Sans"],
+                        "label": ["Plus Jakarta Sans"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+    <style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+
+        .glass-border-gradient {
+            border: 1px solid transparent;
+            background-image: linear-gradient(to bottom, rgba(255, 255, 255, 0.15), rgba(255, 255, 255, 0.02));
+            background-origin: border-box;
+            background-clip: border-box;
+        }
+
+        body {
+            background-color: #131317;
+            color: #e4e1e7;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            overflow-x: hidden;
+        }
+
+        .liquid-glow {
+            background: radial-gradient(circle at 50% -20%, rgba(124, 58, 237, 0.15), transparent 70%);
+        }
+    </style>
+</head>
+
+<body class="bg-background selection:bg-primary-container selection:text-white">
+    <!-- TopNavBar (Shared Component) -->
+    <header
+        class="docked full-width top-0 sticky z-50 bg-neutral-900/40 backdrop-blur-2xl border-b border-white/10 shadow-[0_8px_32px_0_rgba(124,58,237,0.06)]">
+        <div
+            class="flex justify-between items-center w-full px-6 py-3 max-w-full mx-auto font-plus-jakarta text-sm font-medium tracking-tight">
+            <!-- Brand Logo -->
+            <div
+                class="text-2xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-blue-400 font-headline">
+                PICSPY
+            </div>
+            <!-- Navigation Links -->
+            <nav class="hidden md:flex items-center space-x-8">
+                <a class="text-violet-300 font-bold border-b-2 border-violet-500 pb-1" href="#">Explore</a>
+                <a class="text-neutral-400 hover:text-neutral-200 transition-colors" href="#">Trending</a>
+            </nav>
+            <!-- Action Cluster -->
+            <div class="flex items-center space-x-4">
+                <div
+                    class="hidden lg:flex items-center bg-white/5 border border-white/10 rounded-full px-4 py-1.5 text-secondary">
+                    <span class="text-xs font-bold mr-2 uppercase tracking-widest opacity-60">Balance</span>
+                    <span class="font-bold text-primary">1,250 Coins</span>
+                </div>
+                <button
+                    class="material-symbols-outlined text-neutral-400 hover:text-white transition-all scale-105 active:scale-95">notifications</button>
+                <button
+                    class="bg-primary-container text-on-primary-container px-6 py-2 rounded-full font-bold hover:shadow-[0_0_15px_rgba(124,58,237,0.3)] transition-all scale-105 active:scale-95">
+                    Upload
+                </button>
+                <div
+                    class="w-10 h-10 rounded-full overflow-hidden border border-white/20 hover:border-primary/50 transition-colors cursor-pointer">
+                    <img alt="User Profile Avatar" class="w-full h-full object-cover"
+                        data-alt="professional headshot of a young creative professional with warm lighting and a soft bokeh background"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuD-ivS9oClsL2ta1jB-cqpS0Y-DHWwvaOMoLW9rPC5WzjmFUPOcGkvkczngIbfvNVecYX-Nh1941KTW4NsWfJ40o9KpNZQ0CZetbcFoNI6IRPUopItWozp-wLkslj44RFQkyn6IBgKemvL6kDuUMwDxbfRCswufGyy0CsKbKHcdc7BQT4mjeDEmtavEAlk-Fjtte2KKg0-XSmh_gz_UXDi5SO_MYho3LNmqETarkXHwwpqUNYCDiA_8gaVTAgBjeeWPUenhlmSczdRY" />
+                </div>
+            </div>
+        </div>
+    </header>
+    <main class="liquid-glow">
+        <!-- Hero Section -->
+        <section
+            class="relative min-h-[870px] flex flex-col items-center justify-center text-center px-6 pt-20 overflow-hidden">
+            <!-- Background Orbs -->
+            <div
+                class="absolute top-[-10%] left-[-10%] w-[40vw] h-[40vw] bg-primary/10 blur-[120px] rounded-full pointer-events-none">
+            </div>
+            <div
+                class="absolute bottom-[-10%] right-[-10%] w-[35vw] h-[35vw] bg-secondary/10 blur-[120px] rounded-full pointer-events-none">
+            </div>
+            <div class="max-w-6xl mx-auto relative z-10">
+                <span
+                    class="inline-block py-1.5 px-4 rounded-full border border-white/10 bg-white/5 backdrop-blur-md text-primary text-xs font-bold tracking-[0.2em] uppercase mb-8">
+                    Discover the Future of Visuals
+                </span>
+                <h1
+                    class="text-6xl md:text-8xl lg:text-9xl font-black font-headline tracking-tighter leading-[0.85] mb-8">
+                    <span class="block">Chia sẻ sáng tạo</span>
+                    <span
+                        class="block text-transparent bg-clip-text bg-gradient-to-r from-violet-500 via-primary to-blue-400">Kiếm
+                        tiền từ đam mê</span>
+                </h1>
+                <p
+                    class="max-w-2xl mx-auto text-on-surface-variant text-lg md:text-xl font-light leading-relaxed mb-12">
+                    Nền tảng chia sẻ hình ảnh và tài nguyên thiết kế hàng đầu cho cộng đồng sáng tạo tại Việt Nam. Biến
+                    mỗi pixel thành giá trị thực.
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                    <button
+                        class="group relative px-10 py-5 bg-gradient-to-r from-primary-container to-secondary-container rounded-full font-bold text-white text-lg shadow-[0_0_40px_rgba(124,58,237,0.2)] hover:shadow-[0_0_60px_rgba(124,58,237,0.4)] transition-all duration-300 scale-105 hover:scale-110">
+                        Bắt đầu ngay
+                    </button>
+                    <button
+                        class="px-10 py-5 border border-white/10 bg-white/5 backdrop-blur-xl rounded-full font-bold text-on-surface hover:bg-white/10 transition-all">
+                        Khám phá Gallery
+                    </button>
+                </div>
+            </div>
+            <!-- Hero Image Preview -->
+            <div class="mt-20 w-full max-w-7xl mx-auto px-6">
+                <div class="relative rounded-t-[3rem] overflow-hidden border-t border-x border-white/20 shadow-2xl">
+                    <div class="absolute inset-0 bg-gradient-to-t from-background via-transparent to-transparent z-10">
+                    </div>
+                    <img alt="Abstract fluid art" class="w-full h-[500px] object-cover object-top opacity-60"
+                        data-alt="vibrant abstract 3d fluid shapes in violet and cyan colors swirling in a dark space with glass refraction effects"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAczcw2Relzruylc_CWOKvUlSH4ua7iKbEqz-pXVcPzD-u9EKMZdoEmIagjE0XJlgp9FVCcTBuDpxkstA07faCyyI_-0G67c3lOSG8T3Hik67-4cT5NPA5wS3rx6Vyr8_5F9eOAK46goQW3dqqGuuBb0z1IBTODnDmcqEcIIB9pZ4JhS03OrQfLul80TLtU68sd749xhzeO495xWVAAIMaIhId8knEQvij8spLj4H912W-g57g0LRSrrwHCFTYXHRGQZeFXfuwBxEyQ" />
+                </div>
+            </div>
+        </section>
+        <!-- Stats Strip -->
+        <section class="py-12 bg-surface-container-lowest/50 backdrop-blur-md">
+            <div class="max-w-7xl mx-auto px-6 grid grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Stat Card 1 -->
+                <div
+                    class="group p-8 rounded-lg bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/10 transition-all duration-500">
+                    <div class="text-primary-fixed-dim font-headline text-4xl font-bold mb-2">50K+</div>
+                    <div class="text-on-surface-variant text-sm font-medium tracking-wide uppercase">Wallpapers</div>
+                </div>
+                <!-- Stat Card 2 -->
+                <div
+                    class="group p-8 rounded-lg bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/10 transition-all duration-500">
+                    <div class="text-secondary font-headline text-4xl font-bold mb-2">12M</div>
+                    <div class="text-on-surface-variant text-sm font-medium tracking-wide uppercase">Downloads</div>
+                </div>
+                <!-- Stat Card 3 -->
+                <div
+                    class="group p-8 rounded-lg bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/10 transition-all duration-500">
+                    <div class="text-tertiary font-headline text-4xl font-bold mb-2">8.5K</div>
+                    <div class="text-on-surface-variant text-sm font-medium tracking-wide uppercase">Creators</div>
+                </div>
+                <!-- Stat Card 4 -->
+                <div
+                    class="group p-8 rounded-lg bg-white/5 border border-white/10 backdrop-blur-2xl hover:bg-white/10 transition-all duration-500">
+                    <div class="text-primary font-headline text-4xl font-bold mb-2">$2M+</div>
+                    <div class="text-on-surface-variant text-sm font-medium tracking-wide uppercase">Paid Out</div>
+                </div>
+            </div>
+        </section>
+        <!-- Trending Gallery -->
+        <section class="py-24 px-6 max-w-7xl mx-auto">
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+                <div>
+                    <h2 class="text-4xl md:text-5xl font-black font-headline mb-4 tracking-tight">Xu hướng cộng đồng
+                    </h2>
+                    <p class="text-on-surface-variant max-w-xl">Những tác phẩm được yêu thích nhất trong tuần qua từ các
+                        nghệ sĩ hàng đầu trên toàn quốc.</p>
+                </div>
+                <button
+                    class="flex items-center space-x-2 text-primary hover:text-white font-bold transition-colors group">
+                    <span>Xem tất cả</span>
+                    <span
+                        class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
+                </button>
+            </div>
+            <!-- Bento/Masonry Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <!-- Large Feature Card -->
+                <div
+                    class="md:col-span-2 md:row-span-2 group relative rounded-lg overflow-hidden border border-white/10 bg-surface-container hover:scale-[1.02] transition-all duration-700">
+                    <div
+                        class="absolute inset-0 bg-gradient-to-t from-background/90 via-transparent to-transparent opacity-60 z-10">
+                    </div>
+                    <img alt="Cyberpunk neon aesthetic"
+                        class="w-full h-[600px] object-cover group-hover:scale-110 transition-transform duration-1000"
+                        data-alt="modern cyberpunk city street at night with neon signs reflecting in puddles in violet and blue tones"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuC1FTFH0GmhUKnPx5jVYLRGO8EREXrk88LSq5iYtDzMFa8WyY_9rbxNxJkXwISdO3Zf_BjO3LmzGt3bOHvdf7RvMspWwnaFsj5k3F9cqgSeu0qDC-rE_YC_S9g2fMyFPR5UeB6kx9rSD8FLRE2RpUjxy6mCFxd6DA6Ycc-o_-M_H9QVHvTP08Ns2K5ChPTwOMew8pzuI085BJqeovM_YJ9FHfyiFeJTLovXneDzlTCQAE4cHsuamKuO0L3Zsuw5FDFixNqRVL4eQIQb" />
+                    <div
+                        class="absolute bottom-0 left-0 p-8 z-20 w-full backdrop-blur-sm bg-white/5 border-t border-white/10">
+                        <div class="flex justify-between items-center">
+                            <div>
+                                <h3 class="text-2xl font-bold font-headline mb-1">Neo-Saigon 2077</h3>
+                                <p class="text-on-surface-variant text-sm">by @minh_creative</p>
+                            </div>
+                            <div class="flex space-x-3">
+                                <button
+                                    class="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center hover:bg-primary transition-colors">
+                                    <span class="material-symbols-outlined"
+                                        style="font-variation-settings: 'FILL' 1;">favorite</span>
+                                </button>
+                                <button
+                                    class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center">
+                                    <span class="material-symbols-outlined">download</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Secondary Card 1 -->
+                <div
+                    class="group relative rounded-lg overflow-hidden border border-white/10 bg-surface-container hover:scale-[1.02] transition-all duration-700">
+                    <img alt="Colorful texture"
+                        class="w-full h-[284px] object-cover group-hover:scale-110 transition-transform duration-1000"
+                        data-alt="swirling macro photography of iridescent liquid pigments with metallic sheen and bubbles"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuBD5JNWP2i2iQK158NF7bUYDrhIj0Yf5ABDd4hYW2asifr5WwOqsQVIY4DpS1rcHtAhA04odmjuoeNq0rK4vbY9L9HqKHJ72J9p-_F2_vVI5fNNnOCN7n0fI_PXrv7zKLonInNTif9kXIq0GxMsUC634-lsk-isnJ51pquB-M2u1MSlPknRWPyNUhLNm9YnlCzySM1OTFKkt9YDWu_M8Kz8jutOn9EPCIEtWe5XTz5XRNnqrNbQGvfgKReSvJ3eWvFNEBszmeqzmBl2" />
+                    <div
+                        class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                        <div class="text-center px-6">
+                            <p class="font-bold text-lg mb-2">Liquid Textures Vol 1</p>
+                            <span class="text-sm bg-primary/20 text-primary px-3 py-1 rounded-full">Premium</span>
+                        </div>
+                    </div>
+                </div>
+                <!-- Secondary Card 2 -->
+                <div
+                    class="group relative rounded-lg overflow-hidden border border-white/10 bg-surface-container hover:scale-[1.02] transition-all duration-700">
+                    <img alt="Minimalist gradient"
+                        class="w-full h-[284px] object-cover group-hover:scale-110 transition-transform duration-1000"
+                        data-alt="soft minimalist silk-like gradient from soft violet to deep indigo with elegant organic folds"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGl4w9X_za_XW9lbrbOpSdG7Iytf-TiE6F1RWPx_mHJvO5gS0AOL051vJD92xv8pqrs4vQAt_VV1NpysOibRU7lLgY6aQmp5M_SSlNtI1fHxJc_xgNrmbfJs8l2iuRFP9Op0gdfJK7xAAGiexG_P258k0Zofxgp4YDbgjbDFL-lgfCz-Y6wY9IM74Pk45j_ob23ddCF8atlPXAV0i6rlo_HOXUft1iHHiOibL14BXu-3PCsMyBCJWu85aENZgXadYltBClB3988CH0" />
+                    <div
+                        class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center backdrop-blur-sm">
+                        <div class="text-center px-6">
+                            <p class="font-bold text-lg mb-2">Silk Dreamscapes</p>
+                            <span class="text-sm bg-secondary/20 text-secondary px-3 py-1 rounded-full">Free</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- CTA Section -->
+        <section class="py-32 px-6">
+            <div
+                class="max-w-5xl mx-auto glass-border-gradient rounded-[3rem] p-12 md:p-24 text-center relative overflow-hidden bg-surface-container-high/40 backdrop-blur-2xl">
+                <!-- Radiant Glow behind CTA -->
+                <div
+                    class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/20 blur-[100px] rounded-full opacity-50 pointer-events-none">
+                </div>
+                <div class="relative z-10">
+                    <h2 class="text-5xl md:text-6xl font-black font-headline mb-8 tracking-tighter">Sẵn sàng để tỏa
+                        sáng?</h2>
+                    <p class="text-on-surface-variant text-xl max-w-2xl mx-auto mb-12">
+                        Tham gia cùng hàng ngàn nghệ sĩ khác đang xây dựng tương lai nghệ thuật số tại Việt Nam.
+                    </p>
+                    <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                        <button
+                            class="w-full sm:w-auto px-12 py-5 bg-white text-black font-black rounded-full text-lg hover:bg-primary transition-all duration-300 scale-105 active:scale-95 shadow-xl">
+                            Tạo tài khoản miễn phí
+                        </button>
+                        <button
+                            class="w-full sm:w-auto px-12 py-5 border border-white/20 hover:border-white/50 rounded-full font-bold text-on-surface transition-all">
+                            Tìm hiểu thêm
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Footer -->
+        <footer class="py-20 px-6 border-t border-white/5 bg-surface-container-lowest">
+            <div class="max-w-7xl mx-auto grid grid-cols-1 md:grid-cols-4 gap-12">
+                <div class="col-span-1 md:col-span-2">
+                    <div
+                        class="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-blue-400 font-headline mb-6">
+                        PICSPY
+                    </div>
+                    <p class="text-on-surface-variant max-w-sm mb-8 leading-relaxed">
+                        Cổng thông tin và sàn giao dịch tài nguyên thiết kế lớn nhất Việt Nam, nơi kết nối sự sáng tạo
+                        với giá trị thương mại.
+                    </p>
+                    <div class="flex space-x-6">
+                        <a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Facebook</a>
+                        <a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Instagram</a>
+                        <a class="text-on-surface-variant hover:text-primary transition-colors" href="#">Dribbble</a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-6 text-on-surface">Khám phá</h4>
+                    <ul class="space-y-4 text-on-surface-variant">
+                        <li><a class="hover:text-white transition-colors" href="#">Thư viện ảnh</a></li>
+                        <li><a class="hover:text-white transition-colors" href="#">Họa sĩ nổi bật</a></li>
+                        <li><a class="hover:text-white transition-colors" href="#">Cuộc thi sáng tạo</a></li>
+                        <li><a class="hover:text-white transition-colors" href="#">Blog nghệ thuật</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="font-bold mb-6 text-on-surface">Hỗ trợ</h4>
+                    <ul class="space-y-4 text-on-surface-variant">
+                        <li><a class="hover:text-white transition-colors" href="#">Trung tâm trợ giúp</a></li>
+                        <li><a class="hover:text-white transition-colors" href="#">Điều khoản dịch vụ</a></li>
+                        <li><a class="hover:text-white transition-colors" href="#">Chính sách bảo mật</a></li>
+                        <li><a class="hover:text-white transition-colors" href="#">Liên hệ quảng cáo</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div
+                class="max-w-7xl mx-auto mt-20 pt-8 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-6">
+                <p class="text-on-surface-variant text-sm">© 2024 PICSPY Ecosystem. All rights reserved.</p>
+                <p class="text-on-surface-variant text-sm flex items-center">
+                    Made with <span class="material-symbols-outlined text-xs mx-1 text-primary"
+                        style="font-variation-settings: 'FILL' 1;">favorite</span> in Vietnam
+                </p>
+            </div>
+        </footer>
+    </main>
+</body>
+
+</html>

@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="vi">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>PICSPY - Chia sẻ sáng tạo, Kiếm tiền từ đam mê</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #09090b;
+        }
+
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+
+        .glass-card {
+            background: rgba(32, 31, 34, 0.4);
+            backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .text-gradient {
+            background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+    </style>
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "surface-container-low": "#1c1b1d",
+                        "error": "#ffb4ab",
+                        "surface-variant": "#353437",
+                        "secondary": "#adc6ff",
+                        "outline-variant": "#4a4455",
+                        "outline": "#958da1",
+                        "on-background": "#e5e1e4",
+                        "primary-fixed": "#eaddff",
+                        "on-error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#713700",
+                        "on-secondary": "#002e6a",
+                        "on-primary": "#3f008e",
+                        "on-primary-fixed-variant": "#5a00c6",
+                        "primary-fixed-dim": "#d2bbff",
+                        "on-error": "#690005",
+                        "surface": "#131315",
+                        "tertiary-fixed": "#ffdcc6",
+                        "on-surface-variant": "#ccc3d8",
+                        "primary": "#d2bbff",
+                        "secondary-fixed-dim": "#adc6ff",
+                        "surface-tint": "#d2bbff",
+                        "tertiary": "#ffb784",
+                        "secondary-fixed": "#d8e2ff",
+                        "surface-bright": "#39393b",
+                        "on-tertiary-fixed": "#301400",
+                        "secondary-container": "#0566d9",
+                        "on-secondary-fixed-variant": "#004395",
+                        "on-secondary-container": "#e6ecff",
+                        "surface-container-high": "#2a2a2c",
+                        "surface-container-highest": "#353437",
+                        "surface-container-lowest": "#0e0e10",
+                        "tertiary-fixed-dim": "#ffb784",
+                        "surface-dim": "#131315",
+                        "inverse-surface": "#e5e1e4",
+                        "error-container": "#93000a",
+                        "inverse-on-surface": "#313032",
+                        "on-tertiary-container": "#ffe0cd",
+                        "on-secondary-fixed": "#001a42",
+                        "background": "#131315",
+                        "on-primary-fixed": "#25005a",
+                        "surface-container": "#201f22",
+                        "primary-container": "#7c3aed",
+                        "on-tertiary": "#4f2500",
+                        "inverse-primary": "#732ee4",
+                        "on-primary-container": "#ede0ff",
+                        "on-surface": "#e5e1e4",
+                        "tertiary-container": "#a15100"
+                    },
+                    fontFamily: {
+                        "headline": ["Plus Jakarta Sans"],
+                        "body": ["Plus Jakarta Sans"],
+                        "label": ["Plus Jakarta Sans"]
+                    },
+                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
+                },
+            },
+        }
+    </script>
+</head>
+
+<body class="bg-zinc-950 text-on-surface selection:bg-primary/30">
+    <!-- TopAppBar Navigation Shell -->
+    <header
+        class="bg-zinc-950/40 backdrop-blur-3xl border-b border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] docked full-width top-0 sticky z-50">
+        <div class="flex justify-between items-center w-full px-8 py-4 max-w-[1920px] mx-auto">
+            <div class="flex items-center gap-12">
+                <a class="text-2xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-500 to-blue-500"
+                    href="#">PICSPY</a>
+                <nav class="hidden md:flex gap-8 font-plus-jakarta-sans text-sm font-medium tracking-tight">
+                    <a class="text-white font-bold border-b-2 border-violet-500 pb-1" href="#">Explore</a>
+                    <a class="text-zinc-400 hover:text-white transition-colors" href="#">Trending</a>
+                    <a class="text-zinc-400 hover:text-white transition-colors" href="#">Creators</a>
+                    <a class="text-zinc-400 hover:text-white transition-colors" href="#">Store</a>
+                </nav>
+            </div>
+            <div class="flex items-center gap-6">
+                <div class="hidden lg:flex items-center gap-4 bg-white/5 rounded-full px-4 py-2 border border-white/5">
+                    <span class="material-symbols-outlined text-zinc-400 text-sm">search</span>
+                    <input
+                        class="bg-transparent border-none focus:ring-0 text-sm text-on-surface placeholder:text-zinc-500 w-48"
+                        placeholder="Tìm kiếm cảm hứng..." type="text" />
+                </div>
+                <div class="flex items-center gap-4">
+                    <button
+                        class="bg-white/5 text-zinc-300 px-4 py-2 rounded-full text-xs font-bold border border-white/10 hover:bg-white/10 transition-all">1,250
+                        Coins</button>
+                    <button
+                        class="bg-gradient-to-r from-violet-500 to-blue-500 text-white px-6 py-2 rounded-full text-sm font-bold shadow-lg shadow-violet-500/20 active:scale-95 duration-200 transition-all">Upload</button>
+                    <button
+                        class="material-symbols-outlined text-zinc-400 hover:bg-white/5 p-2 rounded-full transition-all">notifications</button>
+                    <div class="w-10 h-10 rounded-full overflow-hidden border-2 border-violet-500/30">
+                        <img alt="User Avatar"
+                            data-alt="Close-up portrait of a young man with a friendly smile, professional lighting, soft background blur, high quality photography"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBXiLEM8Wg0ODQwkWdIB5oZN7kXb3BMdP7sh8tSWtt34aHh8n2WdSuiufdFEsiaqBFJDEPg_JZ4u5HczvkMq_s3wZDRtKEzXF6RYw7STJApfJUUDbBrcYOtilOoIVbYNvpLqVfRsSXBg_i48ozizHuUeckhtxRqCQ180F4pm2INSkgpOWgfKGV8RxgupgVsIeZiRwNZKb6dxHvRnEZkEKQFEKZybOPklK-_pKy9DOV6-DdMVgha0e_y-sU4fXNVaNvoSaZrUSfvBoq2" />
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+    <main>
+        <!-- Hero Section -->
+        <section class="relative min-h-[921px] flex items-center justify-center overflow-hidden px-6 pt-12">
+            <!-- Decorative Glows -->
+            <div
+                class="absolute top-0 left-1/4 w-[500px] h-[500px] bg-violet-600/10 rounded-full blur-[120px] pointer-events-none">
+            </div>
+            <div
+                class="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-blue-600/10 rounded-full blur-[120px] pointer-events-none">
+            </div>
+            <div class="relative z-10 max-w-5xl text-center">
+                <span
+                    class="inline-block px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-xs font-bold tracking-widest text-secondary uppercase mb-8">AI-Powered
+                    Visual Curator</span>
+                <h1 class="text-6xl md:text-8xl font-black tracking-tighter leading-[1.1] mb-8 font-headline">
+                    Chia sẻ sáng tạo,<br />
+                    <span class="text-gradient">Kiếm tiền từ đam mê</span>
+                </h1>
+                <p class="text-on-surface-variant text-lg md:text-xl max-w-2xl mx-auto mb-12 leading-relaxed">
+                    Nền tảng nghệ thuật số hàng đầu nơi các nhà sáng tạo nội dung trình diễn những kiệt tác AI và kết
+                    nối với cộng đồng toàn cầu.
+                </p>
+                <div class="flex flex-col sm:flex-row items-center justify-center gap-6">
+                    <button
+                        class="w-full sm:w-auto px-10 py-5 rounded-full bg-gradient-to-r from-violet-600 to-blue-600 text-white font-bold text-lg shadow-2xl shadow-violet-500/40 hover:scale-105 transition-transform">
+                        Bắt đầu ngay
+                    </button>
+                    <button
+                        class="w-full sm:w-auto px-10 py-5 rounded-full glass-card text-white font-bold text-lg hover:bg-white/10 transition-colors">
+                        Khám phá Gallery
+                    </button>
+                </div>
+            </div>
+            <!-- Background Collage Element (Abstract) -->
+            <div class="absolute inset-0 -z-10 opacity-30">
+                <div class="grid grid-cols-4 gap-4 rotate-12 scale-110 translate-y-20">
+                    <div class="h-80 rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden">
+                        <img class="w-full h-full object-cover"
+                            data-alt="Abstract 3D render with flowing liquid shapes in violet and blue metallic textures, high resolution digital art"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAI1a6_69mBSdeLXltLu-AWRHrEuyjeyWmNJxffA1w5Un9kdo7qelz38h4wuwkKyPhMNpnebwRvMLlK-4jJlMoRlamvfa0HyrZVbqBbzTIm5jxQg5xFHPGn3WvLMpTPKDWIZoDrbVRA8Pfxb3eNro5wN2fzbeKDrqZAM8AEtzDy1MEbh7mtTbUDUhRYAXJS6Npo5lgmu9zEuXFDC--Zp65l8ekgIWV2meHg1bJjWsdqB6V2_CN56AXt1KIXRpPXsJNux76JPk3I9Bk4" />
+                    </div>
+                    <div class="h-96 rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden -translate-y-20">
+                        <img class="w-full h-full object-cover"
+                            data-alt="Futuristic cyberpunk city skyline at night with neon purple and cyan lights, cinematic atmospheric lighting"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCbGk6PsgoVx6BXVGEyq3fuib0Ef7-NsoDbOXeXdkiwmyEm6kxBvBff0vZLO-z7P7_qWNgE7VQwEoC3n9umN94LQ4-1Qfpxs7nI9odDib4QBWBx4HutFQR_tM1yhk24fiUPm27GSGYRF3L1aeL7jyQJFviOuF-OQ5X9m2yGuhYOdEfHGzfuU2uLwQhpn-3qFbQQSzfOymM2cq5FCUkAmTk3fBplp_-7yKdK_2xIvFLVAmMygU7bX5fPElRyhn5IUmCXnuznKbNdF3PM" />
+                    </div>
+                    <div class="h-80 rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden translate-y-10">
+                        <img class="w-full h-full object-cover"
+                            data-alt="Close-up of a surreal crystal structure reflecting rainbow colors, hyper-realistic 3D design"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBtEzr8v8b5swH-IIGYFDBwk3teJ9Ozm0rvKrTxzWKVFRtJ89AC2h-QAEKSgZ6erFxUmmnzF6UlkiEyav1D_Y88HndfIElJvsmrRuMnVV_dIwo9TWGbkdvyqAIzumhaPyaQEU_dsZ2hszRvHu_RE9oeBYjoRXhJbf6y9cV5RhJaOOdSe6lZS85VixUInM-RoNqMuXFbIx3BbPFHkd7WnQMHaGqMJyT99rE6h9pGMQqe3rf8WJ_mt7Wmo1jcu1hwyU7PYsMVyDRTP_-a" />
+                    </div>
+                    <div class="h-96 rounded-2xl bg-zinc-900 border border-white/5 overflow-hidden -translate-y-10">
+                        <img class="w-full h-full object-cover"
+                            data-alt="Ethereal cosmic nebula with stars and swirling pink and blue gas clouds, deep space photography style"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVbtKu9Pz64-H7CpCRKdd0YNATUfabqnbdMTsTYxgGLpXp5h6lN8f9if4vMB3_ANYve-VKQyHJLE9wTn3W6pYRlZ6nXJ2Yv1bCQ_onM4VL4AZkSerMKi77jXGi1yIOAoa9SVFDWD-6v6XT0j81zyqTfC7jSXRgXeRB0vPp6MRHzvOWTzPk0z7KD8ftFBQ45pEhF-70pEmE3w3mfuGs0UYRfOGWG-Cuv3IucS2Pg8UVLbS_xG6fTjTbLtzv6xDJ9eAZB3tx9P-HaP9m" />
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Stats Strip -->
+        <section class="max-w-7xl mx-auto px-8 -mt-20 relative z-20">
+            <div class="glass-card rounded-lg p-8 grid grid-cols-2 md:grid-cols-4 gap-8">
+                <div class="text-center border-r border-white/5 last:border-none">
+                    <div class="text-3xl font-black text-white mb-1">12K+</div>
+                    <div class="text-xs font-bold uppercase tracking-widest text-zinc-500">Wallpapers</div>
+                </div>
+                <div class="text-center border-r border-white/5 last:border-none">
+                    <div class="text-3xl font-black text-white mb-1">850</div>
+                    <div class="text-xs font-bold uppercase tracking-widest text-zinc-500">Creators</div>
+                </div>
+                <div class="text-center border-r border-white/5 last:border-none">
+                    <div class="text-3xl font-black text-white mb-1">2.4M</div>
+                    <div class="text-xs font-bold uppercase tracking-widest text-zinc-500">Downloads</div>
+                </div>
+                <div class="text-center border-r border-white/5 last:border-none">
+                    <div class="text-3xl font-black text-white mb-1">450K</div>
+                    <div class="text-xs font-bold uppercase tracking-widest text-zinc-500">Likes</div>
+                </div>
+            </div>
+        </section>
+        <!-- Featured Categories -->
+        <section class="py-24 px-8 max-w-[1920px] mx-auto">
+            <div class="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-6">
+                <div>
+                    <h2 class="text-4xl font-black tracking-tight mb-4">Danh mục nổi bật</h2>
+                    <p class="text-on-surface-variant max-w-lg">Khám phá kho lưu trữ được phân loại chuyên nghiệp bởi
+                        cộng đồng chuyên gia của chúng tôi.</p>
+                </div>
+                <button class="text-sm font-bold text-primary flex items-center gap-2 hover:gap-3 transition-all">
+                    Xem tất cả danh mục <span class="material-symbols-outlined">arrow_forward</span>
+                </button>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <!-- Category Cards -->
+                <div class="group relative aspect-[4/5] rounded-lg overflow-hidden cursor-pointer">
+                    <img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        data-alt="Majestic mountain peak at sunset with glowing orange sky and purple shadows, epic landscape photography"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCQUvxlnE1Vw6HS40jNve8NIV24YgJ8qmrcZJjWXyDbaqhRsfsb17lFk6PpAKpfZGdmyksUqorP-pC2FfcouB2-NRAXjlkzzY9dDJmYRdKcE9RGWrHQ_2ZakJqwfYQkiAK-9vQIYnplzKXzp7Q8eND121Ap_Vxg7I-e7dxAVv5Pi-HQjEF22QwMwscGSnfGrkbOLOOr2c39wUZQRsd508PyABuopPgzN534jjmrXYmDO0nvtYmG9urmzIMkSrNp__YQBD_CYxh4xCf" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent">
+                    </div>
+                    <div
+                        class="absolute bottom-6 left-6 right-6 p-4 glass-card rounded-lg translate-y-2 group-hover:translate-y-0 transition-transform">
+                        <span class="text-sm font-bold text-white">Nature</span>
+                        <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">2,450 tác phẩm</p>
+                    </div>
+                </div>
+                <div class="group relative aspect-[4/5] rounded-lg overflow-hidden cursor-pointer">
+                    <img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        data-alt="Deep blue tech background with floating data nodes and glowing fiber optic lines, futuristic digital art"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQov9toisIBscSqkHLIV9sz27ycnxrNrCcTJcoMrk9MhuTuz3CHw3CXVRmvQeB2l6p3Q_W0HLVUg3htlG6uVg6WkmowHUtJbuYUv4I53G-Mwc4Tfhx-yBGhvwGI1-SVpVl5hzkGecITrnB7GUxBm_OCKPb1U4Gk8edr9hfmxSOlqSFIWb3a8-jMkq5Tk1_PJHpPOhp_z0dGwq2MIbR22bp6bhEDFDsaR8WYITjqbvg-8ByZ9PLRuUEl-hgUIi5jo5JnQIR-5F5RKfQ" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent">
+                    </div>
+                    <div
+                        class="absolute bottom-6 left-6 right-6 p-4 glass-card rounded-lg translate-y-2 group-hover:translate-y-0 transition-transform">
+                        <span class="text-sm font-bold text-white">Cyberpunk</span>
+                        <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">1,820 tác phẩm</p>
+                    </div>
+                </div>
+                <div class="group relative aspect-[4/5] rounded-lg overflow-hidden cursor-pointer">
+                    <img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        data-alt="Minimalist architectural detail of clean white curves against a deep blue sky, geometric modern art"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAR1P2OLs2_hSfU5bTh5rKdwZr__yp1-Fy1Ih4IGckXVkZLFJSumDoL8hmBgjZvbF4U_siHFEAc6Z6PnHwTpdn7OvDQkYhOaHugYaPJzswH2x9QOwp5xM5r6BaTO3cDYr7GZzTh-lprtd0giBXF80nwLsAr7mSeaKX7oDsK4q0MaQU_g26GS0Xz7v2bHqEwGjL_o_sFr7ckKGeAcG2162z166ifijQi3tkYGQ3miIwWBBjDQk84tDhoDvgCIwzkvgA4OP4Gd3bnTngm" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent">
+                    </div>
+                    <div
+                        class="absolute bottom-6 left-6 right-6 p-4 glass-card rounded-lg translate-y-2 group-hover:translate-y-0 transition-transform">
+                        <span class="text-sm font-bold text-white">Minimal</span>
+                        <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">950 tác phẩm</p>
+                    </div>
+                </div>
+                <div class="group relative aspect-[4/5] rounded-lg overflow-hidden cursor-pointer">
+                    <img class="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                        data-alt="Dramatic high-fashion portrait with bold shadow play and vibrant saturated colors, artistic studio photography"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuC_xRV69tDvXLBAaJrX72P-TD1P8G5FLcy0Ip98jvj-gtkMInevVJjUUoB2z9dLKpxI6lnLr6S2fgDGh51UC_sbQE18Pv7S-zschUTnwuabFza8_bqDb1180DJdB_LHH9l3NNJt5DwtPrWNBScb9cM144njrP8aCPYmgIrMFNf86psVcxSBfolfOdaimiF76ENxlHvuBH0Qla9csBd98Ghon4n2Iy9erZsB9p6QW5KjZtcmp5bGVK4qwMd8QCBy8WQFocSbkqArxatj" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-zinc-950/80 via-transparent to-transparent">
+                    </div>
+                    <div
+                        class="absolute bottom-6 left-6 right-6 p-4 glass-card rounded-lg translate-y-2 group-hover:translate-y-0 transition-transform">
+                        <span class="text-sm font-bold text-white">Portrait</span>
+                        <p class="text-[10px] text-zinc-400 font-bold uppercase tracking-wider">3,110 tác phẩm</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Trending Community -->
+        <section class="py-24 bg-surface-container-lowest/50">
+            <div class="max-w-[1920px] mx-auto px-8">
+                <div class="flex items-center justify-between mb-16">
+                    <h2 class="text-4xl font-black tracking-tight">Xu hướng cộng đồng</h2>
+                    <div class="flex gap-2">
+                        <button
+                            class="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 transition-all">
+                            <span class="material-symbols-outlined">chevron_left</span>
+                        </button>
+                        <button
+                            class="w-12 h-12 rounded-full border border-white/10 flex items-center justify-center hover:bg-white/5 transition-all">
+                            <span class="material-symbols-outlined">chevron_right</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+                    <!-- Community Item -->
+                    <div class="group relative rounded-lg overflow-hidden bg-surface-container">
+                        <img class="w-full aspect-[16/10] object-cover group-hover:opacity-60 transition-all duration-500"
+                            data-alt="Atmospheric abstract waves of silk-like fabric in dark charcoal and violet tones, flowing fluid movement"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAMowcM3tM2tPN5mSExprRpR3TMievSx8a7MQjsdx1IRS4mZFac3I3eMveDRMA0c0rQ_Wq99fFQcwvr15665lId3mC_wdaWIHhU5BXpf7Czdp0X0N30y6keKjypgsjTuawi9Y3nGfDVpUIZtysb1KulMjYHfoW36SzJ28Uz0DkQdsyV76qnvOJM7pDrPYBN5PVwJAUYMz35P-q5GsnPfbB7Gkti0Uj01zf_NH-WeS1HyUlA-ELDAMJ7XWCXk-EXJ6-2lQLI1l8sYxcP" />
+                        <div
+                            class="absolute inset-0 flex flex-col justify-end p-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <img class="w-8 h-8 rounded-full border border-white/20"
+                                        data-alt="Portrait of a young creator with glasses, studio lighting"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAGShQDPnHrp_UbrWJlB7tRh7pbJE6aSm7brDmR269m-98wzThC-UjsvLauZW6JwHnXm_U-QtEgzmBptSsvqxtVXUAauFncBZgWn7KZRWn7q4HHTPId681gl6bJ1hvAzegXcNGc408hNcDokmspTtImrGRZdHOhCrsHsIEjiq-w0rsXbaQUK6t1SiiSiHvvyMHkiVWQ9q0bJBcBsIKTJG3TUSi7xrheI6d5Kfox2sjEyU2cCWwJDLyYGaY5QzjDfygDBHB0HOz5wN4S" />
+                                    <span class="font-bold text-sm">Alex Rivers</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span class="flex items-center gap-1 text-sm font-bold"><span
+                                            class="material-symbols-outlined text-sm"
+                                            style="font-variation-settings: 'FILL' 1;">favorite</span> 1.2k</span>
+                                    <span class="material-symbols-outlined text-sm">bookmark</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Repeat 5 more times with different images -->
+                    <div class="group relative rounded-lg overflow-hidden bg-surface-container">
+                        <img class="w-full aspect-[16/10] object-cover group-hover:opacity-60 transition-all duration-500"
+                            data-alt="Vibrant iridescent glass spheres floating in a void, refractive light and holographic colors, 3D render"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZad3R5_G3g9dpihRQ7EQYD6xLfSZq6biLBXXHdfBdJaSJ88j8zsZIhW-OIS59RR3vleFzgnwms_dPmp7zVIX-9E3ESOxC7UrQCgGw62UPkNLdSnJAYYBgOxmfuMfNXOBNRZ8ABLH4JxKqMLdhzFEHv-NbpWa7SpvnanUeMeCLmI2dOautjYZBMlYOYHZ0dKjV2A6VKvPiUNKwDAjIZNTOiA1ouGTW5vFb_1L19KVIgjFQzjg_4znZxqBVjhU3oKmOuvpVnI_7qTBe" />
+                        <div
+                            class="absolute inset-0 flex flex-col justify-end p-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <img class="w-8 h-8 rounded-full border border-white/20"
+                                        data-alt="Smiling woman portrait, natural soft light"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5kNjAPeGcnR-NyrzMml1bNDGlHVqyCgH00q7Tr6HRY9HSem9Pa1YUIL-0kcn4O-xC2Kb6W_064JXdvuwjD6NbKkRuPfZHw6EhPNBmcL0YRMohcicVNTj8XXLMCHNlCoD3OVtiHD65G14dPU1HqpSwI526w4DKFJ7mEFaAbxmo95hWhHHdx9l280bQiciIZ1aUHV-Is8JQFjqcFbtwfcuyuMt7ZCax9GkPcfeZgNnbsqyRch323DMuc82-rdDk-IFiEKQaDsWVB0nx" />
+                                    <span class="font-bold text-sm">Sarah Chen</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span class="flex items-center gap-1 text-sm font-bold"><span
+                                            class="material-symbols-outlined text-sm"
+                                            style="font-variation-settings: 'FILL' 1;">favorite</span> 940</span>
+                                    <span class="material-symbols-outlined text-sm">bookmark</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="group relative rounded-lg overflow-hidden bg-surface-container">
+                        <img class="w-full aspect-[16/10] object-cover group-hover:opacity-60 transition-all duration-500"
+                            data-alt="Dark aesthetic landscape with glowing blue crystal shards emerging from black sand, mysterious moonlit atmosphere"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDet2oYibY91x3NGqjTMcTB08dh6TB0QfkQow10vTB5uVRC3BesEag934Wqnfood4OGA_pnhTVz0TjcyuwGc9FtPjUN_9a7KthHJ11REjDCgC-4L7Xl8lq4QWGKMm5BS78OoohXB6FEppPq3L6J1R7S-hO_Vyzg1N347oe-wUx0yPFPT2ElvA5wGFfC6DTIv6hk6P31nsDJbuOQUfgvEI8215HJY1nwaL78pp_IWLewEaIxCtpLQ9oWVZOlt7ljCEJ9H9l8o7qkx7jk" />
+                        <div
+                            class="absolute inset-0 flex flex-col justify-end p-8 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                            <div class="flex items-center justify-between">
+                                <div class="flex items-center gap-3">
+                                    <img class="w-8 h-8 rounded-full border border-white/20"
+                                        data-alt="Portrait of a male designer, modern creative style"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDJ0womK8DifxeOA9wTZw9tjH7ad-dy5Vvpb7KX5ZftOmyZ-yrYkQcfgiWSkloAdLusXgijdI2zzzS3WuskKnvyeiC9pFGZCjKPWchAP4UCdnPD4dV3LM1ArsevnSJeWs6-uQahdHUD1GaqZVgfqiYCXnFWkjqBKAqMDR6rk4pgAicqI7cWqGuwsb0SWfP45IbICGNdRuY-cRAK6Bvo2Tfrj3OkXgRZxeZTktJGp71lykQ9RlM601wJgNcjmrNPcLtpt8LJEQtPVuRX" />
+                                    <span class="font-bold text-sm">Marcus V.</span>
+                                </div>
+                                <div class="flex gap-4">
+                                    <span class="flex items-center gap-1 text-sm font-bold"><span
+                                            class="material-symbols-outlined text-sm"
+                                            style="font-variation-settings: 'FILL' 1;">favorite</span> 2.5k</span>
+                                    <span class="material-symbols-outlined text-sm">bookmark</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+        <!-- Collectors & Latest Masonry Hybrid -->
+        <section class="py-24 px-8 max-w-[1920px] mx-auto grid grid-cols-1 lg:grid-cols-12 gap-12">
+            <!-- Left: Latest Drops -->
+            <div class="lg:col-span-8">
+                <div class="flex items-center justify-between mb-12">
+                    <h2 class="text-4xl font-black tracking-tight">Bộ sưu tập mới</h2>
+                    <span class="text-zinc-500 text-sm font-bold">Cập nhật 5 phút trước</span>
+                </div>
+                <div class="columns-1 sm:columns-2 gap-6 space-y-6">
+                    <div class="relative group rounded-lg overflow-hidden">
+                        <img class="w-full object-cover"
+                            data-alt="Close-up of futuristic cybernetic eyes with glowing red circuits, detailed sci-fi concept art"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3Zsk8-IyAeudCoiBkuehgV9N5UziV4vz54WU7ia0YpeSreF27TMq_yto5T4b5m4biFb3M-2OF3PnT4XQgNy4bu6uvwMtk9CGsoyfMRa7VszToBB3LylBubsCySEJbYstaHcJKKyjTfDUQTOcLYiLR-gh_31E7aNgy1Ia2dT4uDsT_eGUUk_rBGXv0Paw9kcKWO6pHw4Y7Ltfhz5KVJlVMP8vJWJkLBWP2FERkRpjMWw9vG4YdRg1klGax_ZjVL1RiA3JxEz9qO1Fu" />
+                        <div
+                            class="absolute top-4 left-4 bg-zinc-950/60 backdrop-blur px-3 py-1 rounded-full text-[10px] font-bold text-white border border-white/10 uppercase tracking-tighter">
+                            New</div>
+                    </div>
+                    <div class="relative group rounded-lg overflow-hidden">
+                        <img class="w-full object-cover"
+                            data-alt="Flowing liquid gold and black obsidian abstract texture, luxury elegant digital wallpaper"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuBni4MNMFtzqDBjyIE-bcr1uQi9UvKaTCfaBPvvUKw9_an55g7P_oVzPRbHJT69XWH_W9hxoxhqC8AlXsiO3RhGIKWhC4wJzl3KCnyKmNGpm3xcNBmYFT308F-_IgtmiBE88ovCE3z0v414VnrtD_D54qaSDrzXggchj6sEwofdYqhalS-bykXBiMPzw40vLmw0tsNce2pmUpVurHfni4XdGzZn3p7gDXZ_q3viMYcX2AF9kzShSRaACuxiWc_Rd1pzlI9Y-4808UPT" />
+                    </div>
+                    <div class="relative group rounded-lg overflow-hidden">
+                        <img class="w-full object-cover"
+                            data-alt="Surreal landscape with giant floating planets and pink mountains, dreamlike digital art style"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuDob6C9tsf24ZM_jvKaOE8J0vn_0pW6rnRVViFQgLNwtDVu54y9gnivlJORZ0o97EP3D5Xpb4HdAbFTmDWr7iUF0joPfys1GNm4CUfGHNlwEdelxuS-bvyqN_oAvDWQmap_GJtUym5z9B77gjfTpi-JmHTkDRRbBzbQXkjbzX9jYVJkB6HIQeUJQXs_N32Sa7T2AA8fAX5Foj3-3PIyV2yZEX-o-a0DfF7-rj7YRRp0NIVYAFKGJLX7Qhe1gfVHyhvFTo1vzPuGHNEO" />
+                    </div>
+                    <div class="relative group rounded-lg overflow-hidden">
+                        <img class="w-full object-cover"
+                            data-alt="Detailed 3D render of a futuristic robot head with exposed mechanical parts and glowing blue core"
+                            src="https://lh3.googleusercontent.com/aida-public/AB6AXuAwrqh9eZdQX6DpcaOUOLN_STxegxKMQuA-YekgqBTK16zBB4hcbejzBAa9IU7goL9ROSIAGb_jwFi19ZGU-cc3RmwRVDv74xlxPvYkOn3IGsAmtb0o432sG_Fih9J31vi3UlHsFj_tb7Dc4e_RvoTBSrnN_G4deFWmGHo0gTIBdHh-yew1aU1-YSqodG5o_775xrMoN7W2bDi3GA_W_SB_HN3q4MheITyULL4PkqMznbCliQWkWZLZRMk7iRrYWkx-dUUl78ovJl9d" />
+                    </div>
+                </div>
+            </div>
+            <!-- Right: Bảng xếp hạng -->
+            <div class="lg:col-span-4">
+                <div class="glass-card rounded-lg p-8 sticky top-28">
+                    <h2 class="text-2xl font-black tracking-tight mb-8">Bảng xếp hạng</h2>
+                    <div class="space-y-6">
+                        <!-- Creator Row -->
+                        <div class="flex items-center justify-between group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <span class="text-zinc-600 font-black italic text-xl w-6">01</span>
+                                <div class="relative">
+                                    <img class="w-12 h-12 rounded-full object-cover"
+                                        data-alt="Headshot of a creative male professional, warm lighting"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQ7ctwXhHyMPdwKP5lT2_o54H0LQUtNSyleq34bsu9I1v8pmLfLghrqcUMFKZW8ZM8karnMJHlka3DQikYKlIu29OkYVEiGmYUvdYH03tbeckwGfrlBqaxf-ObjTzrGsgqXpdc1OIWlqXEZ9PQXf-VOcvub0jPrORRHGmMQl-fx2QuGS-VDyVIUuNLjTxNL4BUkp2Su_YS8BRiimMlVjzcOnzL0PkICAyfwRWStLWZFOB_OWztqp6kQYjIytAZLIrtGZofk3sfRX-f" />
+                                    <span
+                                        class="absolute -bottom-1 -right-1 bg-primary text-[8px] font-black px-1.5 py-0.5 rounded-sm text-on-primary">PRO</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm">Hùng Nguyễn</div>
+                                    <div class="text-[10px] text-zinc-500 font-bold uppercase">12.4k followers</div>
+                                </div>
+                            </div>
+                            <button
+                                class="material-symbols-outlined text-zinc-500 group-hover:text-primary transition-colors">person_add</button>
+                        </div>
+                        <!-- Creator Row -->
+                        <div class="flex items-center justify-between group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <span class="text-zinc-600 font-black italic text-xl w-6">02</span>
+                                <div class="relative">
+                                    <img class="w-12 h-12 rounded-full object-cover"
+                                        data-alt="Professional woman portrait with elegant office background"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuAeUxRAjas7H-396vXHtL5K0DxlNzlg7sWViH7UY2PC_9-Kt-gxk57ZsbiLthd3Zwbfv8bgLUP7nMWV76H9qwVTS4DeC99fVnaqisv6PjIRojJE8DObxOTZb1uBOKOQYPD9lwItZvBMxLk3bx56MZeZ1wjSYARuXAjymZYISinU-v788mSaCBKsn8SghlgJx0QcixAZ_h-wty5JKBYqzRKvCnO1VsE23VoeHfXN8yX8Drbs7GmRQhgc1lT77zNCWu8JJh5ZKvVZFKNy" />
+                                    <span
+                                        class="absolute -bottom-1 -right-1 bg-primary text-[8px] font-black px-1.5 py-0.5 rounded-sm text-on-primary">PRO</span>
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm">Linh Phạm</div>
+                                    <div class="text-[10px] text-zinc-500 font-bold uppercase">9.8k followers</div>
+                                </div>
+                            </div>
+                            <button
+                                class="material-symbols-outlined text-zinc-500 group-hover:text-primary transition-colors">person_add</button>
+                        </div>
+                        <!-- Creator Row -->
+                        <div class="flex items-center justify-between group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <span class="text-zinc-600 font-black italic text-xl w-6">03</span>
+                                <div class="relative">
+                                    <img class="w-12 h-12 rounded-full object-cover"
+                                        data-alt="Portrait of a young man with a cool urban style"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDAoiZ41LH_8sj91wwMt92aoGyvGb98AfXl329gWT0GPPHDUcqJ3ZSegEoNGJ0S2Mc45i01smlLHQ4swAnL-N4MBtKZWofX6gmTlURLqMXPaq0lLs0zRJIawT7bTUeWym05byLQPiZNxV6JIeCVpSm6V1bTqdvPB-id3qstg3nYV8E1n18Ip2kAtmTRF3b2gNWYVtZ5-ToXFAdoMdyfggf6qeSKXsXnYPW1dqNkSVqGtD62wLiKUxZFXK3Z865bhKX3L3e-Oay9uhul" />
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm">Kevin Dang</div>
+                                    <div class="text-[10px] text-zinc-500 font-bold uppercase">8.2k followers</div>
+                                </div>
+                            </div>
+                            <button
+                                class="material-symbols-outlined text-zinc-500 group-hover:text-primary transition-colors">person_add</button>
+                        </div>
+                        <!-- Creator Row -->
+                        <div class="flex items-center justify-between group cursor-pointer">
+                            <div class="flex items-center gap-4">
+                                <span class="text-zinc-600 font-black italic text-xl w-6">04</span>
+                                <div class="relative">
+                                    <img class="w-12 h-12 rounded-full object-cover"
+                                        data-alt="Artistic portrait of a woman with red hair and creative makeup"
+                                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAhYI5SlcQL6mBj07_xUZ0d5Umozbauc17Wbbwk1_0jyLUg9vXCyju2VTMdFM4rmllIvg81MtlNk8p6Ixt6rC1W1B-sGWguoilhBFSNNKTc4hAdzrLDSfhq6F58htOEWNpsGwdQx5ifBLJaVm2cBTxyMWomQWxpMiYIejlAkynOZeDeuo5k973e2onBww8r0UgmQlkRFyJf6mUEh0hlogzsj18S3N2cv9XactRPIbcz4aBaoJ8WkaAUTycwBdxj1xrweasxG8Jvg3t" />
+                                </div>
+                                <div>
+                                    <div class="font-bold text-sm">Tú Anh</div>
+                                    <div class="text-[10px] text-zinc-500 font-bold uppercase">6.5k followers</div>
+                                </div>
+                            </div>
+                            <button
+                                class="material-symbols-outlined text-zinc-500 group-hover:text-primary transition-colors">person_add</button>
+                        </div>
+                    </div>
+                    <button
+                        class="w-full mt-10 py-4 bg-white/5 border border-white/10 rounded-full text-sm font-bold hover:bg-white/10 transition-all">Xem
+                        tất cả</button>
+                </div>
+            </div>
+        </section>
+        <!-- Creator CTA -->
+        <section class="py-24 px-8 max-w-7xl mx-auto">
+            <div
+                class="relative rounded-lg overflow-hidden p-12 md:p-20 bg-gradient-to-br from-violet-600 via-blue-600 to-indigo-700">
+                <!-- Abstract patterns overlay -->
+                <div class="absolute inset-0 opacity-20 pointer-events-none">
+                    <div class="absolute top-0 right-0 w-96 h-96 bg-white rounded-full blur-[100px]"></div>
+                    <div class="absolute bottom-0 left-0 w-64 h-64 bg-black rounded-full blur-[80px]"></div>
+                </div>
+                <div class="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-12">
+                    <div class="max-w-xl text-center lg:text-left">
+                        <h2 class="text-4xl md:text-5xl font-black text-white tracking-tighter mb-6 leading-tight">Bạn
+                            là nhà sáng tạo nghệ thuật AI?</h2>
+                        <p class="text-white/80 text-lg mb-8">Gia nhập đội ngũ PICSPY Creators ngay hôm nay. Hệ thống
+                            Coin minh bạch giúp bạn nhận lại giá trị xứng đáng từ mỗi lượt yêu thích.</p>
+                        <div class="flex items-center justify-center lg:justify-start gap-8">
+                            <div class="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
+                                <div class="text-2xl font-black text-white">1,000</div>
+                                <div class="text-[10px] font-bold uppercase text-white/60">Lượt thích</div>
+                            </div>
+                            <div class="text-white text-2xl font-black">=</div>
+                            <div class="bg-white/10 backdrop-blur rounded-lg p-4 border border-white/20">
+                                <div class="text-2xl font-black text-white">5 Xu</div>
+                                <div class="text-[10px] font-bold uppercase text-white/60">Coin System</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="glass-card p-10 rounded-lg max-w-sm w-full border-white/20">
+                        <div class="text-center mb-8">
+                            <span class="material-symbols-outlined text-4xl text-white mb-4">stars</span>
+                            <h3 class="text-xl font-bold text-white">Trở thành Creator PRO</h3>
+                        </div>
+                        <ul class="space-y-4 mb-8">
+                            <li class="flex items-center gap-3 text-sm text-white/90">
+                                <span class="material-symbols-outlined text-blue-300 text-lg">check_circle</span>
+                                Tỷ lệ chuyển đổi Xu cao hơn
+                            </li>
+                            <li class="flex items-center gap-3 text-sm text-white/90">
+                                <span class="material-symbols-outlined text-blue-300 text-lg">check_circle</span>
+                                Huy hiệu PRO xác minh
+                            </li>
+                            <li class="flex items-center gap-3 text-sm text-white/90">
+                                <span class="material-symbols-outlined text-blue-300 text-lg">check_circle</span>
+                                Ưu tiên hiển thị Trending
+                            </li>
+                        </ul>
+                        <button
+                            class="w-full py-4 bg-white text-violet-700 font-black rounded-full hover:shadow-xl transition-shadow">Đăng
+                            ký ngay</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+    <!-- Footer -->
+    <footer class="bg-zinc-950 border-t border-white/5 pt-20 pb-10 px-8">
+        <div class="max-w-[1920px] mx-auto">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-20">
+                <div class="col-span-2">
+                    <a class="text-3xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-r from-violet-500 to-blue-500 mb-6 inline-block"
+                        href="#">PICSPY</a>
+                    <p class="text-zinc-500 text-sm max-w-xs leading-relaxed mb-8">Nền tảng curator nghệ thuật số lớn
+                        nhất Việt Nam, kết nối hàng triệu trái tim yêu cái đẹp thông qua công nghệ AI.</p>
+                    <div class="flex gap-4">
+                        <a class="w-10 h-10 rounded-full glass-card flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                            href="#">
+                            <span class="material-symbols-outlined text-lg">public</span>
+                        </a>
+                        <a class="w-10 h-10 rounded-full glass-card flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                            href="#">
+                            <span class="material-symbols-outlined text-lg">videocam</span>
+                        </a>
+                        <a class="w-10 h-10 rounded-full glass-card flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                            href="#">
+                            <span class="material-symbols-outlined text-lg">camera</span>
+                        </a>
+                    </div>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-6">Khám phá</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500">
+                        <li><a class="hover:text-primary transition-colors" href="#">Gallery cộng đồng</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Bảng xếp hạng</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Bộ sưu tập mới</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Creator PRO</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-6">Nền tảng</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500">
+                        <li><a class="hover:text-primary transition-colors" href="#">Về PICSPY</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Điều khoản dịch vụ</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Chính sách bảo mật</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Hướng dẫn Coin</a></li>
+                    </ul>
+                </div>
+                <div>
+                    <h4 class="text-white font-bold mb-6">Hỗ trợ</h4>
+                    <ul class="space-y-4 text-sm text-zinc-500">
+                        <li><a class="hover:text-primary transition-colors" href="#">Trung tâm trợ giúp</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Báo cáo vi phạm</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Liên hệ quảng cáo</a></li>
+                        <li><a class="hover:text-primary transition-colors" href="#">Blog sáng tạo</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="flex flex-col md:flex-row items-center justify-between pt-10 border-t border-white/5 gap-6">
+                <p class="text-xs text-zinc-600 font-bold tracking-widest uppercase">© 2024 PICSPY VIETNAM. ALL RIGHTS
+                    RESERVED.</p>
+                <p class="text-xs text-zinc-600 font-bold">Made with <span class="text-red-500">♥</span> in Vietnam</p>
+            </div>
+        </div>
+    </footer>
+</body>
+
+</html>
