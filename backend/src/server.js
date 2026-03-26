@@ -1,0 +1,88 @@
+import express from 'express'
+import http from 'http'
+import dotenv from 'dotenv'
+import cors from 'cors'
+import helmet from 'helmet'
+import morgan from 'morgan'
+import compression from 'compression'
+import cookieParser from 'cookie-parser'
+import rateLimit from 'express-rate-limit'
+
+dotenv.config()
+
+import connectDB from './config/db.js'
+import { initSocket } from './socket/index.js'
+import errorHandler from './middlewares/errorHandler.js'
+
+// Routes
+import authRoutes from './routes/auth.routes.js'
+import userRoutes from './routes/user.routes.js'
+import postRoutes from './routes/post.routes.js'
+
+// Workers (khởi động cùng server)
+import './workers/imageProcessor.worker.js'
+
+const app = express()
+const httpServer = http.createServer(app)
+
+// =====================
+// MIDDLEWARE
+// =====================
+app.use(helmet())
+app.use(compression())
+app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL || 'http://localhost:5173',
+    credentials: true,
+  })
+)
+app.use(cookieParser())
+app.use(express.json({ limit: '10mb' }))
+app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+
+// Global rate limit nhẹ
+app.use(
+  '/v1',
+  rateLimit({
+    windowMs: 60 * 1000,
+    max: 100,
+    message: { error: 'RATE_LIMITED', message: 'Quá nhiều request. Vui lòng chậm lại.' },
+  })
+)
+
+// =====================
+// ROUTES
+// =====================
+app.use('/v1/auth', authRoutes)
+app.use('/v1/users', userRoutes)
+app.use('/v1/posts', postRoutes)
+
+// Health check
+app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }))
+
+// 404 handler
+app.use((req, res) => {
+  res.status(404).json({ error: 'NOT_FOUND', message: `Route ${req.method} ${req.path} không tồn tại` })
+})
+
+// Global error handler
+app.use(errorHandler)
+
+// =====================
+// START SERVER
+// =====================
+const PORT = process.env.PORT || 5000
+
+const startServer = async () => {
+  await connectDB()
+  initSocket(httpServer)
+
+  httpServer.listen(PORT, () => {
+    console.log(`🚀 PixelDrop server running on http://localhost:${PORT}`)
+    console.log(`📡 Socket.io listening on ws://localhost:${PORT}`)
+    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
+  })
+}
+
+startServer()
