@@ -7,7 +7,6 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 
 // Lazy load pages để code splitting
 const HomePage       = lazy(() => import('./pages/HomePage'))
-const HomePageV2       = lazy(() => import('./pages/HomePageV2'))
 const LoginPage      = lazy(() => import('./pages/LoginPage'))
 const RegisterPage   = lazy(() => import('./pages/RegisterPage'))
 const ProfilePage    = lazy(() => import('./pages/ProfilePage'))
@@ -86,14 +85,6 @@ export default function App() {
             element={
               <MainLayout>
                 <PageTransition><HomePage /></PageTransition>
-              </MainLayout>
-            }
-          />
-          <Route
-            path="/v2"
-            element={
-              <MainLayout>
-                <PageTransition><HomePageV2 /></PageTransition>
               </MainLayout>
             }
           />
