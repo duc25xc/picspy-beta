@@ -12,7 +12,10 @@ const userSchema = new mongoose.Schema(
       maxlength: [30, 'Username tối đa 30 ký tự'],
       trim: true,
       lowercase: true,
-      match: [/^[a-z0-9_]+$/, 'Username chỉ chứa chữ thường, số và dấu gạch dưới'],
+      match: [
+        /^[a-z0-9_]+$/,
+        'Username chỉ chứa chữ thường, số và dấu gạch dưới',
+      ],
     },
     email: {
       type: String,
@@ -92,9 +95,7 @@ const userSchema = new mongoose.Schema(
 )
 
 // Indexes
-userSchema.index({ username: 1 }, { unique: true })
-userSchema.index({ email: 1 }, { unique: true })
-userSchema.index({ googleId: 1 }, { sparse: true })
+// userSchema.index({ username: 1 }, { unique: true })
 userSchema.index({ role: 1 })
 userSchema.index({ createdAt: -1 })
 

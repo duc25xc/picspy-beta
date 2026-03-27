@@ -6,13 +6,14 @@ import BottomNav from './components/layout/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 
 // Lazy load pages để code splitting
-const HomePage       = lazy(() => import('./pages/HomePage'))
-const LoginPage      = lazy(() => import('./pages/LoginPage'))
-const RegisterPage   = lazy(() => import('./pages/RegisterPage'))
-const ProfilePage    = lazy(() => import('./pages/ProfilePage'))
-const UploadPage     = lazy(() => import('./pages/UploadPage'))
-const SearchPage     = lazy(() => import('./pages/SearchPage'))
-const NotFoundPage   = lazy(() => import('./pages/NotFoundPage'))
+const HomePage = lazy(() => import('./pages/HomePage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const RegisterPage = lazy(() => import('./pages/RegisterPage'))
+const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const UploadPage = lazy(() => import('./pages/UploadPage'))
+const SearchPage = lazy(() => import('./pages/SearchPage'))
+const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
+const GoogleAuthSuccess = lazy(() => import('./pages/GoogleAuthSuccess'))
 
 // Skeleton page loading
 const PageLoader = () => (
@@ -40,18 +41,14 @@ const PageTransition = ({ children }) => (
 const MainLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
     <Header />
-    <main className="flex-1 pb-20 md:pb-0">
-      {children}
-    </main>
+    <main className="flex-1 pb-20 md:pb-0">{children}</main>
     <BottomNav />
   </div>
 )
 
 // Layout auth (không có header/nav)
 const AuthLayout = ({ children }) => (
-  <div className="min-h-screen bg-surface">
-    {children}
-  </div>
+  <div className="min-h-screen bg-surface">{children}</div>
 )
 
 export default function App() {
@@ -66,7 +63,19 @@ export default function App() {
             path="/login"
             element={
               <AuthLayout>
-                <PageTransition><LoginPage /></PageTransition>
+                <PageTransition>
+                  <LoginPage />
+                </PageTransition>
+              </AuthLayout>
+            }
+          />
+          <Route
+            path="/auth/google/success"
+            element={
+              <AuthLayout>
+                <PageTransition>
+                  <GoogleAuthSuccess />
+                </PageTransition>
               </AuthLayout>
             }
           />
@@ -74,7 +83,9 @@ export default function App() {
             path="/register"
             element={
               <AuthLayout>
-                <PageTransition><RegisterPage /></PageTransition>
+                <PageTransition>
+                  <RegisterPage />
+                </PageTransition>
               </AuthLayout>
             }
           />
@@ -84,7 +95,9 @@ export default function App() {
             path="/"
             element={
               <MainLayout>
-                <PageTransition><HomePage /></PageTransition>
+                <PageTransition>
+                  <HomePage />
+                </PageTransition>
               </MainLayout>
             }
           />
@@ -92,7 +105,9 @@ export default function App() {
             path="/search"
             element={
               <MainLayout>
-                <PageTransition><SearchPage /></PageTransition>
+                <PageTransition>
+                  <SearchPage />
+                </PageTransition>
               </MainLayout>
             }
           />
@@ -100,7 +115,9 @@ export default function App() {
             path="/profile/:username"
             element={
               <MainLayout>
-                <PageTransition><ProfilePage /></PageTransition>
+                <PageTransition>
+                  <ProfilePage />
+                </PageTransition>
               </MainLayout>
             }
           />
@@ -111,7 +128,9 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <MainLayout>
-                  <PageTransition><UploadPage /></PageTransition>
+                  <PageTransition>
+                    <UploadPage />
+                  </PageTransition>
                 </MainLayout>
               </ProtectedRoute>
             }
@@ -119,7 +138,16 @@ export default function App() {
 
           {/* ===== FALLBACKS ===== */}
           <Route path="/profile" element={<Navigate to="/" replace />} />
-          <Route path="*" element={<AuthLayout><PageTransition><NotFoundPage /></PageTransition></AuthLayout>} />
+          <Route
+            path="*"
+            element={
+              <AuthLayout>
+                <PageTransition>
+                  <NotFoundPage />
+                </PageTransition>
+              </AuthLayout>
+            }
+          />
         </Routes>
       </Suspense>
     </AnimatePresence>

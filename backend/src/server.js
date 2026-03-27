@@ -47,7 +47,10 @@ app.use(
   rateLimit({
     windowMs: 60 * 1000,
     max: 100,
-    message: { error: 'RATE_LIMITED', message: 'Quá nhiều request. Vui lòng chậm lại.' },
+    message: {
+      error: 'RATE_LIMITED',
+      message: 'Quá nhiều request. Vui lòng chậm lại.',
+    },
   })
 )
 
@@ -59,11 +62,24 @@ app.use('/v1/users', userRoutes)
 app.use('/v1/posts', postRoutes)
 
 // Health check
-app.get('/health', (req, res) => res.json({ status: 'ok', time: new Date().toISOString() }))
+app.get('/health', (req, res) =>
+  res.json({ status: 'ok', time: new Date().toISOString() })
+)
+
+// Welcome route
+app.get('/', (req, res) => {
+  res.json({
+    message: 'Chào mừng bạn đến với API của PicSpy!',
+    status: 'Server đang chạy cực mượt',
+  })
+})
 
 // 404 handler
 app.use((req, res) => {
-  res.status(404).json({ error: 'NOT_FOUND', message: `Route ${req.method} ${req.path} không tồn tại` })
+  res.status(404).json({
+    error: 'NOT_FOUND',
+    message: `Route ${req.method} ${req.path} không tồn tại`,
+  })
 })
 
 // Global error handler
@@ -79,7 +95,7 @@ const startServer = async () => {
   initSocket(httpServer)
 
   httpServer.listen(PORT, () => {
-    console.log(`🚀 PixelDrop server running on http://localhost:${PORT}`)
+    console.log(`🚀 PicSpy server running on http://localhost:${PORT}`)
     console.log(`📡 Socket.io listening on ws://localhost:${PORT}`)
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
   })

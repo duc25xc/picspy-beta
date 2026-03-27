@@ -10,21 +10,10 @@ const router = Router()
 const uploadLimiter = rateLimit({
   windowMs: 24 * 60 * 60 * 1000,
   max: 20,
-  validate: { xForwardedForHeader: false, default: false },
   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
-  message: {
-    error: 'RATE_LIMITED',
-    message: 'Bạn đã upload quá 20 ảnh hôm nay. Thử lại vào ngày mai.',
-  },
+  message: { error: 'RATE_LIMITED', message: 'Bạn đã upload quá 20 ảnh hôm nay. Thử lại vào ngày mai.' },
 })
 
-router.post(
-  '/',
-  authenticate,
-  uploadLimiter,
-  upload.single('image'),
-  handleMulterError,
-  createPost
-)
+router.post('/', authenticate, uploadLimiter, upload.single('image'), handleMulterError, createPost)
 
 export default router
