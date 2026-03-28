@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Brand colors — PixelDrop violet/purple palette
+        // Brand colors — PicSpy violet/purple palette
         brand: {
           50: '#f5f3ff',
           100: '#ede9fe',

@@ -10,7 +10,8 @@ import Post from '../models/Post.model.js'
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
 // const Vibrant = require('node-vibrant')
-const Vibrant = require('node-vibrant/node')
+// const Vibrant = require('node-vibrant/node')
+const { Vibrant } = require('node-vibrant/node')
 
 /**
  * Kiểm tra NSFW qua Sightengine API
@@ -91,13 +92,13 @@ const imageWorker = new Worker(
       const [thumbResult, previewResult] = await Promise.all([
         uploadBuffer(
           thumbnailBuffer,
-          'pixeldrop/posts/thumbnails',
+          'picspy/posts/thumbnails',
           `${baseName}_thumb`,
           { format: 'webp' }
         ),
         uploadBuffer(
           previewBuffer,
-          'pixeldrop/posts/previews',
+          'picspy/posts/previews',
           `${baseName}_preview`,
           { format: 'webp' }
         ),

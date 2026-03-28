@@ -1,4 +1,4 @@
-# 🗄️ PixelDrop — Database Design
+# 🗄️ PicSpy — Database Design
 
 ---
 

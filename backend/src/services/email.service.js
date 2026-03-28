@@ -17,13 +17,13 @@ export const sendVerificationEmail = async (email, username, token) => {
   const verifyUrl = `${process.env.CLIENT_URL}/verify-email?token=${token}`
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || 'PixelDrop <noreply@pixeldrop.vn>',
+    from: process.env.EMAIL_FROM || 'PicSpy <noreply@picspy.vn>',
     to: email,
-    subject: '✅ Xác thực email tài khoản PixelDrop',
+    subject: '✅ Xác thực email tài khoản PicSpy',
     html: `
       <div style="font-family: sans-serif; max-width: 500px; margin: auto;">
         <h2>Chào ${username}! 👋</h2>
-        <p>Cảm ơn bạn đã đăng ký PixelDrop — nền tảng chia sẻ wallpaper dành cho creator Việt Nam.</p>
+        <p>Cảm ơn bạn đã đăng ký PicSpy — nền tảng chia sẻ wallpaper dành cho creator Việt Nam.</p>
         <p>Nhấn nút bên dưới để xác thực email của bạn:</p>
         <a href="${verifyUrl}" style="display:inline-block;padding:12px 24px;background:#7c3aed;color:white;border-radius:8px;text-decoration:none;font-weight:bold;">
           Xác thực Email
@@ -43,7 +43,7 @@ export const sendPasswordResetEmail = async (email, username, token) => {
   await transporter.sendMail({
     from: process.env.EMAIL_FROM,
     to: email,
-    subject: '🔐 Đặt lại mật khẩu PixelDrop',
+    subject: '🔐 Đặt lại mật khẩu PicSpy',
     html: `
       <div style="font-family: sans-serif; max-width: 500px; margin: auto;">
         <h2>Xin chào ${username},</h2>

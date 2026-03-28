@@ -1,4 +1,4 @@
-# 🖼️ PixelDrop — Project Overview
+# 🖼️ PicSpy — Project Overview
 
 > **Nền tảng chia sẻ wallpaper AI-powered dành cho creator Việt Nam**
 
@@ -6,7 +6,7 @@
 
 ## 🎯 Vision
 
-PixelDrop là nền tảng nơi **creator** đăng ảnh wallpaper chất lượng cao (AI-generated hoặc tự chụp), kiếm tiền từ lượt view + download, và được cộng đồng công nhận.
+PicSpy là nền tảng nơi **creator** đăng ảnh wallpaper chất lượng cao (AI-generated hoặc tự chụp), kiếm tiền từ lượt view + download, và được cộng đồng công nhận.
 
 > Không nhắm vào người mua wallpaper — nhắm vào **người muốn nổi tiếng và kiếm tiền từ sáng tạo ảnh.**
 
@@ -14,25 +14,27 @@ PixelDrop là nền tảng nơi **creator** đăng ảnh wallpaper chất lượ
 
 ## 🧭 Định vị sản phẩm
 
-| | PixelDrop | Pinterest | Unsplash |
-|---|---|---|---|
-| Creator kiếm tiền | ✅ | ❌ | ❌ |
-| Ảnh AI-generated | ✅ | ⚠️ | ⚠️ |
-| Thuần Việt | ✅ | ❌ | ❌ |
-| Wallpaper-focused | ✅ | ❌ | ⚠️ |
-| Kiểm duyệt nội dung | ✅ | ⚠️ | ✅ |
+|                     | PicSpy | Pinterest | Unsplash |
+| ------------------- | ------ | --------- | -------- |
+| Creator kiếm tiền   | ✅     | ❌        | ❌       |
+| Ảnh AI-generated    | ✅     | ⚠️        | ⚠️       |
+| Thuần Việt          | ✅     | ❌        | ❌       |
+| Wallpaper-focused   | ✅     | ❌        | ⚠️       |
+| Kiểm duyệt nội dung | ✅     | ⚠️        | ✅       |
 
 ---
 
 ## 👥 Target Users
 
 ### Primary — Creator (người đăng ảnh)
+
 - 18–30 tuổi
 - Đam mê thiết kế, AI art, nhiếp ảnh
 - Muốn được công nhận + kiếm thêm thu nhập
 - Active trên TikTok, Instagram, Facebook
 
 ### Secondary — Consumer (người tải ảnh)
+
 - Muốn hình nền đẹp, độc lạ cho điện thoại/laptop
 - Không nhất thiết trả tiền — nhưng tương tác (like, share, comment)
 
@@ -41,22 +43,24 @@ PixelDrop là nền tảng nơi **creator** đăng ảnh wallpaper chất lượ
 ## 💰 Mô hình kiếm tiền
 
 ### Dành cho Creator
-| Hành động | Creator nhận |
-|---|---|
-| 1.000 lượt tim (like) | 500 xu (~2.500đ) |
-| 1 lượt download free | 10 xu (~50đ) |
-| 1 lượt download premium | 200 xu (~1.000đ) |
+
+| Hành động                  | Creator nhận     |
+| -------------------------- | ---------------- |
+| 1.000 lượt tim (like)      | 500 xu (~2.500đ) |
+| 1 lượt download free       | 10 xu (~50đ)     |
+| 1 lượt download premium    | 200 xu (~1.000đ) |
 | Đạt milestone 10k download | Thưởng 50.000 xu |
 
 > Creator rút tiền khi đạt 100.000 xu (~500.000đ) qua MoMo/banking
 
 ### Dành cho Platform
-| Nguồn thu | Cơ chế |
-|---|---|
-| **Coin topup** | User mua xu để tải ảnh premium (margin 40%) |
-| **Gói Pro Creator** | 49.000đ/tháng — upload không giới hạn, analytics, badge |
-| **Affiliate** | Link mua tool AI (Midjourney, Adobe...) trong app |
-| **Sponsored Upload** | Brand trả phí để ảnh lên top feed |
+
+| Nguồn thu            | Cơ chế                                                  |
+| -------------------- | ------------------------------------------------------- |
+| **Coin topup**       | User mua xu để tải ảnh premium (margin 40%)             |
+| **Gói Pro Creator**  | 49.000đ/tháng — upload không giới hạn, analytics, badge |
+| **Affiliate**        | Link mua tool AI (Midjourney, Adobe...) trong app       |
+| **Sponsored Upload** | Brand trả phí để ảnh lên top feed                       |
 
 ---
 
@@ -118,20 +122,20 @@ Deploy:     Railway / VPS (Nginx + PM2)
 
 ## 🗓️ Timeline tổng quan
 
-| Giai đoạn | Tuần | Nội dung |
-|---|---|---|
-| Phase 1 — Foundation | 1–3 | Auth, User, Upload cơ bản |
-| Phase 2 — Core Features | 4–7 | Feed, Social, Search |
-| Phase 3 — Monetization | 8–11 | Coin, Premium, Payment |
+| Giai đoạn                | Tuần  | Nội dung                      |
+| ------------------------ | ----- | ----------------------------- |
+| Phase 1 — Foundation     | 1–3   | Auth, User, Upload cơ bản     |
+| Phase 2 — Core Features  | 4–7   | Feed, Social, Search          |
+| Phase 3 — Monetization   | 8–11  | Coin, Premium, Payment        |
 | Phase 4 — Admin & Polish | 12–14 | Admin panel, Kiểm duyệt, NSFW |
-| Phase 5 — Launch | 15–16 | Deploy, Performance, Launch |
+| Phase 5 — Launch         | 15–16 | Deploy, Performance, Launch   |
 
 ---
 
 ## 📁 Cấu trúc thư mục dự án
 
 ```
-pixeldrop/
+picspy/
 ├── client/                    # React Frontend
 │   ├── src/
 │   │   ├── components/        # UI components

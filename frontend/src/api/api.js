@@ -11,7 +11,8 @@ const api = axios.create({
 // Request interceptor: gắn access token từ Zustand store
 api.interceptors.request.use((config) => {
   // Import động để tránh circular dependency
-  const token = JSON.parse(localStorage.getItem('pixeldrop-auth') || '{}')?.state?.accessToken
+  const token = JSON.parse(localStorage.getItem('picspy-auth') || '{}')?.state
+    ?.accessToken
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -56,10 +57,10 @@ api.interceptors.response.use(
         const newToken = data.accessToken
 
         // Cập nhật localStorage (Zustand persist)
-        const stored = JSON.parse(localStorage.getItem('pixeldrop-auth') || '{}')
+        const stored = JSON.parse(localStorage.getItem('picspy-auth') || '{}')
         if (stored.state) {
           stored.state.accessToken = newToken
-          localStorage.setItem('pixeldrop-auth', JSON.stringify(stored))
+          localStorage.setItem('picspy-auth', JSON.stringify(stored))
         }
 
         processQueue(null, newToken)
@@ -68,7 +69,7 @@ api.interceptors.response.use(
       } catch (refreshError) {
         processQueue(refreshError, null)
         // Xóa auth state
-        localStorage.removeItem('pixeldrop-auth')
+        localStorage.removeItem('picspy-auth')
         window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {

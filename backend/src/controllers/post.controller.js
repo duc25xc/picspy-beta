@@ -7,7 +7,18 @@ import { imageQueue } from '../config/bullmq.js'
 const postSchema = z.object({
   caption: z.string().max(500).optional(),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional().default([]),
-  category: z.enum(['nature', 'anime', 'minimal', 'abstract', 'city', 'space', 'dark', 'light', 'gradient', 'other']),
+  category: z.enum([
+    'nature',
+    'anime',
+    'minimal',
+    'abstract',
+    'city',
+    'space',
+    'dark',
+    'light',
+    'gradient',
+    'other',
+  ]),
   isPremium: z.boolean().optional().default(false),
   priceInCoins: z.number().min(10).max(1000).optional().default(50),
   isAIGenerated: z.boolean().optional().default(false),
@@ -22,15 +33,22 @@ const postSchema = z.object({
  */
 export const createPost = async (req, res, next) => {
   try {
-    if (!req.file) throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh để upload', 400)
+    if (!req.file)
+      throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh để upload', 400)
 
     // Parse JSON fields từ FormData
     let body = { ...req.body }
     if (typeof body.tags === 'string') {
-      try { body.tags = JSON.parse(body.tags) } catch { body.tags = body.tags.split(',').map(t => t.trim()) }
+      try {
+        body.tags = JSON.parse(body.tags)
+      } catch {
+        body.tags = body.tags.split(',').map((t) => t.trim())
+      }
     }
-    if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
-    if (typeof body.isAIGenerated === 'string') body.isAIGenerated = body.isAIGenerated === 'true'
+    if (typeof body.isPremium === 'string')
+      body.isPremium = body.isPremium === 'true'
+    if (typeof body.isAIGenerated === 'string')
+      body.isAIGenerated = body.isAIGenerated === 'true'
     if (body.priceInCoins) body.priceInCoins = parseInt(body.priceInCoins)
 
     const data = postSchema.parse(body)
@@ -38,7 +56,7 @@ export const createPost = async (req, res, next) => {
     // Upload ảnh gốc lên Cloudinary
     const uploadResult = await uploadBuffer(
       req.file.buffer,
-      'pixeldrop/posts/originals',
+      'picspy/posts/originals',
       `post_${Date.now()}_${req.user._id}`,
       { resource_type: 'image' }
     )
@@ -73,7 +91,9 @@ export const createPost = async (req, res, next) => {
     )
 
     // Cập nhật stats user
-    await (await import('../models/User.model.js')).default.findByIdAndUpdate(req.user._id, {
+    await (
+      await import('../models/User.model.js')
+    ).default.findByIdAndUpdate(req.user._id, {
       $inc: { 'stats.postsCount': 1 },
     })
 
@@ -84,7 +104,14 @@ export const createPost = async (req, res, next) => {
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
+      return next(
+        new AppError(
+          'VALIDATION_ERROR',
+          'Dữ liệu không hợp lệ',
+          422,
+          err.errors
+        )
+      )
     }
     next(err)
   }

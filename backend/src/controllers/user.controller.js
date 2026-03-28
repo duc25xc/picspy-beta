@@ -25,7 +25,11 @@ export const updateMe = async (req, res, next) => {
     })
 
     if (updates.displayName && updates.displayName.length > 50) {
-      throw new AppError('VALIDATION_ERROR', 'Display name tối đa 50 ký tự', 422)
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Display name tối đa 50 ký tự',
+        422
+      )
     }
     if (updates.bio && updates.bio.length > 200) {
       throw new AppError('VALIDATION_ERROR', 'Bio tối đa 200 ký tự', 422)
@@ -46,14 +50,17 @@ export const updateMe = async (req, res, next) => {
  */
 export const uploadAvatar = async (req, res, next) => {
   try {
-    if (!req.file) throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh', 400)
+    if (!req.file)
+      throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh', 400)
 
     const result = await uploadBuffer(
       req.file.buffer,
-      'pixeldrop/avatars',
+      'picspy/avatars',
       `avatar_${req.user._id}`,
       {
-        transformation: [{ width: 400, height: 400, crop: 'fill', gravity: 'face' }],
+        transformation: [
+          { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+        ],
         format: 'webp',
       }
     )
@@ -76,19 +83,36 @@ export const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
     if (!currentPassword || !newPassword) {
-      throw new AppError('VALIDATION_ERROR', 'Vui lòng nhập đầy đủ thông tin', 400)
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Vui lòng nhập đầy đủ thông tin',
+        400
+      )
     }
     if (newPassword.length < 8) {
-      throw new AppError('VALIDATION_ERROR', 'Mật khẩu mới ít nhất 8 ký tự', 422)
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Mật khẩu mới ít nhất 8 ký tự',
+        422
+      )
     }
 
     const user = await User.findById(req.user._id).select('+passwordHash')
     if (!user.passwordHash) {
-      throw new AppError('FORBIDDEN', 'Tài khoản Google không thể đổi mật khẩu', 403)
+      throw new AppError(
+        'FORBIDDEN',
+        'Tài khoản Google không thể đổi mật khẩu',
+        403
+      )
     }
 
     const isMatch = await user.comparePassword(currentPassword)
-    if (!isMatch) throw new AppError('INVALID_CREDENTIALS', 'Mật khẩu hiện tại không đúng', 401)
+    if (!isMatch)
+      throw new AppError(
+        'INVALID_CREDENTIALS',
+        'Mật khẩu hiện tại không đúng',
+        401
+      )
 
     const bcrypt = await import('bcryptjs')
     user.passwordHash = await bcrypt.default.hash(newPassword, 12)
@@ -105,8 +129,9 @@ export const changePassword = async (req, res, next) => {
  */
 export const getPublicProfile = async (req, res, next) => {
   try {
-    const user = await User.findOne({ username: req.params.username })
-      .select('-passwordHash -emailVerifyToken -passwordResetToken -stripeCustomerId -settings')
+    const user = await User.findOne({ username: req.params.username }).select(
+      '-passwordHash -emailVerifyToken -passwordResetToken -stripeCustomerId -settings'
+    )
 
     if (!user || user.isBanned) {
       throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
@@ -135,19 +160,30 @@ export const toggleFollow = async (req, res, next) => {
 
     // Dùng Follow model — import ở đây để tránh circular dep
     const Follow = (await import('../models/Follow.model.js')).default
-    const existing = await Follow.findOne({ followerId: req.user._id, followingId: targetId })
+    const existing = await Follow.findOne({
+      followerId: req.user._id,
+      followingId: targetId,
+    })
 
     if (existing) {
       // Unfollow
       await existing.deleteOne()
-      await User.findByIdAndUpdate(targetId, { $inc: { 'stats.followersCount': -1 } })
-      await User.findByIdAndUpdate(req.user._id, { $inc: { 'stats.followingCount': -1 } })
+      await User.findByIdAndUpdate(targetId, {
+        $inc: { 'stats.followersCount': -1 },
+      })
+      await User.findByIdAndUpdate(req.user._id, {
+        $inc: { 'stats.followingCount': -1 },
+      })
       res.json({ following: false, message: 'Đã bỏ follow' })
     } else {
       // Follow
       await Follow.create({ followerId: req.user._id, followingId: targetId })
-      await User.findByIdAndUpdate(targetId, { $inc: { 'stats.followersCount': 1 } })
-      await User.findByIdAndUpdate(req.user._id, { $inc: { 'stats.followingCount': 1 } })
+      await User.findByIdAndUpdate(targetId, {
+        $inc: { 'stats.followersCount': 1 },
+      })
+      await User.findByIdAndUpdate(req.user._id, {
+        $inc: { 'stats.followingCount': 1 },
+      })
       res.json({ following: true, message: 'Đã follow' })
     }
   } catch (err) {
@@ -165,7 +201,10 @@ export const getFollowers = async (req, res, next) => {
     const skip = (page - 1) * limit
 
     const follows = await Follow.find({ followingId: req.params.id })
-      .populate('followerId', 'username displayName avatar stats.followersCount')
+      .populate(
+        'followerId',
+        'username displayName avatar stats.followersCount'
+      )
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))
@@ -186,7 +225,10 @@ export const getFollowing = async (req, res, next) => {
     const skip = (page - 1) * limit
 
     const follows = await Follow.find({ followerId: req.params.id })
-      .populate('followingId', 'username displayName avatar stats.followersCount')
+      .populate(
+        'followingId',
+        'username displayName avatar stats.followersCount'
+      )
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit))

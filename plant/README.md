@@ -1,4 +1,4 @@
-# 🖼️ PixelDrop
+# 🖼️ PicSpy
 
 > Nền tảng chia sẻ wallpaper AI-powered — nơi creator Việt Nam kiếm tiền từ sáng tạo ảnh
 
@@ -24,25 +24,25 @@
 
 ## 🧱 Tech Stack
 
-| Layer | Technology |
-|---|---|
-| Frontend | React 18 + Vite + TailwindCSS + Framer Motion |
-| State | Zustand + TanStack Query |
-| Backend | Node.js + Express.js |
-| Database | MongoDB + Mongoose |
-| Cache & Queue | Redis + BullMQ |
-| Storage | Cloudinary |
-| Realtime | Socket.io |
-| Auth | JWT + Passport.js |
-| Payment | Stripe |
-| Deploy | Docker + Nginx + Railway |
+| Layer         | Technology                                    |
+| ------------- | --------------------------------------------- |
+| Frontend      | React 18 + Vite + TailwindCSS + Framer Motion |
+| State         | Zustand + TanStack Query                      |
+| Backend       | Node.js + Express.js                          |
+| Database      | MongoDB + Mongoose                            |
+| Cache & Queue | Redis + BullMQ                                |
+| Storage       | Cloudinary                                    |
+| Realtime      | Socket.io                                     |
+| Auth          | JWT + Passport.js                             |
+| Payment       | Stripe                                        |
+| Deploy        | Docker + Nginx + Railway                      |
 
 ---
 
 ## 📁 Project Structure
 
 ```
-pixeldrop/
+picspy/
 ├── client/                 # React Frontend
 │   └── src/
 │       ├── components/     # Reusable UI
@@ -74,6 +74,7 @@ pixeldrop/
 ## 🚀 Quick Start
 
 ### Prerequisites
+
 - Node.js 18+
 - MongoDB
 - Redis
@@ -83,8 +84,8 @@ pixeldrop/
 
 ```bash
 # Clone repo
-git clone https://github.com/yourusername/pixeldrop.git
-cd pixeldrop
+git clone https://github.com/yourusername/picspy.git
+cd picspy
 
 # Setup backend
 cd server
@@ -105,7 +106,7 @@ npm run dev
 # server/.env
 NODE_ENV=development
 PORT=5000
-MONGODB_URI=mongodb://localhost:27017/pixeldrop
+MONGODB_URI=mongodb://localhost:27017/picspy
 REDIS_URL=redis://localhost:6379
 
 JWT_SECRET=your_jwt_secret_here
@@ -132,6 +133,7 @@ CLIENT_URL=http://localhost:5173
 ## 📊 Architecture Highlights
 
 ### Coin Transaction (Race-condition Safe)
+
 ```
 User request download premium
     → Redis distributed lock (SET NX EX 5)
@@ -144,6 +146,7 @@ User request download premium
 ```
 
 ### Image Processing Pipeline
+
 ```
 Upload → Cloudinary (raw) → BullMQ queue
     Worker: resize → blurHash → colorPalette → NSFW check
@@ -152,6 +155,7 @@ Upload → Cloudinary (raw) → BullMQ queue
 ```
 
 ### Feed Ranking
+
 ```
 Score = interactions / (age + 2)^1.5
 where interactions = likes×3 + downloads×5 + comments×2 + views×0.1
@@ -164,19 +168,20 @@ Top 100 posts cache vào Redis Sorted Set (TTL 5 phút)
 
 ## 📖 Documentation
 
-| File | Nội dung |
-|---|---|
-| [01_OVERVIEW.md](docs/01_OVERVIEW.md) | Tổng quan, định vị, monetization, kiến trúc |
-| [02_DATABASE.md](docs/02_DATABASE.md) | Schema chi tiết tất cả collections + Redis |
-| [03_API.md](docs/03_API.md) | Tất cả API endpoints + request/response format |
-| [04_TASKS.md](docs/04_TASKS.md) | Task breakdown 16 tuần + technical challenges |
-| [05_SKILLS.md](docs/05_SKILLS.md) | Code samples + giải thích kỹ thuật |
+| File                                  | Nội dung                                       |
+| ------------------------------------- | ---------------------------------------------- |
+| [01_OVERVIEW.md](docs/01_OVERVIEW.md) | Tổng quan, định vị, monetization, kiến trúc    |
+| [02_DATABASE.md](docs/02_DATABASE.md) | Schema chi tiết tất cả collections + Redis     |
+| [03_API.md](docs/03_API.md)           | Tất cả API endpoints + request/response format |
+| [04_TASKS.md](docs/04_TASKS.md)       | Task breakdown 16 tuần + technical challenges  |
+| [05_SKILLS.md](docs/05_SKILLS.md)     | Code samples + giải thích kỹ thuật             |
 
 ---
 
 ## 👨‍💻 Author
 
 **[Your Name]** — Fullstack Developer
+
 - GitHub: [@yourusername](https://github.com/yourusername)
 - Email: your@email.com
 
