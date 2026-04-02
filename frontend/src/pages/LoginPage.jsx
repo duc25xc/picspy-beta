@@ -167,7 +167,7 @@ const AuthInput = ({ icon: Icon, rightSlot, error, ...inputProps }) => (
 
 /* ─────────────────────────── Main ─────────────────────────── */
 const LoginPage = () => {
-  const [form, setForm] = useState({ email: '', password: '' })
+  const [form, setForm] = useState({ email: 'duduc@mail.com', password: 'conmeocute123' })
   const [showPass, setShowPass] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { login, isLoading } = useAuthStore()

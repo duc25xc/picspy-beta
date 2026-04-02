@@ -1,14 +1,20 @@
 import { NavLink, useLocation } from 'react-router-dom'
-import { Home, Search, Upload, Bell, User, Eye } from 'lucide-react'
+import { Home, Search, Upload, Bell, User, LayoutGrid } from 'lucide-react'
 import { motion } from 'framer-motion'
 import useAuthStore from '../../store/auth.store'
 
-const navItems = [
+const guestNavItems = [
   { to: '/', icon: Home, label: 'Trang chủ' },
   { to: '/search', icon: Search, label: 'Tìm kiếm' },
   { to: '/upload', icon: Upload, label: 'Upload', isPrimary: true },
-  { to: '/notifications', icon: Bell, label: 'Thông báo' },
-  { to: '/profile/me', icon: User, label: 'Hồ sơ' },
+  { to: '/login', icon: User, label: 'Đăng nhập' },
+]
+
+const authNavItems = [
+  { to: '/', icon: Home, label: 'Trang chủ' },
+  { to: '/search', icon: Search, label: 'Tìm kiếm' },
+  { to: '/upload', icon: Upload, label: 'Upload', isPrimary: true },
+  { to: '/my-posts', icon: LayoutGrid, label: 'Ảnh của tôi' },
 ]
 
 /**
@@ -21,6 +27,8 @@ const BottomNav = () => {
 
   // Ẩn ở trang auth
   if (['/login', '/register', '/forgot-password', '/reset-password'].includes(location.pathname)) return null
+
+  const navItems = user ? authNavItems : guestNavItems
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden pb-safe">

@@ -11,6 +11,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const UploadPage = lazy(() => import('./pages/UploadPage'))
+const MyPostsPage = lazy(() => import('./pages/MyPostsPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const GoogleAuthSuccess = lazy(() => import('./pages/GoogleAuthSuccess'))
@@ -130,6 +131,19 @@ export default function App() {
                 <MainLayout>
                   <PageTransition>
                     <UploadPage />
+                  </PageTransition>
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/my-posts"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PageTransition>
+                    <MyPostsPage />
                   </PageTransition>
                 </MainLayout>
               </ProtectedRoute>

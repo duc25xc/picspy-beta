@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { LogOut, Upload, Bell, Coins, Eye } from 'lucide-react'
+import { LogOut, Upload, Bell, Coins, Eye, LayoutGrid } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
 import toast from 'react-hot-toast'
 
@@ -34,6 +34,12 @@ const Header = () => {
           <nav className="flex items-center gap-1">
             <Link to="/" className="btn-ghost text-white/70">Khám phá</Link>
             <Link to="/search" className="btn-ghost text-white/70">Tìm kiếm</Link>
+            {user && (
+              <Link to="/my-posts" className="btn-ghost text-white/70 flex items-center gap-1.5">
+                <LayoutGrid size={15} />
+                Ảnh của tôi
+              </Link>
+            )}
           </nav>
 
           {/* Actions */}

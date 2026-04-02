@@ -1,4 +1,5 @@
-import { useRef, useEffect, useState } from 'react'
+import { useRef, useEffect, useState, useCallback } from 'react'
+import api from '../api/api'
 import { Link } from 'react-router-dom'
 import {
   motion,
@@ -445,6 +446,75 @@ const MasonryCard = ({ item, index }) => (
   </motion.div>
 )
 
+/* Community gallery card — dùng real data từ DB */
+const CommunityPostCard = ({ post, index }) => {
+  const img = post.images?.[0]
+  const displayUrl = img?.thumbnailUrl || img?.url
+  const author = post.authorId
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.05, duration: 0.5 }}
+      className="group relative overflow-hidden rounded-2xl cursor-pointer img-card-glow transition-all duration-500 break-inside-avoid mb-4"
+    >
+      <div className={`relative ${index % 3 === 0 ? 'aspect-[3/4]' : 'aspect-square'}`}>
+        {displayUrl ? (
+          <img
+            src={displayUrl}
+            alt={post.caption || 'Wallpaper'}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            loading="lazy"
+          />
+        ) : (
+          <div className="w-full h-full bg-surface-100 animate-pulse" />
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+
+        {/* Badges */}
+        <div className="absolute top-2.5 left-2.5 flex gap-1.5">
+          {post.isPremium && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/80 text-white backdrop-blur-sm pj">💎 PRO</span>
+          )}
+          {post.isAIGenerated && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-600/80 text-white backdrop-blur-sm pj">AI</span>
+          )}
+        </div>
+
+        {/* Hover overlay */}
+        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+          <LiquidCard className="px-3 py-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2 min-w-0">
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-[10px] font-black pj shrink-0">
+                {author?.username?.[0]?.toUpperCase() || '?'}
+              </div>
+              <span className="text-xs font-semibold text-white truncate pj">{author?.displayName || author?.username || 'Creator'}</span>
+            </div>
+            <div className="flex items-center gap-2 text-white/70 text-xs shrink-0">
+              <span className="flex items-center gap-0.5"><Heart size={10} className="text-red-400" /> {(post.stats?.likesCount || 0).toLocaleString()}</span>
+            </div>
+          </LiquidCard>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+/* Skeleton placeholder cho community gallery */
+const GallerySkeleton = () => (
+  <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+    {Array.from({ length: 8 }).map((_, i) => (
+      <div
+        key={i}
+        className={`rounded-2xl bg-surface-100 animate-pulse mb-4 break-inside-avoid
+          ${i % 3 === 0 ? 'aspect-[3/4]' : 'aspect-square'}`}
+      />
+    ))}
+  </div>
+)
+
 /* Leaderboard row */
 const LeaderRow = ({ c, delay }) => (
   <motion.div
@@ -489,6 +559,75 @@ const LeaderRow = ({ c, delay }) => (
     </button>
   </motion.div>
 )
+
+/* ─── Community Gallery Section (Real Data) ──────────────── */
+const CommunityGallerySection = () => {
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const fetchLatest = async () => {
+      try {
+        const { data } = await api.get('/posts', {
+          params: { limit: 12, sort: 'new' },
+        })
+        setPosts(data.posts || [])
+      } catch {
+        // Nếu API lỗi, giữ mảng rỗng → section sẽ ẩn
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchLatest()
+  }, [])
+
+  // Ẩn section nếu không có data và không đang loading
+  if (!loading && posts.length === 0) return null
+
+  return (
+    <section className="py-24 px-4">
+      <div className="max-w-7xl mx-auto">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4"
+        >
+          <div>
+            <p className="text-green-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
+              🎨 Mới từ cộng đồng
+            </p>
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight pj">
+              Ảnh mới nhất
+            </h2>
+            <p className="text-white/40 mt-2 text-sm pj">
+              {loading ? 'Đang tải...' : `${posts.length} tác phẩm mới nhất từ cộng đồng`}
+            </p>
+          </div>
+          <Link
+            to="/search"
+            className="flex items-center gap-2 text-violet-400 hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
+          >
+            Xem tất cả
+            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+          </Link>
+        </motion.div>
+
+        {/* Grid */}
+        {loading ? (
+          <GallerySkeleton />
+        ) : (
+          <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
+            {posts.map((post, i) => (
+              <CommunityPostCard key={post._id} post={post} index={i} />
+            ))}
+          </div>
+        )}
+      </div>
+    </section>
+  )
+}
 
 /* ─── Main Page ──────────────────────────────────────────── */
 const HomePage = () => {
@@ -840,6 +979,11 @@ const HomePage = () => {
           </div>
         </div>
       </section>
+
+      {/* ════════════════════════════════════════
+          COMMUNITY GALLERY — Real DB Data
+      ════════════════════════════════════════ */}
+      <CommunityGallerySection />
 
       {/* ════════════════════════════════════════
           MASONRY DROPS + LEADERBOARD

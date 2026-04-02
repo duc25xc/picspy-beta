@@ -229,7 +229,7 @@ const UploadPage = () => {
     })
   }
 
-  const handleSubmit2 = async (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault()
     if (!file) return toast.error('Vui lòng chọn ảnh')
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
@@ -264,111 +264,6 @@ const UploadPage = () => {
       setDone(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Upload thất bại')
-      setUploadPhase(null)
-      setProgress(0)
-    }
-  }
-
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (!file) return toast.error('Vui lòng chọn ảnh')
-    if (!form.category) return toast.error('Vui lòng chọn danh mục')
-
-    const fd = new FormData()
-    fd.append('image', file)
-
-    // FIX: serialize từng field đúng type
-    // ❌ Bug cũ: Object.entries blindly append
-    //    - fd.append('isPremium', false)    → string "false" → truthy trên nhiều server
-    //    - fd.append('isAIGenerated', false) → tương tự
-    //    - fd.append('priceInCoins', 50)    → string "50" (ổn với parseInt nhưng fail strict)
-    //    - fd.append('aiTool', '')          → empty string có thể fail validation
-    fd.append('caption', form.caption.trim())
-    fd.append('tags', JSON.stringify(form.tags))
-    fd.append('category', form.category)
-    fd.append('isPremium', String(form.isPremium)) // "true" | "false" nhất quán
-    fd.append('isAIGenerated', String(form.isAIGenerated)) // "true" | "false" nhất quán
-    fd.append('priceInCoins', String(Number(form.priceInCoins)))
-    // Optional fields: chỉ append khi có giá trị — tránh gửi empty string lên server
-    if (form.aiTool) fd.append('aiTool', form.aiTool)
-    if (form.resolution) fd.append('resolution', form.resolution)
-    if (form.orientation) fd.append('orientation', form.orientation)
-
-    // DEBUG: in payload ra console trước khi gửi — xóa khi production
-    console.group('📤 [handleSubmit] FormData payload')
-    console.log(
-      'file:',
-      file.name,
-      `(${(file.size / 1024 / 1024).toFixed(2)} MB)`,
-      file.type
-    )
-    for (const [key, val] of fd.entries()) {
-      console.log(`  ${key}:`, val instanceof File ? `File(${val.name})` : val)
-    }
-    console.groupEnd()
-
-    setUploadPhase('uploading')
-    setProgress(0)
-
-    // Fake slow-fill: tăng dần đến 90% để animation mượt kể cả khi mạng rất nhanh.
-    // Bar dừng ở 90 và chờ response thật — không bao giờ vượt trước khi server xác nhận.
-    let fakeProgress = 0
-    let serverDone = false
-    const fakeTimer = setInterval(() => {
-      fakeProgress += 0.8 + Math.random() * 1.7
-      if (fakeProgress >= 90) {
-        fakeProgress = 90
-        clearInterval(fakeTimer)
-        if (serverDone) {
-          setProgress(100)
-          setTimeout(() => setUploadPhase('processing'), 300)
-        }
-        return
-      }
-      setProgress(Math.round(fakeProgress))
-    }, 50)
-
-    try {
-      const res = await api.post('/posts', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: (evt) => {
-          const realPct = Math.round((evt.loaded * 100) / evt.total)
-          // Dùng % thật chỉ khi mạng chậm hơn fake
-          if (realPct > fakeProgress) {
-            fakeProgress = realPct
-            setProgress(realPct)
-          }
-        },
-      })
-
-      console.log('✅ [handleSubmit] Server response:', res.data)
-
-      serverDone = true
-      clearInterval(fakeTimer)
-      setProgress(100)
-      setTimeout(() => setUploadPhase('processing'), 300)
-
-      // Phase 2: Server đang xử lý async (resize, blurHash, AI check)
-      await new Promise((r) => setTimeout(r, 1500))
-      setDone(true)
-    } catch (err) {
-      clearInterval(fakeTimer)
-
-      // DEBUG: log chi tiết lỗi từ server
-      console.group('❌ [handleSubmit] Upload error')
-      console.log('status :', err.response?.status)
-      console.log('data   :', err.response?.data)
-      console.log('message:', err.message)
-      console.groupEnd()
-
-      // Ưu tiên hiển thị validation errors từ server nếu có
-      const msg =
-        (Array.isArray(err.response?.data?.errors) &&
-          err.response.data.errors.join(', ')) ||
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        'Upload thất bại'
-      toast.error(msg)
       setUploadPhase(null)
       setProgress(0)
     }

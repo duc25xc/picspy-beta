@@ -2,7 +2,13 @@ import { Router } from 'express'
 import { authenticate } from '../middlewares/authenticate.js'
 import upload, { handleMulterError } from '../middlewares/upload.js'
 import rateLimit from 'express-rate-limit'
-import { createPost } from '../controllers/post.controller.js'
+import {
+  createPost,
+  getApprovedPosts,
+  getMyPosts,
+  updatePost,
+  deletePost,
+} from '../controllers/post.controller.js'
 
 const router = Router()
 
@@ -18,6 +24,21 @@ const uploadLimiter = rateLimit({
   },
 })
 
+// =====================
+// PUBLIC ROUTES
+// =====================
+
+/** GET /posts — Feed gallery công khai (chỉ approved) */
+router.get('/', getApprovedPosts)
+
+// =====================
+// PROTECTED ROUTES
+// =====================
+
+/** GET /posts/me — Ảnh của user đang đăng nhập (tất cả status) */
+router.get('/me', authenticate, getMyPosts)
+
+/** POST /posts — Upload ảnh mới */
 router.post(
   '/',
   authenticate,
@@ -26,5 +47,11 @@ router.post(
   handleMulterError,
   createPost
 )
+
+/** PUT /posts/:id — Sửa bài đăng (chỉ owner) */
+router.put('/:id', authenticate, updatePost)
+
+/** DELETE /posts/:id — Xóa bài đăng (chỉ owner) */
+router.delete('/:id', authenticate, deletePost)
 
 export default router
