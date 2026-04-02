@@ -169,11 +169,25 @@ const EditModal = ({ post, onClose, onSave }) => {
 
         {/* Preview */}
         <div className="p-5 pb-0">
-          <img
-            src={post.images?.[0]?.thumbnailUrl || post.images?.[0]?.url}
-            alt=""
-            className="w-full h-40 object-cover rounded-xl mb-5"
-          />
+          <div className="relative w-full max-h-[350px] min-h-[160px] overflow-hidden rounded-2xl mb-5 bg-surface-100 flex items-center justify-center border border-white/5">
+            <img
+              src={post.images?.[0]?.thumbnailUrl || post.images?.[0]?.url}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-20 scale-110"
+            />
+
+            <img
+              src={post.images?.[0]?.url}
+              alt={post.caption}
+              className="relative z-10 max-h-[350px] w-auto object-contain shadow-2xl transition-transform duration-500"
+            />
+
+            <div className="absolute bottom-2 right-2 z-20">
+              <span className="px-2 py-1 rounded-lg bg-black/40 backdrop-blur-md text-[10px] text-white/60">
+                Preview Mode
+              </span>
+            </div>
+          </div>
         </div>
 
         <div className="p-5 space-y-4">

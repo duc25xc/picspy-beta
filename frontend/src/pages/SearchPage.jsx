@@ -123,6 +123,7 @@ const SearchPage = () => {
 
   const [initialLoaded, setInitialLoaded] = useState(false)
   const [isFiltering, setIsFiltering] = useState(false)
+  const scrollContainerRef = useRef(null)
 
   // Debounce search query
   const searchTimer = useRef(null)
@@ -206,6 +207,33 @@ const SearchPage = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeCategory, activeSort, isAIOnly, debouncedQuery])
 
+  const handleMouseDown = (e) => {
+    const ele = scrollContainerRef.current
+    if (!ele) return
+
+    const startPos = {
+      left: ele.scrollLeft,
+      x: e.clientX,
+    }
+
+    const handleMouseMove = (e) => {
+      const dx = e.clientX - startPos.x
+      ele.scrollLeft = startPos.left - dx
+      ele.style.cursor = 'grabbing'
+      ele.style.userSelect = 'none'
+    }
+
+    const handleMouseUp = () => {
+      ele.style.cursor = 'grab'
+      ele.style.removeProperty('user-select')
+      document.removeEventListener('mousemove', handleMouseMove)
+      document.removeEventListener('mouseup', handleMouseUp)
+    }
+
+    document.addEventListener('mousemove', handleMouseMove)
+    document.addEventListener('mouseup', handleMouseUp)
+  }
+
   return (
     <div className="min-h-screen pb-24 md:pb-8 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
@@ -241,7 +269,11 @@ const SearchPage = () => {
         </motion.div>
 
         {/* Category chips */}
-        <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3">
+        <div
+          ref={scrollContainerRef}
+          onMouseDown={handleMouseDown}
+          className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3 cursor-grab active:cursor-grabbing select-none"
+        >
           {CATEGORIES.map(({ key, label }) => (
             <button
               key={key}
