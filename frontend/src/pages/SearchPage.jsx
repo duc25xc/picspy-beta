@@ -1,6 +1,15 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Search, SlidersHorizontal, X, Sparkles, Heart, Download, RefreshCw, ImageOff } from 'lucide-react'
+import {
+  Search,
+  SlidersHorizontal,
+  X,
+  Sparkles,
+  Heart,
+  Download,
+  RefreshCw,
+  ImageOff,
+} from 'lucide-react'
 import api from '../api/api'
 
 const CATEGORIES = [
@@ -25,7 +34,9 @@ const SORT_OPTIONS = [
 
 // ── Skeleton Card ──────────────────────────────────────────
 const SkeletonCard = ({ tall }) => (
-  <div className={`rounded-2xl bg-surface-100 animate-pulse break-inside-avoid mb-3 ${tall ? 'aspect-[3/4]' : 'aspect-square'}`} />
+  <div
+    className={`rounded-2xl bg-surface-100 animate-pulse break-inside-avoid mb-3 ${tall ? 'aspect-[3/4]' : 'aspect-square'}`}
+  />
 )
 
 // ── Post Card ──────────────────────────────────────────────
@@ -36,6 +47,7 @@ const PostCard = ({ post, index }) => {
 
   return (
     <motion.div
+      layout
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: Math.min(index * 0.04, 0.4) }}
@@ -61,17 +73,23 @@ const PostCard = ({ post, index }) => {
       {/* Badges */}
       <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
         {post.isPremium && (
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/80 text-white backdrop-blur-sm">💎</span>
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/80 text-white backdrop-blur-sm">
+            💎
+          </span>
         )}
         {post.isAIGenerated && (
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600/80 text-white backdrop-blur-sm">AI</span>
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600/80 text-white backdrop-blur-sm">
+            AI
+          </span>
         )}
       </div>
 
       {/* Hover content */}
       <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
         <div className="flex items-center justify-between">
-          <button className="btn-primary text-xs py-1.5 px-3 flex-shrink-0">Tải về</button>
+          <button className="btn-primary text-xs py-1.5 px-3 flex-shrink-0">
+            Tải về
+          </button>
           <div className="flex items-center gap-2.5 text-white text-xs">
             <span className="flex items-center gap-1">
               <Heart size={11} className="text-red-400" />
@@ -103,6 +121,9 @@ const SearchPage = () => {
   const [cursor, setCursor] = useState(null)
   const [total, setTotal] = useState(0)
 
+  const [initialLoaded, setInitialLoaded] = useState(false)
+  const [isFiltering, setIsFiltering] = useState(false)
+
   // Debounce search query
   const searchTimer = useRef(null)
   const [debouncedQuery, setDebouncedQuery] = useState('')
@@ -116,7 +137,8 @@ const SearchPage = () => {
   const fetchPosts = useCallback(
     async ({ reset = false } = {}) => {
       if (reset) {
-        setLoading(true)
+        if (!initialLoaded) setLoading(true)
+        else setIsFiltering(true)
         setCursor(null)
       } else {
         setLoadingMore(true)
@@ -163,10 +185,19 @@ const SearchPage = () => {
         // Giữ nguyên state cũ nếu lỗi
       } finally {
         setLoading(false)
+        setIsFiltering(false)
         setLoadingMore(false)
+        setInitialLoaded(true)
       }
     },
-    [activeCategory, activeSort, isAIOnly, debouncedQuery, cursor]
+    [
+      activeCategory,
+      activeSort,
+      isAIOnly,
+      debouncedQuery,
+      cursor,
+      initialLoaded,
+    ]
   )
 
   // Refetch khi filter thay đổi
@@ -178,7 +209,6 @@ const SearchPage = () => {
   return (
     <div className="min-h-screen pb-24 md:pb-8 p-4 md:p-8">
       <div className="max-w-5xl mx-auto">
-
         {/* Search header */}
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -187,7 +217,10 @@ const SearchPage = () => {
         >
           <h1 className="text-2xl font-display font-bold mb-4">Khám phá</h1>
           <div className="relative">
-            <Search size={20} className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30" />
+            <Search
+              size={20}
+              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/30"
+            />
             <input
               type="text"
               className="input pl-12 pr-12 text-base"
@@ -214,9 +247,10 @@ const SearchPage = () => {
               key={key}
               onClick={() => setActiveCategory(key)}
               className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border flex-shrink-0
-                ${activeCategory === key
-                  ? 'bg-brand-600 border-brand-500 text-white'
-                  : 'bg-surface-50 border-white/10 text-white/60 hover:border-brand-500/50 hover:text-white/80'
+                ${
+                  activeCategory === key
+                    ? 'bg-brand-600 border-brand-500 text-white'
+                    : 'bg-surface-50 border-white/10 text-white/60 hover:border-brand-500/50 hover:text-white/80'
                 }`}
             >
               {label}
@@ -232,7 +266,9 @@ const SearchPage = () => {
               onClick={() => setIsAIOnly(!isAIOnly)}
               className={`w-10 h-5 rounded-full transition-colors duration-200 relative ${isAIOnly ? 'bg-brand-600' : 'bg-white/20'}`}
             >
-              <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${isAIOnly ? 'translate-x-5' : 'translate-x-0.5'}`} />
+              <div
+                className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${isAIOnly ? 'translate-x-5' : 'translate-x-0.5'}`}
+              />
             </div>
             <span className="text-sm text-white/60 flex items-center gap-1">
               <Sparkles size={14} className="text-brand-400" /> AI only
@@ -248,9 +284,10 @@ const SearchPage = () => {
                 key={key}
                 onClick={() => setActiveSort(key)}
                 className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all border
-                  ${activeSort === key
-                    ? 'bg-brand-600 border-brand-500 text-white'
-                    : 'bg-surface-50 border-white/10 text-white/50 hover:text-white/80'
+                  ${
+                    activeSort === key
+                      ? 'bg-brand-600 border-brand-500 text-white'
+                      : 'bg-surface-50 border-white/10 text-white/50 hover:text-white/80'
                   }`}
               >
                 {label}
@@ -267,76 +304,105 @@ const SearchPage = () => {
         </div>
 
         {/* Results Grid */}
-        {loading ? (
-          <div className="columns-2 md:columns-3 gap-3">
-            {Array.from({ length: 12 }).map((_, i) => (
-              <SkeletonCard key={i} tall={i % 3 === 0} />
-            ))}
-          </div>
-        ) : posts.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="text-center py-20"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
-              <ImageOff size={28} className="text-white/20" />
-            </div>
-            <p className="text-white/40 mb-2">Không tìm thấy kết quả</p>
-            <p className="text-white/20 text-sm">
-              {debouncedQuery
-                ? `Không có wallpaper nào cho "${debouncedQuery}"`
-                : 'Danh mục này chưa có ảnh nào được duyệt'}
-            </p>
-            {debouncedQuery && (
-              <button
-                onClick={() => setQuery('')}
-                className="mt-4 btn-secondary text-sm"
+        <motion.div layout className="min-h-[500px]">
+          <AnimatePresence mode="wait">
+            {loading ? (
+              // 1. CHỈ HIỆN SKELETON KHI LOAD LẦN ĐẦU (loading = true)
+              <motion.div
+                key="skeleton-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="columns-2 md:columns-3 gap-3"
               >
-                Xóa tìm kiếm
-              </button>
-            )}
-          </motion.div>
-        ) : (
-          <>
-            <div className="columns-2 md:columns-3 gap-3">
-              <AnimatePresence>
-                {posts.map((post, i) => (
-                  <PostCard key={post._id} post={post} index={i} />
+                {Array.from({ length: 12 }).map((_, i) => (
+                  <SkeletonCard key={i} tall={i % 3 === 0} />
                 ))}
-              </AnimatePresence>
-            </div>
+              </motion.div>
+            ) : posts.length === 0 ? (
+              // 2. TRẠNG THÁI TRỐNG (Empty State)
+              <motion.div
+                key="empty-view"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="text-center py-20"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
+                  <ImageOff size={28} className="text-white/20" />
+                </div>
+                <p className="text-white/40 mb-2">Không tìm thấy kết quả</p>
+                <p className="text-white/20 text-sm">
+                  {debouncedQuery
+                    ? `Không có wallpaper nào cho "${debouncedQuery}"`
+                    : 'Danh mục này chưa có ảnh nào được duyệt'}
+                </p>
+                {debouncedQuery && (
+                  <button
+                    onClick={() => setQuery('')}
+                    className="mt-4 btn-secondary text-sm"
+                  >
+                    Xóa tìm kiếm
+                  </button>
+                )}
+              </motion.div>
+            ) : (
+              // 3. HIỂN THỊ GRID ẢNH
+              <motion.div
+                key="grid-view"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                // Hiệu ứng mờ khi đang fetch filter mới (isFiltering)
+                className={`transition-opacity duration-300 ${
+                  isFiltering ? 'opacity-40 pointer-events-none' : 'opacity-100'
+                }`}
+              >
+                <div className="columns-2 md:columns-3 gap-3">
+                  <AnimatePresence>
+                    {posts.map((post, i) => (
+                      <PostCard key={post._id} post={post} index={i} />
+                    ))}
+                  </AnimatePresence>
+                </div>
 
-            {/* Load More */}
-            {hasMore && (
-              <div className="flex justify-center mt-8">
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => fetchPosts()}
-                  disabled={loadingMore}
-                  className="btn-secondary flex items-center gap-2"
-                >
-                  {loadingMore ? (
-                    <motion.div
-                      className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                    />
-                  ) : (
-                    <RefreshCw size={15} />
-                  )}
-                  {loadingMore ? 'Đang tải...' : 'Xem thêm'}
-                </motion.button>
-              </div>
-            )}
+                {/* Load More Button */}
+                {hasMore && (
+                  <div className="flex justify-center mt-12">
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => fetchPosts()}
+                      disabled={loadingMore}
+                      className="btn-secondary min-w-[140px] flex items-center justify-center gap-2"
+                    >
+                      {loadingMore ? (
+                        <motion.div
+                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            ease: 'linear',
+                          }}
+                        />
+                      ) : (
+                        <RefreshCw size={15} />
+                      )}
+                      <span>{loadingMore ? 'Đang tải...' : 'Xem thêm'}</span>
+                    </motion.button>
+                  </div>
+                )}
 
-            {!loading && !hasMore && posts.length > 0 && (
-              <p className="text-center text-white/20 text-sm mt-8">
-                Đã hiển thị tất cả {posts.length} kết quả
-              </p>
+                {/* End of results message */}
+                {!hasMore && posts.length > 0 && (
+                  <p className="text-center text-white/20 text-sm mt-12 italic">
+                    — Đã hiển thị tất cả {posts.length} kết quả —
+                  </p>
+                )}
+              </motion.div>
             )}
-          </>
-        )}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </div>
   )
