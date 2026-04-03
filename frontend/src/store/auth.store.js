@@ -78,6 +78,16 @@ const useAuthStore = create(
         }
       },
 
+      // Đồng bộ thông tin user mới nhất từ server (coin, stats...)
+      refreshMe: async () => {
+        try {
+          const { data } = await api.get('/users/me')
+          set((state) => ({ user: { ...state.user, ...data.user } }))
+        } catch {
+          // Bỏ qua nếu lỗi (token hết hạn sẽ do interceptor xử lý)
+        }
+      },
+
       isAuthenticated: () => !!get().user && !!get().accessToken,
     }),
     {

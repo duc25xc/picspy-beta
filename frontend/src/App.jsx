@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { Suspense, lazy } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
+import useAuthStore from './store/auth.store'
 
 // Lazy load pages để code splitting
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -15,6 +16,9 @@ const MyPostsPage = lazy(() => import('./pages/MyPostsPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const GoogleAuthSuccess = lazy(() => import('./pages/GoogleAuthSuccess'))
+const PostDeepLinkPage = lazy(() => import('./pages/PostDeepLinkPage'))
+const AdminPage = lazy(() => import('./pages/AdminPage'))
+const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
 
 // Skeleton page loading
 const PageLoader = () => (
@@ -54,6 +58,18 @@ const AuthLayout = ({ children }) => (
 
 export default function App() {
   const location = useLocation()
+  const refreshMe = useAuthStore((s) => s.refreshMe)
+  const isAuth = useAuthStore((s) => !!s.user && !!s.accessToken)
+
+  // Sync user data (coin, stats) mỗi khi user quay lại tab
+  useEffect(() => {
+    if (!isAuth) return
+    const onFocus = () => refreshMe()
+    window.addEventListener('focus', onFocus)
+    // Cũng refresh ngay khi mount
+    refreshMe()
+    return () => window.removeEventListener('focus', onFocus)
+  }, [isAuth]) // eslint-disable-line
 
   return (
     <AnimatePresence mode="wait">
@@ -122,6 +138,16 @@ export default function App() {
               </MainLayout>
             }
           />
+          <Route
+            path="/posts/:id"
+            element={
+              <MainLayout>
+                <PageTransition>
+                  <PostDetailPage />
+                </PageTransition>
+              </MainLayout>
+            }
+          />
 
           {/* ===== PROTECTED ROUTES ===== */}
           <Route
@@ -144,6 +170,18 @@ export default function App() {
                 <MainLayout>
                   <PageTransition>
                     <MyPostsPage />
+                  </PageTransition>
+                </MainLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <MainLayout>
+                  <PageTransition>
+                    <AdminPage />
                   </PageTransition>
                 </MainLayout>
               </ProtectedRoute>

@@ -18,6 +18,7 @@ import errorHandler from './middlewares/errorHandler.js'
 import authRoutes from './routes/auth.routes.js'
 import userRoutes from './routes/user.routes.js'
 import postRoutes from './routes/post.routes.js'
+import adminRoutes from './routes/admin.routes.js'
 
 // Workers (khởi động cùng server)
 import './workers/imageProcessor.worker.js'
@@ -60,6 +61,7 @@ app.use(
 app.use('/v1/auth', authRoutes)
 app.use('/v1/users', userRoutes)
 app.use('/v1/posts', postRoutes)
+app.use('/v1/admin', adminRoutes)
 
 // Health check
 app.get('/health', (req, res) =>

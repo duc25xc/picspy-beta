@@ -1,0 +1,447 @@
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useNavigate, Link } from 'react-router-dom'
+import { motion, AnimatePresence } from 'framer-motion'
+import {
+  ArrowLeft,
+  Eye,
+  Download,
+  Share2,
+  ExternalLink,
+  Calendar,
+  Tag,
+  Maximize2,
+  ShieldAlert,
+} from 'lucide-react'
+import toast from 'react-hot-toast'
+import api from '../api/api'
+import useAuthStore from '../store/auth.store'
+import LikeButton from '../components/post/LikeButton'
+import BookmarkButton from '../components/post/BookmarkButton'
+import CommentSection from '../components/post/CommentSection'
+
+/* ─── Tạo URL preview an toàn cho Cloudinary ─────────────── */
+const getCloudinaryBlurredUrl = (url) => {
+  if (!url || !url.includes('/upload/')) return url
+  // Cloudinary transformation: width 400px, blur effect mức 2000 → ảnh rất nhỏ & mờ
+  // DevTools chỉ thấy ảnh 400px mờ, KHÔNG phải ảnh gốc
+  const [base, rest] = url.split('/upload/')
+  return `${base}/upload/w_400,q_10,e_blur:2000/${rest}`
+}
+const ProtectedImage = ({ src, alt, isPremium, isUnlocked }) => {
+  const handleContextMenu = (e) => {
+    if (isPremium && !isUnlocked) {
+      e.preventDefault()
+      toast.error('Ảnh Premium — vui lòng mua để tải xuống')
+    }
+  }
+
+  return (
+    /*
+      wrapper: flex centering, không có fixed hậight → img tự quyết định chiều cao theo tỷ lệ gốc
+      trước: w-full h-full trên img gây crop vì parent không có explicit height
+    */
+    <div className="relative w-full flex items-center justify-center select-none bg-black/10 overflow-hidden">
+      <img
+        src={src}
+        alt={alt}
+        draggable={false}
+        onContextMenu={handleContextMenu}
+        className="block w-full h-auto max-h-[82vh] object-contain"
+        style={{
+          userSelect: 'none',
+          WebkitUserSelect: 'none',
+          filter: isPremium && !isUnlocked ? 'blur(18px) brightness(0.5)' : 'none',
+          transition: 'filter 0.35s ease',
+        }}
+      />
+
+      {/* Premium overlay */}
+      {isPremium && !isUnlocked && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+          <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-6 text-center border border-white/10">
+            <ShieldAlert size={32} className="text-yellow-400 mx-auto mb-3" />
+            <p className="text-white font-bold text-lg mb-1">Nội dung Premium</p>
+            <p className="text-white/60 text-sm">Mua xu để xem và tải ảnh chất lượng gốc</p>
+          </div>
+        </div>
+      )}
+
+      {/* Watermark grid khi đã mở khóa */}
+      {isPremium && isUnlocked && (
+        <div
+          className="absolute inset-0 pointer-events-none opacity-10"
+          style={{
+            backgroundImage: 'repeating-linear-gradient(45deg, transparent, transparent 80px, rgba(255,255,255,0.15) 80px, rgba(255,255,255,0.15) 82px)',
+          }}
+        />
+      )}
+    </div>
+  )
+}
+
+/* ─── Download Button ─────────────────────────────────────── */
+const PostDownloadButton = ({ post, onUnlock }) => {
+  const user = useAuthStore((s) => s.user)
+  const [loading, setLoading] = useState(false)
+
+  const handleDownload = async () => {
+    if (!user) { toast.error('Đăng nhập để tải ảnh'); return }
+    if (loading) return
+    setLoading(true)
+    try {
+      const { data } = await api.post(`/posts/${post._id}/download`)
+      if (data.downloadUrl) {
+        onUnlock?.()
+        const a = document.createElement('a')
+        a.href = data.downloadUrl
+        a.download = `picspy_${post._id}.jpg`
+        a.target = '_blank'
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        toast.success('Đang tải ảnh...')
+      }
+    } catch (err) {
+      const msg = err.response?.data?.message
+      if (err.response?.status === 402) {
+        toast.error(msg || 'Cần nạp xu để tải ảnh Premium')
+      } else {
+        toast.error(msg || 'Không thể tải ảnh')
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <motion.button
+      whileTap={{ scale: 0.97 }}
+      onClick={handleDownload}
+      disabled={loading}
+      className={`flex items-center justify-center gap-2 w-full py-3 rounded-2xl font-bold text-sm transition-all
+        ${post.isPremium
+          ? 'bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-400 hover:to-orange-400 text-white shadow-[0_0_20px_rgba(234,179,8,0.3)]'
+          : 'bg-gradient-to-r from-violet-600 to-blue-600 hover:from-violet-500 hover:to-blue-500 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)]'
+        } disabled:opacity-60`}
+    >
+      {loading ? (
+        <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
+      ) : (
+        <Download size={16} />
+      )}
+      {post.isPremium ? `Tải Premium · ${post.priceInCoins} xu` : 'Tải miễn phí'}
+    </motion.button>
+  )
+}
+
+/* ─── Main PostDetailPage ─────────────────────────────────── */
+const PostDetailPage = () => {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [post, setPost] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+  const [isUnlocked, setIsUnlocked] = useState(false)
+  const [shareLoading, setShareLoading] = useState(false)
+
+  const fetchPost = useCallback(async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get(`/posts/${id}`)
+      setPost(data.post)
+      // Nếu ảnh free → auto unlock
+      if (!data.post.isPremium) setIsUnlocked(true)
+    } catch (err) {
+      setError(err.response?.data?.message || 'Không tìm thấy bài đăng')
+    } finally {
+      setLoading(false)
+    }
+  }, [id])
+
+  useEffect(() => {
+    fetchPost()
+    api.post(`/posts/${id}/view`).catch(() => {})
+  }, [id]) // eslint-disable-line
+
+  // Tạo URL blurred (server-side) cho premium preview
+  const safePreviewUrl = post?.isPremium && !isUnlocked
+    ? getCloudinaryBlurredUrl(post?.images?.[0]?.thumbnailUrl || post?.images?.[0]?.url)
+    : (post?.images?.[0]?.url || post?.images?.[0]?.thumbnailUrl)
+
+  const handleShare = async () => {
+    setShareLoading(true)
+    const url = `${window.location.origin}/posts/${id}`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success('Đã copy link!')
+    } catch {
+      toast.error('Không thể copy link')
+    } finally {
+      setShareLoading(false)
+    }
+  }
+
+  // Loading skeleton
+  if (loading) {
+    return (
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-7xl mx-auto">
+          <div className="h-8 w-32 bg-surface-100 rounded-xl animate-pulse mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-8">
+            <div className="rounded-3xl bg-surface-100 animate-pulse aspect-[4/3]" />
+            <div className="space-y-4">
+              {Array.from({length: 5}).map((_, i) => (
+                <div key={i} className={`h-${i === 0 ? 16 : 10} bg-surface-100 rounded-xl animate-pulse`} />
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-6xl mb-4">😢</p>
+          <h2 className="text-xl font-bold text-white mb-2">Không tìm thấy bài đăng</h2>
+          <p className="text-white/40 text-sm mb-6">{error}</p>
+          <button onClick={() => navigate('/')} className="btn-primary">Về trang chủ</button>
+        </div>
+      </div>
+    )
+  }
+
+  if (!post) return null
+
+  const img = post.images?.[0]
+  const author = post.authorId
+  const formatDate = (d) => new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="min-h-screen pb-24 md:pb-8"
+    >
+      <div className="max-w-7xl mx-auto px-4 py-6 md:py-8">
+
+        {/* Back button */}
+        <button
+          onClick={() => navigate(-1)}
+          className="flex items-center gap-2 text-white/50 hover:text-white transition-colors mb-6 group"
+        >
+          <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+          <span className="text-sm font-medium">Quay lại</span>
+        </button>
+
+        {/* Main layout: image + info */}
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 items-start">
+
+          {/* ─── LEFT: Image ─────────────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            // sticky chỉ dùng trên desktop (lg), mobile thì scroll bình thường
+            className="lg:sticky lg:top-24"
+          >
+            {/* Image container — height driven by image's own aspect ratio */}
+            <div className="relative rounded-3xl overflow-hidden bg-black/20 shadow-2xl">
+              <ProtectedImage
+                src={safePreviewUrl}
+                alt={post.caption || 'PicSpy Image'}
+                isPremium={post.isPremium}
+                isUnlocked={isUnlocked}
+              />
+
+              {/* Premium badge */}
+              {post.isPremium && (
+                <div className="absolute top-4 left-4">
+                  <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-gradient-to-r from-yellow-500 to-orange-500 text-white shadow-lg">
+                    💎 PREMIUM
+                  </span>
+                </div>
+              )}
+
+              {/* Open in new tab */}
+              {isUnlocked && img?.url && (
+                <a
+                  href={img.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="absolute bottom-4 right-4 p-2.5 rounded-xl bg-black/60 backdrop-blur-sm text-white/70 hover:text-white hover:bg-black/80 transition-all"
+                  title="Xem full size"
+                >
+                  <ExternalLink size={16} />
+                </a>
+              )}
+
+              {isUnlocked && (
+                <div className="absolute bottom-4 left-4">
+                  <span className="text-xs text-white/40 bg-black/40 backdrop-blur-sm px-2 py-1 rounded-lg">
+                    {img?.width && img?.height ? `${img.width}×${img.height}` : img?.resolution?.toUpperCase() || ''}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Mobile: stats row under image */}
+            <div className="flex items-center gap-4 mt-4 lg:hidden">
+              <div className="flex items-center gap-1.5 text-white/40 text-sm">
+                <Eye size={14} /> {post.stats?.viewsCount || 0} lượt xem
+              </div>
+              <div className="flex items-center gap-1.5 text-white/40 text-sm">
+                <Download size={14} /> {post.stats?.downloadsCount || 0} tải
+              </div>
+            </div>
+          </motion.div>
+
+          {/* ─── RIGHT: Info panel ───────────────────── */}
+          <motion.div
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay: 0.1 }}
+            className="space-y-6"
+          >
+            {/* Author */}
+            <div className="flex items-center justify-between">
+              <Link
+                to={`/profile/${author?.username}`}
+                className="flex items-center gap-3 group"
+              >
+                {author?.avatar ? (
+                  <img src={author.avatar} className="w-12 h-12 rounded-2xl object-cover ring-2 ring-violet-500/30 group-hover:ring-violet-500/60 transition-all" alt="" />
+                ) : (
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white font-bold text-lg">
+                    {author?.username?.[0]?.toUpperCase()}
+                  </div>
+                )}
+                <div>
+                  <p className="font-bold text-white group-hover:text-violet-300 transition-colors">
+                    {author?.displayName || author?.username}
+                    {author?.isVerified && <span className="ml-1 text-blue-400">✓</span>}
+                  </p>
+                  <p className="text-white/40 text-sm">@{author?.username}</p>
+                </div>
+              </Link>
+            </div>
+
+            {/* Caption */}
+            {post.caption && (
+              <div>
+                <h1 className="text-2xl font-bold text-white leading-snug">{post.caption}</h1>
+              </div>
+            )}
+
+            {/* Tags */}
+            {post.tags?.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {post.tags.map((tag) => (
+                  <span key={tag} className="flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold bg-violet-600/15 border border-violet-500/25 text-violet-400">
+                    <Tag size={10} />#{tag}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {/* Meta info */}
+            <div className="grid grid-cols-2 gap-3">
+              {post.category && (
+                <div className="card p-3">
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Thể loại</p>
+                  <p className="text-sm font-semibold text-white capitalize">{post.category}</p>
+                </div>
+              )}
+              {post.resolution && (
+                <div className="card p-3">
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Độ phân giải</p>
+                  <p className="text-sm font-semibold text-white uppercase">{post.resolution}</p>
+                </div>
+              )}
+              {img?.width && (
+                <div className="card p-3">
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Kích thước</p>
+                  <p className="text-sm font-semibold text-white">{img.width}×{img.height}</p>
+                </div>
+              )}
+              {post.createdAt && (
+                <div className="card p-3">
+                  <p className="text-[10px] text-white/30 uppercase tracking-wider mb-1">Ngày đăng</p>
+                  <p className="text-sm font-semibold text-white">{formatDate(post.createdAt)}</p>
+                </div>
+              )}
+            </div>
+
+            {/* Stats */}
+            <div className="flex items-center gap-6 py-3 border-t border-b border-white/8">
+              <div className="flex items-center gap-2 text-white/50">
+                <Eye size={16} />
+                <span className="text-sm font-medium">{(post.stats?.viewsCount || 0).toLocaleString()}</span>
+                <span className="text-xs">lượt xem</span>
+              </div>
+              <div className="flex items-center gap-2 text-white/50">
+                <Download size={16} />
+                <span className="text-sm font-medium">{(post.stats?.downloadsCount || 0).toLocaleString()}</span>
+                <span className="text-xs">tải về</span>
+              </div>
+            </div>
+
+            {/* Action buttons */}
+            <div className="space-y-3">
+              {/* Download */}
+              <PostDownloadButton post={post} onUnlock={() => setIsUnlocked(true)} />
+
+              {/* Like, Bookmark, Share */}
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <LikeButton
+                    postId={post._id}
+                    initialCount={post.stats?.likesCount || 0}
+                    initialLiked={post.isLiked}
+                  />
+                </div>
+                <div className="flex-1">
+                  <BookmarkButton
+                    postId={post._id}
+                    initialBookmarked={post.isBookmarked}
+                  />
+                </div>
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleShare}
+                  disabled={shareLoading}
+                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
+                    bg-white/5 border border-white/10 text-white/60
+                    hover:bg-white/10 hover:text-white transition-all text-sm font-semibold"
+                >
+                  <Share2 size={15} />
+                  Chia sẻ
+                </motion.button>
+              </div>
+            </div>
+
+            {/* AI badge */}
+            {post.isAIGenerated && (
+              <div className="flex items-center gap-2 px-4 py-3 rounded-2xl bg-blue-600/10 border border-blue-500/20">
+                <span className="text-blue-400 text-lg">🤖</span>
+                <div>
+                  <p className="text-blue-400 text-xs font-bold">AI Generated</p>
+                  {post.aiTool && <p className="text-white/40 text-xs">Tool: {post.aiTool}</p>}
+                </div>
+              </div>
+            )}
+
+            {/* Comments */}
+            <div className="border-t border-white/8 pt-6">
+              <CommentSection postId={post._id} />
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+export default PostDetailPage

@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import api from '../api/api'
 import { Link } from 'react-router-dom'
+import PostDetailModal from '../components/post/PostDetailModal'
 import {
   motion,
   useScroll,
@@ -27,6 +28,7 @@ import {
   Search,
   Bell,
 } from 'lucide-react'
+import useAuthStore from '../store/auth.store'
 
 /* ─── Google Fonts: Plus Jakarta Sans ─────────────────────── */
 const FontLoader = () => (
@@ -446,70 +448,174 @@ const MasonryCard = ({ item, index }) => (
   </motion.div>
 )
 
-/* Community gallery card — dùng real data từ DB */
-const CommunityPostCard = ({ post, index }) => {
-  const img = post.images?.[0]
-  const displayUrl = img?.thumbnailUrl || img?.url
-  const author = post.authorId
+// ── Magazine grid pattern: lặp mỗi 6 item ───────────────────
+const CARD_PATTERN = [
+  { col: 'lg:col-span-2', row: 'lg:row-span-2', type: 'hero'  }, // 0 — Hero 2×2
+  { col: 'lg:col-span-1', row: 'lg:row-span-2', type: 'tall'  }, // 1 — Tall 1×2
+  { col: 'lg:col-span-1', row: 'lg:row-span-2', type: 'tall'  }, // 2 — Tall 1×2
+  { col: 'lg:col-span-1', row: 'lg:row-span-1', type: 'std'   }, // 3 — Std 1×1
+  { col: 'lg:col-span-1', row: 'lg:row-span-1', type: 'std'   }, // 4 — Std 1×1
+  { col: 'lg:col-span-2', row: 'lg:row-span-1', type: 'wide'  }, // 5 — Wide 2×1
+]
+
+/*
+  getSmartCropUrl — Cloudinary AI Gravity thumbnail
+  ───────────────────────────────────────────────────
+  Tại sao không dùng object-position: top cứng nhắc?
+  → Chỉ đúng cho ảnh chân dung đứng, sai cho:
+      • Ảnh nằm ngang (landscape, thiên nhiên)
+      • Ảnh chủ thể ở giữa/dưới
+      • Wallpaper abstract
+
+  Cloudinary g_auto
+  → AI saliency: tìm vùng visual nổi bật nhất (contrast, color, texture)
+  → g_auto:face: ưu tiên detect khuôn mặt trước, fallback về g_auto nếu không có mặt
+  → Pre-crop đúng tỷ lệ grid cell → object-cover không cần crop thêm nữa
+
+  Kết quả: ảnh cosplay portrait ân dưới → crop tập trung vào mặt
+            ảnh biển tall → crop tìm vùng đẹp nhất (sky + người)
+            ảnh thiên nhiên wide → crop tập trung landscape đẹp nhất
+*/
+const getSmartCropUrl = (url, w, h, preferFace = true) => {
+  if (!url || !url.includes('/upload/')) return url
+  const [base, path] = url.split('/upload/')
+  // Gữ version nếu có, Cloudinary vẫn hiểu
+  const gravity = preferFace ? 'g_auto:faces' : 'g_auto'
+  return `${base}/upload/c_fill,${gravity},w_${w},h_${h},q_75,f_auto/${path}`
+}
+
+// Dimensions (w×h px) phù hợp với tỷ lệ từng card type (gridAutoRows: 200px)
+// hero  2×2 = 400px h × ≈2÷2 = 1:1  +  padding  → 600×600
+// tall  1×2 = 400px h × narrow    → 400×600 (portrait-friendly)
+// std   1×1 = 200px h × square    → 360×360
+// wide  2×1 = 200px h × wide      → 600×280
+const CARD_THUMB = {
+  hero: { w: 600, h: 600, face: true  },
+  tall: { w: 400, h: 600, face: true  }, // portrait → uu tiên detect face
+  std:  { w: 360, h: 360, face: true  },
+  wide: { w: 620, h: 280, face: false }, // landscape → dùng saliency
+}
+
+/* Community gallery card — magazine editorial style */
+const CommunityPostCard = ({ post, index, onClick }) => {
+  const img   = post.images?.[0]
+  const author     = post.authorId
+  const glowColor  = post.colors?.[0]?.hex || '#7c3aed'
+  const pattern    = CARD_PATTERN[index % CARD_PATTERN.length]
+  const alwaysShow = pattern.type === 'hero' || pattern.type === 'tall'
+
+  // Smart crop URL: Cloudinary AI tìm điểm đẹp nhất đúng với tỷ lệ card
+  const { w, h, face } = CARD_THUMB[pattern.type]
+  const displayUrl = img?.url
+    ? getSmartCropUrl(img.url, w, h, face)
+    : (img?.thumbnailUrl || null)
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ delay: index * 0.05, duration: 0.5 }}
-      className="group relative overflow-hidden rounded-2xl cursor-pointer img-card-glow transition-all duration-500 break-inside-avoid mb-4"
+    <div
+      onClick={() => onClick?.(post, index)}
+      className="group relative w-full h-full overflow-hidden rounded-2xl cursor-pointer
+        transition-all duration-500 ease-out hover:-translate-y-0.5"
     >
-      <div className={`relative ${index % 3 === 0 ? 'aspect-[3/4]' : 'aspect-square'}`}>
+      {/* Image — object-cover chỉ align, thumbnail đã được AI pre-crop */}
+      <div className="absolute inset-0">
         {displayUrl ? (
           <img
             src={displayUrl}
             alt={post.caption || 'Wallpaper'}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+            className="w-full h-full object-cover
+              group-hover:scale-[1.06] transition-transform duration-700 ease-out"
             loading="lazy"
           />
         ) : (
           <div className="w-full h-full bg-surface-100 animate-pulse" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      </div>
 
-        {/* Badges */}
-        <div className="absolute top-2.5 left-2.5 flex gap-1.5">
-          {post.isPremium && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/80 text-white backdrop-blur-sm pj">💎 PRO</span>
-          )}
-          {post.isAIGenerated && (
-            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-600/80 text-white backdrop-blur-sm pj">AI</span>
-          )}
-        </div>
+      {/* Cinematic gradient — deepens on hover */}
+      <div className="absolute inset-0
+        bg-gradient-to-t from-black/75 via-black/5 to-transparent
+        group-hover:from-black/90 group-hover:via-black/25
+        transition-colors duration-500" />
 
-        {/* Hover overlay */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <LiquidCard className="px-3 py-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500 flex items-center justify-center text-white text-[10px] font-black pj shrink-0">
+      {/* Color glow border on hover */}
+      <div
+        className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+        style={{ boxShadow: `inset 0 0 0 1.5px ${glowColor}70, 0 0 32px ${glowColor}20` }}
+      />
+
+      {/* TOP badges */}
+      <div className="absolute top-3 left-3 flex gap-1.5 z-10">
+        {post.isPremium && (
+          <span className="relative overflow-hidden flex items-center gap-1
+            px-2.5 py-1 rounded-full text-[10px] font-black pj
+            bg-gradient-to-r from-amber-500 to-orange-400 text-white">
+            {/* shimmer sweep on hover */}
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+              transition-transform duration-700
+              bg-gradient-to-r from-transparent via-white/35 to-transparent" />
+            💎 PRO
+          </span>
+        )}
+        {post.isAIGenerated && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold
+            bg-violet-600/90 text-white backdrop-blur-sm pj">AI</span>
+        )}
+        {post.resolution && (
+          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
+            bg-black/50 text-white/70 backdrop-blur-sm pj">{post.resolution}</span>
+        )}
+      </div>
+
+      {/* Author strip — always for hero/tall, slide-up for std/wide */}
+      <div className={`absolute bottom-0 left-0 right-0 p-3 z-10
+        transition-transform duration-350 ease-out
+        ${ alwaysShow ? 'translate-y-0' : 'translate-y-full group-hover:translate-y-0' }`}
+      >
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            {author?.avatar ? (
+              <img src={author.avatar} className="w-6 h-6 rounded-full object-cover ring-1 ring-white/20 shrink-0" alt="" />
+            ) : (
+              <div className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500
+                flex items-center justify-center text-white text-[10px] font-black pj shrink-0">
                 {author?.username?.[0]?.toUpperCase() || '?'}
               </div>
-              <span className="text-xs font-semibold text-white truncate pj">{author?.displayName || author?.username || 'Creator'}</span>
-            </div>
-            <div className="flex items-center gap-2 text-white/70 text-xs shrink-0">
-              <span className="flex items-center gap-0.5"><Heart size={10} className="text-red-400" /> {(post.stats?.likesCount || 0).toLocaleString()}</span>
-            </div>
-          </LiquidCard>
+            )}
+            <span className="text-xs font-semibold text-white truncate pj drop-shadow">
+              {author?.displayName || author?.username || 'Creator'}
+            </span>
+          </div>
+          <div className="flex items-center gap-2 text-white/70 text-[11px] shrink-0">
+            <span className="flex items-center gap-0.5">
+              <Heart size={9} className="text-red-400" />
+              {(post.stats?.likesCount || 0).toLocaleString()}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <Eye size={9} className="text-blue-300" />
+              {(post.stats?.viewsCount || 0).toLocaleString()}
+            </span>
+          </div>
         </div>
+        {/* Caption chỉ ở hero */}
+        {pattern.type === 'hero' && post.caption && (
+          <p className="text-white/70 text-xs mt-1.5 line-clamp-1 pj font-medium">{post.caption}</p>
+        )}
       </div>
-    </motion.div>
+    </div>
   )
 }
 
-/* Skeleton placeholder cho community gallery */
+/* Skeleton — cùng grid cấu trúc với gallery thực */
 const GallerySkeleton = () => (
-  <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
-    {Array.from({ length: 8 }).map((_, i) => (
+  <div
+    className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+    style={{ gridAutoRows: '200px' }}
+  >
+    {CARD_PATTERN.map((p, i) => (
       <div
         key={i}
-        className={`rounded-2xl bg-surface-100 animate-pulse mb-4 break-inside-avoid
-          ${i % 3 === 0 ? 'aspect-[3/4]' : 'aspect-square'}`}
+        className={`rounded-2xl bg-surface-100 animate-pulse
+          col-span-1 row-span-1 ${p.col} ${p.row}`}
       />
     ))}
   </div>
@@ -560,74 +666,234 @@ const LeaderRow = ({ c, delay }) => (
   </motion.div>
 )
 
-/* ─── Community Gallery Section (Real Data) ──────────────── */
+/* ─── Community Gallery Section với Feed Tabs ────────────── */
+const FEED_TABS = [
+  { key: 'new', label: '✨ Mới nhất', endpoint: '/posts', params: { sort: 'new' }, needAuth: false },
+  { key: 'hot', label: '🔥 Hot', endpoint: '/posts', params: { sort: 'hot' }, needAuth: false },
+  { key: 'following', label: '💜 Following', endpoint: '/posts/following', params: {}, needAuth: true },
+]
+
 const CommunityGallerySection = () => {
+  const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
+  const [activeTab, setActiveTab] = useState('new')
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
+  const [hasMore, setHasMore] = useState(false)
+  const [cursor, setCursor] = useState(null)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [isEmpty, setIsEmpty] = useState(false)
+  const [selectedIndex, setSelectedIndex] = useState(null)
 
-  useEffect(() => {
-    const fetchLatest = async () => {
-      try {
-        const { data } = await api.get('/posts', {
-          params: { limit: 12, sort: 'new' },
-        })
-        setPosts(data.posts || [])
-      } catch {
-        // Nếu API lỗi, giữ mảng rỗng → section sẽ ẩn
-      } finally {
-        setLoading(false)
-      }
+  const tab = FEED_TABS.find((t) => t.key === activeTab)
+
+  const fetchPosts = useCallback(async (reset = false) => {
+    if (reset) { setLoading(true); setCursor(null); setIsEmpty(false) }
+    else setLoadingMore(true)
+
+    try {
+      const params = { limit: 12, ...tab.params }
+      if (!reset && cursor) params.cursor = cursor
+      const { data } = await api.get(tab.endpoint, { params })
+
+      if (data.isEmpty) { setIsEmpty(true); setPosts([]); return }
+
+      const newPosts = data.posts || []
+      setPosts(reset ? newPosts : (p) => [...p, ...newPosts])
+      setHasMore(data.pagination?.hasMore || false)
+      setCursor(data.pagination?.nextCursor || null)
+    } catch {
+      if (reset) setPosts([])
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
     }
-    fetchLatest()
-  }, [])
+  }, [activeTab, cursor, tab]) // eslint-disable-line
 
-  // Ẩn section nếu không có data và không đang loading
-  if (!loading && posts.length === 0) return null
+  useEffect(() => { fetchPosts(true) }, [activeTab]) // eslint-disable-line
+
+  const handleOpenPost = (_post, index) => setSelectedIndex(index)
+  const handleClose = () => setSelectedIndex(null)
+  const handlePrev = () => setSelectedIndex((i) => Math.max(0, i - 1))
+  const handleNext = () => setSelectedIndex((i) => Math.min(posts.length - 1, i + 1))
+
+  const handleTabChange = (key) => {
+    if (key === 'following' && !isLoggedIn) {
+      window.location.href = '/login'
+      return
+    }
+    setActiveTab(key)
+  }
 
   return (
-    <section className="py-24 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4"
-        >
-          <div>
-            <p className="text-green-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
-              🎨 Mới từ cộng đồng
-            </p>
-            <h2 className="text-4xl md:text-5xl font-black tracking-tight pj">
-              Ảnh mới nhất
-            </h2>
-            <p className="text-white/40 mt-2 text-sm pj">
-              {loading ? 'Đang tải...' : `${posts.length} tác phẩm mới nhất từ cộng đồng`}
-            </p>
-          </div>
-          <Link
-            to="/search"
-            className="flex items-center gap-2 text-violet-400 hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
+    <>
+      <section className="py-20 px-4">
+        <div className="max-w-7xl mx-auto">
+          {/* Header + Tabs */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-5"
           >
-            Xem tất cả
-            <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </motion.div>
+            <div>
+              <p className="text-green-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
+                🎨 Từ cộng đồng
+              </p>
+              <h2 className="text-4xl md:text-5xl font-black tracking-tight pj">
+                Khám phá ảnh
+              </h2>
+            </div>
 
-        {/* Grid */}
-        {loading ? (
-          <GallerySkeleton />
-        ) : (
-          <div className="columns-2 md:columns-3 lg:columns-4 gap-4">
-            {posts.map((post, i) => (
-              <CommunityPostCard key={post._id} post={post} index={i} />
-            ))}
-          </div>
+            {/* Feed Tabs */}
+            <div className="flex gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/10 self-start md:self-auto">
+              {FEED_TABS.map(({ key, label, needAuth }) => (
+                <button
+                  key={key}
+                  onClick={() => handleTabChange(key)}
+                  className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all pj
+                    ${activeTab === key
+                      ? 'bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]'
+                      : 'text-white/50 hover:text-white/80'
+                    }
+                    ${needAuth && !isLoggedIn ? 'opacity-60' : ''}
+                  `}
+                >
+                  {label}
+                  {needAuth && !isLoggedIn && (
+                    <span className="ml-1 text-[9px] text-white/30">🔒</span>
+                  )}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Content */}
+          {loading ? (
+            <motion.div key="skeleton" initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              <GallerySkeleton />
+            </motion.div>
+          ) : isEmpty ? (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="text-center py-20"
+            >
+              <div className="w-20 h-20 rounded-3xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
+                <span className="text-3xl">💜</span>
+              </div>
+              <h3 className="text-white font-bold text-lg mb-2 pj">Chưa follow ai cả</h3>
+              <p className="text-white/40 text-sm max-w-xs mx-auto pj">
+                Follow những creator bạn yêu thích để xem ảnh của họ tại đây.
+              </p>
+              <Link to="/search" className="mt-5 inline-flex items-center gap-2 btn-primary text-sm">
+                Khám phá ngay <ArrowRight size={14} />
+              </Link>
+            </motion.div>
+          ) : posts.length === 0 ? null : (
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+              {/*
+                CARD_PATTERN editorial grid — mỗi card có span cố định
+                AnimatePresence initial={false} + KHÔNG có mode="wait"
+                → item MỚI fade-in riêng, grid KHÔNG collapse/re-expand
+              */}
+              <div
+                className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+                style={{ gridAutoRows: '200px' }}
+              >
+                <AnimatePresence initial={false}>
+                  {posts.map((post, i) => {
+                    const p = CARD_PATTERN[i % CARD_PATTERN.length]
+                    return (
+                      <motion.div
+                        key={post._id}
+                        initial={{ opacity: 0, filter: 'blur(4px)' }}
+                        animate={{ opacity: 1, filter: 'blur(0px)' }}
+                        transition={{
+                          duration: 0.45,
+                          // Chỉ delay khi batch LOAD MORE (i >= 8), batch đầu vẫn nhanh
+                          delay: i < 12 ? i * 0.04 : (i % 6) * 0.06,
+                          ease: 'easeOut',
+                        }}
+                        className={`col-span-1 row-span-1 ${p.col} ${p.row}`}
+                      >
+                        <CommunityPostCard
+                          post={post}
+                          index={i}
+                          onClick={handleOpenPost}
+                        />
+                      </motion.div>
+                    )
+                  })}
+                </AnimatePresence>
+              </div>
+
+              {/* Load more */}
+              {hasMore && (
+                <div className="flex justify-center mt-12">
+                  <motion.button
+                    whileTap={{ scale: 0.97 }}
+                    onClick={() => fetchPosts(false)}
+                    disabled={loadingMore}
+                    className="flex items-center gap-2 px-6 py-3 rounded-2xl
+                      bg-white/5 border border-white/10 text-white/60
+                      hover:bg-white/10 hover:text-white transition-all text-sm font-semibold pj
+                      disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loadingMore ? (
+                      <motion.div
+                        className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      />
+                    ) : (
+                      <ArrowRight size={16} />
+                    )}
+                    {loadingMore ? 'Đang tải...' : 'Xem thêm'}
+                  </motion.button>
+                </div>
+              )}
+
+              {!hasMore && posts.length >= 12 && (
+                <p className="text-center text-white/20 text-xs mt-10 pj italic">
+                  — Đã xem hết {posts.length} ảnh —
+                </p>
+              )}
+            </motion.div>
+          )}
+
+          {/* View all link */}
+          {!loading && posts.length > 0 && (
+            <div className="flex justify-end mt-6">
+              <Link
+                to="/search"
+                className="flex items-center gap-2 text-violet-400 hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
+              >
+                Xem tất cả
+                <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Post Detail Modal */}
+      <AnimatePresence>
+        {selectedIndex !== null && posts[selectedIndex] && (
+          <PostDetailModal
+            key={posts[selectedIndex]._id}
+            postId={posts[selectedIndex]._id}
+            onClose={handleClose}
+            onPrev={handlePrev}
+            onNext={handleNext}
+            hasPrev={selectedIndex > 0}
+            hasNext={selectedIndex < posts.length - 1}
+          />
         )}
-      </div>
-    </section>
+      </AnimatePresence>
+    </>
   )
 }
+
 
 /* ─── Main Page ──────────────────────────────────────────── */
 const HomePage = () => {

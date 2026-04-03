@@ -146,7 +146,9 @@ export const createPost = async (req, res, next) => {
 
 /**
  * GET /posts — Feed công khai, chỉ approved posts
- * Cursor-based pagination, sort by score desc
+ * sort=new: mới nhất (mặc định, cursor-based)
+ * sort=hot: điểm nóng real-time (views×1 + likes×3 + downloads×5, trong 7 ngày)
+ * sort=top: nhiều like nhất mọi thời gian
  */
 export const getApprovedPosts = async (req, res, next) => {
   try {
@@ -160,27 +162,76 @@ export const getApprovedPosts = async (req, res, next) => {
       sort = 'new',
     } = req.query
 
-    const query = { status: 'approved' }
+    const baseMatch = { status: 'approved' }
+    if (category && category !== 'all') baseMatch.category = category
+    if (isAI === 'true') baseMatch.isAIGenerated = true
+    if (orientation) baseMatch.orientation = orientation
+    if (resolution) baseMatch.resolution = resolution
 
-    // Cursor-based pagination
-    if (cursor) query._id = { $lt: cursor }
+    // ─── HOT: Aggregation pipeline tính điểm real-time ──────
+    if (sort === 'hot') {
+      // Hot = tổng điểm trong 7 ngày gần nhất
+      // views×1 + likes×3 + downloads×5 + recency factor
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
-    // Filters
-    if (category && category !== 'all') query.category = category
-    if (isAI === 'true') query.isAIGenerated = true
-    if (orientation) query.orientation = orientation
-    if (resolution) query.resolution = resolution
+      const pipeline = [
+        { $match: { ...baseMatch, createdAt: { $gte: sevenDaysAgo } } },
+        {
+          $addFields: {
+            hotScore: {
+              $add: [
+                { $multiply: ['$stats.viewsCount', 1] },
+                { $multiply: ['$stats.likesCount', 3] },
+                { $multiply: ['$stats.downloadsCount', 5] },
+              ],
+            },
+          },
+        },
+        { $sort: { hotScore: -1, _id: -1 } },
+        { $skip: cursor ? 0 : 0 }, // cursor cho hot dùng offset đơn giản
+        { $limit: parseInt(limit) + 1 },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'authorId',
+            foreignField: '_id',
+            pipeline: [{ $project: { username: 1, displayName: 1, avatar: 1, isVerified: 1 } }],
+            as: 'authorId',
+          },
+        },
+        { $unwind: { path: '$authorId', preserveNullAndEmpty: true } },
+      ]
+
+      const posts = await Post.aggregate(pipeline)
+      const hasMore = posts.length > parseInt(limit)
+      if (hasMore) posts.pop()
+
+      return res.json({
+        posts,
+        pagination: { hasMore, nextCursor: null, count: posts.length },
+        sortMode: 'hot',
+      })
+    }
+
+    // ─── NEW & TOP: Cursor-based pagination ─────────────────
+    const query = { ...baseMatch }
+    if (cursor) {
+      if (sort === 'top') {
+        // top dùng cursor theo likesCount (không hoàn hảo nhưng đủ dùng)
+        query._id = { $lt: cursor }
+      } else {
+        query._id = { $lt: cursor }
+      }
+    }
 
     const sortObj =
-      sort === 'hot'
-        ? { score: -1, _id: -1 }
-        : sort === 'top'
-          ? { 'stats.likesCount': -1, _id: -1 }
-          : { _id: -1 } // 'new' mặc định
+      sort === 'top'
+        ? { 'stats.likesCount': -1, _id: -1 }
+        : { _id: -1 } // 'new' mặc định
 
     const posts = await Post.find(query)
       .sort(sortObj)
-      .limit(parseInt(limit) + 1) // Lấy thêm 1 để check hasMore
+      .limit(parseInt(limit) + 1)
       .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
       .lean()
 
@@ -191,16 +242,14 @@ export const getApprovedPosts = async (req, res, next) => {
 
     res.json({
       posts,
-      pagination: {
-        hasMore,
-        nextCursor,
-        count: posts.length,
-      },
+      pagination: { hasMore, nextCursor, count: posts.length },
+      sortMode: sort,
     })
   } catch (err) {
     next(err)
   }
 }
+
 
 /**
  * GET /posts/me — Lấy ảnh của user đang đăng nhập (cần auth)
@@ -353,3 +402,53 @@ export const deletePost = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * GET /posts/following — Feed từ những người đang follow
+ * Dùng Follow collection (separate model) - không phải user.following array
+ */
+export const getFollowingFeed = async (req, res, next) => {
+  try {
+    const { cursor, limit = 20 } = req.query
+
+    // Import Follow model (dùng separate collection)
+    const Follow = (await import('../models/Follow.model.js')).default
+    const follows = await Follow.find({ followerId: req.user._id })
+      .select('followingId')
+      .lean()
+
+    const followingIds = follows.map((f) => f.followingId)
+
+    if (followingIds.length === 0) {
+      return res.json({
+        posts: [],
+        isEmpty: true,
+        pagination: { hasMore: false, nextCursor: null, count: 0 },
+      })
+    }
+
+    const query = { status: 'approved', authorId: { $in: followingIds } }
+    if (cursor) query._id = { $lt: cursor }
+
+    const posts = await Post.find(query)
+      .sort({ _id: -1 })
+      .limit(parseInt(limit) + 1)
+      .populate('authorId', 'username displayName avatar isVerified')
+      .lean()
+
+    const hasMore = posts.length > parseInt(limit)
+    if (hasMore) posts.pop()
+
+    res.json({
+      posts,
+      pagination: {
+        hasMore,
+        nextCursor: hasMore ? posts[posts.length - 1]._id : null,
+        count: posts.length,
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+

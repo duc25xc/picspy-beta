@@ -11,6 +11,7 @@ import {
   getFollowers,
   getFollowing,
 } from '../controllers/user.controller.js'
+import { getMyBookmarks } from '../controllers/post.interaction.controller.js'
 
 const router = Router()
 
@@ -19,6 +20,7 @@ router.get('/me', authenticate, getMe)
 router.put('/me', authenticate, updateMe)
 router.put('/me/avatar', authenticate, upload.single('avatar'), handleMulterError, uploadAvatar)
 router.put('/me/password', authenticate, changePassword)
+router.get('/me/bookmarks', authenticate, getMyBookmarks)
 
 // Public
 router.get('/:username', optionalAuth, getPublicProfile)
