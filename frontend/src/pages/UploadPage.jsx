@@ -6,9 +6,11 @@ import {
   Upload, Image, X, Tag, DollarSign, Sparkles,
   CheckCircle, Clock, LayoutGrid, Plus, Zap, Info,
   FolderHeart, Camera, Cpu, Ratio, FileImage,
+  ScanLine, Aperture, Timer, MapPin,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
+import exifr from 'exifr'
 
 // ── Constants ─────────────────────────────────────────────────
 const CATEGORIES = ['nature','anime','minimal','abstract','city','space','dark','light','gradient','other']
@@ -18,28 +20,129 @@ const CATEGORY_LABELS = {
   dark:'🌑 Dark', light:'☀️ Light', gradient:'🌈 Gradient', other:'✨ Khác',
 }
 
-// ── Auto-detect dimensions từ browser ─────────────────────────
-const detectImageMeta = (file) =>
+// ── Nhận dạng tỷ lệ khung hình chuẩn ───────────────────────
+const ASPECT_RATIOS = [
+  { label: '1:1',   value: '1:1',   ratio: 1/1 },
+  { label: '4:3',   value: '4:3',   ratio: 4/3 },
+  { label: '3:4',   value: '3:4',   ratio: 3/4 },
+  { label: '3:2',   value: '3:2',   ratio: 3/2 },
+  { label: '2:3',   value: '2:3',   ratio: 2/3 },
+  { label: '16:9',  value: '16:9',  ratio: 16/9 },
+  { label: '9:16',  value: '9:16',  ratio: 9/16 },
+  { label: '16:10', value: '16:10', ratio: 16/10 },
+  { label: '10:16', value: '10:16', ratio: 10/16 },
+  { label: '5:4',   value: '5:4',   ratio: 5/4 },
+  { label: '4:5',   value: '4:5',   ratio: 4/5 },
+  { label: '21:9',  value: '21:9',  ratio: 21/9 },
+  { label: '18:9',  value: '18:9',  ratio: 18/9 },
+]
+const detectAspectRatio = (w, h) => {
+  const r = w / h
+  let best = null, minDiff = Infinity
+  for (const ar of ASPECT_RATIOS) {
+    const diff = Math.abs(r - ar.ratio)
+    if (diff < minDiff) { minDiff = diff; best = ar }
+  }
+  // chấp nhận nếu sai lệch < 4%
+  return best && minDiff / best.ratio < 0.04 ? best.value : null
+}
+
+// ── Detect dimensions (width/height/resolution/orientation/aspectRatio) ───
+const detectDimensions = (file) =>
   new Promise((resolve) => {
     const img = new window.Image()
     const url = URL.createObjectURL(file)
     img.onload = () => {
-      const w = img.naturalWidth
-      const h = img.naturalHeight
+      const w = img.naturalWidth, h = img.naturalHeight
       const maxDim = Math.max(w, h)
-      const resolution = maxDim >= 3840 ? '4k' : maxDim >= 2560 ? '2k' : 'hd'
+      // DCI 2K = 2048px, QHD = 2560px, UHD 4K = 3840px
+      const resolution = maxDim >= 3840 ? '4k' : maxDim >= 2048 ? '2k' : maxDim >= 1280 ? 'hd' : 'sd'
       const ratio = w / h
       const orientation = ratio > 1.15 ? 'landscape' : ratio < 0.87 ? 'portrait' : 'square'
-      // Aspect ratio xấp xỉ
       const gcd = (a, b) => b ? gcd(b, a % b) : a
       const g = gcd(w, h)
-      const aspectStr = `${w/g}:${h/g}`
+      const aspectRatio = detectAspectRatio(w, h) || `${w/g}:${h/g}`
       URL.revokeObjectURL(url)
-      resolve({ width: w, height: h, resolution, orientation, aspectStr })
+      resolve({ width: w, height: h, resolution, orientation, aspectRatio, aspectStr: `${w/g}:${h/g}` })
     }
     img.onerror = () => { URL.revokeObjectURL(url); resolve({}) }
     img.src = url
   })
+
+// ── EXIF extraction với exifr ─────────────────────────────────
+const extractExif = async (file) => {
+  try {
+    const raw = await exifr.parse(file, {
+      tiff: true, exif: true, gps: true, xmp: true, iptc: false,
+      // Các tag cần lấy
+      pick: [
+        'Make','Model','LensModel','LensInfo',
+        'ExposureTime','FNumber','ISO','FocalLength','FocalLengthIn35mmFormat',
+        'ExposureProgram','MeteringMode','WhiteBalance','Flash',
+        'DateTimeOriginal','CreateDate',
+        'GPSLatitude','GPSLongitude','GPSAltitude',
+        'Software','ProcessingSoftware','HistorySoftwareAgent',
+        // XMP AI markers
+        'generator','GeneratorTool','dc:creator','Rights',
+      ],
+    })
+    if (!raw) return { hasExif: false }
+
+    // Format shutter speed: 0.01 → "1/100s"
+    const formatShutter = (val) => {
+      if (!val || val <= 0) return null
+      if (val >= 1) return `${val}s`
+      return `1/${Math.round(1/val)}s`
+    }
+
+    // Detect AI generation từ metadata
+    const soft = [raw.Software, raw.ProcessingSoftware, raw.HistorySoftwareAgent,
+      raw.generator, raw.GeneratorTool].filter(Boolean).join(' ').toLowerCase()
+    const AI_TOOLS = ['stable diffusion','midjourney','dall-e','dalle','novelai',
+      'comfyui','automatic1111','invokeai','dreamshaper','nijijourney','firefly',
+      'leonardo','bing image','canva ai','adobe firefly','runway','pika']
+    const detectedTool = AI_TOOLS.find(t => soft.includes(t)) || null
+    // File name heuristic: chứa "ai", "generated", "stable", "midjourney", "dalle"...
+    const nameLow = file.name.toLowerCase()
+    const aiNameHit = AI_TOOLS.some(t => nameLow.includes(t.replace(' ','').replace('-','')))
+    const isAIGenerated = detectedTool !== null || aiNameHit
+    const aiToolName = detectedTool || (aiNameHit ? 'AI Tool (detected from filename)' : '')
+
+    return {
+      hasExif: true,
+      camera: raw.Make && raw.Model
+        ? `${raw.Make} ${raw.Model}`.trim()
+        : raw.Model || null,
+      lens: raw.LensModel || null,
+      iso: raw.ISO ? `ISO ${raw.ISO}` : null,
+      aperture: raw.FNumber ? `f/${raw.FNumber}` : null,
+      shutter: formatShutter(raw.ExposureTime),
+      focalLength: raw.FocalLength
+        ? `${raw.FocalLength}mm${raw.FocalLengthIn35mmFormat ? ` (${raw.FocalLengthIn35mmFormat}mm eq.)` : ''}`
+        : null,
+      dateTaken: raw.DateTimeOriginal || raw.CreateDate || null,
+      hasGps: !!(raw.GPSLatitude && raw.GPSLongitude),
+      software: raw.Software || null,
+      // AI fields
+      isAIGenerated,
+      aiToolName,
+    }
+  } catch {
+    return { hasExif: false }
+  }
+}
+
+/*
+  detectImageMeta — kết hợp dimensions + EXIF + AI detection
+  Chạy song song cả 2 việc để nhanh
+*/
+const detectImageMeta = async (file) => {
+  const [dims, exif] = await Promise.all([
+    detectDimensions(file),
+    extractExif(file),
+  ])
+  return { ...dims, ...exif }
+}
 
 // ── Spinner ────────────────────────────────────────────────────
 const Spinner = ({ size = 16, color = 'border-brand-400' }) => (
@@ -97,11 +200,11 @@ const UploadProgressCard = ({ phase, progress, current, total }) => (
   </motion.div>
 )
 
-// ── defaultMeta factory ────────────────────────────────────────
+// ── defaultMeta factory ────────────────────────────────────────────
 const defaultMeta = () => ({
   caption:'', tags:[], category:'', isPremium:false,
   priceInCoins:50, isAIGenerated:false, aiTool:'',
-  resolution:'', orientation:'',
+  resolution:'', orientation:'', aspectRatio:'',
 })
 
 // ── Main UploadPage ────────────────────────────────────────────
@@ -126,6 +229,7 @@ const UploadPage = () => {
   const activeItem = queue[activeIdx]
   const detected = activeItem?.detected || {}
 
+  // activeMeta: khi sharedMeta=true đọc/ghi globalForm, khi false đọc/ghi perImageMeta[activeIdx]
   const activeMeta = sharedMeta ? globalForm : (perImageMeta[activeIdx] || { ...defaultMeta(), ...queue[activeIdx]?.detected })
   const setActiveMeta = (updater) => {
     if (sharedMeta) {
@@ -139,38 +243,77 @@ const UploadPage = () => {
     }
   }
 
-  // ── Add files to queue ────────────────────────────────────────
-  const addFiles = useCallback(async (files) => {
+  // ── Add files to queue — auto-apply detected meta immediately ──────
+  const addFiles = useCallback(async (acceptedFiles) => {
     if (isUploading) return
-    const remaining = 10 - queue.length
-    if (remaining <= 0) return toast.error('Đã đạt tối đa 10 ảnh')
-    const toAdd = Array.from(files).slice(0, remaining)
+    // Đọc queue length hiện tại qua closure-safe ref
+    setQueue(prev => {
+      const remaining = 10 - prev.length
+      if (remaining <= 0) { toast.error('Đã đạt tối đa 10 ảnh'); return prev }
+      return prev // return same state, actual add happens below async
+    })
+    const toAdd = Array.from(acceptedFiles).slice(0, 10)
     const newItems = await Promise.all(toAdd.map(async (f) => {
       const preview = URL.createObjectURL(f)
       const detected = await detectImageMeta(f)
       return { file: f, preview, status: 'pending', detected }
     }))
+
     setQueue(prev => {
-      const updated = [...prev, ...newItems]
+      const remaining = 10 - prev.length
+      if (remaining <= 0) return prev
+      const toInsert = newItems.slice(0, remaining)
+      const updated = [...prev, ...toInsert]
       setActiveIdx(updated.length - 1)
+
+      // Bug fix 2: Nếu sharedMeta=true VÀ đây là ảnh ĐẦU TIÊN → apply vào globalForm
+      const firstDetected = toInsert[0]?.detected
+      if (firstDetected && prev.length === 0) {
+        setGlobalForm(g => ({
+          ...g,
+          resolution:    firstDetected.resolution    || g.resolution,
+          orientation:   firstDetected.orientation   || g.orientation,
+          aspectRatio:   firstDetected.aspectRatio   || g.aspectRatio,
+          isAIGenerated: firstDetected.isAIGenerated || g.isAIGenerated,
+          aiTool:        firstDetected.aiToolName    || g.aiTool,
+        }))
+      }
+
+      // Luôn update perImageMeta cho từng ảnh mới
+      setPerImageMeta(p => {
+        const copy = [...p]
+        toInsert.forEach((item, i) => {
+          const idx = prev.length + i
+          const d = item.detected
+          copy[idx] = {
+            ...defaultMeta(),
+            resolution:    d.resolution    || '',
+            orientation:   d.orientation   || '',
+            aspectRatio:   d.aspectRatio   || '',
+            isAIGenerated: d.isAIGenerated || false,
+            aiTool:        d.aiToolName    || '',
+          }
+        })
+        return copy
+      })
+
+      // AI toast
+      if (toInsert.some(i => i.detected?.isAIGenerated)) {
+        toast('\u{1F916} Phát hiện ảnh AI — đã tự đánh dấu', { icon: '' })
+      }
       return updated
     })
-    setPerImageMeta(prev => {
-      const copy = [...prev]
-      newItems.forEach((item, i) => {
-        const idx = queue.length + i
-        copy[idx] = { ...defaultMeta(), resolution: item.detected.resolution || '', orientation: item.detected.orientation || '' }
-      })
-      return copy
-    })
-  }, [queue.length, isUploading])
+  }, [isUploading]) // bỏ queue.length khỏi deps — đọc qua setState updater
 
-  // ── Dropzone (chỉ phần drop-area, thumbnails ở ngoài) ────────
+  // ── Dropzone ─────────────────────────────────────────────────
+  // Bug fix 1: key dựa trên queue.length===0 để force re-mount dropzone
+  // khi xóa hết ảnh → noClick reset đúng, file picker mở lại được
+  const dropzoneKey = queue.length === 0 ? 'empty' : 'has-files'
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: addFiles,
     accept: { 'image/*': ['.jpg','.jpeg','.png','.webp'] },
     maxSize: 30 * 1024 * 1024,
-    noClick: queue.length > 0,   // Khi đã có ảnh: click dropzone không mở picker
+    noClick: queue.length > 0,
     disabled: isUploading,
     onDropRejected: (files) => {
       if (files[0]?.errors[0]?.code === 'file-too-large') toast.error('File quá lớn! Tối đa 30MB/ảnh')
@@ -256,8 +399,13 @@ const UploadPage = () => {
       fd.append('isAIGenerated', String(itemMeta.isAIGenerated))
       fd.append('priceInCoins', String(Number(itemMeta.priceInCoins)))
       if (itemMeta.aiTool) fd.append('aiTool', itemMeta.aiTool)
-      if (itemMeta.resolution) fd.append('resolution', itemMeta.resolution)
-      if (itemMeta.orientation) fd.append('orientation', itemMeta.orientation)
+      // Ưu tiên detected (thông số vật lý riêng của từng ảnh), fallback về form value
+      const finalResolution = item.detected?.resolution || itemMeta.resolution
+      const finalOrientation = item.detected?.orientation || itemMeta.orientation
+      if (finalResolution) fd.append('resolution', finalResolution)
+      if (finalOrientation) fd.append('orientation', finalOrientation)
+      const finalAspectRatio = item.detected?.aspectRatio || itemMeta.aspectRatio
+      if (finalAspectRatio) fd.append('aspectRatio', finalAspectRatio)
 
       let fakeP = 0, serverDone = false
       const fakeTimer = setInterval(() => {
@@ -350,6 +498,7 @@ const UploadPage = () => {
 
           {/* Drop zone — chỉ show khi chưa có ảnh hoặc đang drag */}
           <div
+            key={dropzoneKey}
             {...getRootProps()}
             className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer overflow-hidden
               ${isDragActive ? 'border-brand-500 bg-brand-500/10 scale-[1.01]' : 'border-white/20 hover:border-brand-500/50 bg-surface-50/50'}
@@ -373,6 +522,7 @@ const UploadPage = () => {
           {/* ── Preview ảnh active + nút thêm ────────── */}
           {queue.length > 0 && (
             <div
+              key={dropzoneKey + '-preview'}
               {...getRootProps()}
               className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 overflow-hidden
                 ${isDragActive ? 'border-brand-500 bg-brand-500/10' : 'border-white/10'}
@@ -530,31 +680,130 @@ const UploadPage = () => {
             </div>
           )}
 
-          {/* ── Auto-detect hint banner ────────────────── */}
-          {activeItem && detected.resolution && (activeMeta.resolution !== detected.resolution) && (
-            <motion.div initial={{ opacity:0, y:-8 }} animate={{ opacity:1, y:0 }}
-              className="flex items-center gap-3 px-4 py-3 rounded-xl bg-violet-600/10 border border-violet-500/20"
+          {/* ── EXIF + AI Info Panel ─────────────────────────────── */}
+          <AnimatePresence>
+          {activeItem && detected.width && (
+            <motion.div
+              key={activeItem.preview}
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="rounded-xl overflow-hidden border border-white/10 bg-surface-50/60"
             >
-              <Zap size={15} className="text-violet-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm text-white/70">
-                  Phát hiện: <b className="text-violet-300 uppercase">{detected.resolution}</b> •&nbsp;
-                  <b className="text-blue-300 capitalize">{detected.orientation}</b>&nbsp;
-                  <span className="text-white/40 text-xs">({detected.width}×{detected.height})</span>
+              {/* Header: auto-apply confirmation + badges */}
+              <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-600/10 border-b border-violet-500/15">
+                <Zap size={13} className="text-violet-400 shrink-0" />
+                <p className="text-xs text-white/70 flex-1">
+                  ✔ Tự động áp dụng:&nbsp;
+                  <b className="text-violet-300 uppercase">{detected.resolution}</b>
+                  &nbsp;•&nbsp;
+                  <b className="text-blue-300 capitalize">{detected.orientation}</b>
+                  &nbsp;
+                  <span className="text-white/35">{detected.width}×{detected.height}</span>
                 </p>
-              </div>
-              <div className="flex gap-2 shrink-0">
-                {queue.length > 1 && sharedMeta && (
-                  <button type="button" onClick={applyDetectedAll}
-                    className="px-2.5 py-1.5 rounded-lg bg-violet-900/60 border border-violet-700/50 text-white text-xs font-semibold hover:bg-violet-800/60 transition-colors"
-                  >Tất cả</button>
+                {detected.isAIGenerated && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-700/80 text-violet-200 text-[11px] font-bold shrink-0">
+                    <Cpu size={10} /> AI
+                  </span>
                 )}
-                <button type="button" onClick={applyDetected}
-                  className="px-2.5 py-1.5 rounded-lg bg-violet-600 text-white text-xs font-bold hover:bg-violet-500 transition-colors"
-                >Áp dụng</button>
+                {detected.hasGps && (
+                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-800/60 text-emerald-300 text-[11px] shrink-0">
+                    <MapPin size={10} /> GPS
+                  </span>
+                )}
               </div>
+
+              {/* EXIF grid */}
+              {detected.hasExif && (
+                <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5">
+                  {detected.camera && (
+                    <div className="flex items-start gap-2">
+                      <Camera size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Thiết bị</p>
+                        <p className="text-xs text-white/75 font-medium leading-tight">{detected.camera}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.lens && (
+                    <div className="flex items-start gap-2">
+                      <ScanLine size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Lens</p>
+                        <p className="text-xs text-white/75 font-medium leading-tight truncate max-w-[140px]">{detected.lens}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.focalLength && (
+                    <div className="flex items-start gap-2">
+                      <Ratio size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Tiêu cự</p>
+                        <p className="text-xs text-white/75 font-medium">{detected.focalLength}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.aperture && (
+                    <div className="flex items-start gap-2">
+                      <Aperture size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Khẩu độ</p>
+                        <p className="text-xs text-white/75 font-medium">{detected.aperture}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.shutter && (
+                    <div className="flex items-start gap-2">
+                      <Timer size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Tốc độ</p>
+                        <p className="text-xs text-white/75 font-medium">{detected.shutter}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.iso && (
+                    <div className="flex items-start gap-2">
+                      <Sparkles size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">ISO</p>
+                        <p className="text-xs text-white/75 font-medium">{detected.iso}</p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.dateTaken && (
+                    <div className="flex items-start gap-2">
+                      <Clock size={13} className="text-white/25 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Ngày chụp</p>
+                        <p className="text-xs text-white/75 font-medium">
+                          {new Date(detected.dateTaken).toLocaleDateString('vi-VN', { dateStyle: 'medium' })}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {detected.isAIGenerated && detected.aiToolName && (
+                    <div className="flex items-start gap-2 col-span-2 sm:col-span-3 pt-1 border-t border-white/5">
+                      <Cpu size={13} className="text-violet-400 mt-0.5 shrink-0" />
+                      <div>
+                        <p className="text-[10px] text-violet-400/60 uppercase tracking-wide leading-none mb-0.5">AI Tool phát hiện</p>
+                        <p className="text-xs text-violet-300 font-semibold capitalize">{detected.aiToolName}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Không có EXIF */}
+              {!detected.hasExif && (
+                <p className="px-4 py-2.5 text-xs text-white/30 italic">
+                  {detected.isAIGenerated
+                    ? '🤖 Ảnh AI — không có dữ liệu EXIF camera'
+                    : 'Không có EXIF (screenshot, ảnh từ mạng xã hội, ảnh AI...)'}
+                </p>
+              )}
             </motion.div>
           )}
+          </AnimatePresence>
 
           {/* ════════════════════════════════════════════
               BƯỚC 2: Collection name (nếu > 1 ảnh)
@@ -638,9 +887,9 @@ const UploadPage = () => {
             <div className="flex flex-wrap gap-2">
               {CATEGORIES.map(cat => (
                 <button key={cat} type="button" disabled={isUploading}
-                  onClick={() => setActiveMeta(p => ({ ...p, category:cat }))}
+                  onClick={() => setActiveMeta(p => ({ ...p, category: cat }))}
                   className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 border
-                    ${activeMeta.category===cat
+                    ${activeMeta.category === cat
                       ? 'bg-brand-600 border-brand-500 text-white shadow-[0_0_12px] shadow-brand-600/30'
                       : 'bg-surface-100 border-white/10 text-white/70 hover:border-brand-500/50'}`}
                 >
@@ -658,7 +907,7 @@ const UploadPage = () => {
                 <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
                 <input className="input pl-8" placeholder="Thêm tag rồi Enter..."
                   value={tag} onChange={e => setTag(e.target.value)}
-                  onKeyDown={e => { if (e.key==='Enter'||e.key===',') { e.preventDefault(); addTag() } }}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag() } }}
                   disabled={isUploading}
                 />
               </div>
@@ -667,7 +916,7 @@ const UploadPage = () => {
             <div className="flex flex-wrap gap-2">
               <AnimatePresence>
                 {activeMeta.tags.map(t => (
-                  <motion.span key={t} initial={{ scale:0 }} animate={{ scale:1 }} exit={{ scale:0 }}
+                  <motion.span key={t} initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
                     className="flex items-center gap-1 badge-brand text-sm px-3 py-1.5"
                   >
                     #{t}
@@ -680,44 +929,51 @@ const UploadPage = () => {
             </div>
           </div>
 
-          {/* Resolution + Orientation (auto) */}
+          {/* Resolution + Orientation
+              LUÔN hiển thị detected của ảnh đang active (ưu tiên tuyệt đối)
+              vì đây là thông số vật lý riêng của mỗi ảnh — không thể share chung */}
           <div>
             <label className="input-label flex items-center gap-2">
               <Camera size={14} className="text-white/40" />
               Thông số kỹ thuật
               {detected.width && (
                 <span className="text-[10px] text-white/30 font-normal">
-                  • Detected: {detected.width}×{detected.height}px • {detected.aspectStr} ratio
+                  • {detected.width}×{detected.height}px • tỷ lệ {detected.aspectStr}
                 </span>
               )}
             </label>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-xs text-white/40 mb-1 block">
+                <label className="text-xs text-white/40 mb-1 flex items-center gap-1.5">
                   Độ phân giải
-                  {detected.resolution && activeMeta.resolution === detected.resolution && (
-                    <span className="ml-1.5 text-green-400 font-bold">✓ Tự động</span>
+                  {detected.resolution && (
+                    <span className="text-green-400 font-bold text-[10px]">✓ Tự động</span>
                   )}
                 </label>
-                <select className="input" value={activeMeta.resolution}
-                  onChange={e => setActiveMeta(p => ({ ...p, resolution:e.target.value }))}
+                <select
+                  className="input"
+                  value={detected.resolution || activeMeta.resolution || ''}
+                  onChange={e => setActiveMeta(p => ({ ...p, resolution: e.target.value }))}
                   disabled={isUploading}
                 >
                   <option value="">Không rõ</option>
-                  <option value="hd">HD (720p–1080p)</option>
-                  <option value="2k">2K (1440p)</option>
-                  <option value="4k">4K (2160p+)</option>
+                  <option value="sd">SD (dưới 720p)</option>
+                  <option value="hd">HD (720p – 1080p)</option>
+                  <option value="2k">2K (2048px – 3839px)</option>
+                  <option value="4k">4K (3840px+)</option>
                 </select>
               </div>
               <div>
-                <label className="text-xs text-white/40 mb-1 block">
+                <label className="text-xs text-white/40 mb-1 flex items-center gap-1.5">
                   Chiều ảnh
-                  {detected.orientation && activeMeta.orientation === detected.orientation && (
-                    <span className="ml-1.5 text-green-400 font-bold">✓ Tự động</span>
+                  {detected.orientation && (
+                    <span className="text-green-400 font-bold text-[10px]">✓ Tự động</span>
                   )}
                 </label>
-                <select className="input" value={activeMeta.orientation}
-                  onChange={e => setActiveMeta(p => ({ ...p, orientation:e.target.value }))}
+                <select
+                  className="input"
+                  value={detected.orientation || activeMeta.orientation || ''}
+                  onChange={e => setActiveMeta(p => ({ ...p, orientation: e.target.value }))}
                   disabled={isUploading}
                 >
                   <option value="">Không rõ</option>
@@ -726,8 +982,29 @@ const UploadPage = () => {
                   <option value="square">Vuông</option>
                 </select>
               </div>
+              {/* Tỷ lệ khung hình — auto-detect theo ảnh đang xem */}
+              <div className="col-span-2 sm:col-span-1">
+                <label className="text-xs text-white/40 mb-1 flex items-center gap-1.5">
+                  Tỷ lệ khung hình
+                  {detected.aspectRatio && (
+                    <span className="text-green-400 font-bold text-[10px]">✓ Tự động</span>
+                  )}
+                </label>
+                <select
+                  className="input"
+                  value={detected.aspectRatio || activeMeta.aspectRatio || ''}
+                  onChange={e => setActiveMeta(p => ({ ...p, aspectRatio: e.target.value }))}
+                  disabled={isUploading}
+                >
+                  <option value="">Tự do / Khác</option>
+                  {ASPECT_RATIOS.map(ar => (
+                    <option key={ar.value} value={ar.value}>{ar.label}</option>
+                  ))}
+                </select>
+              </div>
             </div>
           </div>
+
 
           {/* AI + Premium toggles */}
           <div className="space-y-3">
