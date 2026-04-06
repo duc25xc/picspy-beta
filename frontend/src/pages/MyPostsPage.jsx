@@ -51,30 +51,19 @@ const STATUS_CONFIG = {
   },
 }
 
-const CATEGORIES = [
-  'nature',
-  'anime',
-  'minimal',
-  'abstract',
-  'city',
-  'space',
-  'dark',
-  'light',
-  'gradient',
-  'other',
+// ── Fallback categories (khi API chưa load xong) ───────────────
+const FALLBACK_CATEGORIES = [
+  { slug: 'nature',   name: '🌿 Thiên nhiên' },
+  { slug: 'anime',    name: '🎌 Anime' },
+  { slug: 'minimal',  name: '◻️ Minimal' },
+  { slug: 'abstract', name: '🎨 Abstract' },
+  { slug: 'city',     name: '🌃 Thành phố' },
+  { slug: 'space',    name: '🚀 Vũ trụ' },
+  { slug: 'dark',     name: '🌑 Dark' },
+  { slug: 'light',    name: '☀️ Light' },
+  { slug: 'gradient', name: '🌈 Gradient' },
+  { slug: 'other',    name: '✨ Khác' },
 ]
-const CATEGORY_LABELS = {
-  nature: '🌿 Thiên nhiên',
-  anime: '🎌 Anime',
-  minimal: '◻️ Minimal',
-  abstract: '🎨 Abstract',
-  city: '🌃 Thành phố',
-  space: '🚀 Vũ trụ',
-  dark: '🌑 Dark',
-  light: '☀️ Light',
-  gradient: '🌈 Gradient',
-  other: '✨ Khác',
-}
 
 // ─── Skeleton Card ──────────────────────────────────────────
 const SkeletonCard = () => (
@@ -102,7 +91,7 @@ const StatusBadge = ({ status }) => {
 }
 
 // ─── Edit Modal ─────────────────────────────────────────────
-const EditModal = ({ post, onClose, onSave }) => {
+const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) => {
   const [form, setForm] = useState({
     caption: post.caption || '',
     category: post.category || '',
@@ -211,19 +200,19 @@ const EditModal = ({ post, onClose, onSave }) => {
           <div>
             <label className="input-label">Danh mục</label>
             <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map((cat) => (
+              {categories.map((cat) => (
                 <button
-                  key={cat}
+                  key={cat.slug}
                   type="button"
-                  onClick={() => setForm({ ...form, category: cat })}
+                  onClick={() => setForm({ ...form, category: cat.slug })}
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border
                     ${
-                      form.category === cat
+                      form.category === cat.slug
                         ? 'bg-brand-600 border-brand-500 text-white'
                         : 'bg-surface-100 border-white/10 text-white/60 hover:border-brand-500/50'
                     }`}
                 >
-                  {CATEGORY_LABELS[cat]}
+                  {cat.name}
                 </button>
               ))}
             </div>
@@ -523,6 +512,21 @@ const MyPostsPage = () => {
   const [deletePost, setDeletePost] = useState(null)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const [isTabChanging, setIsTabChanging] = useState(false)
+  // Dynamic categories từ API
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
+
+  useEffect(() => {
+    api.get('/categories')
+      .then(({ data }) => {
+        if (data.categories?.length > 0) {
+          setCategories(data.categories.map(c => ({
+            slug: c.slug,
+            name: `${c.emoji || ''} ${c.name}`.trim(),
+          })))
+        }
+      })
+      .catch(() => {})
+  }, [])
 
   const fetchPosts2 = useCallback(
     async ({ reset = false } = {}) => {
@@ -790,6 +794,7 @@ const MyPostsPage = () => {
             post={editPost}
             onClose={() => setEditPost(null)}
             onSave={handleEditSave}
+            categories={categories}
           />
         )}
         {deletePost && (

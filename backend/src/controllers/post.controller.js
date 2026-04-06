@@ -8,50 +8,29 @@ import { v2 as cloudinary } from 'cloudinary'
 const postSchema = z.object({
   caption: z.string().max(500).optional(),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional().default([]),
-  category: z.enum([
-    'nature',
-    'anime',
-    'minimal',
-    'abstract',
-    'city',
-    'space',
-    'dark',
-    'light',
-    'gradient',
-    'other',
-  ]),
+  // Category lấy từ DB — không enum cứng, chỉ cần string hợp lệ
+  category: z.string().min(1).toLowerCase().trim().default('other'),
   isPremium: z.boolean().optional().default(false),
   priceInCoins: z.number().min(10).max(1000).optional().default(50),
   isAIGenerated: z.boolean().optional().default(false),
   aiTool: z.string().optional(),
-  resolution: z.enum(['hd', '2k', '4k']).optional(),
+  resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
   orientation: z.enum(['portrait', 'landscape', 'square']).optional(),
+  aspectRatio: z.string().optional(),
 })
 
 // Schema riêng cho update (chỉ cho phép sửa một số trường)
 const updatePostSchema = z.object({
   caption: z.string().max(500).optional(),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional(),
-  category: z
-    .enum([
-      'nature',
-      'anime',
-      'minimal',
-      'abstract',
-      'city',
-      'space',
-      'dark',
-      'light',
-      'gradient',
-      'other',
-    ])
-    .optional(),
+  category: z.string().min(1).toLowerCase().trim().optional(),
   isPremium: z.boolean().optional(),
   priceInCoins: z.number().min(10).max(1000).optional(),
   isAIGenerated: z.boolean().optional(),
   aiTool: z.string().optional(),
-  resolution: z.enum(['hd', '2k', '4k']).optional(),
+  resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
   orientation: z.enum(['portrait', 'landscape', 'square']).optional(),
+  aspectRatio: z.string().optional(),
 })
 
 /**

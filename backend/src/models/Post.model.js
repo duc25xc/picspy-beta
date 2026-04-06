@@ -32,11 +32,13 @@ const postSchema = new mongoose.Schema(
     tags: [{ type: String, lowercase: true, trim: true }],
     category: {
       type: String,
-      enum: ['nature', 'anime', 'minimal', 'abstract', 'city', 'space', 'dark', 'light', 'gradient', 'other'],
-      required: true,
+      default: 'other',
+      trim: true,
+      lowercase: true,
     },
-    resolution: { type: String, enum: ['hd', '2k', '4k'] },
+    resolution: { type: String, enum: ['sd', 'hd', '2k', '4k'] },
     orientation: { type: String, enum: ['portrait', 'landscape', 'square'] },
+    aspectRatio: { type: String, trim: true },
 
     // === AI ===
     isAIGenerated: { type: Boolean, default: false },

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -12,13 +12,19 @@ import toast from 'react-hot-toast'
 import api from '../api/api'
 import exifr from 'exifr'
 
-// ── Constants ─────────────────────────────────────────────────
-const CATEGORIES = ['nature','anime','minimal','abstract','city','space','dark','light','gradient','other']
-const CATEGORY_LABELS = {
-  nature:'🌿 Thiên nhiên', anime:'🎌 Anime', minimal:'◻️ Minimal',
-  abstract:'🎨 Abstract', city:'🌃 Thành phố', space:'🚀 Vũ trụ',
-  dark:'🌑 Dark', light:'☀️ Light', gradient:'🌈 Gradient', other:'✨ Khác',
-}
+// ── Fallback categories (khi API chưa sẵn sàng) ───────────────
+const FALLBACK_CATEGORIES = [
+  { slug: 'nature',   name: '🌿 Thiên nhiên' },
+  { slug: 'anime',    name: '🎌 Anime' },
+  { slug: 'minimal',  name: '◻️ Minimal' },
+  { slug: 'abstract', name: '🎨 Abstract' },
+  { slug: 'city',     name: '🌃 Thành phố' },
+  { slug: 'space',    name: '🚀 Vũ trụ' },
+  { slug: 'dark',     name: '🌑 Dark' },
+  { slug: 'light',    name: '☀️ Light' },
+  { slug: 'gradient', name: '🌈 Gradient' },
+  { slug: 'other',    name: '✨ Khác' },
+]
 
 // ── Nhận dạng tỷ lệ khung hình chuẩn ───────────────────────
 const ASPECT_RATIOS = [
@@ -211,19 +217,33 @@ const defaultMeta = () => ({
 const UploadPage = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
-  const [queue, setQueue]           = useState([]) // [{file, preview, status, detected}]
+  const [queue, setQueue]           = useState([])
   const [activeIdx, setActiveIdx]   = useState(0)
   const [tag, setTag]               = useState('')
   const [uploadPhase, setUploadPhase] = useState(null)
   const [progress, setProgress]     = useState(0)
   const [done, setDone]             = useState(false)
   const [uploadedCount, setUploadedCount] = useState(0)
-  // Collection name — nhóm nhiều ảnh thành 1 bộ (saved in tags / caption)
   const [collectionName, setCollectionName] = useState('')
-  // Shared metadata (áp cho tất cả) vs per-image
   const [sharedMeta, setSharedMeta] = useState(true)
   const [globalForm, setGlobalForm] = useState(defaultMeta())
-  const [perImageMeta, setPerImageMeta] = useState([]) // array theo index
+  const [perImageMeta, setPerImageMeta] = useState([])
+  // Categories từ API
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
+
+  // Load categories từ API khi mount
+  useEffect(() => {
+    api.get('/categories')
+      .then(({ data }) => {
+        if (data.categories?.length > 0) {
+          setCategories(data.categories.map(c => ({
+            slug: c.slug,
+            name: `${c.emoji || ''} ${c.name}`.trim(),
+          })))
+        }
+      })
+      .catch(() => { /* giữ fallback */ })
+  }, [])
 
   const isUploading = uploadPhase !== null
   const activeItem = queue[activeIdx]
@@ -885,15 +905,15 @@ const UploadPage = () => {
           <div>
             <label className="input-label">Danh mục *</label>
             <div className="flex flex-wrap gap-2">
-              {CATEGORIES.map(cat => (
-                <button key={cat} type="button" disabled={isUploading}
-                  onClick={() => setActiveMeta(p => ({ ...p, category: cat }))}
+              {categories.map(cat => (
+                <button key={cat.slug} type="button" disabled={isUploading}
+                  onClick={() => setActiveMeta(p => ({ ...p, category: cat.slug }))}
                   className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 border
-                    ${activeMeta.category === cat
+                    ${activeMeta.category === cat.slug
                       ? 'bg-brand-600 border-brand-500 text-white shadow-[0_0_12px] shadow-brand-600/30'
                       : 'bg-surface-100 border-white/10 text-white/70 hover:border-brand-500/50'}`}
                 >
-                  {CATEGORY_LABELS[cat]}
+                  {cat.name}
                 </button>
               ))}
             </div>
