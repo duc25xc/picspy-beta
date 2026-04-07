@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useMemo } from 'react'
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Share2, Eye, Tag, Calendar, CheckCircle,
@@ -124,12 +124,16 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
     [post?.colorPalette]
   )
 
-  /* Track view */
-  const trackView = useCallback(async (id) => {
-    try { await api.post(`/posts/${id}/view`) } catch { /* bỏ qua */ }
+  /* Track view — debounce 800ms: nhấn Next nhanh chỉ tính view khi dừng lại */
+  const viewTimer = useRef(null)
+  const trackView = useCallback((id) => {
+    clearTimeout(viewTimer.current)
+    viewTimer.current = setTimeout(async () => {
+      try { await api.post(`/posts/${id}/view`) } catch { /* bỏ qua nếu lỗi */ }
+    }, 800)
   }, [])
 
-  /* Fetch post */
+  /* Fetch post — KHÔNG gọi trackView ở đây (tránh double count) */
   const fetchPost = useCallback(async (id) => {
     setLoading(true); setError(null)
     setImgLoaded(false); setAmbientReady(false)
@@ -139,17 +143,17 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
       setIsLiked(data.isLiked || false)
       setIsBookmarked(data.isBookmarked || false)
       setIsFollowing(data.isFollowingAuthor || false)
-      trackView(id)
     } catch (err) {
       setError(err.response?.data?.message || 'Không tìm thấy bài đăng')
     } finally {
       setLoading(false)
     }
-  }, [trackView])
+  }, [])
 
   useEffect(() => {
     if (!postId) return
     fetchPost(postId)
+    trackView(postId) // debounced — chỉ tính khi dừng lại >= 800ms
     const prev = location.pathname
     window.history.pushState({}, '', `/posts/${postId}`)
     return () => { window.history.pushState({}, '', prev) }

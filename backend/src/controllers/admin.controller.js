@@ -1,6 +1,7 @@
 import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import Category from '../models/Category.model.js'
+import Settings from '../models/Settings.model.js'
 import AppError from '../utils/AppError.js'
 
 // ─── DEFAULT CATEGORIES SEED ──────────────────────────────────
@@ -393,5 +394,35 @@ export const deleteCategory = async (req, res, next) => {
       message: `Đã xóa danh mục "${category.name}"`,
       migratedPosts: migrated.modifiedCount,
     })
+  } catch (err) { next(err) }
+}
+
+// =============================================
+// SETTINGS MANAGEMENT
+// =============================================
+
+/** GET /admin/settings — Lấy setting hiện tại */
+export const getSettings = async (req, res, next) => {
+  try {
+    const settings = await Settings.getSingleton()
+    res.json({ settings })
+  } catch (err) { next(err) }
+}
+
+/** PUT /admin/settings — Cập nhật 1 hoặc nhiều setting */
+export const updateSettings = async (req, res, next) => {
+  try {
+    const allowed = ['autoApprove', 'autoApproveDelayMs']
+    const updates = {}
+    allowed.forEach(key => {
+      if (req.body[key] !== undefined) updates[key] = req.body[key]
+    })
+
+    if (Object.keys(updates).length === 0) {
+      return next(new AppError('Không có trường nào hợp lệ để cập nhật', 400))
+    }
+
+    const settings = await Settings.updateSettings(updates)
+    res.json({ message: 'Đã cập nhật cài đặt', settings })
   } catch (err) { next(err) }
 }

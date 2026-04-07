@@ -22,25 +22,54 @@ const FALLBACK_CATEGORIES = [
 
 // ── Color presets for Color Search ──────────────────────────────
 const COLOR_PRESETS = [
-  { label: 'Đỏ',      hex: '#ef4444', search: 'ff0000' },
-  { label: 'Cam',     hex: '#f97316', search: 'ff8000' },
-  { label: 'Vàng',    hex: '#eab308', search: 'ffcc00' },
-  { label: 'Xanh lá', hex: '#22c55e', search: '00c853' },
-  { label: 'Xanh dương', hex: '#3b82f6', search: '2196f3' },
-  { label: 'Tím',     hex: '#8b5cf6', search: '7c3aed' },
+  { label: 'Đỏ',      hex: '#ef4444', search: 'e53935' },
+  { label: 'Cam',     hex: '#f97316', search: 'f4511e' },
+  { label: 'Vàng',    hex: '#eab308', search: 'fdd835' },
+  { label: 'Xanh lá', hex: '#22c55e', search: '43a047' },
+  { label: 'Xanh dương', hex: '#3b82f6', search: '1e88e5' },
+  { label: 'Tím',     hex: '#8b5cf6', search: '7b1fa2' },
   { label: 'Hồng',    hex: '#ec4899', search: 'e91e63' },
-  { label: 'Nâu',     hex: '#92400e', search: '795548' },
-  { label: 'Trắng',   hex: '#f1f5f9', search: 'f0f0f0' },
-  { label: 'Đen',     hex: '#1e293b', search: '121212' },
-  { label: 'Xám',     hex: '#64748b', search: '607d8b' },
+  { label: 'Nâu',     hex: '#92400e', search: '6d4c41' },
+  { label: 'Trắng',   hex: '#f1f5f9', search: 'fafafa' },
+  { label: 'Đen',     hex: '#1e293b', search: '212121' },
+  { label: 'Xám',     hex: '#64748b', search: '78909c' },
   { label: 'Mint',    hex: '#10b981', search: '00bfa5' },
 ]
+
+// ── HSL-weighted fuzzy color matching ───────────────────────────
+// Dùng HSL thay RGB → "Đỏ" match đỏ nâu, đỏ máu, đỏ nhạt...
+const rgbToHsl = (r, g, b) => {
+  r /= 255; g /= 255; b /= 255
+  const max = Math.max(r, g, b), min = Math.min(r, g, b)
+  let h = 0, s = 0, l = (max + min) / 2
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+    else if (max === g) h = ((b - r) / d + 2) / 6
+    else h = ((r - g) / d + 4) / 6
+  }
+  return [h * 360, s * 100, l * 100]
+}
+const parseHex = (hex) => {
+  const c = hex.replace('#', '')
+  return [parseInt(c.slice(0,2),16), parseInt(c.slice(2,4),16), parseInt(c.slice(4,6),16)]
+}
+const colorDistance = (hex1, hex2) => {
+  try {
+    const [h1,s1,l1] = rgbToHsl(...parseHex(hex1))
+    const [h2,s2,l2] = rgbToHsl(...parseHex(hex2))
+    const dH = Math.min(Math.abs(h1-h2), 360-Math.abs(h1-h2))
+    return Math.sqrt((dH*1.2)**2 + (Math.abs(s1-s2)*0.5)**2 + (Math.abs(l1-l2)*0.8)**2)
+  } catch { return 999 }
+}
 
 const SORT_OPTIONS = [
   { key: 'new', label: 'Mới nhất' },
   { key: 'hot', label: '🔥 Hot' },
   { key: 'top', label: '⭐ Top' },
 ]
+
 
 // ── Skeleton Card ───────────────────────────────────────────────
 const SkeletonCard = ({ tall }) => (
@@ -173,22 +202,15 @@ const SearchPage = () => {
       const { data } = await api.get('/posts', { params })
       let results = data.posts || []
 
-      // Client-side color filter: match colorPalette nếu server không hỗ trợ
-      if (activeColor && results.length > 0 && results[0].colorPalette) {
-        const targetR = parseInt(activeColor.slice(0, 2), 16)
-        const targetG = parseInt(activeColor.slice(2, 4), 16)
-        const targetB = parseInt(activeColor.slice(4, 6), 16)
-
+      // Client-side color filter dùng HSL-weighted distance
+      // Threshold 45 trong HSL space = match được các biến thể cùng màu
+      if (activeColor && results.length > 0) {
+        const targetHex = '#' + activeColor
         results = results.filter(post => {
           if (!post.colorPalette?.length) return false
           return post.colorPalette.some(hex => {
-            const c = hex.replace('#', '')
-            if (c.length !== 6) return false
-            const r = parseInt(c.slice(0, 2), 16)
-            const g = parseInt(c.slice(2, 4), 16)
-            const b = parseInt(c.slice(4, 6), 16)
-            // Euclidean distance trong RGB space — threshold 80
-            return Math.sqrt((r-targetR)**2 + (g-targetG)**2 + (b-targetB)**2) < 80
+            if (!hex || hex.replace('#','').length !== 6) return false
+            return colorDistance(hex, targetHex) < 45
           })
         })
       }
@@ -346,7 +368,7 @@ const SearchPage = () => {
                   </div>
                   <div
                     {...colorDrag}
-                    className="flex gap-2 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing select-none pb-1"
+                    className="flex gap-2 overflow-x-auto no-scrollbar cursor-grab active:cursor-grabbing select-none pb-1 pt-3"
                   >
                     {COLOR_PRESETS.map(color => (
                       <button

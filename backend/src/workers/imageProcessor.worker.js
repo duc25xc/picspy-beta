@@ -5,6 +5,7 @@ import axios from 'axios'
 import redis from '../config/redis.js'
 import { uploadBuffer } from '../config/cloudinary.js'
 import Post from '../models/Post.model.js'
+import Settings from '../models/Settings.model.js'
 
 // Giải pháp "bất bại" để import các package CJS cứng đầu trong môi trường ESM
 import { createRequire } from 'module'
@@ -15,7 +16,7 @@ const { Vibrant } = require('node-vibrant/node')
 
 /**
  * Kiểm tra NSFW qua Sightengine API
- * Fallback: trả về score thấp (auto approve) nếu không có API key
+ * Fallback: trả về 0.5 (pending) nếu không có API key hoặc API lỗi.
  */
 const checkNSFW = async (imageUrl) => {
   if (
@@ -23,9 +24,9 @@ const checkNSFW = async (imageUrl) => {
     !process.env.SIGHTENGINE_API_SECRET
   ) {
     console.warn(
-      '⚠️  Sightengine API key chưa được cấu hình — bỏ qua NSFW check'
+      '⚠️  Sightengine API key chưa được cấu hình — ảnh sẽ ở trạng thái pending chờ admin duyệt'
     )
-    return 0.0 // auto approve
+    return 0.5 // pending — để admin duyệt thủ công
   }
 
   try {
@@ -42,7 +43,6 @@ const checkNSFW = async (imageUrl) => {
       }
     )
     const { nudity } = response.data
-    // Tổng hợp score: lấy max của các category nhạy cảm
     return Math.max(
       nudity?.sexual_activity || 0,
       nudity?.erotica || 0,
@@ -50,7 +50,7 @@ const checkNSFW = async (imageUrl) => {
     )
   } catch (err) {
     console.error('NSFW check failed:', err.message)
-    return 0.3 // Đưa vào queue review thủ công nếu API lỗi
+    return 0.5 // pending — để admin review nếu API lỗi
   }
 }
 
@@ -104,9 +104,14 @@ const imageWorker = new Worker(
         ),
       ])
 
-      // 4. Trích xuất color palette (Đã tối ưu: Dùng thumbnailBuffer thay vì imageBuffer)
+      // 4. Trích xuất color palette
+      // node-vibrant dùng Jimp nội bộ — Jimp không hỗ trợ WebP!
+      // Phải convert sang JPEG trước khi feed vào Vibrant.
       await job.updateProgress(60)
-      const palette = await Vibrant.from(thumbnailBuffer).getPalette()
+      const jpegForVibrant = await sharp(thumbnailBuffer)
+        .jpeg({ quality: 80 })
+        .toBuffer()
+      const palette = await Vibrant.from(jpegForVibrant).getPalette()
       const colorPalette = Object.values(palette)
         .filter(Boolean)
         .map((swatch) => swatch.hex)
@@ -131,14 +136,25 @@ const imageWorker = new Worker(
       await job.updateProgress(80)
       const nsfwScore = await checkNSFW(imageUrl)
 
+      // Đọc cài đặt hệ thống (autoApprove toggle từ Admin Panel)
+      const sysSettings = await Settings.getSingleton()
+
       // Quyết định status:
-      // score > 0.8  → reject tự động
-      // score 0.4–0.8 → pending (chờ admin review)
-      // score < 0.4  → approved
+      // - NSFW rõ ràng (>0.8) → luôn reject, bất kể setting
+      // - autoApprove BẬT   → approved ngay sau worker xong
+      // - autoApprove TẮT   → pending, admin duyệt thủ công
       let status
-      if (nsfwScore > 0.8) status = 'rejected'
-      else if (nsfwScore > 0.4) status = 'pending'
-      else status = 'approved'
+      if (nsfwScore > 0.8) {
+        status = 'rejected'
+      } else if (sysSettings.autoApprove) {
+        // Delay nếu được cấu hình
+        if (sysSettings.autoApproveDelayMs > 0) {
+          await new Promise(r => setTimeout(r, sysSettings.autoApproveDelayMs))
+        }
+        status = 'approved'
+      } else {
+        status = 'pending'
+      }
 
       // 7. Cập nhật Post
       await job.updateProgress(90)

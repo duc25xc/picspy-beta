@@ -5,7 +5,7 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -374,7 +374,13 @@ const PostsTab = () => {
                         : <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-xs font-bold">{post.authorId?.username?.[0]?.toUpperCase() || '?'}</div>}
                       <span className="text-sm font-semibold text-white/80">@{post.authorId?.username || 'unknown'}</span>
                     </div>
-                    {post.caption && <p className="text-xs text-white/50 line-clamp-2">{post.caption}</p>}
+                    {/* Caption — placeholder nếu không có text */}
+                    <p className="text-xs line-clamp-2 min-h-[2.5rem] flex items-center">
+                      {post.caption
+                        ? <span className="text-white/50">{post.caption}</span>
+                        : <span className="text-white/20 italic">Không có tiêu đề</span>
+                      }
+                    </p>
                     {post.rejectionReason && <p className="text-xs text-red-400/70 italic">⚠ {post.rejectionReason}</p>}
 
                     {/* Actions */}
@@ -770,6 +776,124 @@ const CategoriesTab = () => {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// TAB: SETTINGS
+// ══════════════════════════════════════════════════════════════════
+const SettingsTab = () => {
+  const [settings, setSettings] = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [saving, setSaving]     = useState(false)
+
+  useEffect(() => {
+    api.get('/admin/settings')
+      .then(({ data }) => setSettings(data.settings))
+      .catch(() => toast.error('Không tải được cài đặt'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  const handleToggleAutoApprove = async () => {
+    if (!settings) return
+    const next = !settings.autoApprove
+    setSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { autoApprove: next })
+      setSettings(data.settings)
+      toast.success(next ? '⚡ Đã BẬT tự động duyệt ảnh' : '🔒 Đã TẮT — ảnh sẽ chờ duyệt thủ công')
+    } catch (err) { toast.error(err.response?.data?.message || 'Lỗi cập nhật') }
+    finally { setSaving(false) }
+  }
+
+  if (loading) return (
+    <div className="space-y-4">
+      {Array.from({ length: 3 }).map((_, i) => <div key={i} className="card p-6 animate-pulse h-20" />)}
+    </div>
+  )
+
+  return (
+    <div className="space-y-6 max-w-2xl">
+      <div>
+        <h2 className="font-bold text-xl text-white mb-1">Cài đặt hệ thống</h2>
+        <p className="text-sm text-white/40">Quản lý các tính năng và hành vi tự động của PicSpy.</p>
+      </div>
+
+      {/* ── Auto Approve Toggle ─── */}
+      <motion.div
+        className={`card p-6 border transition-all duration-300 ${
+          settings?.autoApprove
+            ? 'border-green-500/40 bg-green-500/5'
+            : 'border-white/10'
+        }`}
+        layout
+      >
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors duration-300 ${
+              settings?.autoApprove ? 'bg-green-500/20' : 'bg-white/5'
+            }`}>
+              {settings?.autoApprove
+                ? <Zap size={22} className="text-green-400" />
+                : <ZapOff size={22} className="text-white/30" />
+              }
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-base mb-1">Tự động duyệt ảnh</h3>
+              <p className="text-sm text-white/50 leading-relaxed">
+                Khi <strong className="text-white/70">BẬT</strong>: ảnh upload xong sẽ được duyệt tự động sau khi worker xử lý.
+                <br />
+                Khi <strong className="text-white/70">TẮT</strong>: mọi ảnh sẽ ở trạng thái <span className="text-yellow-400 font-semibold">Chờ duyệt</span> — admin phải duyệt thủ công.
+              </p>
+              {settings?.autoApprove && (
+                <motion.div
+                  initial={{ opacity: 0, y: 4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-3 flex items-center gap-2 text-green-400 text-xs font-semibold"
+                >
+                  <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                  Đang hoạt động — ảnh mới sẽ được duyệt tự động
+                </motion.div>
+              )}
+            </div>
+          </div>
+
+          {/* Toggle button */}
+          <motion.button
+            whileTap={{ scale: 0.93 }}
+            onClick={handleToggleAutoApprove}
+            disabled={saving}
+            className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
+              settings?.autoApprove
+                ? 'bg-green-500 border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                : 'bg-white/10 border-white/20'
+            } disabled:opacity-60`}
+          >
+            <motion.div
+              className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md"
+              animate={{ left: settings?.autoApprove ? '28px' : '2px' }}
+              transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+            />
+            {saving && <Loader2 size={10} className="absolute inset-0 m-auto text-white animate-spin" />}
+          </motion.button>
+        </div>
+      </motion.div>
+
+      {/* ── Info card ─── */}
+      <div className="card p-5 border-blue-500/20 bg-blue-500/5">
+        <div className="flex gap-3">
+          <Timer size={18} className="text-blue-400 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-semibold text-blue-400 mb-1">Gợi ý sử dụng</p>
+            <ul className="text-xs text-white/50 space-y-1 list-disc list-inside">
+              <li>Bật Auto-approve khi bạn muốn kiểm thử nhanh hoặc trong giai đoạn beta.</li>
+              <li>Tắt trong môi trường production để kiểm soát nội dung chặt chẽ.</li>
+              <li>NSFW rõ ràng (score &gt; 0.8) sẽ luôn bị từ chối, bất kể setting này.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN AdminPage
 // ══════════════════════════════════════════════════════════════════
 const TABS = [
@@ -777,6 +901,7 @@ const TABS = [
   { key: 'posts',      label: 'Bài đăng',   Icon: Images },
   { key: 'users',      label: 'Users',       Icon: Users },
   { key: 'categories', label: 'Danh mục',   Icon: Tag },
+  { key: 'settings',   label: 'Cài đặt',    Icon: Settings },
 ]
 
 const AdminPage = () => {
@@ -814,6 +939,7 @@ const AdminPage = () => {
               {activeTab === 'posts'      && <PostsTab />}
               {activeTab === 'users'      && <UsersTab />}
               {activeTab === 'categories' && <CategoriesTab />}
+              {activeTab === 'settings'   && <SettingsTab />}
             </motion.div>
           </AnimatePresence>
         </div>

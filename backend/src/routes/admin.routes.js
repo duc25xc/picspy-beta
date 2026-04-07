@@ -5,6 +5,7 @@ import {
   getAllUsers, adjustUserCoins, toggleBanUser,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
+  getSettings, updateSettings,
 } from '../controllers/admin.controller.js'
 
 const router = Router()
@@ -32,5 +33,9 @@ router.post('/categories', createCategory)
 router.put('/categories/:id', updateCategory)
 router.patch('/categories/:id/toggle', toggleCategory)
 router.delete('/categories/:id', deleteCategory)
+
+// ── System Settings ───────────────────────────────────────────
+router.get('/settings', getSettings)
+router.put('/settings', updateSettings)
 
 export default router

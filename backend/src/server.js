@@ -43,18 +43,39 @@ app.use(cookieParser())
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 
-// Global rate limit nhẹ
-app.use(
-  '/v1',
-  rateLimit({
-    windowMs: 60 * 1000,
-    max: 100,
-    message: {
-      error: 'RATE_LIMITED',
-      message: 'Quá nhiều request. Vui lòng chậm lại.',
-    },
-  })
-)
+// =====================
+// RATE LIMITERS — phải tạo tại app init, KHÔNG tạo trong request handler
+// =====================
+
+// Limiter cho /posts (thoải mái — browse gallery nhiều request)
+const postsLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  message: { error: 'RATE_LIMITED', message: 'Quá nhiều request. Vui lòng chậm lại.' },
+  skip: (req) => {
+    // Bỏ qua limit cho view endpoint — tính lượt xem không cần giới hạn chặt
+    return req.method === 'POST' && /^\/[a-f0-9]{24}\/view$/.test(req.path)
+  },
+})
+
+// Limiter chặt cho /auth — chống brute force
+const authLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: 'RATE_LIMITED', message: 'Quá nhiều thử đăng nhập. Vui lòng chờ 1 phút.' },
+})
+
+// Global fallback — áp dụng các route chưa có limiter riêng
+const globalLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  message: { error: 'RATE_LIMITED', message: 'Quá nhiều request. Vui lòng chậm lại.' },
+})
+
+app.use('/v1/posts', postsLimiter)
+app.use('/v1/auth', authLimiter)
+app.use('/v1', globalLimiter)
+
 
 // =====================
 // ROUTES
