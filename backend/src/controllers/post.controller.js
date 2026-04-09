@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import exifr from 'exifr'
 import Post from '../models/Post.model.js'
 import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
@@ -59,6 +60,40 @@ export const createPost = async (req, res, next) => {
 
     const data = postSchema.parse(body)
 
+    // Extract EXIF từ file gốc TRƯỚC khi upload Cloudinary
+    // (Cloudinary strip toàn bộ EXIF khi process ảnh)
+    let exifData = {}
+    try {
+      const rawExif = await exifr.parse(req.file.buffer, {
+        pick: ['Make', 'Model', 'ISO', 'FNumber', 'FocalLength',
+               'ExposureTime', 'DateTimeOriginal', 'LensModel', 'Software',
+               'GPSLatitude', 'GPSLongitude'],
+        translateKeys: false,
+        translateValues: false,
+      })
+      console.log('📷 EXIF raw result:', rawExif ? Object.keys(rawExif) : 'null')
+      if (rawExif) {
+        const cameraName = [rawExif.Make, rawExif.Model].filter(Boolean).join(' ').trim()
+        if (cameraName)           exifData.camera = cameraName
+        if (rawExif.LensModel)    exifData.lensModel = rawExif.LensModel
+        if (rawExif.ISO)          exifData.iso = rawExif.ISO
+        if (rawExif.FNumber)      exifData.aperture = `f/${rawExif.FNumber}`
+        if (rawExif.FocalLength)  exifData.focalLength = `${rawExif.FocalLength}mm`
+        if (rawExif.ExposureTime) {
+          exifData.shutterSpeed = rawExif.ExposureTime >= 1
+            ? `${rawExif.ExposureTime}s`
+            : `1/${Math.round(1 / rawExif.ExposureTime)}s`
+        }
+        if (rawExif.DateTimeOriginal) exifData.dateTaken = rawExif.DateTimeOriginal
+        if (rawExif.Software)     exifData.software = rawExif.Software
+        if (rawExif.GPSLatitude)  exifData.gpsLat = rawExif.GPSLatitude
+        if (rawExif.GPSLongitude) exifData.gpsLng = rawExif.GPSLongitude
+      }
+    } catch (exifErr) {
+      console.warn('⚠️ EXIF extraction at upload:', exifErr.message)
+    }
+    console.log('📷 Parsed exifData:', JSON.stringify(exifData))
+
     // Upload ảnh gốc lên Cloudinary
     const uploadResult = await uploadBuffer(
       req.file.buffer,
@@ -67,7 +102,8 @@ export const createPost = async (req, res, next) => {
       { resource_type: 'image' }
     )
 
-    // Tạo Post document với status pending
+    // Tạo Post document với status pending (bao gồm EXIF nếu có)
+    const hasExif = Object.keys(exifData).length > 0
     const post = await Post.create({
       authorId: req.user._id,
       images: [
@@ -81,6 +117,7 @@ export const createPost = async (req, res, next) => {
         },
       ],
       ...data,
+      ...(hasExif ? { exifData } : {}),
       status: 'pending',
     })
 

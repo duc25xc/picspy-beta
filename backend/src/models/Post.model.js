@@ -27,6 +27,27 @@ const postSchema = new mongoose.Schema(
     blurHash: String,
     colorPalette: [{ type: String }],
 
+    // === EXIF METADATA ===
+    exifData: {
+      camera: String,        // "Canon EOS R5"
+      lensModel: String,     // "RF 50mm F1.2L USM"
+      iso: Number,           // 400
+      aperture: String,      // "f/1.4"
+      focalLength: String,   // "50mm"
+      shutterSpeed: String,  // "1/250s"
+      dateTaken: Date,       // Ngày chụp gốc từ EXIF
+      software: String,      // "Adobe Lightroom"
+      gpsLat: Number,
+      gpsLng: Number,
+    },
+
+    // === HISTOGRAM (RGB 64-bin mỗi kênh — nhẹ hơn 256-bin) ===
+    histogram: {
+      r: [Number],   // 64 giá trị
+      g: [Number],
+      b: [Number],
+    },
+
     // === CONTENT ===
     caption: { type: String, maxlength: 500 },
     tags: [{ type: String, lowercase: true, trim: true }],

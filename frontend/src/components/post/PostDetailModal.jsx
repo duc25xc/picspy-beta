@@ -11,6 +11,7 @@ import LikeButton from './LikeButton'
 import BookmarkButton from './BookmarkButton'
 import DownloadButton from './DownloadButton'
 import CommentSection from './CommentSection'
+import ExifPanel from './ExifPanel'
 import toast from 'react-hot-toast'
 
 /* ─── Ambient glow builder ────────────────────────────────────── */
@@ -463,8 +464,20 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
               </div>
             )}
 
-            {/* Color Palette Strip — Ambient Mode colors */}
-            {post && <ColorPaletteStrip palette={post.colorPalette} />}
+            {/* EXIF Panel — compact mode cho modal (inline pills) */}
+            {post && (
+              <ExifPanel
+                exifData={post.exifData}
+                histogram={post.histogram}
+                colorPalette={post.colorPalette}
+                compact
+              />
+            )}
+
+            {/* Fallback: Color strip đơn giản nếu không có ExifPanel data */}
+            {post && !post.exifData && !post.histogram && (
+              <ColorPaletteStrip palette={post.colorPalette} />
+            )}
 
             {/* Stats + Action Buttons */}
             {post && (

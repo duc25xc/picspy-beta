@@ -11,6 +11,7 @@ import useAuthStore from '../store/auth.store'
 import LikeButton from '../components/post/LikeButton'
 import BookmarkButton from '../components/post/BookmarkButton'
 import CommentSection from '../components/post/CommentSection'
+import ExifPanel from '../components/post/ExifPanel'
 
 /* ─── Ambient gradient builder ────────────────────────────── */
 /**
@@ -459,20 +460,26 @@ const PostDetailPage = () => {
               </div>
             )}
 
-            {/* Color Palette — KEY FEATURE */}
-            <AnimatePresence>
-              {palette.length > 0 && (
+            {/* EXIF Panel — thông số chụp + histogram + bảng mã màu
+                Hiển thị khi có bất kỳ: exifData, histogram, hoặc colorPalette */}
+            {(post.exifData || post.histogram || palette.length > 0) && (
+              <AnimatePresence>
                 <motion.div
-                  key="palette"
+                  key="exif-panel"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5 }}
+                  className="card overflow-hidden"
                 >
-                  <ColorPaletteStrip palette={palette} />
+                  <ExifPanel
+                    exifData={post.exifData}
+                    histogram={post.histogram}
+                    colorPalette={palette}
+                  />
                 </motion.div>
-              )}
-            </AnimatePresence>
+              </AnimatePresence>
+            )}
 
             {/* Meta grid */}
             <div className="grid grid-cols-2 gap-3">
@@ -519,16 +526,12 @@ const PostDetailPage = () => {
             {/* Actions */}
             <div className="space-y-3">
               <PostDownloadButton post={post} onUnlock={() => setIsUnlocked(true)} />
-              <div className="flex gap-3">
-                <div className="flex-1">
-                  <LikeButton postId={post._id} initialCount={post.stats?.likesCount || 0} initialLiked={post.isLiked} />
-                </div>
-                <div className="flex-1">
-                  <BookmarkButton postId={post._id} initialBookmarked={post.isBookmarked} />
-                </div>
+              <div className="grid grid-cols-3 gap-3">
+                <LikeButton postId={post._id} initialCount={post.stats?.likesCount || 0} initialLiked={post.isLiked} />
+                <BookmarkButton postId={post._id} initialBookmarked={post.isBookmarked} />
                 <motion.button
                   whileTap={{ scale: 0.95 }} onClick={handleShare} disabled={shareLoading}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl
+                  className="flex items-center justify-center gap-2 py-2.5 rounded-xl
                     bg-white/5 border border-white/10 text-white/60
                     hover:bg-white/10 hover:text-white transition-all text-sm font-semibold"
                 >
