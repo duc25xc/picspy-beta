@@ -1,0 +1,29 @@
+import { Router } from 'express'
+import { authenticate, optionalAuth } from '../middlewares/authenticate.js'
+import { getLensSpy, checkLensSpy } from '../controllers/ai.controller.js'
+import rateLimit from 'express-rate-limit'
+
+const router = Router()
+
+// Rate limit chặt cho AI route: tránh gọi API liên tục gây tốn tiền
+const aiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  message: { error: 'RATE_LIMITED', message: 'Quá nhiều yêu cầu AI. Vui lòng thử lại sau 1 phút.' },
+  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+  validate: { xForwardedForHeader: false, default: false },
+})
+
+/**
+ * GET /v1/ai/lensspy/:postId
+ * Kiểm tra trạng thái phân tích (không tốn xu, có thể public)
+ */
+router.get('/lensspy/:postId', optionalAuth, checkLensSpy)
+
+/**
+ * POST /v1/ai/lensspy/:postId
+ * Kích hoạt phân tích LensSpy AI (tốn xu, phải đăng nhập)
+ */
+router.post('/lensspy/:postId', authenticate, aiLimiter, getLensSpy)
+
+export default router

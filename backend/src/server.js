@@ -19,6 +19,7 @@ import authRoutes from './routes/auth.routes.js'
 import userRoutes from './routes/user.routes.js'
 import postRoutes from './routes/post.routes.js'
 import adminRoutes from './routes/admin.routes.js'
+import aiRoutes from './routes/ai.routes.js'
 import { getPublicCategories, seedCategories } from './controllers/admin.controller.js'
 
 // Workers (khởi động cùng server)
@@ -84,6 +85,7 @@ app.use('/v1/auth', authRoutes)
 app.use('/v1/users', userRoutes)
 app.use('/v1/posts', postRoutes)
 app.use('/v1/admin', adminRoutes)
+app.use('/v1/ai', aiRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
 

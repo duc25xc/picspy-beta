@@ -12,6 +12,7 @@ import LikeButton from '../components/post/LikeButton'
 import BookmarkButton from '../components/post/BookmarkButton'
 import CommentSection from '../components/post/CommentSection'
 import ExifPanel from '../components/post/ExifPanel'
+import LensSpyPanel from '../components/post/LensSpyPanel'
 
 /* ─── Ambient gradient builder ────────────────────────────── */
 /**
@@ -479,6 +480,11 @@ const PostDetailPage = () => {
                   />
                 </motion.div>
               </AnimatePresence>
+            )}
+
+            {/* LensSpy AI — Giải phẫu ảnh bằng AI (chỉ hiển khi có EXIF hoặc ảnh thực tế) */}
+            {!post.isAIGenerated && (
+              <LensSpyPanel postId={post._id} />
             )}
 
             {/* Meta grid */}

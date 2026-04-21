@@ -125,7 +125,7 @@ const imageWorker = new Worker(
         const rawExif = await exifr.parse(imageBuffer, {
           pick: ['Make', 'Model', 'ISO', 'FNumber', 'FocalLength',
                  'ExposureTime', 'DateTimeOriginal', 'LensModel', 'Software',
-                 'GPSLatitude', 'GPSLongitude'],
+                 'GPSLatitude', 'GPSLongitude', 'ExposureValue', 'Flash'],
           translateKeys: false,
           translateValues: false,
         })
@@ -140,6 +140,10 @@ const imageWorker = new Worker(
             shutterSpeed: rawExif.ExposureTime
               ? (rawExif.ExposureTime >= 1 ? `${rawExif.ExposureTime}s` : `1/${Math.round(1 / rawExif.ExposureTime)}s`)
               : undefined,
+            // EV (Exposure Value) — lưu số gốc, FE render sẽ format
+            ev: rawExif.ExposureValue !== undefined ? Math.round(rawExif.ExposureValue * 10) / 10 : undefined,
+            // Flash: 0 = off, 1 = fired, các số khác xem EXIF spec
+            flash: rawExif.Flash !== undefined ? rawExif.Flash : undefined,
             dateTaken: rawExif.DateTimeOriginal || undefined,
             software: rawExif.Software || undefined,
             gpsLat: rawExif.GPSLatitude || undefined,

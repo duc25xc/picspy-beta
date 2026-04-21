@@ -35,6 +35,8 @@ const postSchema = new mongoose.Schema(
       aperture: String,      // "f/1.4"
       focalLength: String,   // "50mm"
       shutterSpeed: String,  // "1/250s"
+      ev: Number,            // Exposure Value: 10.5
+      flash: Number,         // 0 = off, 1 = fired
       dateTaken: Date,       // Ngày chụp gốc từ EXIF
       software: String,      // "Adobe Lightroom"
       gpsLat: Number,

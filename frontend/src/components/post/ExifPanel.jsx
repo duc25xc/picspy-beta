@@ -2,6 +2,7 @@ import { useMemo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Camera, Aperture, Zap, Focus, Timer, Calendar, Cpu, Crosshair, Copy, Check,
+  SunDim, ZapOff,
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────────────────
@@ -272,6 +273,8 @@ const STAT_STYLES = {
   'Khẩu độ':  { ring: 'border-violet-500/40', icon: 'text-violet-400',  badge: 'bg-violet-500/15 text-violet-300', mono: true  },
   'Tốc độ':   { ring: 'border-cyan-500/40',   icon: 'text-cyan-400',    badge: 'bg-cyan-500/15 text-cyan-300',     mono: true  },
   'Tiêu cự':  { ring: 'border-emerald-500/40',icon: 'text-emerald-400', badge: 'bg-emerald-500/15 text-emerald-300',mono: true },
+  'EV':        { ring: 'border-orange-500/40', icon: 'text-orange-400',  badge: 'bg-orange-500/15 text-orange-300', mono: true  },
+  'Flash':     { ring: 'border-yellow-500/40', icon: 'text-yellow-400',  badge: 'bg-yellow-500/15 text-yellow-300', mono: false },
   'Thiết bị': { ring: 'border-white/15',      icon: 'text-white/50',    badge: 'bg-white/8 text-white/60',         mono: false },
   'Ống kính': { ring: 'border-white/12',      icon: 'text-white/40',    badge: 'bg-white/6 text-white/50',         mono: false },
   'Ngày chụp':{ ring: 'border-slate-500/30',  icon: 'text-slate-400',   badge: 'bg-slate-500/15 text-slate-300',   mono: false },
@@ -338,6 +341,8 @@ const ExifPanel = ({ exifData, histogram, colorPalette, compact = false }) => {
   if (exifData?.aperture)     primaryStats.push({ icon: Aperture,  label: 'Khẩu độ', value: exifData.aperture })
   if (exifData?.shutterSpeed) primaryStats.push({ icon: Timer,     label: 'Tốc độ',  value: exifData.shutterSpeed })
   if (exifData?.focalLength)  primaryStats.push({ icon: Crosshair, label: 'Tiêu cự', value: exifData.focalLength })
+  if (exifData?.ev !== undefined) primaryStats.push({ icon: SunDim, label: 'EV', value: `EV ${exifData.ev > 0 ? '+' : ''}${exifData.ev}` })
+  if (exifData?.flash !== undefined) primaryStats.push({ icon: ZapOff, label: 'Flash', value: exifData.flash ? 'Đã bật đèn' : 'Không đèn' })
 
   if (exifData?.camera)     secondaryStats.push({ icon: Camera,   label: 'Thiết bị',  value: exifData.camera })
   if (exifData?.lensModel)  secondaryStats.push({ icon: Focus,    label: 'Ống kính',  value: exifData.lensModel })
