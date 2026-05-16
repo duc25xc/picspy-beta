@@ -78,7 +78,7 @@ const useAuthStore = create(
         }
       },
 
-      // Đồng bộ thông tin user mới nhất từ server (coin, stats...)
+      // Đồng bộ thông tin user mới nhất từ server (token, stats...)
       refreshMe: async () => {
         try {
           const { data } = await api.get('/users/me')

@@ -6,7 +6,7 @@ import AppError from '../utils/AppError.js'
 /**
  * POST /posts/:id/download — Tải ảnh
  * - Free: tạo Cloudinary signed URL (hết hạn 30 phút)
- * - Premium: kiểm tra coinBalance → trừ xu → trả signed URL
+ * - Premium: kiểm tra tokenBalance → trừ token → trả signed URL
  * - Security: KHÔNG expose publicId thực, chỉ trả URL ký tên ngắn hạn
  */
 export const downloadPost = async (req, res, next) => {
@@ -24,33 +24,38 @@ export const downloadPost = async (req, res, next) => {
       throw new AppError('NOT_FOUND', 'Không tìm thấy file ảnh', 404)
     }
 
-    // ─── Premium: kiểm tra và trừ xu ─────────────────────────
+    // ─── Premium: kiểm tra và trừ token ─────────────────────────
     if (post.isPremium) {
       const User = (await import('../models/User.model.js')).default
       const user = await User.findById(userId)
 
       if (!user) throw new AppError('UNAUTHORIZED', 'Người dùng không tồn tại', 401)
 
-      const price = post.priceInCoins || 50
-      if (user.coinBalance < price) {
+      // Ultimate tier không tốn token khi tải
+      const isUnlimited = user.subscriptionTier === 'ultimate'
+      const price = post.priceInTokens || 10
+
+      if (!isUnlimited && user.tokenBalance < price) {
         return res.status(402).json({
-          error: 'INSUFFICIENT_COINS',
-          message: `Bạn cần ${price} xu để tải ảnh này. Số dư hiện tại: ${user.coinBalance} xu.`,
+          error: 'INSUFFICIENT_TOKENS',
+          message: `Bạn cần ${price} token để tải ảnh này. Số dư hiện tại: ${user.tokenBalance} token.`,
           required: price,
-          balance: user.coinBalance,
-          shortfall: price - user.coinBalance,
+          balance: user.tokenBalance,
+          shortfall: price - user.tokenBalance,
         })
       }
 
-      // Trừ xu atomic
-      await User.findByIdAndUpdate(userId, { $inc: { coinBalance: -price } })
+      if (!isUnlimited) {
+        // Trừ token atomic
+        await User.findByIdAndUpdate(userId, { $inc: { tokenBalance: -price } })
 
-      // Tăng totalEarned cho author
-      if (post.authorId.toString() !== userId.toString()) {
-        const authorShare = Math.floor(price * 0.7) // Author nhận 70%
-        await User.findByIdAndUpdate(post.authorId, {
-          $inc: { totalEarned: authorShare },
-        })
+        // Tăng totalEarned cho author (creator nhận 70%)
+        if (post.authorId.toString() !== userId.toString()) {
+          const authorShare = Math.floor(price * 0.7)
+          await User.findByIdAndUpdate(post.authorId, {
+            $inc: { totalEarned: authorShare },
+          })
+        }
       }
     }
 
@@ -81,8 +86,8 @@ export const downloadPost = async (req, res, next) => {
       downloadUrl,
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       expiresInMinutes: EXPIRES_IN / 60,
-      coinsSpent: post.isPremium ? (post.priceInCoins || 50) : 0,
-      message: post.isPremium ? `Đã trừ ${post.priceInCoins || 50} xu` : 'Tải ảnh miễn phí',
+      tokensSpent: post.isPremium ? (post.priceInTokens || 10) : 0,
+      message: post.isPremium ? `Đã trừ ${post.priceInTokens || 10} token` : 'Tải ảnh miễn phí',
     })
   } catch (err) {
     next(err)

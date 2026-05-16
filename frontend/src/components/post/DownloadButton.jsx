@@ -6,15 +6,15 @@ import useAuthStore from '../../store/auth.store'
 import toast from 'react-hot-toast'
 
 /**
- * DownloadButton — Nút tải ảnh với full premium coin flow
+ * DownloadButton — Nút tải ảnh với full premium token flow
  * - Free: gọi API lấy signed URL → trigger download
- * - Premium: kiểm tra balance → confirm → trừ xu → signed URL → download
- * - Sau download premium: refreshMe() để sync coin balance realtime
+ * - Premium: kiểm tra balance → confirm → trừ token → signed URL → download
+ * - Sau download premium: refreshMe() để sync token balance realtime
  */
 const DownloadButton = ({
   postId,
   isPremium = false,
-  priceInCoins = 50,
+  priceInTokens = 10,
   className = '',
   variant = 'default', // 'default' | 'compact'
 }) => {
@@ -44,9 +44,9 @@ const DownloadButton = ({
         setDone(true)
         setTimeout(() => setDone(false), 3000)
 
-        if (data.coinsSpent > 0) {
-          toast.success(`Đã trừ ${data.coinsSpent} xu. Đang tải ảnh...`, { duration: 4000 })
-          // Sync lại coin balance ngay lập tức
+        if (data.tokensSpent > 0) {
+          toast.success(`Đã trừ ${data.tokensSpent} token. Đang tải ảnh...`, { duration: 4000 })
+          // Sync lại token balance ngay lập tức
           await refreshMe()
         } else {
           toast.success('Đang tải xuống...')
@@ -55,13 +55,13 @@ const DownloadButton = ({
     } catch (err) {
       const errData = err.response?.data
       if (err.response?.status === 402) {
-        if (errData?.error === 'INSUFFICIENT_COINS') {
+        if (errData?.error === 'INSUFFICIENT_TOKENS') {
           toast.error(
-            `Không đủ xu! Cần ${errData.required} xu, bạn có ${errData.balance} xu.`,
+            `Không đủ token! Cần ${errData.required} token, bạn có ${errData.balance} token.`,
             { duration: 5000 }
           )
         } else {
-          toast.error(errData?.message || 'Cần xu để tải ảnh này')
+          toast.error(errData?.message || 'Cần token để tải ảnh này')
         }
       } else {
         toast.error(errData?.message || 'Không thể tải ảnh')
@@ -79,9 +79,9 @@ const DownloadButton = ({
     }
     // Premium → hiện confirm modal với thông tin xu
     if (isPremium) {
-      const balance = user?.coinBalance || 0
-      if (balance < priceInCoins) {
-        toast.error(`Không đủ xu! Cần ${priceInCoins} xu, bạn có ${balance} xu.`)
+      const balance = user?.tokenBalance || 0
+      if (balance < priceInTokens) {
+        toast.error(`Không đủ token! Cần ${priceInTokens} token, bạn có ${balance} token.`)
         return
       }
       setShowConfirm(true)
@@ -99,7 +99,7 @@ const DownloadButton = ({
           whileTap={{ scale: 0.9 }}
           disabled={loading}
           className={`flex items-center gap-1.5 text-white/50 hover:text-white transition-colors ${className}`}
-          title={isPremium ? `Premium: ${priceInCoins} xu` : 'Tải miễn phí'}
+          title={isPremium ? `Premium: ${priceInTokens} token` : 'Tải miễn phí'}
         >
           {loading ? (
             <Loader2 size={16} className="animate-spin" />
@@ -148,13 +148,13 @@ const DownloadButton = ({
         ) : (
           <Download size={16} />
         )}
-        {done ? 'Đã tải!' : isPremium ? `${priceInCoins} xu` : 'Tải miễn phí'}
+        {done ? 'Đã tải!' : isPremium ? `${priceInTokens} token` : 'Tải miễn phí'}
       </motion.button>
 
       <ConfirmModal
         open={showConfirm}
-        price={priceInCoins}
-        balance={user?.coinBalance || 0}
+        price={priceInTokens}
+        balance={user?.tokenBalance || 0}
         onConfirm={doDownload}
         onCancel={() => setShowConfirm(false)}
       />
@@ -190,16 +190,16 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
           <div className="space-y-2 mb-5">
             <div className="flex justify-between items-center py-2 border-b border-white/8">
               <span className="text-white/50 text-sm">Giá ảnh</span>
-              <span className="text-amber-400 font-bold">{price} xu</span>
+              <span className="text-amber-400 font-bold">{price} token</span>
             </div>
             <div className="flex justify-between items-center py-2">
               <span className="text-white/50 text-sm">Số dư của bạn</span>
-              <span className="text-white font-semibold">{balance} xu</span>
+              <span className="text-white font-semibold">{balance} token</span>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-white/8">
               <span className="text-white/50 text-sm">Số dư còn lại</span>
               <span className={`font-bold ${balance - price < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                {balance - price} xu
+                {balance - price} token
               </span>
             </div>
           </div>

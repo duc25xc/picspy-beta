@@ -5,7 +5,7 @@ import PostAnalysis from '../models/PostAnalysis.model.js'
 import UserUnlock from '../models/UserUnlock.model.js'
 import { analyzeLensSpy } from '../services/ai.service.js'
 
-const LENSSPY_COST = 2 // Xu
+const LENSSPY_COST = 2 // Token
 
 /**
  * POST /v1/ai/lensspy/:postId
@@ -29,7 +29,7 @@ export const getLensSpy = async (req, res, next) => {
       return res.json({
         success: true,
         alreadyUnlocked: true,
-        coinsCost: 0,
+        tokensCost: 0,
         analysis,
       })
     }
@@ -43,11 +43,11 @@ export const getLensSpy = async (req, res, next) => {
     if (!imageUrl) throw new AppError('BAD_REQUEST', 'Bài đăng không có ảnh để phân tích', 400)
 
     // ── 3. Kiểm tra số dư xu ──────────────────────────────────────
-    const user = await User.findById(userId).select('coinBalance')
-    if (!user || user.coinBalance < LENSSPY_COST) {
+    const user = await User.findById(userId).select('tokenBalance')
+    if (!user || user.tokenBalance < LENSSPY_COST) {
       throw new AppError(
-        'INSUFFICIENT_COINS',
-        `Bạn cần ít nhất ${LENSSPY_COST} xu để mở khoá LensSpy AI`,
+        'INSUFFICIENT_TOKENS',
+        `Bạn cần ít nhất ${LENSSPY_COST} token để mở khoá LensSpy AI`,
         402
       )
     }
@@ -84,23 +84,23 @@ export const getLensSpy = async (req, res, next) => {
     // ── 6. Trừ xu (atomic) + Tạo UserUnlock ──────────────────────
     const [updatedUser] = await Promise.all([
       User.findOneAndUpdate(
-        { _id: userId, coinBalance: { $gte: LENSSPY_COST } },
-        { $inc: { coinBalance: -LENSSPY_COST } },
-        { returnDocument: 'after', select: 'coinBalance' }
+        { _id: userId, tokenBalance: { $gte: LENSSPY_COST } },
+        { $inc: { tokenBalance: -LENSSPY_COST } },
+        { returnDocument: 'after', select: 'tokenBalance' }
       ),
-      UserUnlock.create({ userId, postId, coinsPaid: LENSSPY_COST }),
+      UserUnlock.create({ userId, postId, tokensPaid: LENSSPY_COST }),
     ])
 
     if (!updatedUser) {
-      throw new AppError('INSUFFICIENT_COINS', 'Xu không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
+      throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
     }
 
     return res.json({
       success: true,
       alreadyUnlocked: false,
       fromAiCache,
-      coinsCost: LENSSPY_COST,
-      remainingCoins: updatedUser.coinBalance,
+      tokensCost: LENSSPY_COST,
+      remainingTokens: updatedUser.tokenBalance,
       analysis,
     })
   } catch (err) {

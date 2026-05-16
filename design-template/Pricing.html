@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta content="width=device-width, initial-scale=1.0" name="viewport" />
+    <title>Pricing - PICSPY</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Inter:wght@400;600&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+        rel="stylesheet" />
+    <script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-secondary-container": "#b2c0ff",
+                        "outline-variant": "#494454",
+                        "secondary-container": "#0040cb",
+                        "error-container": "#93000a",
+                        "secondary-fixed": "#dce1ff",
+                        "primary-fixed": "#e9ddff",
+                        "on-tertiary": "#283044",
+                        "tertiary-fixed": "#dae2fd",
+                        "on-primary-container": "#340080",
+                        "secondary": "#b7c4ff",
+                        "surface-dim": "#051424",
+                        "primary": "#d0bcff",
+                        "on-surface-variant": "#cbc3d7",
+                        "on-error-container": "#ffdad6",
+                        "primary-container": "#a078ff",
+                        "inverse-on-surface": "#233143",
+                        "on-primary": "#3c0091",
+                        "surface-container-lowest": "#010f1f",
+                        "on-primary-fixed-variant": "#5516be",
+                        "surface-variant": "#273647",
+                        "tertiary-fixed-dim": "#bec6e0",
+                        "on-secondary-fixed": "#001551",
+                        "surface-container": "#122131",
+                        "outline": "#958ea0",
+                        "surface-container-highest": "#273647",
+                        "on-tertiary-fixed-variant": "#3f465c",
+                        "on-tertiary-container": "#22293d",
+                        "on-secondary": "#002682",
+                        "on-secondary-fixed-variant": "#0039b5",
+                        "on-background": "#d4e4fa",
+                        "primary-fixed-dim": "#d0bcff",
+                        "secondary-fixed-dim": "#b7c4ff",
+                        "on-surface": "#d4e4fa",
+                        "on-primary-fixed": "#23005c",
+                        "on-tertiary-fixed": "#131b2e",
+                        "surface": "#051424",
+                        "surface-tint": "#d0bcff",
+                        "surface-container-high": "#1c2b3c",
+                        "surface-bright": "#2c3a4c",
+                        "inverse-surface": "#d4e4fa",
+                        "error": "#ffb4ab",
+                        "inverse-primary": "#6d3bd7",
+                        "on-error": "#690005",
+                        "surface-container-low": "#0d1c2d",
+                        "tertiary": "#bec6e0",
+                        "tertiary-container": "#8990a8",
+                        "background": "#051424"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px",
+                        "2xl": "1rem",
+                        "3xl": "1.5rem"
+                    },
+                    "spacing": {
+                        "stack-md": "24px",
+                        "stack-lg": "48px",
+                        "gutter": "24px",
+                        "stack-sm": "12px",
+                        "base": "8px",
+                        "margin-mobile": "16px",
+                        "margin-desktop": "48px",
+                        "container-max": "1280px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Plus Jakarta Sans"],
+                        "body-md": ["Inter"],
+                        "body-lg": ["Inter"],
+                        "headline-lg-mobile": ["Plus Jakarta Sans"],
+                        "label-sm": ["Inter"],
+                        "display-lg": ["Plus Jakarta Sans"],
+                        "headline-lg": ["Plus Jakarta Sans"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["24px", { "lineHeight": "1.4", "fontWeight": "600" }],
+                        "body-md": ["16px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "body-lg": ["18px", { "lineHeight": "1.6", "fontWeight": "400" }],
+                        "headline-lg-mobile": ["32px", { "lineHeight": "1.2", "fontWeight": "700" }],
+                        "label-sm": ["12px", { "lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600" }],
+                        "display-lg": ["64px", { "lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "800" }],
+                        "headline-lg": ["40px", { "lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "700" }]
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .glass-card {
+            background: rgba(13, 28, 45, 0.4);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.1), 0 8px 32px rgba(0, 0, 0, 0.2);
+        }
+
+        .glass-card-pro {
+            background: rgba(35, 0, 92, 0.15);
+            backdrop-filter: blur(40px);
+            -webkit-backdrop-filter: blur(40px);
+            border: 1px solid rgba(208, 188, 255, 0.4);
+            box-shadow: inset 0 1px 1px rgba(208, 188, 255, 0.3), 0 0 60px rgba(160, 120, 255, 0.2);
+        }
+
+        .gradient-text {
+            background: linear-gradient(to right, #d0bcff, #b7c4ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .bg-mesh-dark {
+            background-color: #051424;
+            background-image:
+                radial-gradient(at 0% 0%, hsla(253, 16%, 7%, 1) 0, transparent 50%),
+                radial-gradient(at 50% 0%, hsla(225, 39%, 30%, 0.2) 0, transparent 50%),
+                radial-gradient(at 100% 0%, hsla(339, 49%, 30%, 0.1) 0, transparent 50%);
+        }
+
+        .btn-primary-gradient {
+            background: linear-gradient(135deg, #a078ff 0%, #0040cb 100%);
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+
+<body
+    class="bg-mesh-dark text-on-surface min-h-screen font-body-md overflow-x-hidden selection:bg-primary-container selection:text-on-primary-container">
+    <!-- TopNavBar -->
+    <nav
+        class="bg-surface/80 dark:bg-surface/80 backdrop-blur-xl docked full-width top-0 z-50 border-b border-white/10 shadow-lg shadow-primary/5 fixed w-full flex justify-between items-center px-gutter py-4 max-w-container-max mx-auto left-0 right-0">
+        <div
+            class="text-headline-md font-headline-md font-extrabold text-primary flex items-center gap-2 scale-95 active:scale-90 transition-transform cursor-pointer">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">camera</span>
+            PICSPY
+        </div>
+        <div class="hidden md:flex gap-8 items-center">
+            <a class="text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md"
+                href="#">Explore</a>
+            <a class="text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md"
+                href="#">Search</a>
+            <a class="text-primary border-b-2 border-primary pb-1 font-body-md text-body-md" href="#">Pricing</a>
+            <a class="text-on-surface-variant hover:text-on-surface transition-colors font-body-md text-body-md"
+                href="#">Community</a>
+        </div>
+        <div class="flex items-center gap-4">
+            <button
+                class="text-on-surface-variant hover:text-on-surface font-body-md text-body-md hover:bg-white/5 transition-all duration-300 px-4 py-2 rounded-full">Login</button>
+            <button
+                class="btn-primary-gradient text-white font-body-md text-body-md px-6 py-2 rounded-full scale-95 active:scale-90 transition-transform font-bold">Join
+                Now</button>
+        </div>
+    </nav>
+    <!-- Main Content -->
+    <main class="pt-32 pb-24 px-margin-mobile md:px-margin-desktop max-w-container-max mx-auto relative">
+        <!-- Background decorative elements -->
+        <div
+            class="absolute top-0 left-1/2 -translate-x-1/2 w-full h-[500px] bg-primary/5 blur-[120px] rounded-full pointer-events-none z-0">
+        </div>
+        <!-- Header -->
+        <div class="text-center mb-16 relative z-10">
+            <h1 class="font-display-lg text-display-lg md:text-[80px] font-extrabold mb-6 tracking-tighter">
+                Pricing that <span class="gradient-text">Scales</span>
+            </h1>
+            <p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl mx-auto">
+                Join the platform where elite creators build their visual legacy. Choose the plan that fits your
+                ambition.
+            </p>
+        </div>
+        <!-- Pricing Cards - Horizontal Layout -->
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 relative z-10 items-stretch">
+            <!-- Plan 1: Free -->
+            <div
+                class="glass-card rounded-3xl p-6 flex flex-col hover:border-white/20 transition-all duration-300 group">
+                <div class="rounded-2xl overflow-hidden mb-6 h-32 relative">
+                    <img alt="Gallery Preview"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQz19iOt4YQT0ptw0fofo38rp9tz7krZi9X63AELC8yMZe3TFEfuxO4v8ArqtvmlwaFDef2kjyE0HFfGyL8XCocG9GWuG6LShRrI-ku8ZPL_NC4bmxWELU7k3cF_5-gcYl5PQlJFKYAGM52WqjOvT3uRPKA--E-_Ynx09Ijr1AGutxRFk3SPPS_3N_18G90vf3TtCLJnG4hbGhUqjSJgJyjkHS-l13sczKtUEKIX68sFCxhRP7i82SCSWqujQ3MIs_x5YFgkJctGs" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+                </div>
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h3 class="font-headline-md text-[24px] font-bold text-on-surface mb-1">Basic</h3>
+                    </div>
+                    <div class="text-right flex items-baseline gap-1">
+                        <span class="font-display-lg text-[32px] font-extrabold text-white leading-none">$0</span>
+                        <span
+                            class="font-body-sm text-[12px] text-on-surface-variant uppercase tracking-wider">/forever</span>
+                    </div>
+                </div>
+                <p class="font-body-md text-[15px] text-on-surface-variant mb-6 h-10">Essential tools for casual
+                    explorers.</p>
+                <ul class="flex-grow space-y-4 mb-8 pt-6 border-t border-white/5">
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Browse all public galleries</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Up to 50 saved items</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Standard resolution downloads</span>
+                    </li>
+                </ul>
+                <button
+                    class="w-full py-3.5 rounded-full bg-surface-container-highest/50 hover:bg-surface-container-highest transition-colors font-body-md text-[15px] font-semibold text-white border border-white/10 group-hover:border-white/20">
+                    Start Free
+                </button>
+            </div>
+            <!-- Plan 2: Founder's Plan -->
+            <div
+                class="glass-card rounded-3xl p-6 flex flex-col hover:border-white/20 transition-all duration-300 relative overflow-hidden group">
+                <div
+                    class="absolute top-0 right-0 bg-primary/20 text-primary px-4 py-1 rounded-bl-lg font-label-sm text-[11px] uppercase tracking-wider backdrop-blur-md z-10 font-bold border-b border-l border-primary/20">
+                    LIMITED</div>
+                <div class="rounded-2xl overflow-hidden mb-6 h-32 relative">
+                    <img alt="Downloads Preview"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYAEZtdIr7P1iAydZDTigxYv53vFsMH5rq1x0Ec_HJ030fDLyivuQaLsjJK43GkQOgBVtmvalrorcVVm5LOeT5giIofrnbRmdowv6YLkmtaCHMjdTO4WoW2NVqYl-jajWozm0vYcUvNC9_v6xNZQA9JfaDzE5OHFWNVVT3jCXeEKgxEVII-MxPvn753s5RbSBVPbLbIqmtoqDQFUJqEpqTIuCkzxAu7H_p0pWWHsJrSJoMe3eto3ukIxg4nzvMT7CR-cPGmwhSMDo" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+                </div>
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h3 class="font-headline-md text-[24px] font-bold text-on-surface mb-1">Founder</h3>
+                    </div>
+                    <div class="text-right flex items-baseline gap-1">
+                        <span class="font-display-lg text-[32px] font-extrabold text-white leading-none">$12</span>
+                        <span
+                            class="font-body-sm text-[12px] text-on-surface-variant uppercase tracking-wider">/mo</span>
+                    </div>
+                </div>
+                <p class="font-body-md text-[15px] text-on-surface-variant mb-6 h-10">Early adopter benefits &amp;
+                    profile badge.</p>
+                <ul class="flex-grow space-y-4 mb-8 pt-6 border-t border-white/5">
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Exclusive Founder Profile Badge</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">High-res downloads (4K)</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Ad-free experience</span>
+                    </li>
+                </ul>
+                <button
+                    class="w-full py-3.5 rounded-full bg-surface-container-highest/50 hover:bg-surface-container-highest transition-colors font-body-md text-[15px] font-semibold text-white border border-white/10 group-hover:border-white/20">
+                    Claim Offer
+                </button>
+            </div>
+            <!-- Plan 3: Pro (Highlighted) -->
+            <div class="glass-card-pro rounded-3xl p-6 flex flex-col relative transform xl:-translate-y-4 z-20 group">
+                <div
+                    class="absolute -top-4 left-1/2 -translate-x-1/2 bg-primary text-on-primary px-5 py-1.5 rounded-full font-label-sm text-[11px] uppercase tracking-wider font-bold shadow-lg shadow-primary/30 z-20 border border-primary-fixed">
+                    MOST POPULAR</div>
+                <div class="rounded-2xl overflow-hidden mb-6 h-36 relative mt-2">
+                    <img alt="AI Tools Preview"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuCI64mlUH2TKvBI5MedtQwTwcCjt-wcSt4pSQ5fPGidi0oLQDIfOrJPdSnaU6SY6hRbcb0OyOIr0mzGITiuvZvsOVQeG_cbLD4cTRzLiQYmA9xhjHLzimhB56aAzXZs0msXGHCNTLlC0JG5YceisTXawjq9varXjx5mznyJqmr-zd86NWLqRVMndvwUzJ6FNl7HIE1SPJ6HP7M_snTYhuTr5b4bVRoPvw2QxsZ2og90GNcI4qDjWw2ekCugnfDpn2sV0wPG9Stwan8" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#150a2e] to-transparent"></div>
+                </div>
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h3 class="font-headline-md text-[24px] font-bold text-white mb-1 flex items-center gap-2">
+                            Creator Pro
+                            <span class="material-symbols-outlined text-primary text-[20px]"
+                                style="font-variation-settings: 'FILL' 1;">stars</span>
+                        </h3>
+                    </div>
+                    <div class="text-right flex items-baseline gap-1">
+                        <span class="font-display-lg text-[40px] font-extrabold text-white leading-none">$24</span>
+                        <span
+                            class="font-body-sm text-[12px] text-primary-fixed-dim uppercase tracking-wider">/mo</span>
+                    </div>
+                </div>
+                <p class="font-body-md text-[15px] text-primary-fixed-dim mb-6 h-10">Comprehensive tools for serious
+                    artists.</p>
+                <ul class="flex-grow space-y-4 mb-8 pt-6 border-t border-primary/20">
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-white">Everything in Founder</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-white">Unlimited high-res uploads</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-white">Advanced AI curating tools</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-white">Detailed analytics dashboard</span>
+                    </li>
+                </ul>
+                <button
+                    class="btn-primary-gradient w-full py-3.5 rounded-full text-white font-body-md text-[15px] font-bold hover:brightness-110 transition-all shadow-lg shadow-primary/20 border border-white/20">
+                    Upgrade to Pro
+                </button>
+            </div>
+            <!-- Plan 4: Ultimate -->
+            <div
+                class="glass-card rounded-3xl p-6 flex flex-col hover:border-white/20 transition-all duration-300 group">
+                <div class="rounded-2xl overflow-hidden mb-6 h-32 relative">
+                    <img alt="Team Collaboration Preview"
+                        class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        src="https://lh3.googleusercontent.com/aida-public/AB6AXuDaYiG4uf78lDz2LEb9Ir8CPSlzuuxY0RL3ry4B9GXRwfUunHG1DUT1dRIDEhBdhAkMhaPYGTSyP9Ipg9zCrjSINQhSwq0eHBR_QEyTaLmVLQSTTQEUH45sJo8BHy17x9_ZKOd7m-yoxU-NJ6iNjVCI4Js3siCBCZGP5icwkvZnjsriZv_2Xc70r7o1eO7PB_BXNQcXyDAzuv_jhyOBq0--ykqZpkyrDw742RlR1oUQ0XHQfBJ-06tXPZ7HH35UkoJkD29PXjcBdac" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-surface-container-low to-transparent"></div>
+                </div>
+                <div class="mb-6 flex justify-between items-end">
+                    <div>
+                        <h3 class="font-headline-md text-[24px] font-bold text-on-surface mb-1">Ultimate</h3>
+                    </div>
+                    <div class="text-right flex items-baseline gap-1">
+                        <span class="font-display-lg text-[32px] font-extrabold text-white leading-none">$69</span>
+                        <span
+                            class="font-body-sm text-[12px] text-on-surface-variant uppercase tracking-wider">/mo</span>
+                    </div>
+                </div>
+                <p class="font-body-md text-[15px] text-on-surface-variant mb-6 h-10">Full access for agencies &amp;
+                    teams.</p>
+                <ul class="flex-grow space-y-4 mb-8 pt-6 border-t border-white/5">
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Everything in Pro</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Custom portfolio domain</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">API access for integrations</span>
+                    </li>
+                    <li class="flex items-start gap-3">
+                        <span class="material-symbols-outlined text-primary mt-0.5"
+                            style="font-variation-settings: 'FILL' 1; font-size: 18px;">check_circle</span>
+                        <span class="font-body-md text-[15px] text-on-surface">Priority 24/7 support</span>
+                    </li>
+                </ul>
+                <button
+                    class="w-full py-3.5 rounded-full bg-surface-container-highest/50 hover:bg-surface-container-highest transition-colors font-body-md text-[15px] font-semibold text-white border border-white/10 group-hover:border-white/20">
+                    Contact Sales
+                </button>
+            </div>
+        </div>
+        <!-- FAQ Section -->
+        <div class="mt-stack-lg max-w-3xl mx-auto pt-16">
+            <h2 class="font-headline-lg text-headline-lg font-bold text-center mb-8">Frequently Asked Questions</h2>
+            <div class="space-y-4">
+                <div class="glass-card rounded-2xl p-6 hover:border-white/10 transition-colors">
+                    <h4 class="font-headline-md text-[20px] font-semibold text-white mb-2">Can I switch plans later?
+                    </h4>
+                    <p class="font-body-md text-on-surface-variant">Yes, you can upgrade or downgrade your plan at any
+                        time. Prorated charges will be applied automatically to your next billing cycle.</p>
+                </div>
+                <div class="glass-card rounded-2xl p-6 hover:border-white/10 transition-colors">
+                    <h4 class="font-headline-md text-[20px] font-semibold text-white mb-2">What happens to my data if I
+                        downgrade?</h4>
+                    <p class="font-body-md text-on-surface-variant">Your high-resolution files will remain secure, but
+                        access to them may be restricted based on your new plan's limits. You won't lose any data.</p>
+                </div>
+                <div class="glass-card rounded-2xl p-6 hover:border-white/10 transition-colors">
+                    <h4 class="font-headline-md text-[20px] font-semibold text-white mb-2">Is there a discount for
+                        annual billing?</h4>
+                    <p class="font-body-md text-on-surface-variant">Yes, all our paid plans offer a 20% discount when
+                        you choose to be billed annually instead of monthly.</p>
+                </div>
+            </div>
+        </div>
+        <!-- Bottom CTA -->
+        <div class="mt-stack-lg text-center pb-8 pt-16 border-t border-white/5 relative">
+            <div
+                class="absolute top-0 left-1/2 -translate-x-1/2 w-[300px] h-[1px] bg-gradient-to-r from-transparent via-primary/50 to-transparent">
+            </div>
+            <h2 class="font-headline-lg text-headline-lg font-bold mb-6">Ready to elevate your art?</h2>
+            <button
+                class="btn-primary-gradient text-white font-body-md text-[18px] px-8 py-4 rounded-full scale-95 hover:scale-100 transition-transform font-bold shadow-xl shadow-primary/20">
+                Create Your Account Now
+            </button>
+        </div>
+    </main>
+    <!-- Footer -->
+    <footer
+        class="bg-surface-container-lowest dark:bg-surface-container-lowest full-width py-stack-lg border-t border-white/5 flat no shadows w-full flex flex-col items-center gap-base px-margin-desktop mt-auto">
+        <div class="text-headline-md font-headline-md font-bold text-on-surface mb-4 flex items-center gap-2">
+            <span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">camera</span>
+            PICSPY
+        </div>
+        <div class="flex flex-wrap justify-center gap-6 mb-6">
+            <a class="font-body-md text-body-md text-outline hover:text-primary transition-colors opacity-80 hover:opacity-100 transition-opacity"
+                href="#">About Us</a>
+            <a class="font-body-md text-body-md text-outline hover:text-primary transition-colors opacity-80 hover:opacity-100 transition-opacity"
+                href="#">Terms of Service</a>
+            <a class="font-body-md text-body-md text-outline hover:text-primary transition-colors opacity-80 hover:opacity-100 transition-opacity"
+                href="#">Security</a>
+            <a class="font-body-md text-body-md text-outline hover:text-primary transition-colors opacity-80 hover:opacity-100 transition-opacity"
+                href="#">Help Center</a>
+            <a class="font-body-md text-body-md text-outline hover:text-primary transition-colors opacity-80 hover:opacity-100 transition-opacity"
+                href="#">Contact Us</a>
+            <a class="font-body-md text-body-md text-outline hover:text-primary transition-colors opacity-80 hover:opacity-100 transition-opacity"
+                href="#">Blog</a>
+        </div>
+        <p class="font-body-md text-body-md text-outline text-sm">© 2024 PICSPY VIETNAM. ALL RIGHTS RESERVED.</p>
+    </footer>
+</body>
+
+</html>

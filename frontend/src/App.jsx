@@ -19,6 +19,8 @@ const GoogleAuthSuccess = lazy(() => import('./pages/GoogleAuthSuccess'))
 const PostDeepLinkPage = lazy(() => import('./pages/PostDeepLinkPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
+const PricingPage = lazy(() => import('./pages/PricingPage'))
+// PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
 
 // Skeleton page loading
 const PageLoader = () => (
@@ -144,6 +146,16 @@ export default function App() {
               <MainLayout>
                 <PageTransition>
                   <PostDetailPage />
+                </PageTransition>
+              </MainLayout>
+            }
+          />
+          <Route
+            path="/pricing"
+            element={
+              <MainLayout>
+                <PageTransition>
+                  <PricingPage />
                 </PageTransition>
               </MainLayout>
             }

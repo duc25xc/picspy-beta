@@ -249,14 +249,14 @@ const LensSpyPanel = ({ postId }) => {
       if (data.fromCache) {
         toast.success('Đã tải phân tích từ bộ nhớ (miễn phí)!')
       } else {
-        toast.success(`LensSpy phân tích xong! Đã trừ ${data.coinsCost} xu.`)
+        toast.success(`LensSpy phân tích xong! Đã trừ ${data.tokensCost} token.`)
       }
     } catch (err) {
       clearTimers()
       const code = err.response?.data?.error
       const msg  = err.response?.data?.message
-      if (code === 'INSUFFICIENT_COINS') {
-        toast.error(msg || 'Bạn không đủ xu. Vui lòng nạp thêm.')
+      if (code === 'INSUFFICIENT_TOKENS') {
+        toast.error(msg || 'Bạn không đủ token. Vui lòng nạp thêm.')
       } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
         toast.error('AI đang bận, vui lòng thử lại sau ít phút.')
       } else {
@@ -352,7 +352,7 @@ const LensSpyPanel = ({ postId }) => {
               ) : (
                 <>
                   <Sparkles size={16} />
-                  Mở Khóa LensSpy Masterclass · {LENSSPY_COST} Xu
+                  Mở Khóa LensSpy Masterclass · {LENSSPY_COST} Token
                 </>
               )}
             </motion.button>
@@ -378,7 +378,7 @@ const LensSpyPanel = ({ postId }) => {
 
           {user && (
             <p className="text-[11px] text-white/25">
-              Số dư: {user.coinBalance ?? 0} xu
+              Số dư: {user.tokenBalance ?? 0} token
             </p>
           )}
         </div>

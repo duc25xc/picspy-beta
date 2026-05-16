@@ -113,8 +113,8 @@ const DashboardTab = () => {
       <div className="card p-5 border-violet-500/30 bg-violet-600/10">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm font-bold text-violet-400 mb-1">Số dư xu của Admin</p>
-            <p className="text-4xl font-black text-white">{adminUser?.coinBalance?.toLocaleString() ?? 0} <span className="text-violet-400 text-2xl">xu</span></p>
+            <p className="text-sm font-bold text-violet-400 mb-1">Số dư token của Admin</p>
+            <p className="text-4xl font-black text-white">{adminUser?.tokenBalance?.toLocaleString() ?? 0} <span className="text-violet-400 text-2xl">token</span></p>
             <p className="text-xs text-white/40 mt-1">Dùng để test download Premium</p>
           </div>
           <div className="w-16 h-16 rounded-2xl bg-violet-600/20 flex items-center justify-center">
@@ -483,9 +483,9 @@ const UsersTab = () => {
     if (isNaN(amount) || amount === 0) { toast.error('Nhập số xu hợp lệ'); return }
     setCoinLoading(true)
     try {
-      const { data } = await api.post(`/admin/users/${coinModal._id}/coins`, { amount, reason: 'Admin nạp xu' })
+      const { data } = await api.post(`/admin/users/${coinModal._id}/tokens`, { amount, reason: 'Admin nạp token' })
       toast.success(data.message)
-      setUsers(prev => prev.map(u => u._id === coinModal._id ? { ...u, coinBalance: data.coinBalance } : u))
+      setUsers(prev => prev.map(u => u._id === coinModal._id ? { ...u, tokenBalance: data.tokenBalance } : u))
       if (coinModal._id === currentAdminId) window.location.reload()
       setCoinModal(null); setCoinAmount('')
     } catch (err) { toast.error(err.response?.data?.message || 'Lỗi nạp xu') }
@@ -529,7 +529,7 @@ const UsersTab = () => {
                 <p className="text-xs text-white/40 truncate">{user.email}</p>
               </div>
               <div className="text-right flex-shrink-0">
-                <p className="text-sm font-bold text-violet-400">{user.coinBalance || 0} xu</p>
+                <p className="text-sm font-bold text-violet-400">{user.tokenBalance || 0} token</p>
                 <p className="text-[10px] text-white/30">{user.stats?.postsCount || 0} posts</p>
               </div>
               <div className="flex gap-2 flex-shrink-0">
@@ -565,7 +565,7 @@ const UsersTab = () => {
               className="card p-6 max-w-sm w-full">
               <div className="flex items-center gap-3 mb-5">
                 <div className="w-12 h-12 rounded-2xl bg-violet-600/20 flex items-center justify-center"><Coins size={24} className="text-violet-400" /></div>
-                <div><h3 className="font-bold text-lg">Điều chỉnh xu</h3><p className="text-sm text-white/40">@{coinModal.username} — <span className="text-violet-400 font-bold">{coinModal.coinBalance || 0} xu</span></p></div>
+                <div><h3 className="font-bold text-lg">Điều chỉnh token</h3><p className="text-sm text-white/40">@{coinModal.username} — <span className="text-violet-400 font-bold">{coinModal.tokenBalance || 0} token</span></p></div>
               </div>
               <div className="flex gap-2 mb-2">
                 {[100, 500, 1000, 5000].map(v => (

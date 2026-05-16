@@ -12,7 +12,7 @@ const postSchema = z.object({
   // Category lấy từ DB — không enum cứng, chỉ cần string hợp lệ
   category: z.string().min(1).toLowerCase().trim().default('other'),
   isPremium: z.boolean().optional().default(false),
-  priceInCoins: z.number().min(10).max(1000).optional().default(50),
+  priceInTokens: z.number().min(1).max(500).optional().default(10),
   isAIGenerated: z.boolean().optional().default(false),
   aiTool: z.string().optional(),
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
@@ -26,7 +26,7 @@ const updatePostSchema = z.object({
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional(),
   category: z.string().min(1).toLowerCase().trim().optional(),
   isPremium: z.boolean().optional(),
-  priceInCoins: z.number().min(10).max(1000).optional(),
+  priceInTokens: z.number().min(1).max(500).optional(),
   isAIGenerated: z.boolean().optional(),
   aiTool: z.string().optional(),
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
@@ -56,7 +56,7 @@ export const createPost = async (req, res, next) => {
       body.isPremium = body.isPremium === 'true'
     if (typeof body.isAIGenerated === 'string')
       body.isAIGenerated = body.isAIGenerated === 'true'
-    if (body.priceInCoins) body.priceInCoins = parseInt(body.priceInCoins)
+    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
 
     const data = postSchema.parse(body)
 
@@ -342,7 +342,7 @@ export const updatePost = async (req, res, next) => {
     let body = { ...req.body }
     if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
     if (typeof body.isAIGenerated === 'string') body.isAIGenerated = body.isAIGenerated === 'true'
-    if (body.priceInCoins) body.priceInCoins = parseInt(body.priceInCoins)
+    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
     if (typeof body.tags === 'string') {
       try { body.tags = JSON.parse(body.tags) } catch { body.tags = [] }
     }

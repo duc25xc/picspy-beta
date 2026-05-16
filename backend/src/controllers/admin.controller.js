@@ -175,24 +175,24 @@ export const getAllUsers = async (req, res, next) => {
   } catch (err) { next(err) }
 }
 
-/** POST /admin/users/:id/coins */
-export const adjustUserCoins = async (req, res, next) => {
+/** POST /admin/users/:id/tokens */
+export const adjustUserTokens = async (req, res, next) => {
   try {
     const { id } = req.params
     const { amount, reason = 'Admin adjustment' } = req.body
     const parsed = parseInt(amount)
-    if (isNaN(parsed) || parsed === 0) throw new AppError('INVALID_AMOUNT', 'Số xu không hợp lệ', 400)
+    if (isNaN(parsed) || parsed === 0) throw new AppError('INVALID_AMOUNT', 'Số token không hợp lệ', 400)
 
     const user = await User.findById(id)
     if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
 
-    user.coinBalance = Math.max(0, user.coinBalance + parsed)
+    user.tokenBalance = Math.max(0, user.tokenBalance + parsed)
     await user.save()
 
     res.json({
-      message: `Đã ${parsed > 0 ? 'nạp' : 'trừ'} ${Math.abs(parsed)} xu cho @${user.username}`,
+      message: `Đã ${parsed > 0 ? 'nạp' : 'trừ'} ${Math.abs(parsed)} token cho @${user.username}`,
       username: user.username,
-      coinBalance: user.coinBalance,
+      tokenBalance: user.tokenBalance,
       delta: parsed,
       reason,
     })

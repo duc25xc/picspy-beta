@@ -34,6 +34,7 @@ const Header = () => {
           <nav className="flex items-center gap-1">
             <Link to="/" className="btn-ghost text-white/70">Khám phá</Link>
             <Link to="/search" className="btn-ghost text-white/70">Tìm kiếm</Link>
+            <Link to="/pricing" className="btn-ghost text-white/70">Gói đăng ký</Link>
             {user && (
               <Link to="/my-posts" className="btn-ghost text-white/70 flex items-center gap-1.5">
                 <LayoutGrid size={15} />
@@ -45,11 +46,21 @@ const Header = () => {
           {/* Actions */}
           {user ? (
             <div className="flex items-center gap-3">
-              {/* Coin balance */}
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-100 border border-white/10">
+              {/* Token balance + tier badge */}
+              <Link to="/pricing" className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-100 border border-white/10 hover:border-white/20 transition-colors">
                 <Coins size={16} className="text-yellow-400" />
-                <span className="text-sm font-semibold">{(user.coinBalance || 0).toLocaleString()}</span>
-              </div>
+                <span className="text-sm font-semibold">{(user.tokenBalance || 0).toLocaleString()}</span>
+                {user.subscriptionTier && user.subscriptionTier !== 'free' && (
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ml-1 ${
+                    user.subscriptionTier === 'founder' ? 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' :
+                    user.subscriptionTier === 'ultimate' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' :
+                    'bg-violet-500/20 text-violet-400 border border-violet-500/30'
+                  }`}>
+                    {user.subscriptionTier === 'founder' ? '🎖️' : user.subscriptionTier === 'ultimate' ? '💎' : '⭐'}
+                    {user.subscriptionTier.toUpperCase()}
+                  </span>
+                )}
+              </Link>
 
               <Link to="/upload" className="btn-primary">
                 <Upload size={16} />

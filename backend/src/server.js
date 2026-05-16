@@ -20,7 +20,9 @@ import userRoutes from './routes/user.routes.js'
 import postRoutes from './routes/post.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import aiRoutes from './routes/ai.routes.js'
+import subscriptionRoutes from './routes/subscription.routes.js'
 import { getPublicCategories, seedCategories } from './controllers/admin.controller.js'
+import { seedSubscriptionPlans } from './models/SubscriptionPlan.model.js'
 
 // Workers (khởi động cùng server)
 import './workers/imageProcessor.worker.js'
@@ -86,6 +88,7 @@ app.use('/v1/users', userRoutes)
 app.use('/v1/posts', postRoutes)
 app.use('/v1/admin', adminRoutes)
 app.use('/v1/ai', aiRoutes)
+app.use('/v1/subscriptions', subscriptionRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
 
@@ -120,7 +123,8 @@ const PORT = process.env.PORT || 5000
 
 const startServer = async () => {
   await connectDB()
-  await seedCategories() // seed danh mục mặc định nếu chưa có
+  await seedCategories()         // seed danh mục mặc định nếu chưa có
+  await seedSubscriptionPlans()  // seed 4 gói subscription nếu chưa có
   initSocket(httpServer)
 
   httpServer.listen(PORT, () => {

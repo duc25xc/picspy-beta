@@ -53,14 +53,24 @@ const userSchema = new mongoose.Schema(
     // === SUBSCRIPTION ===
     subscriptionTier: {
       type: String,
-      enum: ['free', 'pro'],
+      // founder = gói Founder's Plan đặc biệt (giá lock 39k/tháng, giới hạn 200 slot)
+      // ultimate = gói Agency/Studio (token không giới hạn)
+      enum: ['free', 'pro', 'ultimate', 'founder'],
       default: 'free',
     },
+    subscriptionCycle: {
+      type: String,
+      enum: ['weekly', 'monthly', 'yearly'],
+      default: 'monthly',
+    },
     subscriptionExpiry: { type: Date },
+    founderSlot: { type: Boolean, default: false }, // Đánh dấu Founder's Plan
     stripeCustomerId: { type: String },
 
-    // === COIN & EARNINGS ===
-    coinBalance: { type: Number, default: 0, min: 0 },
+    // === TOKEN ECONOMY (đơn vị dịch vụ nội bộ — không quy ra tiền mặt cho user thường) ===
+    tokenBalance: { type: Number, default: 0, min: 0 },
+    // freeTokenGranted: true = user free đã nhận 100 token 1 lần (không reset hàng tháng)
+    freeTokenGranted: { type: Boolean, default: false },
     totalEarned: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 },
 

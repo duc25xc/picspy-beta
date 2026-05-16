@@ -81,8 +81,10 @@ const postSchema = new mongoose.Schema(
 
     // === MONETIZATION ===
     isPremium: { type: Boolean, default: false },
-    priceInCoins: { type: Number, default: 50 },
-    totalCoinsEarned: { type: Number, default: 0 },
+    priceInTokens: { type: Number, default: 10, min: 1, max: 500 },
+    totalTokensEarned: { type: Number, default: 0 },
+    // accessTier: tier tối thiểu cần để xem full bài (free = ai cũng xem được)
+    accessTier: { type: String, enum: ['free', 'pro', 'ultimate'], default: 'free' },
 
     // === STATS (denormalized) ===
     stats: {
