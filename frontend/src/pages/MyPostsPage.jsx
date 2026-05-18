@@ -160,13 +160,13 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
         <div className="p-5 pb-0">
           <div className="relative w-full max-h-[350px] min-h-[160px] overflow-hidden rounded-2xl mb-5 bg-surface-100 flex items-center justify-center border border-white/5">
             <img
-              src={post.images?.[0]?.thumbnailUrl || post.images?.[0]?.url}
+              src={post.generatedImages?.[0]?.thumbnailUrl || post.generatedImages?.[0]?.url || post.images?.[0]?.url}
               alt=""
               className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-20 scale-110"
             />
 
             <img
-              src={post.images?.[0]?.url}
+              src={post.generatedImages?.[0]?.url || post.images?.[0]?.url}
               alt={post.caption}
               className="relative z-10 max-h-[350px] w-auto object-contain shadow-2xl transition-transform duration-500"
             />
@@ -384,7 +384,7 @@ const DeleteConfirmModal = ({ post, onClose, onConfirm }) => {
 
 // ─── Post Card ──────────────────────────────────────────────
 const PostCard = ({ post, onEdit, onDelete, index }) => {
-  const img = post.images?.[0]
+  const img = post.generatedImages?.[0] || post.images?.[0]
   const displayUrl = img?.thumbnailUrl || img?.url
 
   return (

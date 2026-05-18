@@ -54,12 +54,15 @@ router.get('/me', authenticate, getMyPosts)
 /** GET /posts/following — Feed từ những người đang follow */
 router.get('/following', authenticate, getFollowingFeed)
 
-/** POST /posts — Upload ảnh mới */
+/** POST /posts — Upload AI content mới (sourceImages 0-5, generatedImages 1-5) */
 router.post(
   '/',
   authenticate,
   uploadLimiter,
-  upload.single('image'),
+  upload.fields([
+    { name: 'sourceImages', maxCount: 5 },
+    { name: 'generatedImages', maxCount: 5 },
+  ]),
   handleMulterError,
   createPost
 )

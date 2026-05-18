@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-17T02:30:00+07:00",
+  "title": "Design System: PicSpy",
+  "extensions": {
+    "colorMeta": {
+      "gallery-periwinkle": {
+        "role": "primary",
+        "displayName": "Gallery Periwinkle",
+        "canonical": "oklch(62% 0.16 270)",
+        "tonalRamp": [
+          "oklch(18% 0.06 270)",
+          "oklch(28% 0.10 270)",
+          "oklch(38% 0.13 270)",
+          "oklch(48% 0.15 270)",
+          "oklch(62% 0.16 270)",
+          "oklch(72% 0.14 270)",
+          "oklch(82% 0.10 270)",
+          "oklch(92% 0.05 270)"
+        ]
+      },
+      "studio-violet": {
+        "role": "primary",
+        "displayName": "Studio Violet",
+        "canonical": "oklch(52% 0.28 285)",
+        "tonalRamp": [
+          "oklch(15% 0.08 285)",
+          "oklch(25% 0.14 285)",
+          "oklch(35% 0.20 285)",
+          "oklch(45% 0.25 285)",
+          "oklch(52% 0.28 285)",
+          "oklch(62% 0.24 285)",
+          "oklch(75% 0.18 285)",
+          "oklch(88% 0.08 285)"
+        ]
+      },
+      "deep-canvas": {
+        "role": "neutral",
+        "displayName": "Deep Canvas",
+        "canonical": "oklch(11% 0.012 285)",
+        "tonalRamp": [
+          "oklch(6% 0.008 285)",
+          "oklch(11% 0.012 285)",
+          "oklch(15% 0.010 285)",
+          "oklch(19% 0.010 285)",
+          "oklch(23% 0.010 285)",
+          "oklch(30% 0.008 285)",
+          "oklch(40% 0.006 285)",
+          "oklch(50% 0.005 285)"
+        ]
+      },
+      "panel-smoke": {
+        "role": "neutral",
+        "displayName": "Panel Smoke",
+        "canonical": "oklch(15% 0.01 285)",
+        "tonalRamp": [
+          "oklch(8% 0.008 285)",
+          "oklch(12% 0.010 285)",
+          "oklch(15% 0.010 285)",
+          "oklch(19% 0.010 285)",
+          "oklch(24% 0.009 285)",
+          "oklch(32% 0.008 285)",
+          "oklch(42% 0.006 285)",
+          "oklch(55% 0.005 285)"
+        ]
+      },
+      "founder-amber": {
+        "role": "secondary",
+        "displayName": "Founder Amber",
+        "canonical": "oklch(72% 0.18 65)",
+        "tonalRamp": [
+          "oklch(20% 0.06 65)",
+          "oklch(32% 0.10 65)",
+          "oklch(44% 0.14 65)",
+          "oklch(58% 0.16 65)",
+          "oklch(72% 0.18 65)",
+          "oklch(80% 0.14 65)",
+          "oklch(88% 0.08 65)",
+          "oklch(94% 0.04 65)"
+        ]
+      },
+      "success-mint": {
+        "role": "tertiary",
+        "displayName": "Success Mint",
+        "canonical": "oklch(72% 0.2 145)",
+        "tonalRamp": [
+          "oklch(18% 0.06 145)",
+          "oklch(30% 0.10 145)",
+          "oklch(42% 0.14 145)",
+          "oklch(56% 0.18 145)",
+          "oklch(72% 0.20 145)",
+          "oklch(80% 0.16 145)",
+          "oklch(88% 0.10 145)",
+          "oklch(94% 0.04 145)"
+        ]
+      },
+      "error-coral": {
+        "role": "tertiary",
+        "displayName": "Error Coral",
+        "canonical": "oklch(62% 0.24 25)",
+        "tonalRamp": [
+          "oklch(18% 0.08 25)",
+          "oklch(28% 0.12 25)",
+          "oklch(38% 0.16 25)",
+          "oklch(50% 0.20 25)",
+          "oklch(62% 0.24 25)",
+          "oklch(72% 0.20 25)",
+          "oklch(82% 0.12 25)",
+          "oklch(92% 0.05 25)"
+        ]
+      },
+      "tinted-white": {
+        "role": "neutral",
+        "displayName": "Tinted White",
+        "canonical": "oklch(97% 0.005 285)",
+        "tonalRamp": [
+          "oklch(50% 0.005 285)",
+          "oklch(60% 0.005 285)",
+          "oklch(70% 0.005 285)",
+          "oklch(80% 0.005 285)",
+          "oklch(88% 0.005 285)",
+          "oklch(92% 0.005 285)",
+          "oklch(95% 0.005 285)",
+          "oklch(97% 0.005 285)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Hero headlines on HomePage and PricingPage only. Bricolage Grotesque at 800 weight." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings, modal titles, FAQ headers. Plus Jakarta Sans at 700 weight." },
+      "title": { "displayName": "Title", "purpose": "Card headings, plan names, panel titles. Outfit at 600 weight." },
+      "body": { "displayName": "Body", "purpose": "Paragraph text, descriptions, feature lists. Outfit at 400. Max 65ch line length." },
+      "label": { "displayName": "Label", "purpose": "Uppercase metadata, tier markers, section tags. Outfit at 600. Wide tracking." }
+    },
+    "shadows": [
+      {
+        "name": "liquid-glass-standard",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.35), 0 0 0 0.5px rgba(255,255,255,0.04)",
+        "purpose": "Default liquid glass elevation. Buttons over images, nav bars, category pills."
+      },
+      {
+        "name": "liquid-glass-strong",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.3), 0 20px 60px rgba(0,0,0,0.4), 0 0 0 0.5px rgba(255,255,255,0.05)",
+        "purpose": "Elevated glass. Modals, pricing cards, overlay panels."
+      },
+      {
+        "name": "liquid-glass-hover",
+        "value": "inset 0 1px 0 rgba(255,255,255,0.18), 0 12px 40px rgba(0,0,0,0.45), 0 0 40px rgba(124,58,237,0.08)",
+        "purpose": "Hover state on glass surfaces. Faint violet glow ties back to brand."
+      },
+      {
+        "name": "cta-tactile",
+        "value": "inset 0 1.5px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px rgba(109,40,217,0.5)",
+        "purpose": "Primary CTA buttons. Physical depth with inset gloss and outer glow."
+      },
+      {
+        "name": "brand-glow",
+        "value": "0 0 50px rgba(124,58,237,0.3)",
+        "purpose": "Hero CTA ambient glow. Hover expands to 70px at 0.5 opacity."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-standard",
+        "value": "cubic-bezier(0.22, 1, 0.36, 1)",
+        "purpose": "Default easing for all state transitions. Expo ease-out."
+      },
+      {
+        "name": "ease-glass-hover",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Liquid glass hover transition. Slightly softer attack."
+      },
+      {
+        "name": "duration-state",
+        "value": "200ms",
+        "purpose": "Standard interactive state change (hover, focus)."
+      },
+      {
+        "name": "duration-glass",
+        "value": "400ms",
+        "purpose": "Glass surface transitions. Slower to feel substantial."
+      },
+      {
+        "name": "duration-page",
+        "value": "550ms",
+        "purpose": "Page-level fade-up entrance animations."
+      }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "High-emphasis CTA. Tactile inset gloss with violet outer glow.",
+      "html": "<button class=\"ds-btn-primary\">Bắt đầu ngay</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; min-height: 44px; border-radius: 24px; border: 1px solid rgba(255,255,255,0.15); background: oklch(52% 0.28 285); color: oklch(97% 0.005 285); font-family: 'Outfit', system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s, transform 0.2s, box-shadow 0.2s; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px rgba(109,40,217,0.5); } .ds-btn-primary:hover { background: oklch(56% 0.28 285); transform: translateY(-1px); } .ds-btn-primary:focus-visible { outline: none; box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px rgba(109,40,217,0.5), 0 0 0 2px oklch(52% 0.28 285), 0 0 0 4px oklch(97% 0.005 285); } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Low-emphasis action. Translucent white with subtle inset gloss.",
+      "html": "<button class=\"ds-btn-ghost\">Khám phá Gallery</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 24px; min-height: 44px; border-radius: 24px; background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.11); color: oklch(88% 0.005 285); font-family: 'Outfit', system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; cursor: pointer; transition: background 0.2s, color 0.2s; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.1); } .ds-btn-ghost:hover { background: rgba(255,255,255,0.12); color: oklch(97% 0.005 285); } .ds-btn-ghost:focus-visible { outline: none; box-shadow: inset 0 1px 0 rgba(255,255,255,0.14), 0 0 0 2px oklch(62% 0.16 270); } .ds-btn-ghost:active { transform: scale(0.97); }"
+    },
+    {
+      "name": "Liquid Glass Button",
+      "kind": "button",
+      "refersTo": "button-glass",
+      "description": "Secondary hero CTA. Full liquid glass treatment, pill shape.",
+      "html": "<button class=\"ds-btn-glass\">Khám phá Gallery</button>",
+      "css": ".ds-btn-glass { display: inline-flex; align-items: center; justify-content: center; padding: 20px 40px; border-radius: 9999px; background: rgba(255,255,255,0.04); backdrop-filter: blur(28px) saturate(180%); -webkit-backdrop-filter: blur(28px) saturate(180%); border: 1px solid rgba(255,255,255,0.09); color: rgba(255,255,255,0.8); font-family: 'Outfit', system-ui, sans-serif; font-size: 1rem; font-weight: 700; cursor: pointer; transition: all 0.3s ease; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.35); } .ds-btn-glass:hover { color: rgba(255,255,255,1); background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.15); box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 12px 40px rgba(0,0,0,0.45), 0 0 40px rgba(124,58,237,0.08); } .ds-btn-glass:focus-visible { outline: none; box-shadow: inset 0 1px 0 rgba(255,255,255,0.12), 0 8px 32px rgba(0,0,0,0.35), 0 0 0 2px oklch(62% 0.16 270); }"
+    },
+    {
+      "name": "Text Input",
+      "kind": "input",
+      "refersTo": "input-default",
+      "description": "Standard form input. Charcoal fill, violet focus ring.",
+      "html": "<input class=\"ds-input\" placeholder=\"Tìm kiếm prompt...\" />",
+      "css": ".ds-input { width: 100%; padding: 12px 16px; min-height: 44px; border-radius: 16px; background: #222230; border: 1px solid rgba(255,255,255,0.10); color: oklch(97% 0.005 285); font-family: 'Outfit', system-ui, sans-serif; font-size: 0.875rem; transition: all 0.2s; } .ds-input::placeholder { color: rgba(255,255,255,0.4); } .ds-input:focus { outline: none; border-color: transparent; box-shadow: 0 0 0 2px oklch(62% 0.16 270); } .ds-input:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "AI Tool Chip",
+      "kind": "chip",
+      "refersTo": "chip-default",
+      "description": "Pill badge identifying the AI tool used. Color varies per tool.",
+      "html": "<span class=\"ds-chip-ai ds-chip-midjourney\">Midjourney</span>",
+      "css": ".ds-chip-ai { display: inline-flex; align-items: center; gap: 4px; padding: 4px 12px; border-radius: 9999px; font-family: 'Outfit', system-ui, sans-serif; font-size: 0.6875rem; font-weight: 600; } .ds-chip-midjourney { background: rgba(139,92,246,0.15); color: oklch(75% 0.22 285); border: 1px solid rgba(139,92,246,0.3); } .ds-chip-dalle { background: rgba(74,222,128,0.12); color: oklch(72% 0.18 145); border: 1px solid rgba(74,222,128,0.25); } .ds-chip-flux { background: rgba(250,204,21,0.12); color: oklch(82% 0.16 90); border: 1px solid rgba(250,204,21,0.25); } .ds-chip-sd { background: rgba(96,165,250,0.12); color: oklch(72% 0.14 250); border: 1px solid rgba(96,165,250,0.25); }"
+    },
+    {
+      "name": "Standard Card",
+      "kind": "card",
+      "refersTo": "card-default",
+      "description": "Default content container. Flat at rest, no glass.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-title\">AI Art Workflow</p><p class=\"ds-card-body\">Prompt, seed, and parameters for recreating this piece.</p></div>",
+      "css": ".ds-card { padding: 20px; border-radius: 24px; background: #1a1a24; border: 1px solid rgba(255,255,255,0.05); } .ds-card-title { font-family: 'Outfit', system-ui, sans-serif; font-size: 1.125rem; font-weight: 600; color: oklch(97% 0.005 285); margin: 0 0 8px; } .ds-card-body { font-family: 'Outfit', system-ui, sans-serif; font-size: 0.875rem; color: oklch(62% 0.01 285); margin: 0; line-height: 1.6; }"
+    },
+    {
+      "name": "Desktop Navigation",
+      "kind": "nav",
+      "refersTo": "nav-desktop",
+      "description": "Sticky header with glass blur. Logo, nav links, actions.",
+      "html": "<nav class=\"ds-nav\"><div class=\"ds-nav-logo\"><svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z\"/><circle cx=\"12\" cy=\"12\" r=\"3\"/></svg></div><span class=\"ds-nav-brand\">PICSPY</span><div class=\"ds-nav-links\"><a href=\"#\" class=\"ds-nav-link ds-nav-link--active\">Explore</a><a href=\"#\" class=\"ds-nav-link\">Search</a><a href=\"#\" class=\"ds-nav-link\">Pricing</a></div></nav>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 16px; height: 64px; padding: 0 24px; background: rgba(15,15,19,0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid rgba(255,255,255,0.05); } .ds-nav-logo { width: 32px; height: 32px; border-radius: 12px; background: linear-gradient(135deg, #7c3aed, #3b82f6); display: flex; align-items: center; justify-content: center; color: white; box-shadow: 0 4px 12px rgba(124,58,237,0.4); } .ds-nav-brand { font-family: 'Outfit', sans-serif; font-weight: 700; font-size: 1.125rem; background: linear-gradient(to right, oklch(73% 0.22 285), oklch(70% 0.18 250)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; } .ds-nav-links { display: flex; gap: 4px; margin-left: auto; } .ds-nav-link { padding: 8px 16px; border-radius: 12px; font-family: 'Outfit', system-ui, sans-serif; font-size: 0.875rem; font-weight: 500; color: rgba(255,255,255,0.7); text-decoration: none; transition: background 0.2s, color 0.2s; } .ds-nav-link:hover { background: rgba(255,255,255,0.08); color: oklch(97% 0.005 285); } .ds-nav-link--active { color: oklch(62% 0.16 270); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Generative Gallery",
+    "overview": "PicSpy is a curated gallery of AI-generated visuals where every surface prioritizes the artwork and its workflow. The interface recedes into dark, tinted surfaces so the content glows. Interactions feel tactile and rewarding: buttons depress with inset shadows, cards lift on hover, and token balances pulse when updated. The system respects that its users are creators working at night in dim rooms, hunting for the exact prompt that unlocks their next piece.\n\nWhat this system explicitly rejects: Replicate's sterile API-dashboard energy. Shutterstock's legacy stock-site feel. OpenSea's speculative clutter and NFT baggage. Generic SaaS landing pages with hero-metric templates and identical icon-card grids. MidJourney's chaotic Discord UI with no hierarchy.",
+    "keyCharacteristics": [
+      "Dark-first, always. Not dark as fashion; dark as function for creative tools used past midnight.",
+      "Liquid glass as the primary elevation language: purposeful frosted surfaces that earn their blur.",
+      "Accent restraint with moments of committed color on plan cards, AI tool badges, and primary CTAs.",
+      "Image-forward layouts where the generated artwork is the largest element on every surface.",
+      "Token economy always one glance away: balances, tier badges, and earning signals visible without hunting."
+    ],
+    "rules": [
+      { "name": "The Tinted Neutral Rule", "body": "No surface uses #000 or #fff. Every neutral is hue-tinted toward 285. This prevents the interface from feeling clinical and keeps the gallery atmosphere cohesive.", "section": "colors" },
+      { "name": "The Restraint with Ceremony Rule", "body": "The base UI is Restrained (accent on less than 10% of any given screen). Plan cards, hero sections, and tier badges are Committed (accent carries 30-60% of the surface). The distinction is intentional: the gallery is quiet, the commerce is vivid.", "section": "colors" },
+      { "name": "The No Display in Controls Rule", "body": "Display fonts (Bricolage Grotesque) are prohibited in buttons, inputs, chips, navigation items, and data labels. Controls use Outfit exclusively.", "section": "typography" },
+      { "name": "The Earned Glass Rule", "body": "Liquid Glass is reserved for surfaces that float over image content or need visual separation from the Deep Canvas. Navigation bars, floating action buttons, and overlay modals earn glass. Standard cards, form containers, and list items do not.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do tint every neutral surface toward hue 285 (violet).",
+      "Do use Liquid Glass exclusively on surfaces floating over image content or requiring visual separation.",
+      "Do maintain a 44px minimum touch target on all interactive elements.",
+      "Do use prefers-reduced-motion on all Framer Motion animations.",
+      "Do use OKLCH for all color definitions in inline styles.",
+      "Do show the generated image as the largest element on every surface.",
+      "Do keep token balances and tier badges visible in the header at all times.",
+      "Do vary pricing cards per plan."
+    ],
+    "donts": [
+      "Don't use pure #000 or #fff anywhere.",
+      "Don't apply gradient-text on any new surfaces.",
+      "Don't use Liquid Glass on standard cards, list items, or form containers.",
+      "Don't use border-left or border-right greater than 1px as a colored accent stripe.",
+      "Don't create hero-metric templates.",
+      "Don't create identical card grids.",
+      "Don't use display fonts in buttons, inputs, chips, or nav items.",
+      "Don't animate CSS layout properties.",
+      "Don't build anything resembling Replicate, Shutterstock, OpenSea, or MidJourney's Discord UI.",
+      "Don't use bounce or elastic easing."
+    ]
+  }
+}

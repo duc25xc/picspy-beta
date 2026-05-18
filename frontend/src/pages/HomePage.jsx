@@ -1,7 +1,8 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import api from '../api/api'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import PostDetailModal from '../components/post/PostDetailModal'
+import useModalUrl from '../hooks/useModalUrl'
 import {
   motion,
   useScroll,
@@ -498,7 +499,7 @@ const CARD_THUMB = {
 
 /* Community gallery card — magazine editorial style */
 const CommunityPostCard = ({ post, index, onClick }) => {
-  const img   = post.images?.[0]
+  const img   = post.generatedImages?.[0] || post.images?.[0]
   const author     = post.authorId
   const glowColor  = post.colors?.[0]?.hex || '#7c3aed'
   const pattern    = CARD_PATTERN[index % CARD_PATTERN.length]
@@ -556,9 +557,9 @@ const CommunityPostCard = ({ post, index, onClick }) => {
             💎 PRO
           </span>
         )}
-        {post.isAIGenerated && (
+        {post.aiTool && (
           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold
-            bg-violet-600/90 text-white backdrop-blur-sm pj">AI</span>
+            bg-violet-600/90 text-white backdrop-blur-sm pj">✨ AI</span>
         )}
         {post.resolution && (
           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
@@ -711,8 +712,18 @@ const CommunityGallerySection = () => {
 
   useEffect(() => { fetchPosts(true) }, [activeTab]) // eslint-disable-line
 
+  // L\u1ea5y postId hi\u1ec7n t\u1ea1i \u0111\u1ec3 useModalUrl theo d\u00f5i
+  const currentPostId = selectedIndex !== null ? posts[selectedIndex]?._id : null
+
+  // \u0110\u00f3ng modal thu\u1ea7n (kh\u00f4ng navigate) — d\u00f9ng n\u1ed9i b\u1ed9
+  const closeModalState = useCallback(() => setSelectedIndex(null), [])
+
+  // Hook \u0111\u1ed3ng b\u1ed9 URL \u2194 modal
+  const { closeModal } = useModalUrl(currentPostId, closeModalState)
+
   const handleOpenPost = (_post, index) => setSelectedIndex(index)
-  const handleClose = () => setSelectedIndex(null)
+  // Khi user ch\u1ee7 \u0111\u1ed9ng \u0111\u00f3ng (X / backdrop / Escape) \u2192 restore URL
+  const handleClose = closeModal
   const handlePrev = () => setSelectedIndex((i) => Math.max(0, i - 1))
   const handleNext = () => setSelectedIndex((i) => Math.min(posts.length - 1, i + 1))
 
@@ -723,6 +734,7 @@ const CommunityGallerySection = () => {
     }
     setActiveTab(key)
   }
+
 
   return (
     <>

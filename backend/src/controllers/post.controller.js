@@ -1,160 +1,243 @@
 import { z } from 'zod'
 import exifr from 'exifr'
-import Post from '../models/Post.model.js'
+import Post, { AI_TOOLS } from '../models/Post.model.js'
 import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
 import { imageQueue } from '../config/bullmq.js'
 import { v2 as cloudinary } from 'cloudinary'
 
-const postSchema = z.object({
+// === ZOD SCHEMAS ===
+
+const createPostSchema = z.object({
+  // AI generation (core)
+  prompt: z.string().min(1, 'Prompt là bắt buộc').max(2000).trim(),
+  negativePrompt: z.string().max(1000).trim().optional(),
+  aiTool: z.enum(AI_TOOLS, { message: 'Công cụ AI không hợp lệ' }),
+  aiModel: z.string().trim().optional(),
+  parameters: z.string().trim().optional(),
+  // workflowJson: được gửi từ client nhưng được kiểm tra tier ở middleware
+  workflowJson: z.string().optional().refine(
+    (val) => { if (!val) return true; try { JSON.parse(val); return true } catch { return false } },
+    { message: 'workflowJson phải là JSON hợp lệ' }
+  ),
+  contentType: z.enum(['image', 'video']).default('image'),
+
+  // Content metadata
   caption: z.string().max(500).optional(),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional().default([]),
-  // Category lấy từ DB — không enum cứng, chỉ cần string hợp lệ
   category: z.string().min(1).toLowerCase().trim().default('other'),
+
+  // Monetization
   isPremium: z.boolean().optional().default(false),
   priceInTokens: z.number().min(1).max(500).optional().default(10),
-  isAIGenerated: z.boolean().optional().default(false),
-  aiTool: z.string().optional(),
+
+  // Compat (legacy)
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
   orientation: z.enum(['portrait', 'landscape', 'square']).optional(),
   aspectRatio: z.string().optional(),
 })
 
-// Schema riêng cho update (chỉ cho phép sửa một số trường)
 const updatePostSchema = z.object({
+  prompt: z.string().min(1).max(2000).trim().optional(),
+  negativePrompt: z.string().max(1000).trim().optional(),
+  aiTool: z.enum(AI_TOOLS).optional(),
+  aiModel: z.string().trim().optional(),
+  parameters: z.string().trim().optional(),
+  workflowJson: z.string().optional().refine(
+    (val) => { if (!val) return true; try { JSON.parse(val); return true } catch { return false } },
+    { message: 'workflowJson phải là JSON hợp lệ' }
+  ),
   caption: z.string().max(500).optional(),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional(),
   category: z.string().min(1).toLowerCase().trim().optional(),
   isPremium: z.boolean().optional(),
   priceInTokens: z.number().min(1).max(500).optional(),
-  isAIGenerated: z.boolean().optional(),
-  aiTool: z.string().optional(),
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
   orientation: z.enum(['portrait', 'landscape', 'square']).optional(),
   aspectRatio: z.string().optional(),
 })
 
+// === HELPERS ===
+
+/** Parse EXIF metadata from an image buffer */
+const extractExif = async (buffer) => {
+  try {
+    const rawExif = await exifr.parse(buffer, {
+      pick: [
+        'Make', 'Model', 'ISO', 'FNumber', 'FocalLength',
+        'ExposureTime', 'DateTimeOriginal', 'LensModel', 'Software',
+        'GPSLatitude', 'GPSLongitude', 'ExposureValue', 'Flash',
+      ],
+      translateKeys: false,
+      translateValues: false,
+    })
+    if (!rawExif) return {}
+
+    const cameraName = [rawExif.Make, rawExif.Model].filter(Boolean).join(' ').trim()
+    const exifData = {
+      camera: cameraName || undefined,
+      lensModel: rawExif.LensModel || undefined,
+      iso: rawExif.ISO || undefined,
+      aperture: rawExif.FNumber ? `f/${rawExif.FNumber}` : undefined,
+      focalLength: rawExif.FocalLength ? `${rawExif.FocalLength}mm` : undefined,
+      shutterSpeed: rawExif.ExposureTime
+        ? (rawExif.ExposureTime >= 1 ? `${rawExif.ExposureTime}s` : `1/${Math.round(1 / rawExif.ExposureTime)}s`)
+        : undefined,
+      ev: rawExif.ExposureValue !== undefined ? Math.round(rawExif.ExposureValue * 10) / 10 : undefined,
+      flash: rawExif.Flash !== undefined ? rawExif.Flash : undefined,
+      dateTaken: rawExif.DateTimeOriginal || undefined,
+      software: rawExif.Software || undefined,
+      gpsLat: rawExif.GPSLatitude || undefined,
+      gpsLng: rawExif.GPSLongitude || undefined,
+    }
+    // Remove undefined keys
+    Object.keys(exifData).forEach(k => exifData[k] === undefined && delete exifData[k])
+    return exifData
+  } catch (err) {
+    console.warn('⚠️ EXIF extraction:', err.message)
+    return {}
+  }
+}
+
+/** Upload single buffer to Cloudinary and return image object */
+const uploadImage = async (buffer, folder, publicIdPrefix, fileSize) => {
+  const result = await uploadBuffer(
+    buffer, folder, `${publicIdPrefix}_${Date.now()}`,
+    { resource_type: 'image' }
+  )
+  return {
+    url: result.secure_url,
+    publicId: result.public_id,
+    width: result.width,
+    height: result.height,
+    fileSize: fileSize || result.bytes,
+    format: result.format,
+  }
+}
+
+// === CONTROLLERS ===
+
 /**
- * POST /posts — Upload ảnh mới
- * Flow: validate → upload raw lên Cloudinary → tạo Post (pending) → enqueue BullMQ
+ * POST /posts — Upload AI content mới
+ *
+ * Multer fields:
+ *   - sourceImages: 0–5 ảnh input/tham khảo
+ *   - generatedImages: 1–5 ảnh kết quả AI
+ *
+ * Body (FormData):
+ *   - prompt (required), negativePrompt, aiTool (required), aiModel, parameters
+ *   - caption, tags (JSON string), category, isPremium, priceInTokens
  */
 export const createPost = async (req, res, next) => {
   try {
-    if (!req.file)
-      throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh để upload', 400)
+    const genFiles = req.files?.generatedImages || []
+    if (genFiles.length === 0) {
+      throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh kết quả AI', 400)
+    }
+    if (genFiles.length > 5) {
+      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả AI', 400)
+    }
 
-    // Parse JSON fields từ FormData
+    const srcFiles = req.files?.sourceImages || []
+    if (srcFiles.length > 5) {
+      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh tham khảo', 400)
+    }
+
+    // Parse FormData fields
     let body = { ...req.body }
     if (typeof body.tags === 'string') {
-      try {
-        body.tags = JSON.parse(body.tags)
-      } catch {
-        body.tags = body.tags.split(',').map((t) => t.trim())
-      }
+      try { body.tags = JSON.parse(body.tags) }
+      catch { body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean) }
     }
-    if (typeof body.isPremium === 'string')
-      body.isPremium = body.isPremium === 'true'
-    if (typeof body.isAIGenerated === 'string')
-      body.isAIGenerated = body.isAIGenerated === 'true'
+    if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
     if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
 
-    const data = postSchema.parse(body)
+    const data = createPostSchema.parse(body)
 
-    // Extract EXIF từ file gốc TRƯỚC khi upload Cloudinary
-    // (Cloudinary strip toàn bộ EXIF khi process ảnh)
+    // Upload source images (optional, parallel)
+    const sourceImages = []
     let exifData = {}
-    try {
-      const rawExif = await exifr.parse(req.file.buffer, {
-        pick: ['Make', 'Model', 'ISO', 'FNumber', 'FocalLength',
-               'ExposureTime', 'DateTimeOriginal', 'LensModel', 'Software',
-               'GPSLatitude', 'GPSLongitude'],
-        translateKeys: false,
-        translateValues: false,
-      })
-      console.log('📷 EXIF raw result:', rawExif ? Object.keys(rawExif) : 'null')
-      if (rawExif) {
-        const cameraName = [rawExif.Make, rawExif.Model].filter(Boolean).join(' ').trim()
-        if (cameraName)           exifData.camera = cameraName
-        if (rawExif.LensModel)    exifData.lensModel = rawExif.LensModel
-        if (rawExif.ISO)          exifData.iso = rawExif.ISO
-        if (rawExif.FNumber)      exifData.aperture = `f/${rawExif.FNumber}`
-        if (rawExif.FocalLength)  exifData.focalLength = `${rawExif.FocalLength}mm`
-        if (rawExif.ExposureTime) {
-          exifData.shutterSpeed = rawExif.ExposureTime >= 1
-            ? `${rawExif.ExposureTime}s`
-            : `1/${Math.round(1 / rawExif.ExposureTime)}s`
-        }
-        if (rawExif.DateTimeOriginal) exifData.dateTaken = rawExif.DateTimeOriginal
-        if (rawExif.Software)     exifData.software = rawExif.Software
-        if (rawExif.GPSLatitude)  exifData.gpsLat = rawExif.GPSLatitude
-        if (rawExif.GPSLongitude) exifData.gpsLng = rawExif.GPSLongitude
-      }
-    } catch (exifErr) {
-      console.warn('⚠️ EXIF extraction at upload:', exifErr.message)
-    }
-    console.log('📷 Parsed exifData:', JSON.stringify(exifData))
 
-    // Upload ảnh gốc lên Cloudinary
-    const uploadResult = await uploadBuffer(
-      req.file.buffer,
-      'picspy/posts/originals',
-      `post_${Date.now()}_${req.user._id}`,
-      { resource_type: 'image' }
+    if (srcFiles.length > 0) {
+      const srcUploads = await Promise.all(
+        srcFiles.map((file, i) =>
+          uploadImage(file.buffer, 'picspy/posts/sources', `src_${req.user._id}_${i}`, file.size)
+        )
+      )
+      sourceImages.push(...srcUploads)
+
+      // Extract EXIF from first source image only
+      exifData = await extractExif(srcFiles[0].buffer)
+      if (Object.keys(exifData).length > 0) {
+        console.log('📷 EXIF extracted from source image:', JSON.stringify(exifData))
+      }
+    }
+
+    // Upload generated images (required, parallel)
+    const genUploads = await Promise.all(
+      genFiles.map((file, i) =>
+        uploadImage(file.buffer, 'picspy/posts/originals', `gen_${req.user._id}_${i}`, file.size)
+      )
     )
 
-    // Tạo Post document với status pending (bao gồm EXIF nếu có)
+    // Create Post document (status: pending)
     const hasExif = Object.keys(exifData).length > 0
+
+    // workflowJson: chỉ lưu nếu user là ultimate (server-side gate)
+    const userTier = req.user.subscriptionTier
+    const allowWorkflow = userTier === 'ultimate'
+
     const post = await Post.create({
       authorId: req.user._id,
-      images: [
-        {
-          url: uploadResult.secure_url,
-          publicId: uploadResult.public_id,
-          width: uploadResult.width,
-          height: uploadResult.height,
-          fileSize: req.file.size,
-          format: uploadResult.format,
-        },
-      ],
-      ...data,
+      sourceImages,
+      generatedImages: genUploads,
+      prompt: data.prompt,
+      negativePrompt: data.negativePrompt,
+      aiTool: data.aiTool,
+      aiModel: data.aiModel,
+      parameters: data.parameters,
+      ...(allowWorkflow && data.workflowJson ? { workflowJson: data.workflowJson } : {}),
+      contentType: data.contentType,
+      caption: data.caption,
+      tags: data.tags,
+      category: data.category,
+      isPremium: data.isPremium,
+      priceInTokens: data.priceInTokens,
+      resolution: data.resolution,
+      orientation: data.orientation,
+      aspectRatio: data.aspectRatio,
       ...(hasExif ? { exifData } : {}),
       status: 'pending',
     })
 
-    // Enqueue job xử lý ảnh
+    // Enqueue job: worker xử lý generatedImages[0] (thumbnail, palette, blurHash, NSFW)
     await imageQueue.add(
       'process-image',
       {
         postId: post._id.toString(),
-        imageUrl: uploadResult.secure_url,
-        publicId: uploadResult.public_id,
+        // Worker sẽ xử lý generatedImages[0] cho blurHash, palette, histogram, NSFW
+        imageUrl: genUploads[0].url,
+        publicId: genUploads[0].publicId,
         authorId: req.user._id.toString(),
+        generatedCount: genUploads.length,
       },
       { priority: 1 }
     )
 
-    // Cập nhật stats user
-    await (
-      await import('../models/User.model.js')
-    ).default.findByIdAndUpdate(req.user._id, {
+    // Update user stats
+    const User = (await import('../models/User.model.js')).default
+    await User.findByIdAndUpdate(req.user._id, {
       $inc: { 'stats.postsCount': 1 },
     })
 
     res.status(202).json({
-      message: 'Ảnh đang được xử lý. Bạn sẽ nhận được thông báo khi hoàn tất.',
+      message: 'Nội dung đang được xử lý. Bạn sẽ nhận thông báo khi hoàn tất.',
       postId: post._id,
       status: 'pending',
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return next(
-        new AppError(
-          'VALIDATION_ERROR',
-          'Dữ liệu không hợp lệ',
-          422,
-          err.errors
-        )
-      )
+      return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
     }
     next(err)
   }
@@ -162,9 +245,8 @@ export const createPost = async (req, res, next) => {
 
 /**
  * GET /posts — Feed công khai, chỉ approved posts
- * sort=new: mới nhất (mặc định, cursor-based)
- * sort=hot: điểm nóng real-time (views×1 + likes×3 + downloads×5, trong 7 ngày)
- * sort=top: nhiều like nhất mọi thời gian
+ * Filters: category, aiTool, contentType, orientation, resolution
+ * Sort: new (default), hot, top
  */
 export const getApprovedPosts = async (req, res, next) => {
   try {
@@ -172,7 +254,8 @@ export const getApprovedPosts = async (req, res, next) => {
       cursor,
       limit = 20,
       category,
-      isAI,
+      aiTool,
+      contentType,
       orientation,
       resolution,
       sort = 'new',
@@ -180,14 +263,13 @@ export const getApprovedPosts = async (req, res, next) => {
 
     const baseMatch = { status: 'approved' }
     if (category && category !== 'all') baseMatch.category = category
-    if (isAI === 'true') baseMatch.isAIGenerated = true
+    if (aiTool) baseMatch.aiTool = aiTool
+    if (contentType) baseMatch.contentType = contentType
     if (orientation) baseMatch.orientation = orientation
     if (resolution) baseMatch.resolution = resolution
 
     // ─── HOT: Aggregation pipeline tính điểm real-time ──────
     if (sort === 'hot') {
-      // Hot = tổng điểm trong 7 ngày gần nhất
-      // views×1 + likes×3 + downloads×5 + recency factor
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
 
       const pipeline = [
@@ -204,7 +286,6 @@ export const getApprovedPosts = async (req, res, next) => {
           },
         },
         { $sort: { hotScore: -1, _id: -1 } },
-        { $skip: cursor ? 0 : 0 }, // cursor cho hot dùng offset đơn giản
         { $limit: parseInt(limit) + 1 },
         {
           $lookup: {
@@ -232,12 +313,7 @@ export const getApprovedPosts = async (req, res, next) => {
     // ─── NEW & TOP: Cursor-based pagination ─────────────────
     const query = { ...baseMatch }
     if (cursor) {
-      if (sort === 'top') {
-        // top dùng cursor theo likesCount (không hoàn hảo nhưng đủ dùng)
-        query._id = { $lt: cursor }
-      } else {
-        query._id = { $lt: cursor }
-      }
+      query._id = { $lt: cursor }
     }
 
     const sortObj =
@@ -341,7 +417,6 @@ export const updatePost = async (req, res, next) => {
     // Parse booleans từ JSON body hoặc FormData
     let body = { ...req.body }
     if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
-    if (typeof body.isAIGenerated === 'string') body.isAIGenerated = body.isAIGenerated === 'true'
     if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
     if (typeof body.tags === 'string') {
       try { body.tags = JSON.parse(body.tags) } catch { body.tags = [] }
@@ -366,7 +441,7 @@ export const updatePost = async (req, res, next) => {
 
 /**
  * DELETE /posts/:id — Xóa post (chỉ owner)
- * Xóa cả ảnh trên Cloudinary
+ * Xóa cả ảnh trên Cloudinary (sourceImages + generatedImages)
  */
 export const deletePost = async (req, res, next) => {
   try {
@@ -381,35 +456,36 @@ export const deletePost = async (req, res, next) => {
       )
     }
 
-    // Xóa tất cả ảnh trên Cloudinary (original + thumbnail + preview)
+    // Xóa tất cả ảnh trên Cloudinary
     const deletePromises = []
-    for (const img of post.images) {
+
+    // Xóa sourceImages
+    for (const img of (post.sourceImages || [])) {
       if (img.publicId) {
-        deletePromises.push(
-          cloudinary.uploader.destroy(img.publicId).catch(() => {})
-        )
-        // Xóa thumbnail và preview bằng cách đoán publicId
+        deletePromises.push(cloudinary.uploader.destroy(img.publicId).catch(() => {}))
+      }
+    }
+
+    // Xóa generatedImages + thumbnails + previews
+    for (const img of (post.generatedImages || [])) {
+      if (img.publicId) {
+        deletePromises.push(cloudinary.uploader.destroy(img.publicId).catch(() => {}))
         const baseName = img.publicId.split('/').pop()
         deletePromises.push(
-          cloudinary.uploader
-            .destroy(`picspy/posts/thumbnails/${baseName}_thumb`)
-            .catch(() => {})
+          cloudinary.uploader.destroy(`picspy/posts/thumbnails/${baseName}_thumb`).catch(() => {})
         )
         deletePromises.push(
-          cloudinary.uploader
-            .destroy(`picspy/posts/previews/${baseName}_preview`)
-            .catch(() => {})
+          cloudinary.uploader.destroy(`picspy/posts/previews/${baseName}_preview`).catch(() => {})
         )
       }
     }
-    await Promise.allSettled(deletePromises)
 
+    await Promise.allSettled(deletePromises)
     await post.deleteOne()
 
-    // Giảm postsCount của user
-    await (
-      await import('../models/User.model.js')
-    ).default.findByIdAndUpdate(req.user._id, {
+    // Giảm postsCount
+    const User = (await import('../models/User.model.js')).default
+    await User.findByIdAndUpdate(req.user._id, {
       $inc: { 'stats.postsCount': -1 },
     })
 
@@ -421,13 +497,11 @@ export const deletePost = async (req, res, next) => {
 
 /**
  * GET /posts/following — Feed từ những người đang follow
- * Dùng Follow collection (separate model) - không phải user.following array
  */
 export const getFollowingFeed = async (req, res, next) => {
   try {
     const { cursor, limit = 20 } = req.query
 
-    // Import Follow model (dùng separate collection)
     const Follow = (await import('../models/Follow.model.js')).default
     const follows = await Follow.find({ followerId: req.user._id })
       .select('followingId')
@@ -467,4 +541,3 @@ export const getFollowingFeed = async (req, res, next) => {
     next(err)
   }
 }
-

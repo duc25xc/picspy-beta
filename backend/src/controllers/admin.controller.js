@@ -219,6 +219,46 @@ export const toggleBanUser = async (req, res, next) => {
   } catch (err) { next(err) }
 }
 
+/** PATCH /admin/users/:id/tier — Đổi subscription tier (dev/admin tool) */
+export const changeUserTier = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { tier, expireInDays } = req.body
+
+    const VALID_TIERS = ['free', 'pro', 'ultimate', 'founder']
+    if (!VALID_TIERS.includes(tier))
+      throw new AppError('INVALID_TIER', `Tier không hợp lệ. Chọn: ${VALID_TIERS.join(', ')}`, 400)
+
+    const user = await User.findById(id)
+    if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
+
+    const prevTier = user.subscriptionTier
+    user.subscriptionTier = tier
+
+    // Đặt expiry nếu có (mặc định 30 ngày)
+    const days = parseInt(expireInDays) || (tier === 'free' ? 0 : 30)
+    if (tier !== 'free' && days > 0) {
+      user.subscriptionExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+    } else {
+      user.subscriptionExpiry = undefined
+    }
+
+    // Đặt founderSlot nếu là founder
+    if (tier === 'founder') user.founderSlot = true
+    else if (prevTier === 'founder' && tier !== 'founder') user.founderSlot = false
+
+    await user.save()
+
+    res.json({
+      message: `Đã đổi tier @${user.username}: ${prevTier} → ${tier}`,
+      username: user.username,
+      subscriptionTier: user.subscriptionTier,
+      subscriptionExpiry: user.subscriptionExpiry,
+      prevTier,
+    })
+  } catch (err) { next(err) }
+}
+
 // =============================================
 // DASHBOARD & ANALYTICS
 // =============================================

@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import api from '../api/api'
 import PostDetailModal from '../components/post/PostDetailModal'
+import useModalUrl from '../hooks/useModalUrl'
 
 // ── Fallback categories ─────────────────────────────────────────
 const FALLBACK_CATEGORIES = [
@@ -141,7 +142,7 @@ const PostCard = ({
   globalIndex = 0,
   onClick,
 }) => {
-  const img = post.images?.[0]
+  const img = post.generatedImages?.[0] || post.images?.[0]
   const displayUrl = img?.thumbnailUrl || img?.url
   const isTall = globalIndex % 3 === 0
 
@@ -194,9 +195,9 @@ const PostCard = ({
             💎
           </span>
         )}
-        {post.isAIGenerated && (
+        {post.aiTool && (
           <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600/80 text-white backdrop-blur-sm">
-            AI
+            ✨ {post.aiTool}
           </span>
         )}
       </div>
@@ -410,7 +411,13 @@ const SearchPage = () => {
   const colorDrag = makeDraggable(colorScrollRef)
 
   const handleOpenPost = (_post, index) => setSelectedIndex(index)
-  const handleClose = () => setSelectedIndex(null)
+
+  // Lấy postId để useModalUrl theo dõi
+  const currentPostId = selectedIndex !== null ? posts[selectedIndex]?._id : null
+  const closeModalState = useCallback(() => setSelectedIndex(null), [])
+  const { closeModal } = useModalUrl(currentPostId, closeModalState)
+
+  const handleClose = closeModal
   const handlePrev = () => setSelectedIndex((i) => Math.max(0, i - 1))
   const handleNext = () =>
     setSelectedIndex((i) => Math.min(posts.length - 1, i + 1))

@@ -4,10 +4,15 @@ import { uploadBuffer } from '../config/cloudinary.js'
 
 /**
  * GET /users/me
+ * Re-fetch từ DB để đảm bảo subscriptionTier luôn mới nhất
  */
 export const getMe = async (req, res, next) => {
   try {
-    res.json({ user: req.user })
+    const user = await User.findById(req.user._id)
+      .select('-passwordHash -emailVerifyToken -passwordResetToken -stripeCustomerId')
+      .lean()
+    if (!user) return next(new AppError('NOT_FOUND', 'User không tồn tại', 404))
+    res.json({ user })
   } catch (err) {
     next(err)
   }

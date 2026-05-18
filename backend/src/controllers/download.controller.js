@@ -19,7 +19,7 @@ export const downloadPost = async (req, res, next) => {
       throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại', 404)
     }
 
-    const img = post.images?.[0]
+    const img = post.generatedImages?.[0]
     if (!img?.publicId) {
       throw new AppError('NOT_FOUND', 'Không tìm thấy file ảnh', 404)
     }

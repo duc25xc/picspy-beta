@@ -346,7 +346,7 @@ const PostsTab = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <AnimatePresence>
             {posts.map((post) => {
-              const img = post.images?.[0]
+              const img = post.generatedImages?.[0] || post.images?.[0]
               const isActing = actionLoading === post._id
               const isSelected = selected.has(post._id)
               return (
@@ -451,6 +451,13 @@ const PostsTab = () => {
 // ══════════════════════════════════════════════════════════════════
 // TAB: USERS
 // ══════════════════════════════════════════════════════════════════
+const TIER_META = {
+  free:     { label: 'Miễn phí', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.25)', icon: '⭕' },
+  founder:  { label: "Founder's", color: '#d97706', bg: 'rgba(217,119,6,0.12)',  border: 'rgba(217,119,6,0.3)',   icon: '⭐' },
+  pro:      { label: 'Pro',       color: '#7986eb', bg: 'rgba(121,134,235,0.12)', border: 'rgba(121,134,235,0.3)', icon: '💎' },
+  ultimate: { label: 'Ultimate', color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',   border: 'rgba(6,182,212,0.3)',  icon: '👑' },
+}
+
 const UsersTab = () => {
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -460,6 +467,9 @@ const UsersTab = () => {
   const [coinModal, setCoinModal] = useState(null)
   const [coinAmount, setCoinAmount] = useState('')
   const [coinLoading, setCoinLoading] = useState(false)
+  const [tierModal, setTierModal] = useState(null)   // user đang đổi tier
+  const [tierLoading, setTierLoading] = useState(false)
+  const [selectedTier, setSelectedTier] = useState('free')
   const currentAdminId = useAuthStore(s => s.user?._id)
 
   const fetchUsers = useCallback(async (reset = false) => {
@@ -501,6 +511,30 @@ const UsersTab = () => {
     } catch (err) { toast.error(err.response?.data?.message || 'Lỗi') }
   }
 
+  const openTierModal = (user) => {
+    setSelectedTier(user.subscriptionTier || 'free')
+    setTierModal(user)
+  }
+
+  const handleChangeTier = async () => {
+    if (!tierModal) return
+    setTierLoading(true)
+    try {
+      const { data } = await api.patch(`/admin/users/${tierModal._id}/tier`, {
+        tier: selectedTier,
+        expireInDays: selectedTier === 'free' ? 0 : 365,
+      })
+      toast.success(data.message)
+      setUsers(prev => prev.map(u =>
+        u._id === tierModal._id ? { ...u, subscriptionTier: data.subscriptionTier } : u
+      ))
+      // Nếu admin tự đổi tier của mình → reload để update navbar token badge
+      if (tierModal._id === currentAdminId) window.location.reload()
+      setTierModal(null)
+    } catch (err) { toast.error(err.response?.data?.message || 'Lỗi đổi tier') }
+    finally { setTierLoading(false) }
+  }
+
   return (
     <div className="space-y-4">
       <div className="relative">
@@ -525,6 +559,19 @@ const UsersTab = () => {
                   <span className="text-xs text-white/40">@{user.username}</span>
                   {user.role === 'admin' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-400 font-bold">ADMIN</span>}
                   {user.isBanned && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-600/30 text-red-400 font-bold">BANNED</span>}
+                  {/* Tier badge — click to change */}
+                  <button
+                    onClick={() => openTierModal(user)}
+                    title="Nhấp để đổi gói"
+                    className="text-[10px] px-2 py-0.5 rounded-full font-bold border transition-all hover:brightness-125"
+                    style={{
+                      background: TIER_META[user.subscriptionTier || 'free']?.bg,
+                      color: TIER_META[user.subscriptionTier || 'free']?.color,
+                      borderColor: TIER_META[user.subscriptionTier || 'free']?.border,
+                    }}
+                  >
+                    {TIER_META[user.subscriptionTier || 'free']?.icon} {TIER_META[user.subscriptionTier || 'free']?.label}
+                  </button>
                 </div>
                 <p className="text-xs text-white/40 truncate">{user.email}</p>
               </div>
@@ -586,6 +633,95 @@ const UsersTab = () => {
                 <motion.button whileTap={{ scale: 0.97 }} onClick={handleAdjustCoins} disabled={coinLoading || !coinAmount}
                   className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                   {coinLoading ? <Loader2 size={16} className="animate-spin" /> : <><Coins size={15} /> Xác nhận</>}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Tier Modal */}
+      <AnimatePresence>
+        {tierModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={e => e.target === e.currentTarget && setTierModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, opacity: 0 }}
+              className="card p-6 w-full max-w-sm">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl"
+                  style={{ background: TIER_META[selectedTier]?.bg }}>
+                  {TIER_META[selectedTier]?.icon}
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg leading-tight">Đổi gói đăng ký</h3>
+                  <p className="text-xs text-white/40">@{tierModal.username}</p>
+                </div>
+              </div>
+
+              {/* Tier grid */}
+              <div className="grid grid-cols-2 gap-2 mb-5">
+                {Object.entries(TIER_META).map(([key, meta]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSelectedTier(key)}
+                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all"
+                    style={{
+                      background: selectedTier === key ? meta.bg : 'rgba(255,255,255,0.03)',
+                      borderColor: selectedTier === key ? meta.border : 'rgba(255,255,255,0.07)',
+                      boxShadow: selectedTier === key ? `0 0 0 1.5px ${meta.border}` : 'none',
+                    }}
+                  >
+                    <span className="text-lg">{meta.icon}</span>
+                    <div>
+                      <p className="text-xs font-bold" style={{ color: selectedTier === key ? meta.color : 'rgba(255,255,255,0.5)' }}>
+                        {meta.label}
+                      </p>
+                      {key !== 'free' && (
+                        <p className="text-[10px] text-white/25">
+                          {key === 'founder' ? '200 slot' : key === 'pro' ? '1K token/th' : 'Unlimited'}
+                        </p>
+                      )}
+                    </div>
+                    {selectedTier === key && (
+                      <Check size={13} className="ml-auto flex-shrink-0" style={{ color: meta.color }} />
+                    )}
+                  </button>
+                ))}
+              </div>
+
+              {/* Current vs Selected */}
+              <div className="flex items-center justify-center gap-2 mb-5 text-xs">
+                <span className="px-2.5 py-1 rounded-full font-bold" style={{
+                  background: TIER_META[tierModal.subscriptionTier || 'free']?.bg,
+                  color: TIER_META[tierModal.subscriptionTier || 'free']?.color,
+                }}>{TIER_META[tierModal.subscriptionTier || 'free']?.label}</span>
+                <span className="text-white/30">→</span>
+                <span className="px-2.5 py-1 rounded-full font-bold" style={{
+                  background: TIER_META[selectedTier]?.bg,
+                  color: TIER_META[selectedTier]?.color,
+                  border: `1px solid ${TIER_META[selectedTier]?.border}`,
+                }}>{TIER_META[selectedTier]?.label}</span>
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setTierModal(null)} className="btn-secondary flex-1">Hủy</button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleChangeTier}
+                  disabled={tierLoading || selectedTier === (tierModal.subscriptionTier || 'free')}
+                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2
+                    disabled:opacity-40 transition-all"
+                  style={{
+                    background: 'oklch(52% 0.28 285)',
+                    color: '#f5f3ff',
+                    boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.22), 0 4px 14px rgba(109,40,217,0.4)',
+                  }}
+                >
+                  {tierLoading
+                    ? <Loader2 size={15} className="animate-spin" />
+                    : <><Zap size={14} /> Xác nhận</>
+                  }
                 </motion.button>
               </div>
             </motion.div>

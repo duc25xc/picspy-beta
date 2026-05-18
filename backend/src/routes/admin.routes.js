@@ -2,7 +2,7 @@ import { Router } from 'express'
 import { authenticate, requireAdmin } from '../middlewares/authenticate.js'
 import {
   getAllPosts, updatePostStatus, bulkUpdatePosts,
-  getAllUsers, adjustUserTokens, toggleBanUser,
+  getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
   getSettings, updateSettings,
@@ -26,6 +26,7 @@ router.post('/posts/bulk', bulkUpdatePosts)
 router.get('/users', getAllUsers)
 router.post('/users/:id/tokens', adjustUserTokens)
 router.patch('/users/:id/ban', toggleBanUser)
+router.patch('/users/:id/tier', changeUserTier)
 
 // ── Category management ───────────────────────────────────────
 router.get('/categories', getCategories)

@@ -1,1118 +1,719 @@
-import { useState, useCallback, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useDropzone } from 'react-dropzone'
+import { useState, useCallback, useEffect } from 'react'
+import { useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Upload, Image, X, Tag, DollarSign, Sparkles,
-  CheckCircle, Clock, LayoutGrid, Plus, Zap, Info,
-  FolderHeart, Camera, Cpu, Ratio, FileImage,
-  ScanLine, Aperture, Timer, MapPin,
+  Upload, CheckCircle, Clock, LayoutGrid, ArrowRight, ArrowLeft,
+  Sparkles, Settings, Tag, Coins, ChevronDown, Image as ImageIcon,
+  AlertCircle, Loader2, Crown, FileJson,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
-import exifr from 'exifr'
+import useTierAccess from '../hooks/useTierAccess'
+import { detectDimensions, fileToPreview, FALLBACK_CATEGORIES } from './uploadConstants.js'
+import {
+  ImageDropZone, AIToolSelector, PromptField, StepHeader,
+} from './UploadComponents.jsx'
 
-// ── Fallback categories (khi API chưa sẵn sàng) ───────────────
-const FALLBACK_CATEGORIES = [
-  { slug: 'nature',   name: '🌿 Thiên nhiên' },
-  { slug: 'anime',    name: '🎌 Anime' },
-  { slug: 'minimal',  name: '◻️ Minimal' },
-  { slug: 'abstract', name: '🎨 Abstract' },
-  { slug: 'city',     name: '🌃 Thành phố' },
-  { slug: 'space',    name: '🚀 Vũ trụ' },
-  { slug: 'dark',     name: '🌑 Dark' },
-  { slug: 'light',    name: '☀️ Light' },
-  { slug: 'gradient', name: '🌈 Gradient' },
-  { slug: 'other',    name: '✨ Khác' },
+// ── Wizard steps ─────────────────────────────────────────────────
+const STEPS = [
+  { id: 1, label: 'Công cụ & Prompt' },
+  { id: 2, label: 'Ảnh tham khảo' },
+  { id: 3, label: 'Kết quả AI' },
+  { id: 4, label: 'Thông tin' },
 ]
 
-// ── Nhận dạng tỷ lệ khung hình chuẩn ───────────────────────
-const ASPECT_RATIOS = [
-  { label: '1:1',   value: '1:1',   ratio: 1/1 },
-  { label: '4:3',   value: '4:3',   ratio: 4/3 },
-  { label: '3:4',   value: '3:4',   ratio: 3/4 },
-  { label: '3:2',   value: '3:2',   ratio: 3/2 },
-  { label: '2:3',   value: '2:3',   ratio: 2/3 },
-  { label: '16:9',  value: '16:9',  ratio: 16/9 },
-  { label: '9:16',  value: '9:16',  ratio: 9/16 },
-  { label: '16:10', value: '16:10', ratio: 16/10 },
-  { label: '10:16', value: '10:16', ratio: 10/16 },
-  { label: '5:4',   value: '5:4',   ratio: 5/4 },
-  { label: '4:5',   value: '4:5',   ratio: 4/5 },
-  { label: '21:9',  value: '21:9',  ratio: 21/9 },
-  { label: '18:9',  value: '18:9',  ratio: 18/9 },
-]
-const detectAspectRatio = (w, h) => {
-  const r = w / h
-  let best = null, minDiff = Infinity
-  for (const ar of ASPECT_RATIOS) {
-    const diff = Math.abs(r - ar.ratio)
-    if (diff < minDiff) { minDiff = diff; best = ar }
-  }
-  // chấp nhận nếu sai lệch < 4%
-  return best && minDiff / best.ratio < 0.04 ? best.value : null
-}
-
-// ── Detect dimensions (width/height/resolution/orientation/aspectRatio) ───
-const detectDimensions = (file) =>
-  new Promise((resolve) => {
-    const img = new window.Image()
-    const url = URL.createObjectURL(file)
-    img.onload = () => {
-      const w = img.naturalWidth, h = img.naturalHeight
-      const maxDim = Math.max(w, h)
-      // DCI 2K = 2048px, QHD = 2560px, UHD 4K = 3840px
-      const resolution = maxDim >= 3840 ? '4k' : maxDim >= 2048 ? '2k' : maxDim >= 1280 ? 'hd' : 'sd'
-      const ratio = w / h
-      const orientation = ratio > 1.15 ? 'landscape' : ratio < 0.87 ? 'portrait' : 'square'
-      const gcd = (a, b) => b ? gcd(b, a % b) : a
-      const g = gcd(w, h)
-      const aspectRatio = detectAspectRatio(w, h) || `${w/g}:${h/g}`
-      URL.revokeObjectURL(url)
-      resolve({ width: w, height: h, resolution, orientation, aspectRatio, aspectStr: `${w/g}:${h/g}` })
-    }
-    img.onerror = () => { URL.revokeObjectURL(url); resolve({}) }
-    img.src = url
-  })
-
-// ── EXIF extraction với exifr ─────────────────────────────────
-const extractExif = async (file) => {
-  try {
-    const raw = await exifr.parse(file, {
-      tiff: true, exif: true, gps: true, xmp: true, iptc: false,
-      // Các tag cần lấy
-      pick: [
-        'Make','Model','LensModel','LensInfo',
-        'ExposureTime','FNumber','ISO','FocalLength','FocalLengthIn35mmFormat',
-        'ExposureProgram','MeteringMode','WhiteBalance','Flash',
-        'DateTimeOriginal','CreateDate',
-        'GPSLatitude','GPSLongitude','GPSAltitude',
-        'Software','ProcessingSoftware','HistorySoftwareAgent',
-        // XMP AI markers
-        'generator','GeneratorTool','dc:creator','Rights',
-      ],
-    })
-    if (!raw) return { hasExif: false }
-
-    // Format shutter speed: 0.01 → "1/100s"
-    const formatShutter = (val) => {
-      if (!val || val <= 0) return null
-      if (val >= 1) return `${val}s`
-      return `1/${Math.round(1/val)}s`
-    }
-
-    // Detect AI generation từ metadata
-    const soft = [raw.Software, raw.ProcessingSoftware, raw.HistorySoftwareAgent,
-      raw.generator, raw.GeneratorTool].filter(Boolean).join(' ').toLowerCase()
-    const AI_TOOLS = ['stable diffusion','midjourney','dall-e','dalle','novelai',
-      'comfyui','automatic1111','invokeai','dreamshaper','nijijourney','firefly',
-      'leonardo','bing image','canva ai','adobe firefly','runway','pika']
-    const detectedTool = AI_TOOLS.find(t => soft.includes(t)) || null
-    // File name heuristic: chứa "ai", "generated", "stable", "midjourney", "dalle"...
-    const nameLow = file.name.toLowerCase()
-    const aiNameHit = AI_TOOLS.some(t => nameLow.includes(t.replace(' ','').replace('-','')))
-    const isAIGenerated = detectedTool !== null || aiNameHit
-    const aiToolName = detectedTool || (aiNameHit ? 'AI Tool (detected from filename)' : '')
-
-    return {
-      hasExif: true,
-      camera: raw.Make && raw.Model
-        ? `${raw.Make} ${raw.Model}`.trim()
-        : raw.Model || null,
-      lens: raw.LensModel || null,
-      iso: raw.ISO ? `ISO ${raw.ISO}` : null,
-      aperture: raw.FNumber ? `f/${raw.FNumber}` : null,
-      shutter: formatShutter(raw.ExposureTime),
-      focalLength: raw.FocalLength
-        ? `${raw.FocalLength}mm${raw.FocalLengthIn35mmFormat ? ` (${raw.FocalLengthIn35mmFormat}mm eq.)` : ''}`
-        : null,
-      dateTaken: raw.DateTimeOriginal || raw.CreateDate || null,
-      hasGps: !!(raw.GPSLatitude && raw.GPSLongitude),
-      software: raw.Software || null,
-      // AI fields
-      isAIGenerated,
-      aiToolName,
-    }
-  } catch {
-    return { hasExif: false }
-  }
-}
-
-/*
-  detectImageMeta — kết hợp dimensions + EXIF + AI detection
-  Chạy song song cả 2 việc để nhanh
-*/
-const detectImageMeta = async (file) => {
-  const [dims, exif] = await Promise.all([
-    detectDimensions(file),
-    extractExif(file),
-  ])
-  return { ...dims, ...exif }
-}
-
-// ── Spinner ────────────────────────────────────────────────────
-const Spinner = ({ size = 16, color = 'border-brand-400' }) => (
-  <motion.div
-    className={`rounded-full border-2 border-white/20 border-t-current ${color}`}
-    style={{ width: size, height: size }}
-    animate={{ rotate: 360 }}
-    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-  />
-)
-
-// ── Upload progress bar ────────────────────────────────────────
-const UploadProgressCard = ({ phase, progress, current, total }) => (
-  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className="card p-4 space-y-3">
-    {total > 1 && (
-      <p className="text-xs text-white/40 font-medium">Đang xử lý ảnh {current}/{total}</p>
-    )}
-    {/* Upload progress */}
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium flex items-center gap-2">
-          {phase === 'uploading' ? (<><Spinner size={14} /><span>Đang gửi ảnh...</span></>) : (<><CheckCircle size={14} className="text-green-400" /><span className="text-green-400">Đã nhận file</span></>)}
-        </span>
-        <span className="text-sm text-white/60 font-mono">{phase === 'uploading' ? `${progress}%` : '100%'}</span>
-      </div>
-      <div className="h-2 bg-surface-200 rounded-full overflow-hidden">
-        <motion.div
-          animate={{ width: phase === 'uploading' ? `${progress}%` : '100%' }}
-          transition={{ duration: 0.3 }}
-          className="h-full bg-gradient-brand rounded-full relative overflow-hidden"
-        >
-          <motion.div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-            animate={{ x: ['-100%','100%'] }} transition={{ duration: 1.2, repeat: Infinity, ease:'linear' }} />
-        </motion.div>
-      </div>
-    </div>
-    {/* Processing */}
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-sm font-medium flex items-center gap-2">
-          {phase === 'processing'
-            ? (<><Spinner size={14} color="border-violet-400" /><span className="text-violet-300">Đang xử lý (resize • AI check)...</span></>)
-            : (<span className="text-white/30">Chờ xử lý</span>)}
-        </span>
-      </div>
-      <div className="h-2 bg-surface-200 rounded-full overflow-hidden">
-        {phase === 'processing' ? (
-          <motion.div className="h-full rounded-full"
-            style={{ background:'linear-gradient(90deg,#7c3aed,#a78bfa,#7c3aed)', backgroundSize:'200% 100%' }}
-            animate={{ backgroundPosition:['0%','100%','0%'] }} transition={{ duration:2, repeat:Infinity }} />
-        ) : <div className="h-full w-0" />}
-      </div>
-    </div>
-    <p className="text-xs text-white/30 text-center">Đừng đóng tab trong khi đang upload</p>
-  </motion.div>
-)
-
-// ── defaultMeta factory ────────────────────────────────────────────
-const defaultMeta = () => ({
-  caption:'', tags:[], category:'', isPremium:false,
-  priceInCoins:50, isAIGenerated:false, aiTool:'',
-  resolution:'', orientation:'', aspectRatio:'',
+// ── Default form state ───────────────────────────────────────────
+const defaultForm = () => ({
+  // Step 1
+  aiTool: '',
+  aiModel: '',
+  parameters: '',
+  prompt: '',
+  negativePrompt: '',
+  workflowJson: '',       // Ultimate only
+  showNegative: false,
+  showParams: false,
+  showWorkflow: false,    // toggle state
+  // Step 4
+  caption: '',
+  tags: '',
+  category: '',
+  isPremium: false,
+  priceInTokens: 10,
 })
 
-// ── Main UploadPage ────────────────────────────────────────────
-const UploadPage = () => {
+// ── Main component ───────────────────────────────────────────────
+export default function UploadPage() {
   const navigate = useNavigate()
-  const fileInputRef = useRef(null)
-  const [queue, setQueue]           = useState([])
-  const [activeIdx, setActiveIdx]   = useState(0)
-  const [tag, setTag]               = useState('')
-  const [uploadPhase, setUploadPhase] = useState(null)
-  const [progress, setProgress]     = useState(0)
-  const [done, setDone]             = useState(false)
-  const [uploadedCount, setUploadedCount] = useState(0)
-  const [collectionName, setCollectionName] = useState('')
-  const [sharedMeta, setSharedMeta] = useState(true)
-  const [globalForm, setGlobalForm] = useState(defaultMeta())
-  const [perImageMeta, setPerImageMeta] = useState([])
-  // Categories từ API
+  const tierAccess = useTierAccess()
+
+  // Wizard state
+  const [step, setStep] = useState(1)
+  const [form, setForm] = useState(defaultForm())
+
+  // Image lists
+  const [sourceImages, setSourceImages] = useState([])   // 0–5
+  const [genImages, setGenImages] = useState([])          // 1–5
+
+  // Categories
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
 
-  // Load categories từ API khi mount
+  // Upload state
+  const [uploading, setUploading] = useState(false)
+  const [progress, setProgress] = useState(0)
+  const [done, setDone] = useState(false)
+
+  // Load categories from API
   useEffect(() => {
-    api.get('/categories')
-      .then(({ data }) => {
-        if (data.categories?.length > 0) {
-          setCategories(data.categories.map(c => ({
-            slug: c.slug,
-            name: `${c.emoji || ''} ${c.name}`.trim(),
-          })))
-        }
-      })
-      .catch(() => { /* giữ fallback */ })
+    api.get('/categories').then(({ data }) => {
+      if (data?.categories?.length) setCategories(data.categories)
+    }).catch(() => {})
   }, [])
 
-  const isUploading = uploadPhase !== null
-  const activeItem = queue[activeIdx]
-  const detected = activeItem?.detected || {}
+  // ── Image handlers ─────────────────────────────────────────────
+  const addSourceImages = useCallback((files) => {
+    const remaining = 5 - sourceImages.length
+    const toAdd = files.slice(0, remaining).map(fileToPreview)
+    setSourceImages(prev => [...prev, ...toAdd])
+  }, [sourceImages.length])
 
-  // activeMeta: khi sharedMeta=true đọc/ghi globalForm, khi false đọc/ghi perImageMeta[activeIdx]
-  const activeMeta = sharedMeta ? globalForm : (perImageMeta[activeIdx] || { ...defaultMeta(), ...queue[activeIdx]?.detected })
-  const setActiveMeta = (updater) => {
-    if (sharedMeta) {
-      setGlobalForm(p => typeof updater === 'function' ? updater(p) : { ...p, ...updater })
-    } else {
-      setPerImageMeta(p => {
-        const c = [...p]
-        c[activeIdx] = typeof updater === 'function' ? updater(c[activeIdx] || defaultMeta()) : { ...(c[activeIdx] || defaultMeta()), ...updater }
-        return c
-      })
+  const removeSourceImage = useCallback((id) => {
+    setSourceImages(prev => {
+      const img = prev.find(i => i.id === id)
+      if (img) URL.revokeObjectURL(img.preview)
+      return prev.filter(i => i.id !== id)
+    })
+  }, [])
+
+  const addGenImages = useCallback((files) => {
+    const remaining = 5 - genImages.length
+    const toAdd = files.slice(0, remaining).map(fileToPreview)
+    setGenImages(prev => [...prev, ...toAdd])
+  }, [genImages.length])
+
+  const removeGenImage = useCallback((id) => {
+    setGenImages(prev => {
+      const img = prev.find(i => i.id === id)
+      if (img) URL.revokeObjectURL(img.preview)
+      return prev.filter(i => i.id !== id)
+    })
+  }, [])
+
+  // ── Navigation ─────────────────────────────────────────────────
+  const canGoNext = () => {
+    if (step === 1) return form.aiTool && form.prompt.trim().length >= 3
+    if (step === 2) return true // optional
+    if (step === 3) return genImages.length >= 1
+    return true
+  }
+
+  const goNext = () => {
+    if (!canGoNext()) {
+      if (step === 1) toast.error('Chọn công cụ AI và nhập prompt')
+      if (step === 3) toast.error('Cần ít nhất 1 ảnh kết quả AI')
+      return
     }
+    setStep(s => Math.min(s + 1, 4))
   }
 
-  // ── Add files to queue — auto-apply detected meta immediately ──────
-  const addFiles = useCallback(async (acceptedFiles) => {
-    if (isUploading) return
-    // Đọc queue length hiện tại qua closure-safe ref
-    setQueue(prev => {
-      const remaining = 10 - prev.length
-      if (remaining <= 0) { toast.error('Đã đạt tối đa 10 ảnh'); return prev }
-      return prev // return same state, actual add happens below async
-    })
-    const toAdd = Array.from(acceptedFiles).slice(0, 10)
-    const newItems = await Promise.all(toAdd.map(async (f) => {
-      const preview = URL.createObjectURL(f)
-      const detected = await detectImageMeta(f)
-      return { file: f, preview, status: 'pending', detected }
-    }))
+  const goBack = () => setStep(s => Math.max(s - 1, 1))
 
-    setQueue(prev => {
-      const remaining = 10 - prev.length
-      if (remaining <= 0) return prev
-      const toInsert = newItems.slice(0, remaining)
-      const updated = [...prev, ...toInsert]
-      setActiveIdx(updated.length - 1)
+  // ── Submit ─────────────────────────────────────────────────────
+  const handleSubmit = async () => {
+    if (!form.category) return toast.error('Vui lòng chọn danh mục')
+    if (genImages.length === 0) return toast.error('Cần ít nhất 1 ảnh kết quả AI')
 
-      // Bug fix 2: Nếu sharedMeta=true VÀ đây là ảnh ĐẦU TIÊN → apply vào globalForm
-      const firstDetected = toInsert[0]?.detected
-      if (firstDetected && prev.length === 0) {
-        setGlobalForm(g => ({
-          ...g,
-          resolution:    firstDetected.resolution    || g.resolution,
-          orientation:   firstDetected.orientation   || g.orientation,
-          aspectRatio:   firstDetected.aspectRatio   || g.aspectRatio,
-          isAIGenerated: firstDetected.isAIGenerated || g.isAIGenerated,
-          aiTool:        firstDetected.aiToolName    || g.aiTool,
-        }))
-      }
-
-      // Luôn update perImageMeta cho từng ảnh mới
-      setPerImageMeta(p => {
-        const copy = [...p]
-        toInsert.forEach((item, i) => {
-          const idx = prev.length + i
-          const d = item.detected
-          copy[idx] = {
-            ...defaultMeta(),
-            resolution:    d.resolution    || '',
-            orientation:   d.orientation   || '',
-            aspectRatio:   d.aspectRatio   || '',
-            isAIGenerated: d.isAIGenerated || false,
-            aiTool:        d.aiToolName    || '',
-          }
-        })
-        return copy
-      })
-
-      // AI toast
-      if (toInsert.some(i => i.detected?.isAIGenerated)) {
-        toast('\u{1F916} Phát hiện ảnh AI — đã tự đánh dấu', { icon: '' })
-      }
-      return updated
-    })
-  }, [isUploading]) // bỏ queue.length khỏi deps — đọc qua setState updater
-
-  // ── Dropzone ─────────────────────────────────────────────────
-  // Bug fix 1: key dựa trên queue.length===0 để force re-mount dropzone
-  // khi xóa hết ảnh → noClick reset đúng, file picker mở lại được
-  const dropzoneKey = queue.length === 0 ? 'empty' : 'has-files'
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: addFiles,
-    accept: { 'image/*': ['.jpg','.jpeg','.png','.webp'] },
-    maxSize: 30 * 1024 * 1024,
-    noClick: queue.length > 0,
-    disabled: isUploading,
-    onDropRejected: (files) => {
-      if (files[0]?.errors[0]?.code === 'file-too-large') toast.error('File quá lớn! Tối đa 30MB/ảnh')
-      else toast.error('Định dạng không hỗ trợ. Dùng JPG, PNG, WebP')
-    },
-  })
-
-  const removeFromQueue = (idx) => {
-    URL.revokeObjectURL(queue[idx]?.preview)
-    setQueue(prev => {
-      const updated = prev.filter((_,i) => i !== idx)
-      if (activeIdx >= updated.length) setActiveIdx(Math.max(0, updated.length - 1))
-      return updated
-    })
-    setPerImageMeta(prev => prev.filter((_,i) => i !== idx))
-  }
-
-  const addTag = () => {
-    const t = tag.toLowerCase().trim().replace(/[^a-z0-9_]/g,'')
-    if (t && !activeMeta.tags.includes(t) && activeMeta.tags.length < 10) {
-      setActiveMeta(prev => ({ ...prev, tags: [...prev.tags, t] }))
-    }
-    setTag('')
-  }
-  const removeTag = (t) => setActiveMeta(prev => ({ ...prev, tags: prev.tags.filter(x => x !== t) }))
-
-  // ── Apply auto-detected ───────────────────────────────────────
-  const applyDetected = () => {
-    if (!detected.resolution) return
-    setActiveMeta(prev => ({
-      ...prev,
-      resolution: detected.resolution,
-      orientation: detected.orientation,
-    }))
-    toast.success(`Đã áp dụng: ${detected.resolution.toUpperCase()} ${detected.orientation}`)
-  }
-
-  // Áp dụng auto-detect cho TẤT CẢ ảnh
-  const applyDetectedAll = async () => {
-    setPerImageMeta(queue.map(item => ({
-      ...(perImageMeta[queue.indexOf(item)] || defaultMeta()),
-      resolution: item.detected?.resolution || '',
-      orientation: item.detected?.orientation || '',
-    })))
-    toast.success('Đã tự động nhận diện cho tất cả ảnh!')
-  }
-
-  // ── Submit ────────────────────────────────────────────────────
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    if (queue.length === 0) return toast.error('Chọn ít nhất 1 ảnh')
-    if (sharedMeta && !globalForm.category) return toast.error('Chọn danh mục trước')
-
-    setUploadPhase('uploading')
+    setUploading(true)
     setProgress(0)
-    setUploadedCount(0)
 
-    let successCount = 0
-    for (let i = 0; i < queue.length; i++) {
-      const item = queue[i]
-      const itemMeta = sharedMeta ? globalForm : (perImageMeta[i] || defaultMeta())
-      if (!itemMeta.category) {
-        toast.error(`Ảnh ${i+1} chưa chọn danh mục, bỏ qua`)
-        setQueue(prev => { const c=[...prev]; c[i]={...c[i],status:'error'}; return c })
-        continue
-      }
-      setQueue(prev => { const c=[...prev]; c[i]={...c[i],status:'uploading'}; return c })
-      setActiveIdx(i)
+    // Detect dimensions from genImages[0]
+    let dims = {}
+    try { dims = await detectDimensions(genImages[0].file) } catch {}
 
-      const fd = new FormData()
-      fd.append('image', item.file)
-      // Nếu có collection name → thêm vào đầu caption
-      const captionFinal = collectionName
-        ? `[${collectionName}] ${itemMeta.caption}`.trim()
-        : itemMeta.caption.trim()
-      fd.append('caption', captionFinal)
-      fd.append('tags', JSON.stringify([
-        ...itemMeta.tags,
-        ...(collectionName ? [collectionName.toLowerCase().replace(/\s+/g,'_')] : [])
-      ]))
-      fd.append('category', itemMeta.category)
-      fd.append('isPremium', String(itemMeta.isPremium))
-      fd.append('isAIGenerated', String(itemMeta.isAIGenerated))
-      fd.append('priceInCoins', String(Number(itemMeta.priceInCoins)))
-      if (itemMeta.aiTool) fd.append('aiTool', itemMeta.aiTool)
-      // Ưu tiên detected (thông số vật lý riêng của từng ảnh), fallback về form value
-      const finalResolution = item.detected?.resolution || itemMeta.resolution
-      const finalOrientation = item.detected?.orientation || itemMeta.orientation
-      if (finalResolution) fd.append('resolution', finalResolution)
-      if (finalOrientation) fd.append('orientation', finalOrientation)
-      const finalAspectRatio = item.detected?.aspectRatio || itemMeta.aspectRatio
-      if (finalAspectRatio) fd.append('aspectRatio', finalAspectRatio)
-
-      let fakeP = 0, serverDone = false
-      const fakeTimer = setInterval(() => {
-        fakeP = Math.min(fakeP + 1 + Math.random()*2, 89)
-        setProgress(Math.round(fakeP))
-        if (serverDone && fakeP >= 89) { clearInterval(fakeTimer); setProgress(100) }
-      }, 60)
-
+    // Validate workflowJson trước khi bắt đầu upload
+    let workflowJsonStr = ''
+    if (tierAccess.canExportJson && form.workflowJson.trim()) {
       try {
-        await api.post('/posts', fd, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-          onUploadProgress: evt => {
-            const real = Math.round((evt.loaded*100)/evt.total)
-            if (real > fakeP) { fakeP = real; setProgress(real) }
-          },
-        })
-        serverDone = true
-        clearInterval(fakeTimer)
-        setProgress(100)
-        setUploadPhase('processing')
-        await new Promise(r => setTimeout(r, 700))
-        setQueue(prev => { const c=[...prev]; c[i]={...c[i],status:'done'}; return c })
-        successCount++
-        setUploadedCount(successCount)
-        if (i < queue.length - 1) { setUploadPhase('uploading'); setProgress(0) }
-      } catch (err) {
-        clearInterval(fakeTimer)
-        toast.error(err.response?.data?.message || `Upload ảnh ${i+1} thất bại`)
-        setQueue(prev => { const c=[...prev]; c[i]={...c[i],status:'error'}; return c })
-        setUploadPhase('uploading')
+        JSON.parse(form.workflowJson) // validate only
+        workflowJsonStr = form.workflowJson.trim()
+      } catch {
+        toast.error('JSON Workflow không hợp lệ — kiểm tra lại cú pháp!')
+        setUploading(false)
         setProgress(0)
+        return
       }
+ }
+
+    const fd = new FormData()
+    // AI generation fields
+    fd.append('prompt', form.prompt.trim())
+    if (form.negativePrompt.trim()) fd.append('negativePrompt', form.negativePrompt.trim())
+    fd.append('aiTool', form.aiTool)
+    if (form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
+    if (form.parameters.trim()) fd.append('parameters', form.parameters.trim())
+    fd.append('contentType', 'image')
+
+    // Metadata
+    fd.append('caption', form.caption.trim())
+    const tagsArr = form.tags.split(',').map(t => t.trim()).filter(Boolean)
+    fd.append('tags', JSON.stringify(tagsArr))
+    fd.append('category', form.category)
+    fd.append('isPremium', String(form.isPremium))
+    fd.append('priceInTokens', String(Number(form.priceInTokens)))
+
+    // Dimension auto-detect
+    if (dims.resolution) fd.append('resolution', dims.resolution)
+    if (dims.orientation) fd.append('orientation', dims.orientation)
+    if (dims.aspectRatio) fd.append('aspectRatio', dims.aspectRatio)
+
+    // Source images (optional)
+    sourceImages.forEach(img => fd.append('sourceImages', img.file))
+
+    // Generated images (required)
+    genImages.forEach(img => fd.append('generatedImages', img.file))
+
+    // workflowJson — đã được validate phía trên
+    if (workflowJsonStr) fd.append('workflowJson', workflowJsonStr)
+
+    // Fake progress
+    let fakeP = 0
+    const timer = setInterval(() => {
+      fakeP = Math.min(fakeP + 2, 89)
+      setProgress(Math.round(fakeP))
+    }, 80)
+
+    try {
+      await api.post('/posts', fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: evt => {
+          const real = Math.round((evt.loaded * 100) / evt.total)
+          if (real > fakeP) { fakeP = real; setProgress(real) }
+        },
+      })
+      clearInterval(timer)
+      setProgress(100)
+      setTimeout(() => setDone(true), 400)
+    } catch (err) {
+      clearInterval(timer)
+      setProgress(0)
+      toast.error(err.response?.data?.message || 'Upload thất bại, thử lại!')
+    } finally {
+      setUploading(false)
     }
-    setUploadPhase(null)
-    if (successCount > 0) setDone(true)
-    else toast.error('Không upload được ảnh nào')
   }
 
   const resetForm = () => {
-    queue.forEach(item => URL.revokeObjectURL(item.preview))
-    setQueue([]); setActiveIdx(0); setUploadPhase(null); setProgress(0)
-    setDone(false); setUploadedCount(0); setGlobalForm(defaultMeta())
-    setPerImageMeta([]); setCollectionName('')
+    ;[...sourceImages, ...genImages].forEach(i => URL.revokeObjectURL(i.preview))
+    setSourceImages([])
+    setGenImages([])
+    setForm(defaultForm())
+    setStep(1)
+    setDone(false)
+    setProgress(0)
   }
 
-  // ── Done screen ───────────────────────────────────────────────
-  if (done) return (
-    <div className="min-h-screen flex items-center justify-center p-6">
-      <motion.div initial={{ scale:0.9, opacity:0 }} animate={{ scale:1, opacity:1 }}
-        transition={{ type:'spring', duration:0.5 }}
-        className="card p-8 max-w-md w-full text-center"
-      >
-        <motion.div initial={{ scale:0 }} animate={{ scale:1 }}
-          transition={{ type:'spring', delay:0.1, bounce:0.5 }}
-          className="w-20 h-20 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center mx-auto mb-5"
+  // ── Done screen ────────────────────────────────────────────────
+  if (done) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <motion.div
+          initial={{ scale: 0.9, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={{ type: 'spring', duration: 0.5 }}
+          className="card p-8 max-w-md w-full text-center"
         >
-          <CheckCircle size={40} className="text-green-400" />
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ type: 'spring', delay: 0.1, bounce: 0.5 }}
+            className="w-20 h-20 rounded-full bg-green-500/20 border border-green-500/30
+              flex items-center justify-center mx-auto mb-5"
+          >
+            <CheckCircle size={40} className="text-green-400" />
+          </motion.div>
+          <h2 className="text-2xl font-bold mb-2">Đã gửi thành công!</h2>
+          <p className="text-white/60 mb-2">
+            Nội dung AI đang trong hàng chờ xử lý & kiểm duyệt.
+          </p>
+          <div className="flex items-center justify-center gap-2 text-sm text-white/40 mb-6">
+            <Clock size={14} />
+            <span>Thường mất 10–60 giây</span>
+          </div>
+          <div className="flex gap-3 justify-center">
+            <button onClick={resetForm} className="btn-secondary">Upload thêm</button>
+            <button onClick={() => navigate('/my-posts')} className="btn-primary flex items-center gap-2">
+              <LayoutGrid size={16} /> Xem bài của tôi
+            </button>
+          </div>
         </motion.div>
-        <h2 className="text-2xl font-bold mb-2">
-          {uploadedCount > 1 ? `Đã gửi ${uploadedCount} ảnh!` : 'Đã gửi thành công!'}
-        </h2>
-        {collectionName && <p className="text-violet-400 font-semibold mb-1">📁 Bộ sưu tập: {collectionName}</p>}
-        <p className="text-white/60 mb-2">Ảnh đang trong hàng chờ xử lý & kiểm duyệt.</p>
-        <div className="flex items-center justify-center gap-2 text-sm text-white/40 mb-6">
-          <Clock size={14} /><span>Thường mất 10–60 giây</span>
-        </div>
-        <div className="flex gap-3 justify-center">
-          <button onClick={resetForm} className="btn-secondary">Upload thêm</button>
-          <button onClick={() => navigate('/my-posts')} className="btn-primary flex items-center gap-2">
-            <LayoutGrid size={16} />Xem ảnh của tôi
-          </button>
-        </div>
-      </motion.div>
-    </div>
-  )
+      </div>
+    )
+  }
 
+  // ── Main render ────────────────────────────────────────────────
   return (
-    <div className="min-h-screen pb-24 md:pb-8 p-4 md:p-8">
-      <div className="max-w-3xl mx-auto">
-        <motion.div initial={{ opacity:0, y:16 }} animate={{ opacity:1, y:0 }}>
-          <h1 className="text-2xl font-display font-bold mb-1">Upload Ảnh</h1>
-          <p className="text-white/50 mb-6">Đăng 1 hoặc nhiều ảnh — tối đa 10 ảnh, 30MB/ảnh</p>
-        </motion.div>
+    <div className="min-h-screen py-8 px-4">
+      <div className="max-w-2xl mx-auto">
 
-        <form onSubmit={handleSubmit} className="space-y-5">
+        {/* Page title */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-white flex items-center gap-2">
+            <Sparkles size={22} className="text-brand-400" />
+            Chia sẻ nội dung AI
+          </h1>
+          <p className="text-white/40 text-sm mt-1">
+            Chia sẻ prompt và tác phẩm AI của bạn với cộng đồng
+          </p>
+        </div>
 
-          {/* ════════════════════════════════════════════
-              BƯỚC 1: Khu vực chọn ảnh
-          ════════════════════════════════════════════ */}
+        {/* Step indicators */}
+        <StepIndicator steps={STEPS} current={step} />
 
-          {/* Drop zone — chỉ show khi chưa có ảnh hoặc đang drag */}
-          <div
-            key={dropzoneKey}
-            {...getRootProps()}
-            className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 cursor-pointer overflow-hidden
-              ${isDragActive ? 'border-brand-500 bg-brand-500/10 scale-[1.01]' : 'border-white/20 hover:border-brand-500/50 bg-surface-50/50'}
-              ${isUploading ? 'pointer-events-none opacity-70' : ''}
-              ${queue.length > 0 ? (isDragActive ? 'block' : 'hidden') : 'block'}`}
-          >
-            <input {...getInputProps()} multiple disabled={isUploading} />
-            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
-              <motion.div animate={isDragActive ? { scale:1.2 } : { scale:1 }}
-                className="w-16 h-16 rounded-2xl bg-brand-500/20 flex items-center justify-center mb-4"
-              >
-                <Image size={28} className="text-brand-400" />
-              </motion.div>
-              <p className="font-medium mb-1">
-                {isDragActive ? 'Thả ảnh vào đây...' : 'Kéo & thả ảnh hoặc click để chọn'}
-              </p>
-              <p className="text-sm text-white/40">JPG, PNG, WebP — tối đa 30MB/ảnh — tối đa 10 ảnh</p>
-            </div>
-          </div>
-
-          {/* ── Preview ảnh active + nút thêm ────────── */}
-          {queue.length > 0 && (
-            <div
-              key={dropzoneKey + '-preview'}
-              {...getRootProps()}
-              className={`relative rounded-2xl border-2 border-dashed transition-all duration-200 overflow-hidden
-                ${isDragActive ? 'border-brand-500 bg-brand-500/10' : 'border-white/10'}
-                ${isUploading ? 'pointer-events-none' : ''}`}
-            >
-              <input {...getInputProps()} multiple disabled={isUploading} />
-
-              {/* Main preview — giữ đúng aspect ratio */}
-              {activeItem && (
-                <div className="relative bg-black/30">
-                  {/* Lấy tỷ lệ tự nhiên, max-height để không quá cao */}
-                  <div className="flex items-center justify-center" style={{ maxHeight: '360px' }}>
-                    <img
-                      src={activeItem.preview}
-                      alt="Preview"
-                      style={{ maxHeight: '360px', width: 'auto', maxWidth: '100%' }}
-                      className="object-contain"
-                    />
-                  </div>
-
-                  {/* Metadata badges overlay */}
-                  {detected.width && (
-                    <div className="absolute bottom-3 left-3 flex flex-wrap gap-1.5">
-                      <span className="px-2 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-[11px] font-mono text-white/80">
-                        {detected.width}×{detected.height}
-                      </span>
-                      <span className="px-2 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-[11px] font-bold text-violet-300 uppercase">
-                        {detected.resolution}
-                      </span>
-                      <span className="px-2 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-[11px] text-blue-300 capitalize">
-                        {detected.orientation}
-                      </span>
-                      {detected.aspectStr && (
-                        <span className="px-2 py-1 rounded-lg bg-black/75 backdrop-blur-sm text-[11px] text-white/50">
-                          {detected.aspectStr}
-                        </span>
-                      )}
-                    </div>
-                  )}
-                  <div className="absolute top-3 left-3 text-xs bg-black/60 backdrop-blur-sm px-2.5 py-1 rounded-lg text-white/70 max-w-[60%] truncate">
-                    {activeItem.file.name} • {(activeItem.file.size/1024/1024).toFixed(1)}MB
-                  </div>
-                </div>
-              )}
-
-              {/* Thumbnail strip — NGOÀI drop zone click area (noClick) */}
-              <div
-                className="p-3 bg-black/20"
-                onClick={e => e.stopPropagation()} // QUAN TRỌNG: ngăn dropzone nhận click
-              >
-                <div className="flex items-center gap-2 flex-wrap">
-                  {queue.map((item, idx) => {
-                    const d = item.detected || {}
-                    return (
-                      <motion.div
-                        key={item.preview}
-                        layout
-                        initial={{ opacity:0, scale:0.85 }}
-                        animate={{ opacity:1, scale:1 }}
-                        exit={{ opacity:0, scale:0.8 }}
-                        onClick={(e) => { e.stopPropagation(); setActiveIdx(idx) }}
-                        className={`relative rounded-xl overflow-hidden cursor-pointer flex-shrink-0 transition-all duration-200
-                          ${idx===activeIdx
-                            ? 'ring-2 ring-violet-500 shadow-[0_0_16px_rgba(124,58,237,0.5)] scale-105'
-                            : 'ring-1 ring-white/10 hover:ring-white/30 opacity-70 hover:opacity-100'
-                          }`}
-                        style={{ width:72, height:72 }}
-                      >
-                        <img
-                          src={item.preview}
-                          className="w-full h-full object-cover"
-                          alt={`Ảnh ${idx+1}`}
-                        />
-                        {/* Status */}
-                        {item.status==='done' && (
-                          <div className="absolute inset-0 bg-green-500/40 flex items-center justify-center">
-                            <CheckCircle size={18} className="text-white" />
-                          </div>
-                        )}
-                        {item.status==='error' && (
-                          <div className="absolute inset-0 bg-red-500/40 flex items-center justify-center">
-                            <X size={18} className="text-white" />
-                          </div>
-                        )}
-                        {item.status==='uploading' && (
-                          <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                            <Spinner size={18} />
-                          </div>
-                        )}
-                        {/* Remove btn */}
-                        {item.status !== 'uploading' && !isUploading && (
-                          <button
-                            type="button"
-                            onClick={e => { e.stopPropagation(); removeFromQueue(idx) }}
-                            className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/70 hover:bg-red-500 flex items-center justify-center transition-colors"
-                          >
-                            <X size={9} className="text-white" />
-                          </button>
-                        )}
-                        {/* Index */}
-                        <div className="absolute bottom-0.5 left-0.5 text-[9px] font-bold text-white bg-black/50 px-1 rounded">{idx+1}</div>
-                        {/* Per-image detected info */}
-                        {d.resolution && (
-                          <div className="absolute top-0.5 left-0.5 text-[8px] font-bold uppercase bg-violet-700/80 text-white px-1 rounded">
-                            {d.resolution}
-                          </div>
-                        )}
-                      </motion.div>
-                    )
-                  })}
-
-                  {/* Add more */}
-                  {queue.length < 10 && !isUploading && (
-                    <motion.button
-                      type="button"
-                      initial={{ opacity:0, scale:0.8 }}
-                      animate={{ opacity:1, scale:1 }}
-                      whileHover={{ scale:1.05 }}
-                      onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click() }}
-                      className="flex-shrink-0 w-[72px] h-[72px] rounded-xl border-2 border-dashed border-white/20 hover:border-brand-500/50 flex flex-col items-center justify-center gap-1 transition-colors"
-                    >
-                      <Plus size={18} className="text-white/40" />
-                      <span className="text-[9px] text-white/30">{10-queue.length} còn lại</span>
-                    </motion.button>
-                  )}
-                </div>
-                {/* Hidden input for "Add more" button */}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  className="hidden"
-                  onChange={e => addFiles(Array.from(e.target.files || []))}
-                  disabled={isUploading}
-                />
-
-                {queue.length > 1 && (
-                  <p className="text-xs text-white/30 mt-2">
-                    Click thumbnail để chọn ảnh muốn chỉnh thông tin {!sharedMeta && <span className="text-violet-400">• Đang chỉnh ảnh #{activeIdx+1}</span>}
-                  </p>
-                )}
-              </div>
-
-              {/* Drag-to-add overlay */}
-              <AnimatePresence>
-                {isDragActive && (
-                  <motion.div initial={{ opacity:0 }} animate={{ opacity:1 }} exit={{ opacity:0 }}
-                    className="absolute inset-0 bg-brand-600/20 backdrop-blur-sm flex items-center justify-center z-20"
-                  >
-                    <p className="text-white font-bold text-lg">Thả ảnh vào đây để thêm</p>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-          )}
-
-          {/* ── EXIF + AI Info Panel ─────────────────────────────── */}
-          <AnimatePresence>
-          {activeItem && detected.width && (
+        {/* Step content */}
+        <div className="mt-6">
+          <AnimatePresence mode="wait">
             <motion.div
-              key={activeItem.preview}
-              initial={{ opacity: 0, y: -6 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className="rounded-xl overflow-hidden border border-white/10 bg-surface-50/60"
+              key={step}
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              transition={{ duration: 0.2 }}
             >
-              {/* Header: auto-apply confirmation + badges */}
-              <div className="flex items-center gap-2 px-4 py-2.5 bg-violet-600/10 border-b border-violet-500/15">
-                <Zap size={13} className="text-violet-400 shrink-0" />
-                <p className="text-xs text-white/70 flex-1">
-                  ✔ Tự động áp dụng:&nbsp;
-                  <b className="text-violet-300 uppercase">{detected.resolution}</b>
-                  &nbsp;•&nbsp;
-                  <b className="text-blue-300 capitalize">{detected.orientation}</b>
-                  &nbsp;
-                  <span className="text-white/35">{detected.width}×{detected.height}</span>
-                </p>
-                {detected.isAIGenerated && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-700/80 text-violet-200 text-[11px] font-bold shrink-0">
-                    <Cpu size={10} /> AI
-                  </span>
-                )}
-                {detected.hasGps && (
-                  <span className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-800/60 text-emerald-300 text-[11px] shrink-0">
-                    <MapPin size={10} /> GPS
-                  </span>
-                )}
-              </div>
-
-              {/* EXIF grid */}
-              {detected.hasExif && (
-                <div className="px-4 py-3 grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-2.5">
-                  {detected.camera && (
-                    <div className="flex items-start gap-2">
-                      <Camera size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Thiết bị</p>
-                        <p className="text-xs text-white/75 font-medium leading-tight">{detected.camera}</p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.lens && (
-                    <div className="flex items-start gap-2">
-                      <ScanLine size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Lens</p>
-                        <p className="text-xs text-white/75 font-medium leading-tight truncate max-w-[140px]">{detected.lens}</p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.focalLength && (
-                    <div className="flex items-start gap-2">
-                      <Ratio size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Tiêu cự</p>
-                        <p className="text-xs text-white/75 font-medium">{detected.focalLength}</p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.aperture && (
-                    <div className="flex items-start gap-2">
-                      <Aperture size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Khẩu độ</p>
-                        <p className="text-xs text-white/75 font-medium">{detected.aperture}</p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.shutter && (
-                    <div className="flex items-start gap-2">
-                      <Timer size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Tốc độ</p>
-                        <p className="text-xs text-white/75 font-medium">{detected.shutter}</p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.iso && (
-                    <div className="flex items-start gap-2">
-                      <Sparkles size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">ISO</p>
-                        <p className="text-xs text-white/75 font-medium">{detected.iso}</p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.dateTaken && (
-                    <div className="flex items-start gap-2">
-                      <Clock size={13} className="text-white/25 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-white/30 uppercase tracking-wide leading-none mb-0.5">Ngày chụp</p>
-                        <p className="text-xs text-white/75 font-medium">
-                          {new Date(detected.dateTaken).toLocaleDateString('vi-VN', { dateStyle: 'medium' })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                  {detected.isAIGenerated && detected.aiToolName && (
-                    <div className="flex items-start gap-2 col-span-2 sm:col-span-3 pt-1 border-t border-white/5">
-                      <Cpu size={13} className="text-violet-400 mt-0.5 shrink-0" />
-                      <div>
-                        <p className="text-[10px] text-violet-400/60 uppercase tracking-wide leading-none mb-0.5">AI Tool phát hiện</p>
-                        <p className="text-xs text-violet-300 font-semibold capitalize">{detected.aiToolName}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+              {step === 1 && (
+                <Step1Prompt form={form} setForm={setForm} tierAccess={tierAccess} />
               )}
-
-              {/* Không có EXIF */}
-              {!detected.hasExif && (
-                <p className="px-4 py-2.5 text-xs text-white/30 italic">
-                  {detected.isAIGenerated
-                    ? '🤖 Ảnh AI — không có dữ liệu EXIF camera'
-                    : 'Không có EXIF (screenshot, ảnh từ mạng xã hội, ảnh AI...)'}
-                </p>
-              )}
-            </motion.div>
-          )}
-          </AnimatePresence>
-
-          {/* ════════════════════════════════════════════
-              BƯỚC 2: Collection name (nếu > 1 ảnh)
-          ════════════════════════════════════════════ */}
-          {queue.length > 1 && (
-            <motion.div
-              initial={{ opacity:0, height:0 }}
-              animate={{ opacity:1, height:'auto' }}
-              className="card p-4 space-y-3"
-            >
-              <div className="flex items-center gap-2.5 mb-1">
-                <FolderHeart size={18} className="text-violet-400" />
-                <h3 className="font-bold text-sm">Bộ sưu tập (tùy chọn)</h3>
-                <span className="text-xs text-white/30">• Nhóm các ảnh này thành 1 album</span>
-              </div>
-              <input
-                className="input"
-                placeholder="Ví dụ: Chuyến du lịch Hà Giang 2025"
-                value={collectionName}
-                onChange={e => setCollectionName(e.target.value)}
-                maxLength={60}
-                disabled={isUploading}
-              />
-              {collectionName && (
-                <p className="text-xs text-white/40">
-                  Tag <code className="text-violet-400 bg-white/5 px-1 rounded">{collectionName.toLowerCase().replace(/\s+/g,'_')}</code> sẽ được thêm vào tất cả ảnh
-                </p>
-              )}
-            </motion.div>
-          )}
-
-          {/* ── Shared vs per-image toggle ─────────────── */}
-          {queue.length > 1 && (
-            <div className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/3 border border-white/8">
-              <Info size={15} className="text-white/40 shrink-0" />
-              <p className="text-xs text-white/50 flex-1">
-                {sharedMeta
-                  ? 'Dùng chung 1 bộ thông tin cho tất cả ảnh'
-                  : `Chỉnh thông tin riêng — hiện đang chỉnh ảnh #${activeIdx+1}`}
-              </p>
-              <button type="button"
-                onClick={() => {
-                  if (sharedMeta) {
-                    setPerImageMeta(queue.map(() => ({ ...globalForm })))
-                  } else {
-                    setGlobalForm({ ...(perImageMeta[0] || defaultMeta()) })
-                  }
-                  setSharedMeta(v => !v)
-                }}
-                className="px-3 py-1.5 rounded-xl border border-white/15 text-white/60 text-xs hover:text-white hover:border-white/30 transition-all shrink-0 font-semibold"
-              >
-                {sharedMeta ? 'Chỉnh riêng từng ảnh' : 'Dùng chung'}
-              </button>
-            </div>
-          )}
-
-          {/* ════════════════════════════════════════════
-              BƯỚC 3: Metadata form
-          ════════════════════════════════════════════ */}
-
-          {/* Caption */}
-          <div>
-            <label className="input-label">
-              {!sharedMeta && queue.length > 1 ? `Mô tả ảnh #${activeIdx+1}` : 'Mô tả (tùy chọn)'}
-            </label>
-            <textarea
-              className="input resize-none"
-              rows={2}
-              maxLength={500}
-              placeholder="Mô tả ngắn về bức ảnh..."
-              value={activeMeta.caption}
-              onChange={e => setActiveMeta(p => ({ ...p, caption: e.target.value }))}
-              disabled={isUploading}
-            />
-            <p className="text-xs text-white/30 text-right mt-0.5">{activeMeta.caption.length}/500</p>
-          </div>
-
-          {/* Category */}
-          <div>
-            <label className="input-label">Danh mục *</label>
-            <div className="flex flex-wrap gap-2">
-              {categories.map(cat => (
-                <button key={cat.slug} type="button" disabled={isUploading}
-                  onClick={() => setActiveMeta(p => ({ ...p, category: cat.slug }))}
-                  className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-200 border
-                    ${activeMeta.category === cat.slug
-                      ? 'bg-brand-600 border-brand-500 text-white shadow-[0_0_12px] shadow-brand-600/30'
-                      : 'bg-surface-100 border-white/10 text-white/70 hover:border-brand-500/50'}`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="input-label">Tags (tối đa 10)</label>
-            <div className="flex gap-2 mb-2">
-              <div className="relative flex-1">
-                <Tag size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-                <input className="input pl-8" placeholder="Thêm tag rồi Enter..."
-                  value={tag} onChange={e => setTag(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag() } }}
-                  disabled={isUploading}
+              {step === 2 && (
+                <Step2Source
+                  images={sourceImages}
+                  onAdd={addSourceImages}
+                  onRemove={removeSourceImage}
                 />
-              </div>
-              <button type="button" onClick={addTag} disabled={isUploading} className="btn-secondary px-4">Thêm</button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <AnimatePresence>
-                {activeMeta.tags.map(t => (
-                  <motion.span key={t} initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-                    className="flex items-center gap-1 badge-brand text-sm px-3 py-1.5"
-                  >
-                    #{t}
-                    <button type="button" onClick={() => removeTag(t)} className="ml-1 hover:text-red-400">
-                      <X size={11} />
-                    </button>
-                  </motion.span>
-                ))}
-              </AnimatePresence>
-            </div>
-          </div>
-
-          {/* Resolution + Orientation
-              LUÔN hiển thị detected của ảnh đang active (ưu tiên tuyệt đối)
-              vì đây là thông số vật lý riêng của mỗi ảnh — không thể share chung */}
-          <div>
-            <label className="input-label flex items-center gap-2">
-              <Camera size={14} className="text-white/40" />
-              Thông số kỹ thuật
-              {detected.width && (
-                <span className="text-[10px] text-white/30 font-normal">
-                  • {detected.width}×{detected.height}px • tỷ lệ {detected.aspectStr}
-                </span>
               )}
-            </label>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="text-xs text-white/40 mb-1 flex items-center gap-1.5">
-                  Độ phân giải
-                  {detected.resolution && (
-                    <span className="text-green-400 font-bold text-[10px]">✓ Tự động</span>
-                  )}
-                </label>
-                <select
-                  className="input"
-                  value={detected.resolution || activeMeta.resolution || ''}
-                  onChange={e => setActiveMeta(p => ({ ...p, resolution: e.target.value }))}
-                  disabled={isUploading}
-                >
-                  <option value="">Không rõ</option>
-                  <option value="sd">SD (dưới 720p)</option>
-                  <option value="hd">HD (720p – 1080p)</option>
-                  <option value="2k">2K (2048px – 3839px)</option>
-                  <option value="4k">4K (3840px+)</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-xs text-white/40 mb-1 flex items-center gap-1.5">
-                  Chiều ảnh
-                  {detected.orientation && (
-                    <span className="text-green-400 font-bold text-[10px]">✓ Tự động</span>
-                  )}
-                </label>
-                <select
-                  className="input"
-                  value={detected.orientation || activeMeta.orientation || ''}
-                  onChange={e => setActiveMeta(p => ({ ...p, orientation: e.target.value }))}
-                  disabled={isUploading}
-                >
-                  <option value="">Không rõ</option>
-                  <option value="portrait">Dọc (Portrait)</option>
-                  <option value="landscape">Ngang (Landscape)</option>
-                  <option value="square">Vuông</option>
-                </select>
-              </div>
-              {/* Tỷ lệ khung hình — auto-detect theo ảnh đang xem */}
-              <div className="col-span-2 sm:col-span-1">
-                <label className="text-xs text-white/40 mb-1 flex items-center gap-1.5">
-                  Tỷ lệ khung hình
-                  {detected.aspectRatio && (
-                    <span className="text-green-400 font-bold text-[10px]">✓ Tự động</span>
-                  )}
-                </label>
-                <select
-                  className="input"
-                  value={detected.aspectRatio || activeMeta.aspectRatio || ''}
-                  onChange={e => setActiveMeta(p => ({ ...p, aspectRatio: e.target.value }))}
-                  disabled={isUploading}
-                >
-                  <option value="">Tự do / Khác</option>
-                  {ASPECT_RATIOS.map(ar => (
-                    <option key={ar.value} value={ar.value}>{ar.label}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-          </div>
-
-
-          {/* AI + Premium toggles */}
-          <div className="space-y-3">
-            {/* AI */}
-            <div className={`flex items-center gap-3 card p-3.5 ${isUploading ? 'opacity-50 pointer-events-none':''}`}>
-              <Cpu size={18} className="text-brand-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">Ảnh AI Generated</p>
-                <p className="text-xs text-white/40 truncate">Midjourney, Stable Diffusion, DALL·E...</p>
-              </div>
-              <div onClick={() => setActiveMeta(p => ({ ...p, isAIGenerated:!p.isAIGenerated }))}
-                className={`w-11 h-6 rounded-full transition-colors duration-200 relative cursor-pointer flex-shrink-0 ${activeMeta.isAIGenerated?'bg-brand-600':'bg-white/20'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${activeMeta.isAIGenerated?'translate-x-6':'translate-x-1'}`} />
-              </div>
-            </div>
-
-            {/* Premium */}
-            <div className={`flex items-center gap-3 card p-3.5 ${isUploading ? 'opacity-50 pointer-events-none':''}`}>
-              <DollarSign size={18} className="text-yellow-400 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="font-medium text-sm">Ảnh Premium</p>
-                <p className="text-xs text-white/40">User trả xu để tải bản gốc full-res</p>
-              </div>
-              <div onClick={() => setActiveMeta(p => ({ ...p, isPremium:!p.isPremium }))}
-                className={`w-11 h-6 rounded-full transition-colors duration-200 relative cursor-pointer flex-shrink-0 ${activeMeta.isPremium?'bg-yellow-500':'bg-white/20'}`}
-              >
-                <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${activeMeta.isPremium?'translate-x-6':'translate-x-1'}`} />
-              </div>
-            </div>
-          </div>
-
-          {activeMeta.isPremium && (
-            <motion.div initial={{ opacity:0, height:0 }} animate={{ opacity:1, height:'auto' }} className="card p-4 space-y-2">
-              <label className="input-label">Giá tải (xu)</label>
-              <input type="number" className="input" min={10} max={1000}
-                value={activeMeta.priceInCoins}
-                onChange={e => setActiveMeta(p => ({ ...p, priceInCoins:parseInt(e.target.value)||50 }))}
-                disabled={isUploading}
-              />
-              <div className="flex gap-2 flex-wrap">
-                {[20,50,100,200,500].map(v => (
-                  <button key={v} type="button"
-                    onClick={() => setActiveMeta(p => ({ ...p, priceInCoins:v }))}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold border transition-all ${activeMeta.priceInCoins===v?'bg-yellow-500/20 border-yellow-500/50 text-yellow-300':'border-white/10 text-white/40 hover:border-white/20'}`}
-                  >{v} xu</button>
-                ))}
-              </div>
-              <p className="text-xs text-white/30">
-                Creator nhận <b className="text-yellow-400">{Math.floor(activeMeta.priceInCoins*0.7)} xu</b> mỗi lượt tải
-                (phí platform 30%)
-              </p>
+              {step === 3 && (
+                <Step3Generated
+                  images={genImages}
+                  onAdd={addGenImages}
+                  onRemove={removeGenImage}
+                />
+              )}
+              {step === 4 && (
+                <Step4Meta
+                  form={form}
+                  setForm={setForm}
+                  categories={categories}
+                  uploading={uploading}
+                  progress={progress}
+                />
+              )}
             </motion.div>
-          )}
-
-          {/* Upload progress */}
-          <AnimatePresence>
-            {isUploading && (
-              <UploadProgressCard phase={uploadPhase} progress={progress}
-                current={uploadedCount+1} total={queue.length} />
-            )}
           </AnimatePresence>
+        </div>
 
-          {/* Submit */}
-          <motion.button whileTap={{ scale:0.98 }} type="submit"
-            disabled={isUploading || queue.length===0}
-            className="btn-full"
+        {/* Navigation buttons */}
+        <div className="flex items-center justify-between mt-8 pt-6 border-t border-white/5">
+          <button
+            type="button"
+            onClick={goBack}
+            disabled={step === 1}
+            className="btn-ghost flex items-center gap-2 disabled:opacity-30"
           >
-            {isUploading ? (
-              <div className="flex items-center gap-2">
-                <Spinner size={18} color="border-white" />
-                {uploadPhase==='uploading'
-                  ? `Đang gửi ảnh ${uploadedCount+1}/${queue.length} (${progress}%)...`
-                  : 'Đang xử lý...'}
-              </div>
-            ) : (
-              <>
-                <Upload size={18} />
-                {queue.length>1
-                  ? `Đăng ${queue.length} ảnh${collectionName?' — '+collectionName:''}`
-                  : 'Đăng ảnh'}
-              </>
-            )}
-          </motion.button>
-        </form>
+            <ArrowLeft size={16} /> Quay lại
+          </button>
+
+          {step < 4 ? (
+            <button
+              type="button"
+              onClick={goNext}
+              className="btn-primary flex items-center gap-2"
+            >
+              Tiếp theo <ArrowRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={handleSubmit}
+              disabled={uploading}
+              className="btn-primary flex items-center gap-2 disabled:opacity-60"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  Đang gửi {progress}%
+                </>
+              ) : (
+                <>
+                  <Upload size={16} /> Đăng bài
+                </>
+              )}
+            </button>
+          )}
+        </div>
       </div>
     </div>
   )
 }
 
-export default UploadPage
+// ── Step indicator ─────────────────────────────────────────────
+function StepIndicator({ steps, current }) {
+  return (
+    <div className="flex items-center gap-0">
+      {steps.map((s, i) => {
+        const done = current > s.id
+        const active = current === s.id
+        return (
+          <div key={s.id} className="flex items-center flex-1 last:flex-none">
+            <div className="flex flex-col items-center">
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold
+                transition-all duration-300
+                ${done ? 'bg-green-500/20 border border-green-500/50 text-green-400'
+                  : active ? 'bg-brand-600/30 border border-brand-500 text-brand-300'
+                  : 'bg-white/5 border border-white/10 text-white/25'}`}
+              >
+                {done ? <CheckCircle size={14} /> : s.id}
+              </div>
+              <span className={`text-[10px] mt-1 whitespace-nowrap
+                ${active ? 'text-brand-300' : done ? 'text-green-400/70' : 'text-white/20'}`}>
+                {s.label}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div className={`h-px flex-1 mx-2 mb-4 transition-colors duration-300
+                ${done ? 'bg-green-500/40' : 'bg-white/8'}`}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function Step1Prompt({ form, setForm, tierAccess }) {
+  const set = (key) => (val) => setForm(f => ({ ...f, [key]: val }))
+  const [jsonError, setJsonError] = useState(null)
+
+  const handleJsonChange = (val) => {
+    set('workflowJson')(val)
+    if (!val.trim()) { setJsonError(null); return }
+    try { JSON.parse(val); setJsonError(null) }
+    catch (e) { setJsonError(e.message.slice(0, 65)) }
+  }
+
+  return (
+    <div className="card p-6 space-y-5">
+      <StepHeader step={1} total={4} title="Công cụ AI & Prompt"
+        subtitle="Chọn tool và nhập prompt bạn đã dùng để tạo ảnh" />
+
+      <AIToolSelector value={form.aiTool} onChange={set('aiTool')} />
+
+      <div>
+        <label className="input-label">Phiên bản / Model <span className="text-white/30">(tuỳ chọn)</span></label>
+        <input type="text" value={form.aiModel} onChange={e => set('aiModel')(e.target.value)}
+          placeholder="v6.1, SDXL, Flux Dev, Turbo..." className="input" />
+      </div>
+
+      <PromptField label="Prompt" required value={form.prompt} onChange={set('prompt')}
+        placeholder="Mô tả chi tiết nội dung bạn muốn tạo..." maxLength={2000} />
+
+      {/* Negative prompt */}
+      <div>
+        <button type="button" onClick={() => set('showNegative')(!form.showNegative)}
+          className="text-sm text-white/40 hover:text-white/70 flex items-center gap-1.5 transition-colors">
+          <ChevronDown size={14} className={`transition-transform ${form.showNegative ? 'rotate-180' : ''}`} />
+          {form.showNegative ? 'Ẩn' : 'Thêm'} Negative Prompt
+        </button>
+        <AnimatePresence>
+          {form.showNegative && (
+            <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }} transition={{ duration: 0.2 }} className="overflow-hidden mt-3">
+              <PromptField label="Negative Prompt" value={form.negativePrompt} onChange={set('negativePrompt')}
+                placeholder="Những gì bạn KHÔNG muốn xuất hiện trong ảnh..." maxLength={1000} />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* Parameters */}
+      <div>
+        <button type="button" onClick={() => set('showParams')(!form.showParams)}
+          className="text-sm text-white/40 hover:text-white/70 flex items-center gap-1.5 transition-colors">
+          <Settings size={13} />
+          {form.showParams ? 'Ẩn' : 'Thêm'} Parameters
+          <span className="text-white/20 text-xs">--ar, --v, --seed...</span>
+        </button>
+        <AnimatePresence>
+          {form.showParams && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="overflow-hidden mt-3"
+            >
+              <input
+                type="text"
+                value={form.parameters}
+                onChange={e => set('parameters')(e.target.value)}
+                placeholder="--ar 16:9 --v 6.1 --seed 12345 --stylize 750"
+                className="input font-mono text-sm"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+
+      {/* ── JSON Workflow — Ultimate only ─────────────────────── */}
+      {tierAccess?.canExportJson ? (
+        <div>
+          <button type="button" onClick={() => set('showWorkflow')(!form.showWorkflow)}
+            className="flex items-center gap-2 group">
+            <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
+              style={{ background: 'rgba(6,182,212,0.10)', borderColor: 'rgba(6,182,212,0.30)', color: '#06b6d4' }}>
+              <Crown size={9} /> Ultimate
+            </span>
+            <span className="text-sm text-white/40 group-hover:text-white/70 transition-colors flex items-center gap-1">
+              <FileJson size={13} />
+              {form.showWorkflow ? 'Ẩn' : 'Thêm'} JSON Workflow
+            </span>
+            <ChevronDown size={13}
+              className={`text-white/25 transition-transform ${form.showWorkflow ? 'rotate-180' : ''}`} />
+          </button>
+
+          <AnimatePresence>
+            {form.showWorkflow && (
+              <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                className="overflow-hidden mt-3 space-y-2">
+
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl text-xs"
+                  style={{ background: 'rgba(6,182,212,0.06)', border: '1px solid rgba(6,182,212,0.18)', color: 'rgba(6,182,212,0.85)' }}>
+                  <FileJson size={13} className="flex-shrink-0 mt-0.5" />
+                  <span>Paste ComfyUI workflow JSON. Người dùng Ultimate có thể <strong>import thẳng vào ComfyUI</strong> để tái tạo kết quả chính xác.</span>
+                </div>
+
+                <div className="relative">
+                  <textarea value={form.workflowJson} onChange={e => handleJsonChange(e.target.value)}
+                    placeholder={'{\n  "nodes": [...],\n  "links": [...]\n}'}
+                    rows={8} spellCheck={false}
+                    className="input resize-none font-mono text-xs leading-relaxed w-full"
+                    style={{ borderColor: jsonError ? 'rgba(239,68,68,0.4)' : undefined, background: 'rgba(0,0,0,0.3)' }} />
+                  {form.workflowJson.trim() && (
+                    <span className="absolute top-2 right-2 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                      style={{
+                        background: jsonError ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)',
+                        color: jsonError ? '#ef4444' : '#22c55e',
+                        border: `1px solid ${jsonError ? 'rgba(239,68,68,0.3)' : 'rgba(34,197,94,0.3)'}`,
+                      }}>
+                      {jsonError ? '✗ Invalid' : '✓ Valid JSON'}
+                    </span>
+                  )}
+                </div>
+                {jsonError && <p className="text-xs text-red-400/80 font-mono pl-1">⚠ {jsonError}</p>}
+                <p className="text-right text-xs text-white/20">{form.workflowJson.length.toLocaleString()} ký tự</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      ) : (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl"
+          style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.06)' }}>
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+            style={{ background: 'rgba(6,182,212,0.08)', border: '1px solid rgba(6,182,212,0.15)' }}>
+            <FileJson size={15} style={{ color: '#06b6d4', opacity: 0.45 }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-white/35">JSON Workflow Export</p>
+            <p className="text-[11px] text-white/20">Import thẳng vào ComfyUI · Chỉ dành cho Ultimate</p>
+          </div>
+          <span className="text-[10px] font-bold px-2.5 py-1 rounded-full flex-shrink-0"
+            style={{ background: 'rgba(6,182,212,0.10)', border: '1px solid rgba(6,182,212,0.22)', color: '#06b6d4' }}>
+            👑 Ultimate
+          </span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// ── STEP 2: Source images ────────────────────────────────────────
+function Step2Source({ images, onAdd, onRemove }) {
+  return (
+    <div className="card p-6 space-y-4">
+      <StepHeader step={2} total={4} title="Ảnh tham khảo / Input"
+        subtitle="Ảnh gốc bạn đã dùng làm tham khảo cho AI (không bắt buộc)" />
+
+      <div className="p-3 rounded-xl bg-brand-900/20 border border-brand-700/30 text-sm text-brand-300/80">
+        💡 Bước này <strong>không bắt buộc</strong>. Thêm ảnh nếu bạn dùng img2img, inpainting,
+        hoặc có ảnh tham khảo phong cách.
+      </div>
+
+      <ImageDropZone
+        images={images}
+        onAdd={onAdd}
+        onRemove={onRemove}
+        max={5}
+        label="Ảnh tham khảo"
+        hint="JPG, PNG, WebP · tối đa 20MB/ảnh"
+      />
+
+      {images.length === 0 && (
+        <p className="text-center text-white/25 text-sm py-4">
+          Bỏ qua nếu bạn tạo từ text prompt thuần tuý
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── STEP 3: Generated images ─────────────────────────────────────
+function Step3Generated({ images, onAdd, onRemove }) {
+  return (
+    <div className="card p-6 space-y-4">
+      <StepHeader step={3} total={4} title="Ảnh kết quả AI"
+        subtitle="Upload 1–5 ảnh AI đã tạo ra từ prompt của bạn" />
+
+      <ImageDropZone
+        images={images}
+        onAdd={onAdd}
+        onRemove={onRemove}
+        max={5}
+        label="Ảnh kết quả"
+        hint="Tối thiểu 1, tối đa 5 ảnh"
+        required
+      />
+
+      {images.length === 0 && (
+        <div className="flex items-center gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
+          <AlertCircle size={18} className="text-red-400 flex-shrink-0" />
+          <p className="text-sm text-red-300/80">Cần ít nhất 1 ảnh kết quả AI để tiếp tục</p>
+        </div>
+      )}
+
+      {images.length > 0 && (
+        <p className="text-xs text-white/30 text-center">
+          Ảnh đầu tiên sẽ là ảnh đại diện cho bài đăng
+        </p>
+      )}
+    </div>
+  )
+}
+
+// ── STEP 4: Metadata ─────────────────────────────────────────────
+function Step4Meta({ form, setForm, categories, uploading, progress }) {
+  const set = (key) => (val) => setForm(f => ({ ...f, [key]: val }))
+
+  return (
+    <div className="card p-6 space-y-5">
+      <StepHeader step={4} total={4} title="Thông tin bài đăng"
+        subtitle="Thêm mô tả và gắn thẻ để dễ tìm kiếm" />
+
+      {/* Caption */}
+      <div>
+        <label className="input-label">Mô tả ngắn</label>
+        <textarea
+          rows={3}
+          value={form.caption}
+          onChange={e => set('caption')(e.target.value)}
+          placeholder="Chia sẻ cảm nghĩ về tác phẩm này..."
+          maxLength={500}
+          className="input resize-none"
+        />
+        <p className="text-right text-xs text-white/25 mt-1">{form.caption.length}/500</p>
+      </div>
+
+      {/* Tags */}
+      <div>
+        <label className="input-label flex items-center gap-1.5">
+          <Tag size={13} /> Tags <span className="text-white/30">(cách nhau bởi dấu phẩy)</span>
+        </label>
+        <input
+          type="text"
+          value={form.tags}
+          onChange={e => set('tags')(e.target.value)}
+          placeholder="portrait, dark, cinematic, fantasy..."
+          className="input"
+        />
+      </div>
+
+      {/* Category */}
+      <div>
+        <label className="input-label">
+          Danh mục <span className="text-red-400">*</span>
+        </label>
+        <div className="flex flex-wrap gap-2">
+          {categories.map(cat => (
+            <button
+              key={cat.slug}
+              type="button"
+              onClick={() => set('category')(cat.slug)}
+              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150
+                ${form.category === cat.slug
+                  ? 'bg-brand-600/30 border border-brand-500/60 text-brand-300'
+                  : 'bg-white/5 border border-white/10 text-white/50 hover:border-white/25'}`}
+            >
+              {cat.name}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Premium toggle */}
+      <div className="flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/8">
+        <div className="flex items-center gap-3">
+          <Coins size={18} className="text-yellow-400" />
+          <div>
+            <p className="text-sm font-semibold">Premium Download</p>
+            <p className="text-xs text-white/40">Người dùng tốn token để tải ảnh full-res</p>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => set('isPremium')(!form.isPremium)}
+          className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
+            ${form.isPremium ? 'bg-brand-600' : 'bg-white/15'}`}
+        >
+          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
+            ${form.isPremium ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+
+      {/* Price in tokens */}
+      {form.isPremium && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+        >
+          <label className="input-label">Giá (token)</label>
+          <input
+            type="number"
+            min={1}
+            max={500}
+            value={form.priceInTokens}
+            onChange={e => set('priceInTokens')(parseInt(e.target.value) || 10)}
+            className="input w-32"
+          />
+        </motion.div>
+      )}
+
+      {/* Upload progress */}
+      {uploading && (
+        <div className="space-y-2">
+          <div className="flex justify-between text-sm">
+            <span className="text-white/60">Đang upload...</span>
+            <span className="text-brand-400 font-semibold">{progress}%</span>
+          </div>
+          <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+            <motion.div
+              className="h-full bg-brand-600 rounded-full"
+              animate={{ width: `${progress}%` }}
+              transition={{ duration: 0.3 }}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

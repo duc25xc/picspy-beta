@@ -2,9 +2,9 @@ import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   X, Share2, Eye, Tag, Calendar, CheckCircle,
-  ChevronLeft, ChevronRight, ExternalLink, UserPlus, UserCheck, Maximize2,
+  ChevronLeft, ChevronRight, UserPlus, UserCheck, Maximize2,
 } from 'lucide-react'
-import { Link, useNavigate, useLocation } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
 import LikeButton from './LikeButton'
@@ -12,6 +12,8 @@ import BookmarkButton from './BookmarkButton'
 import DownloadButton from './DownloadButton'
 import CommentSection from './CommentSection'
 import ExifPanel from './ExifPanel'
+import ImageGallery from './ImageGallery'
+import PromptBlock from './PromptBlock'
 import toast from 'react-hot-toast'
 
 /* ─── Ambient glow builder ────────────────────────────────────── */
@@ -105,7 +107,6 @@ const ColorPaletteStrip = ({ palette }) => {
 /* ─── Main Modal ──────────────────────────────────────────────── */
 const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) => {
   const navigate   = useNavigate()
-  const location   = useLocation()
   const currentUser = useAuthStore((s) => s.user)
   const isLoggedIn  = useAuthStore((s) => !!s.user && !!s.accessToken)
 
@@ -155,9 +156,8 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
     if (!postId) return
     fetchPost(postId)
     trackView(postId) // debounced — chỉ tính khi dừng lại >= 800ms
-    const prev = location.pathname
-    window.history.pushState({}, '', `/posts/${postId}`)
-    return () => { window.history.pushState({}, '', prev) }
+    // URL được quản lý bởi useModalUrl ở parent component (HomePage/SearchPage)
+    // hoặc PostDeepLinkPage — không push/restore ở đây để tránh conflict
   }, [postId]) // eslint-disable-line
 
   /* Keyboard nav */
@@ -207,12 +207,8 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
       .catch(() => toast.error('Không thể sao chép'))
   }
 
-  const img = post?.images?.[0]
-  const displayUrl    = img?.thumbnailUrl || img?.url
-  const safePreviewUrl = post?.isPremium
-    ? (img?.thumbnailUrl || (img?.url ? `${img.url.split('/upload/')[0]}/upload/w_400,e_blur:2000/${img.url.split('/upload/')[1]}` : null))
-    : img?.url
-  const fullUrl = post?.isPremium ? null : img?.url
+  const firstImg = post?.generatedImages?.[0] || post?.images?.[0]
+  const displayUrl = firstImg?.thumbnailUrl || firstImg?.url
   const isOwnPost = currentUser && post?.authorId?._id === currentUser._id
 
   const goToDetail = () => { onClose(); navigate(`/posts/${postId}`) }
@@ -278,9 +274,9 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
           onClick={(e) => e.stopPropagation()}
         >
 
-          {/* ═══ LEFT: Image Panel ═══════════════════════════════ */}
+          {/* ═══ LEFT: Image Gallery ════════════════════════════ */}
           <div className="img-panel relative flex items-center justify-center
-            md:flex-1 min-h-[280px] md:min-h-0 overflow-hidden">
+            md:flex-1 min-h-[280px] md:min-h-0 overflow-hidden p-3">
 
             {/* ── Ambient Mode Layer ── */}
             {ambientGradient && (
@@ -298,9 +294,9 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
             )}
 
             {loading ? (
-              <div className="flex flex-col items-center gap-3 relative z-10">
+              <div className="flex items-center justify-center relative z-10 w-full min-h-[260px]">
                 <motion.div
-                  className="w-8 h-8 border-2 border-violet-500/40 border-t-violet-400 rounded-full"
+                  className="w-8 h-8 border-2 border-[#7986eb]/40 border-t-[#7986eb] rounded-full"
                   animate={{ rotate: 360 }}
                   transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
                 />
@@ -310,82 +306,31 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
                 <p className="text-red-400 text-sm">{error}</p>
                 <button onClick={onClose} className="mt-4 text-white/40 text-xs hover:text-white">Đóng</button>
               </div>
-            ) : (
-              <>
-                {/* Blurred bg base */}
-                {displayUrl && (
-                  <div
-                    className="absolute inset-0 opacity-15 scale-110"
-                    style={{
-                      backgroundImage: `url(${displayUrl})`,
-                      backgroundSize: 'cover',
-                      backgroundPosition: 'center',
-                      filter: 'blur(24px)',
-                    }}
-                  />
-                )}
-
-                {/* Main image */}
-                {safePreviewUrl && (
-                  <img
-                    src={safePreviewUrl}
-                    alt={post?.caption || 'Wallpaper'}
-                    className={`relative z-10 max-h-full max-w-full object-contain
-                      transition-all duration-700
-                      ${imgLoaded ? 'opacity-100' : 'opacity-0'}
-                      ${post?.isPremium ? 'blur-xl brightness-50 scale-110' : ''}`}
-                    onLoad={() => setImgLoaded(true)}
-                    style={{ maxHeight: 'min(80vh, 700px)' }}
-                    draggable={false}
-                    onContextMenu={(e) => post?.isPremium && e.preventDefault()}
-                  />
-                )}
-
-                {/* Skeleton */}
-                {!imgLoaded && (
-                  <div className="absolute inset-0 flex items-center justify-center z-10">
-                    <div className="w-16 h-16 rounded-2xl bg-white/5 animate-pulse" />
-                  </div>
-                )}
-
-                {/* Premium lock */}
-                {post?.isPremium && (
-                  <div className="absolute inset-0 z-20 flex items-center justify-center">
-                    <div className="bg-black/60 backdrop-blur-sm rounded-2xl p-5 text-center border border-white/10 mx-4">
-                      <span className="text-3xl mb-2 block">💎</span>
-                      <p className="text-white font-bold text-sm mb-1">Ảnh Premium</p>
-                      <p className="text-white/50 text-xs">Mua xu để tải về chất lượng gốc</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Bottom bar */}
-                <div className="absolute bottom-0 left-0 right-0 z-20 flex items-end justify-between p-3">
-                  <button
-                    onClick={goToDetail}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                      bg-black/60 backdrop-blur-sm border border-white/10
-                      text-white/60 hover:text-white hover:bg-black/80
-                      transition-all text-xs font-semibold"
-                    title="Xem trang riêng"
-                  >
-                    <Maximize2 size={12} />
-                    Trang riêng
-                  </button>
-                  {!post?.isPremium && fullUrl && (
-                    <a href={fullUrl} target="_blank" rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-8 h-8 rounded-lg bg-black/50 backdrop-blur-sm
-                        flex items-center justify-center text-white/50
-                        hover:text-white hover:bg-black/70 transition-all"
-                      title="Xem full size"
-                    >
-                      <ExternalLink size={13} />
-                    </a>
-                  )}
-                </div>
-              </>
-            )}
+            ) : post ? (
+              <div className="relative z-10 w-full">
+                <ImageGallery
+                  generatedImages={post.generatedImages || []}
+                  sourceImages={post.sourceImages || []}
+                  legacyImages={post.images || []}
+                  aiTool={post.aiTool}
+                  aiModel={post.aiModel}
+                  isPremium={post.isPremium}
+                  isUnlocked={!post.isPremium}
+                  caption={post.caption}
+                />
+                {/* Trang riêng button */}
+                <button
+                  onClick={goToDetail}
+                  className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+                    border border-white/10 text-white/50 hover:text-white/80
+                    transition-all text-xs font-semibold backdrop-blur-md"
+                  style={{ background: 'rgba(10,9,14,0.5)', fontFamily: 'Outfit, sans-serif' }}
+                >
+                  <Maximize2 size={11} />
+                  Xem trang riêng
+                </button>
+              </div>
+            ) : null}
           </div>
 
           {/* ═══ RIGHT: Info Panel ═══════════════════════════════ */}
@@ -443,6 +388,13 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
               )}
             </div>
 
+            {/* Prompt Block — compact trong modal */}
+            {post?.prompt && (
+              <div className="px-5 pt-3">
+                <PromptBlock text={post.prompt} variant="prompt" collapseAfter={4} />
+              </div>
+            )}
+
             {/* Meta Info */}
             {post && (
               <div className="px-5 py-3 border-b border-white/8 flex flex-wrap gap-x-4 gap-y-1.5">
@@ -450,13 +402,12 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
                   <span className="text-xs text-white/40">{post.category}</span>
                 )}
                 {post.resolution && (
-                  <span className="text-xs text-white/40 uppercase font-bold">{post.resolution}</span>
+                  <span className="text-xs font-bold uppercase" style={{ color: '#7986eb' }}>{post.resolution}</span>
                 )}
-                {post.orientation && (
-                  <span className="text-xs text-white/30 capitalize">{post.orientation}</span>
+                {post.aiTool && (
+                  <span className="text-xs font-medium" style={{ color: '#7986eb' }}>✨ {post.aiTool}</span>
                 )}
-                {post.isAIGenerated && <span className="text-xs text-violet-400 font-medium">✨ AI</span>}
-                {post.isPremium    && <span className="text-xs text-amber-400 font-medium">💎 Premium</span>}
+                {post.isPremium && <span className="text-xs text-amber-400 font-medium">💎 Premium</span>}
                 <span className="flex items-center gap-1 text-xs text-white/30">
                   <Calendar size={10} />
                   {new Date(post.createdAt).toLocaleDateString('vi-VN')}

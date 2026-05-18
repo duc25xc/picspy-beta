@@ -35,11 +35,11 @@ export const getLensSpy = async (req, res, next) => {
     }
 
     // ── 2. Tìm post ────────────────────────────────────────────────
-    const post = await Post.findById(postId).select('images exifData status')
+    const post = await Post.findById(postId).select('generatedImages sourceImages exifData status')
     if (!post) throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại', 404)
     if (post.status !== 'approved') throw new AppError('FORBIDDEN', 'Bài đăng chưa được duyệt', 403)
 
-    const imageUrl = post.images?.[0]?.url || post.images?.[0]?.previewUrl
+    const imageUrl = post.generatedImages?.[0]?.url || post.generatedImages?.[0]?.previewUrl
     if (!imageUrl) throw new AppError('BAD_REQUEST', 'Bài đăng không có ảnh để phân tích', 400)
 
     // ── 3. Kiểm tra số dư xu ──────────────────────────────────────

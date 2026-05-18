@@ -2,7 +2,6 @@ import { Worker } from 'bullmq'
 import sharp from 'sharp'
 import { encode } from 'blurhash'
 import axios from 'axios'
-import exifr from 'exifr'
 import redis from '../config/redis.js'
 import { uploadBuffer } from '../config/cloudinary.js'
 import Post from '../models/Post.model.js'
@@ -11,8 +10,6 @@ import Settings from '../models/Settings.model.js'
 // Giải pháp "bất bại" để import các package CJS cứng đầu trong môi trường ESM
 import { createRequire } from 'module'
 const require = createRequire(import.meta.url)
-// const Vibrant = require('node-vibrant')
-// const Vibrant = require('node-vibrant/node')
 const { Vibrant } = require('node-vibrant/node')
 
 /**
@@ -56,17 +53,36 @@ const checkNSFW = async (imageUrl) => {
 }
 
 /**
- * BullMQ Worker: xử lý ảnh sau khi upload
- * Concurrency: 3 jobs song song
+ * BullMQ Worker: xử lý ảnh AI sau khi upload
+ *
+ * Job data:
+ *   - postId: ID bài đăng
+ *   - imageUrl: URL generatedImages[0] (ảnh chính để analyze)
+ *   - publicId: publicId generatedImages[0]
+ *   - authorId: ID tác giả
+ *   - generatedCount: số ảnh kết quả (1-5)
+ *
+ * Pipeline:
+ *   1. Download generatedImages[0]
+ *   2. Resize → thumbnail (400px) + preview (1200px) cho generatedImages[0]
+ *   3. Color palette (từ generatedImages[0])
+ *   4. Histogram 64-bin (từ generatedImages[0])
+ *   5. BlurHash placeholder
+ *   6. NSFW detection
+ *   7. Update Post document
+ *   8. Socket.io notification
+ *
+ * LƯU Ý: EXIF đã được extract tại controller (từ sourceImages[0]),
+ *         worker KHÔNG extract EXIF từ generatedImages (AI ảnh không có EXIF).
  */
 const imageWorker = new Worker(
   'image-processing',
   async (job) => {
     const { postId, imageUrl, publicId, authorId } = job.data
-    console.log(`🔄 Processing image for post: ${postId}`)
+    console.log(`🔄 Processing AI content for post: ${postId}`)
 
     try {
-      // 1. Download ảnh về buffer
+      // 1. Download ảnh chính (generatedImages[0]) về buffer
       await job.updateProgress(10)
       const response = await axios.get(imageUrl, {
         responseType: 'arraybuffer',
@@ -105,10 +121,10 @@ const imageWorker = new Worker(
         ),
       ])
 
-      // 4. Trích xuất color palette
+      // 4. Color palette (từ generatedImages[0])
       // node-vibrant dùng Jimp nội bộ — Jimp không hỗ trợ WebP!
       // Phải convert sang JPEG trước khi feed vào Vibrant.
-      await job.updateProgress(60)
+      await job.updateProgress(55)
       const jpegForVibrant = await sharp(thumbnailBuffer)
         .jpeg({ quality: 80 })
         .toBuffer()
@@ -118,49 +134,11 @@ const imageWorker = new Worker(
         .map((swatch) => swatch.hex)
         .slice(0, 6) // Tối đa 6 màu
 
-      // 5. Extract EXIF metadata (camera, ISO, aperture...)
-      await job.updateProgress(65)
-      let exifData = {}
-      try {
-        const rawExif = await exifr.parse(imageBuffer, {
-          pick: ['Make', 'Model', 'ISO', 'FNumber', 'FocalLength',
-                 'ExposureTime', 'DateTimeOriginal', 'LensModel', 'Software',
-                 'GPSLatitude', 'GPSLongitude', 'ExposureValue', 'Flash'],
-          translateKeys: false,
-          translateValues: false,
-        })
-        if (rawExif) {
-          const cameraName = [rawExif.Make, rawExif.Model].filter(Boolean).join(' ').trim()
-          exifData = {
-            camera: cameraName || undefined,
-            lensModel: rawExif.LensModel || undefined,
-            iso: rawExif.ISO || undefined,
-            aperture: rawExif.FNumber ? `f/${rawExif.FNumber}` : undefined,
-            focalLength: rawExif.FocalLength ? `${rawExif.FocalLength}mm` : undefined,
-            shutterSpeed: rawExif.ExposureTime
-              ? (rawExif.ExposureTime >= 1 ? `${rawExif.ExposureTime}s` : `1/${Math.round(1 / rawExif.ExposureTime)}s`)
-              : undefined,
-            // EV (Exposure Value) — lưu số gốc, FE render sẽ format
-            ev: rawExif.ExposureValue !== undefined ? Math.round(rawExif.ExposureValue * 10) / 10 : undefined,
-            // Flash: 0 = off, 1 = fired, các số khác xem EXIF spec
-            flash: rawExif.Flash !== undefined ? rawExif.Flash : undefined,
-            dateTaken: rawExif.DateTimeOriginal || undefined,
-            software: rawExif.Software || undefined,
-            gpsLat: rawExif.GPSLatitude || undefined,
-            gpsLng: rawExif.GPSLongitude || undefined,
-          }
-          // Xóa undefined fields
-          Object.keys(exifData).forEach(k => exifData[k] === undefined && delete exifData[k])
-        }
-      } catch (exifErr) {
-        console.warn(`⚠️ EXIF extraction failed: ${exifErr.message}`)
-      }
-
-      // 6. Compute RGB histogram (64-bin mỗi kênh — nhẹ, đủ cho mini chart)
-      await job.updateProgress(68)
+      // 5. Compute RGB histogram (64-bin mỗi kênh)
+      await job.updateProgress(62)
       let histogram = { r: [], g: [], b: [] }
       try {
-        const { data: rawPixels, info: rawInfo } = await sharp(thumbnailBuffer)
+        const { data: rawPixels } = await sharp(thumbnailBuffer)
           .resize(200, null, { withoutEnlargement: true })
           .removeAlpha()
           .raw()
@@ -185,8 +163,8 @@ const imageWorker = new Worker(
         console.warn(`⚠️ Histogram computation failed: ${histErr.message}`)
       }
 
-      // 7. Generate blurHash cho placeholder
-      await job.updateProgress(72)
+      // 6. Generate blurHash cho placeholder
+      await job.updateProgress(70)
       const { data: pixelData, info } = await sharp(imageBuffer)
         .resize(32, 32)
         .raw()
@@ -200,7 +178,7 @@ const imageWorker = new Worker(
         4
       )
 
-      // 8. NSFW Detection
+      // 7. NSFW Detection
       await job.updateProgress(80)
       const nsfwScore = await checkNSFW(imageUrl)
 
@@ -208,14 +186,13 @@ const imageWorker = new Worker(
       const sysSettings = await Settings.getSingleton()
 
       // Quyết định status:
-      // - NSFW rõ ràng (>0.8) → luôn reject, bất kể setting
-      // - autoApprove BẬT   → approved ngay sau worker xong
+      // - NSFW rõ ràng (>0.8) → luôn reject
+      // - autoApprove BẬT   → approved ngay
       // - autoApprove TẮT   → pending, admin duyệt thủ công
       let status
       if (nsfwScore > 0.8) {
         status = 'rejected'
       } else if (sysSettings.autoApprove) {
-        // Delay nếu được cấu hình
         if (sysSettings.autoApproveDelayMs > 0) {
           await new Promise(r => setTimeout(r, sysSettings.autoApproveDelayMs))
         }
@@ -224,18 +201,17 @@ const imageWorker = new Worker(
         status = 'pending'
       }
 
-      // 9. Cập nhật Post (bao gồm EXIF + histogram)
+      // 8. Cập nhật Post — generatedImages[0] thêm thumbnail/preview
       await job.updateProgress(90)
       await Post.findByIdAndUpdate(postId, {
         $set: {
-          'images.0.thumbnailUrl': thumbResult.secure_url,
-          'images.0.previewUrl': previewResult.secure_url,
+          'generatedImages.0.thumbnailUrl': thumbResult.secure_url,
+          'generatedImages.0.previewUrl': previewResult.secure_url,
           colorPalette,
           blurHash,
           nsfwScore,
           isNSFW: nsfwScore > 0.4,
           status,
-          ...(Object.keys(exifData).length > 0 && { exifData }),
           ...(histogram.r.length > 0 && { histogram }),
           ...(status === 'rejected' && {
             rejectionReason: 'Nội dung không phù hợp (NSFW)',
@@ -243,9 +219,8 @@ const imageWorker = new Worker(
         },
       })
 
-      // 8. Emit Socket.io notification cho creator
+      // 9. Emit Socket.io notification cho creator
       await job.updateProgress(100)
-      // io được inject vào global khi khởi động server
       if (global.io) {
         global.io.to(`user:${authorId}`).emit('notification', {
           type:
@@ -257,10 +232,10 @@ const imageWorker = new Worker(
           postId,
           message:
             status === 'approved'
-              ? '🎉 Ảnh của bạn đã được duyệt!'
+              ? '🎉 Nội dung AI của bạn đã được duyệt!'
               : status === 'rejected'
-                ? '❌ Ảnh của bạn không được chấp nhận (NSFW)'
-                : '⏳ Ảnh của bạn đang chờ duyệt thủ công',
+                ? '❌ Nội dung không được chấp nhận (NSFW)'
+                : '⏳ Nội dung đang chờ duyệt thủ công',
         })
       }
 
