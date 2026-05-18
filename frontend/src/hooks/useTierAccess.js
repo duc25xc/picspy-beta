@@ -31,21 +31,27 @@ export default function useTierAccess() {
 
     // ── Prompt ────────────────────────────────────────────────────
     /**
-     * Free: chỉ thấy ~100 chars đầu, phần còn lại bị blur/hide.
-     * Pro+: full text.
+     * Guest (chưa đăng nhập): chỉ thấy ~80 chars đầu, blur + login CTA.
+     * Đã đăng nhập (bất kỳ tier): full prompt — đây là reward cho việc tạo account.
+     * Prompt chất lượng cao của creator được bảo vệ bởi login wall, không phải tier wall.
      */
-    canSeeFullPrompt: meetsRank(tier, 'pro'),
+    canSeeFullPrompt: isLoggedIn,
 
     /**
-     * Copy prompt (1-click): Pro+ và Founder.
-     * Free: nút copy bị disabled + upsell tooltip.
+     * Flag rõ ràng để PromptBlock hiển thị đúng login CTA vs upsell CTA.
+     */
+    isGuest: !isLoggedIn,
+
+    /**
+     * Copy prompt (1-click): Phải đăng nhập VÀ là Pro+ / Founder.
+     * Free (logged in): thấy prompt nhưng không copy được 1-click.
      */
     canCopyPrompt: isLoggedIn && meetsRank(tier, 'pro'),
 
     /**
      * Negative prompt + CFG/Seed/Steps params:
      * Pro+ và Founder thấy được.
-     * Free: section bị ẩn hoàn toàn, hiện upsell teaser.
+     * Free (logged in): section bị ẩn, hiện upsell teaser.
      */
     canSeeWorkflowDetails: meetsRank(tier, 'pro'),
 

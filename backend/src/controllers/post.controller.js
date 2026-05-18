@@ -259,6 +259,7 @@ export const getApprovedPosts = async (req, res, next) => {
       orientation,
       resolution,
       sort = 'new',
+      authorId,   // Lọc theo tác giả — dùng cho ProfilePage
     } = req.query
 
     const baseMatch = { status: 'approved' }
@@ -267,6 +268,8 @@ export const getApprovedPosts = async (req, res, next) => {
     if (contentType) baseMatch.contentType = contentType
     if (orientation) baseMatch.orientation = orientation
     if (resolution) baseMatch.resolution = resolution
+    // Filter theo author (cho ProfilePage) — chỉ chấp nhận ObjectId hợp lệ
+    if (authorId && /^[a-f\d]{24}$/i.test(authorId)) baseMatch.authorId = authorId
 
     // ─── HOT: Aggregation pipeline tính điểm real-time ──────
     if (sort === 'hot') {
