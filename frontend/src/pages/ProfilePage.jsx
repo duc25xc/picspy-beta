@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Heart, Download, Globe, UserPlus, UserCheck,
   Zap, Crown, Star, Settings, ChevronRight,
-  ImageOff, Loader2, BookmarkIcon, Camera,
+  ImageOff, Loader2, Camera,
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
 import api from '../api/api'

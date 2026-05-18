@@ -16,10 +16,21 @@ const createPostSchema = z.object({
   aiModel: z.string().trim().optional(),
   parameters: z.string().trim().optional(),
   // workflowJson: được gửi từ client nhưng được kiểm tra tier ở middleware
-  workflowJson: z.string().optional().refine(
-    (val) => { if (!val) return true; try { JSON.parse(val); return true } catch { return false } },
-    { message: 'workflowJson phải là JSON hợp lệ' }
-  ),
+  workflowJson: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true
+        try {
+          JSON.parse(val)
+          return true
+        } catch {
+          return false
+        }
+      },
+      { message: 'workflowJson phải là JSON hợp lệ' }
+    ),
   contentType: z.enum(['image', 'video']).default('image'),
 
   // Content metadata
@@ -43,10 +54,21 @@ const updatePostSchema = z.object({
   aiTool: z.enum(AI_TOOLS).optional(),
   aiModel: z.string().trim().optional(),
   parameters: z.string().trim().optional(),
-  workflowJson: z.string().optional().refine(
-    (val) => { if (!val) return true; try { JSON.parse(val); return true } catch { return false } },
-    { message: 'workflowJson phải là JSON hợp lệ' }
-  ),
+  workflowJson: z
+    .string()
+    .optional()
+    .refine(
+      (val) => {
+        if (!val) return true
+        try {
+          JSON.parse(val)
+          return true
+        } catch {
+          return false
+        }
+      },
+      { message: 'workflowJson phải là JSON hợp lệ' }
+    ),
   caption: z.string().max(500).optional(),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional(),
   category: z.string().min(1).toLowerCase().trim().optional(),
@@ -64,16 +86,29 @@ const extractExif = async (buffer) => {
   try {
     const rawExif = await exifr.parse(buffer, {
       pick: [
-        'Make', 'Model', 'ISO', 'FNumber', 'FocalLength',
-        'ExposureTime', 'DateTimeOriginal', 'LensModel', 'Software',
-        'GPSLatitude', 'GPSLongitude', 'ExposureValue', 'Flash',
+        'Make',
+        'Model',
+        'ISO',
+        'FNumber',
+        'FocalLength',
+        'ExposureTime',
+        'DateTimeOriginal',
+        'LensModel',
+        'Software',
+        'GPSLatitude',
+        'GPSLongitude',
+        'ExposureValue',
+        'Flash',
       ],
       translateKeys: false,
       translateValues: false,
     })
     if (!rawExif) return {}
 
-    const cameraName = [rawExif.Make, rawExif.Model].filter(Boolean).join(' ').trim()
+    const cameraName = [rawExif.Make, rawExif.Model]
+      .filter(Boolean)
+      .join(' ')
+      .trim()
     const exifData = {
       camera: cameraName || undefined,
       lensModel: rawExif.LensModel || undefined,
@@ -81,9 +116,14 @@ const extractExif = async (buffer) => {
       aperture: rawExif.FNumber ? `f/${rawExif.FNumber}` : undefined,
       focalLength: rawExif.FocalLength ? `${rawExif.FocalLength}mm` : undefined,
       shutterSpeed: rawExif.ExposureTime
-        ? (rawExif.ExposureTime >= 1 ? `${rawExif.ExposureTime}s` : `1/${Math.round(1 / rawExif.ExposureTime)}s`)
+        ? rawExif.ExposureTime >= 1
+          ? `${rawExif.ExposureTime}s`
+          : `1/${Math.round(1 / rawExif.ExposureTime)}s`
         : undefined,
-      ev: rawExif.ExposureValue !== undefined ? Math.round(rawExif.ExposureValue * 10) / 10 : undefined,
+      ev:
+        rawExif.ExposureValue !== undefined
+          ? Math.round(rawExif.ExposureValue * 10) / 10
+          : undefined,
       flash: rawExif.Flash !== undefined ? rawExif.Flash : undefined,
       dateTaken: rawExif.DateTimeOriginal || undefined,
       software: rawExif.Software || undefined,
@@ -91,7 +131,9 @@ const extractExif = async (buffer) => {
       gpsLng: rawExif.GPSLongitude || undefined,
     }
     // Remove undefined keys
-    Object.keys(exifData).forEach(k => exifData[k] === undefined && delete exifData[k])
+    Object.keys(exifData).forEach(
+      (k) => exifData[k] === undefined && delete exifData[k]
+    )
     return exifData
   } catch (err) {
     console.warn('⚠️ EXIF extraction:', err.message)
@@ -102,7 +144,9 @@ const extractExif = async (buffer) => {
 /** Upload single buffer to Cloudinary and return image object */
 const uploadImage = async (buffer, folder, publicIdPrefix, fileSize) => {
   const result = await uploadBuffer(
-    buffer, folder, `${publicIdPrefix}_${Date.now()}`,
+    buffer,
+    folder,
+    `${publicIdPrefix}_${Date.now()}`,
     { resource_type: 'image' }
   )
   return {
@@ -132,7 +176,11 @@ export const createPost = async (req, res, next) => {
   try {
     const genFiles = req.files?.generatedImages || []
     if (genFiles.length === 0) {
-      throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh kết quả AI', 400)
+      throw new AppError(
+        'VALIDATION_ERROR',
+        'Cần ít nhất 1 ảnh kết quả AI',
+        400
+      )
     }
     if (genFiles.length > 5) {
       throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả AI', 400)
@@ -146,10 +194,17 @@ export const createPost = async (req, res, next) => {
     // Parse FormData fields
     let body = { ...req.body }
     if (typeof body.tags === 'string') {
-      try { body.tags = JSON.parse(body.tags) }
-      catch { body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean) }
+      try {
+        body.tags = JSON.parse(body.tags)
+      } catch {
+        body.tags = body.tags
+          .split(',')
+          .map((t) => t.trim())
+          .filter(Boolean)
+      }
     }
-    if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+    if (typeof body.isPremium === 'string')
+      body.isPremium = body.isPremium === 'true'
     if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
 
     const data = createPostSchema.parse(body)
@@ -161,7 +216,12 @@ export const createPost = async (req, res, next) => {
     if (srcFiles.length > 0) {
       const srcUploads = await Promise.all(
         srcFiles.map((file, i) =>
-          uploadImage(file.buffer, 'picspy/posts/sources', `src_${req.user._id}_${i}`, file.size)
+          uploadImage(
+            file.buffer,
+            'picspy/posts/sources',
+            `src_${req.user._id}_${i}`,
+            file.size
+          )
         )
       )
       sourceImages.push(...srcUploads)
@@ -169,14 +229,22 @@ export const createPost = async (req, res, next) => {
       // Extract EXIF from first source image only
       exifData = await extractExif(srcFiles[0].buffer)
       if (Object.keys(exifData).length > 0) {
-        console.log('📷 EXIF extracted from source image:', JSON.stringify(exifData))
+        console.log(
+          '📷 EXIF extracted from source image:',
+          JSON.stringify(exifData)
+        )
       }
     }
 
     // Upload generated images (required, parallel)
     const genUploads = await Promise.all(
       genFiles.map((file, i) =>
-        uploadImage(file.buffer, 'picspy/posts/originals', `gen_${req.user._id}_${i}`, file.size)
+        uploadImage(
+          file.buffer,
+          'picspy/posts/originals',
+          `gen_${req.user._id}_${i}`,
+          file.size
+        )
       )
     )
 
@@ -196,7 +264,9 @@ export const createPost = async (req, res, next) => {
       aiTool: data.aiTool,
       aiModel: data.aiModel,
       parameters: data.parameters,
-      ...(allowWorkflow && data.workflowJson ? { workflowJson: data.workflowJson } : {}),
+      ...(allowWorkflow && data.workflowJson
+        ? { workflowJson: data.workflowJson }
+        : {}),
       contentType: data.contentType,
       caption: data.caption,
       tags: data.tags,
@@ -237,7 +307,14 @@ export const createPost = async (req, res, next) => {
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
+      return next(
+        new AppError(
+          'VALIDATION_ERROR',
+          'Dữ liệu không hợp lệ',
+          422,
+          err.errors
+        )
+      )
     }
     next(err)
   }
@@ -259,17 +336,57 @@ export const getApprovedPosts = async (req, res, next) => {
       orientation,
       resolution,
       sort = 'new',
-      authorId,   // Lọc theo tác giả — dùng cho ProfilePage
+      authorId, // Lọc theo tác giả — dùng cho ProfilePage
+      q, // free-text search: caption, prompt, tags
     } = req.query
 
     const baseMatch = { status: 'approved' }
+
+    // =====================
+    // Free-text search (q)
+    // =====================
+    if (typeof q === 'string') {
+      const raw = q.trim()
+      if (raw.length > 0) {
+        // Safety: limit query length
+        const queryText = raw.slice(0, 80)
+
+        // Escape regex special chars
+        const escaped = queryText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+        const rx = new RegExp(escaped, 'i')
+
+        // Normalize tags tokens: split by spaces/commas
+        const tokens = queryText
+          .toLowerCase()
+          .split(/[\s,]+/)
+          .map((t) => t.trim())
+          .filter(Boolean)
+          .slice(0, 10)
+
+        const or = [{ caption: rx }, { prompt: rx }]
+
+        // If we have tokens, include tags match.
+        // tags is an array -> use $in for exact tokens.
+        if (tokens.length > 0) {
+          or.push({ tags: { $in: tokens } })
+        }
+
+        // Also include partial match on tags via regex against each string in array.
+        // (Mongo will apply regex per array element)
+        or.push({ tags: rx })
+
+        baseMatch.$or = or
+      }
+    }
+
     if (category && category !== 'all') baseMatch.category = category
     if (aiTool) baseMatch.aiTool = aiTool
     if (contentType) baseMatch.contentType = contentType
     if (orientation) baseMatch.orientation = orientation
     if (resolution) baseMatch.resolution = resolution
     // Filter theo author (cho ProfilePage) — chỉ chấp nhận ObjectId hợp lệ
-    if (authorId && /^[a-f\d]{24}$/i.test(authorId)) baseMatch.authorId = authorId
+    if (authorId && /^[a-f\d]{24}$/i.test(authorId))
+      baseMatch.authorId = authorId
 
     // ─── HOT: Aggregation pipeline tính điểm real-time ──────
     if (sort === 'hot') {
@@ -295,7 +412,16 @@ export const getApprovedPosts = async (req, res, next) => {
             from: 'users',
             localField: 'authorId',
             foreignField: '_id',
-            pipeline: [{ $project: { username: 1, displayName: 1, avatar: 1, isVerified: 1 } }],
+            pipeline: [
+              {
+                $project: {
+                  username: 1,
+                  displayName: 1,
+                  avatar: 1,
+                  isVerified: 1,
+                },
+              },
+            ],
             as: 'authorId',
           },
         },
@@ -320,14 +446,15 @@ export const getApprovedPosts = async (req, res, next) => {
     }
 
     const sortObj =
-      sort === 'top'
-        ? { 'stats.likesCount': -1, _id: -1 }
-        : { _id: -1 } // 'new' mặc định
+      sort === 'top' ? { 'stats.likesCount': -1, _id: -1 } : { _id: -1 } // 'new' mặc định
 
     const posts = await Post.find(query)
       .sort(sortObj)
       .limit(parseInt(limit) + 1)
-      .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
+      .populate(
+        'authorId',
+        'username displayName avatar isVerified subscriptionTier'
+      )
       .lean()
 
     const hasMore = posts.length > parseInt(limit)
@@ -345,7 +472,6 @@ export const getApprovedPosts = async (req, res, next) => {
   }
 }
 
-
 /**
  * GET /posts/me — Lấy ảnh của user đang đăng nhập (cần auth)
  * Bao gồm tất cả status, có filter
@@ -361,7 +487,10 @@ export const getMyPosts = async (req, res, next) => {
     const query = { authorId: req.user._id }
 
     if (cursor) query._id = { $lt: cursor }
-    if (status && ['pending', 'approved', 'rejected', 'hidden'].includes(status)) {
+    if (
+      status &&
+      ['pending', 'approved', 'rejected', 'hidden'].includes(status)
+    ) {
       query.status = status
     }
 
@@ -419,10 +548,15 @@ export const updatePost = async (req, res, next) => {
 
     // Parse booleans từ JSON body hoặc FormData
     let body = { ...req.body }
-    if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+    if (typeof body.isPremium === 'string')
+      body.isPremium = body.isPremium === 'true'
     if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
     if (typeof body.tags === 'string') {
-      try { body.tags = JSON.parse(body.tags) } catch { body.tags = [] }
+      try {
+        body.tags = JSON.parse(body.tags)
+      } catch {
+        body.tags = []
+      }
     }
 
     const data = updatePostSchema.parse(body)
@@ -436,7 +570,14 @@ export const updatePost = async (req, res, next) => {
     res.json({ message: 'Cập nhật thành công', post: updated })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
+      return next(
+        new AppError(
+          'VALIDATION_ERROR',
+          'Dữ liệu không hợp lệ',
+          422,
+          err.errors
+        )
+      )
     }
     next(err)
   }
@@ -463,22 +604,30 @@ export const deletePost = async (req, res, next) => {
     const deletePromises = []
 
     // Xóa sourceImages
-    for (const img of (post.sourceImages || [])) {
+    for (const img of post.sourceImages || []) {
       if (img.publicId) {
-        deletePromises.push(cloudinary.uploader.destroy(img.publicId).catch(() => {}))
+        deletePromises.push(
+          cloudinary.uploader.destroy(img.publicId).catch(() => {})
+        )
       }
     }
 
     // Xóa generatedImages + thumbnails + previews
-    for (const img of (post.generatedImages || [])) {
+    for (const img of post.generatedImages || []) {
       if (img.publicId) {
-        deletePromises.push(cloudinary.uploader.destroy(img.publicId).catch(() => {}))
+        deletePromises.push(
+          cloudinary.uploader.destroy(img.publicId).catch(() => {})
+        )
         const baseName = img.publicId.split('/').pop()
         deletePromises.push(
-          cloudinary.uploader.destroy(`picspy/posts/thumbnails/${baseName}_thumb`).catch(() => {})
+          cloudinary.uploader
+            .destroy(`picspy/posts/thumbnails/${baseName}_thumb`)
+            .catch(() => {})
         )
         deletePromises.push(
-          cloudinary.uploader.destroy(`picspy/posts/previews/${baseName}_preview`).catch(() => {})
+          cloudinary.uploader
+            .destroy(`picspy/posts/previews/${baseName}_preview`)
+            .catch(() => {})
         )
       }
     }

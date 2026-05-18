@@ -388,10 +388,19 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
               )}
             </div>
 
-            {/* Prompt Block — compact trong modal */}
+            {/* Prompt Blocks — compact trong modal */}
             {post?.prompt && (
-              <div className="px-5 pt-3">
+              <div className="px-5 pt-3 space-y-2">
                 <PromptBlock text={post.prompt} variant="prompt" collapseAfter={4} />
+                {post.negativePrompt && (
+                  <PromptBlock text={post.negativePrompt} variant="negative" collapseAfter={3} />
+                )}
+                {post.parameters && (
+                  <PromptBlock text={post.parameters} variant="parameters" collapseAfter={3} />
+                )}
+                {post.workflowJson && (
+                  <PromptBlock text={post.workflowJson} variant="json" collapseAfter={6} />
+                )}
               </div>
             )}
 
