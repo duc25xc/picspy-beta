@@ -330,7 +330,13 @@ const ProfilePage = () => {
                   onClick={() => navigate(`/posts/${post._id}`)}
                 >
                   <img
-                    src={post.images?.[0]?.url ?? post.thumbnail}
+                    src={
+                      post.images?.[0]?.thumbnailUrl
+                      || post.images?.[0]?.url
+                      || post.generatedImages?.[0]?.thumbnailUrl
+                      || post.generatedImages?.[0]?.url
+                      || post.thumbnail
+                    }
                     alt={post.caption}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"

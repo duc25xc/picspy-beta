@@ -434,8 +434,8 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
               />
             )}
 
-            {/* Fallback: Color strip đơn giản nếu không có ExifPanel data */}
-            {post && !post.exifData && !post.histogram && (
+            {/* Bảng màu chủ đạo — ExifPanel compact KHÔNG render palette nên luôn hiện ở đây */}
+            {post?.colorPalette?.length > 0 && (
               <ColorPaletteStrip palette={post.colorPalette} />
             )}
 

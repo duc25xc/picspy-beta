@@ -43,10 +43,10 @@ export default function useTierAccess() {
     isGuest: !isLoggedIn,
 
     /**
-     * Copy prompt (1-click): Phải đăng nhập VÀ là Pro+ / Founder.
-     * Free (logged in): thấy prompt nhưng không copy được 1-click.
+     * Copy prompt (1-click): Tất cả user đã đăng nhập đều copy được.
+     * Đây là tính năng cơ bản — login wall là đủ incentive.
      */
-    canCopyPrompt: isLoggedIn && meetsRank(tier, 'pro'),
+    canCopyPrompt: isLoggedIn,
 
     /**
      * Negative prompt + CFG/Seed/Steps params:

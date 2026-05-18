@@ -269,8 +269,8 @@ const PostDetailPage = () => {
 
   const author = post.authorId
   const genImages = post.generatedImages || []
-  // Source images: chỉ truyền vào nếu user có quyền xem
-  const srcImages = tierAccess.canSeeSourceImages ? (post.sourceImages || []) : []
+  // Source images: mọi user đều xem được (chỉ gate download high-res, không gate view)
+  const srcImages = post.sourceImages || []
   const hasExif = activeIsSource && tierAccess.canSeeSourceImages && (post.exifData || post.histogram || palette.length > 0)
   const hasNegative = !!post.negativePrompt
   const hasParameters = !!post.parameters
@@ -393,6 +393,39 @@ const PostDetailPage = () => {
               >
                 {post.caption}
               </h1>
+            )}
+
+            {/* ── Bảng màu chủ đạo (chỉ khi ExifPanel full không hiện) ── */}
+            {palette.length > 0 && !hasExif && (
+              <div>
+                <p className="text-[10px] text-white/25 mb-2 font-medium tracking-wider uppercase">
+                  Màu chủ đạo
+                </p>
+                <div className="flex gap-2 items-center flex-wrap">
+                  {palette.slice(0, 6).map((hex, i) => (
+                    <motion.div
+                      key={i}
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ delay: i * 0.06 + 0.2 }}
+                      title={hex}
+                      className="group relative"
+                    >
+                      <div
+                        className="w-7 h-7 rounded-lg border border-white/15 cursor-pointer
+                          hover:scale-125 hover:ring-2 hover:ring-white/30 transition-all duration-200 shadow-lg"
+                        style={{ backgroundColor: hex }}
+                        onClick={() => { navigator.clipboard?.writeText(hex) }}
+                      />
+                      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2
+                        text-[9px] text-white/40 opacity-0 group-hover:opacity-100
+                        transition-opacity whitespace-nowrap pointer-events-none">
+                        {hex}
+                      </span>
+                    </motion.div>
+                  ))}
+                </div>
+              </div>
             )}
 
             {/* ── AI Prompt section (chỉ khi là AI post) ──── */}
