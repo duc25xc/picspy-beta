@@ -70,6 +70,30 @@ export default function UploadPage() {
     }).catch(() => {})
   }, [])
 
+  // ── Prevent accidental navigation ────────────────────────────────
+  // isDirty = user đã nhập gì đó chưa submit
+  const isDirty = form.prompt.trim().length > 0 || sourceImages.length > 0 || genImages.length > 0
+
+  // Chặn reload / đóng tab khi form chưa xong
+  useEffect(() => {
+    if (!isDirty || done) return
+    const handleBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isDirty, done])
+
+  // Wrapper navigate: hỏi xác nhận trước khi rời trang nếu form còn dữ liệu
+  const safeNavigate = (path) => {
+    if (isDirty && !done) {
+      const ok = window.confirm('Bài đăng của bạn chưa hoàn tất. Bạn có chắc chắn muốn rời đi?')
+      if (!ok) return
+    }
+    navigate(path)
+  }
+
   // ── Image handlers ─────────────────────────────────────────────
   const addSourceImages = useCallback((files) => {
     const remaining = 5 - sourceImages.length

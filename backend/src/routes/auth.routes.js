@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import rateLimit from 'express-rate-limit'
 import passport from '../config/googleStrategy.js'
-import { authenticate } from '../middlewares/authenticate.js'
+import { authenticate, optionalAuth } from '../middlewares/authenticate.js'
 import {
   register,
   login,
@@ -41,7 +41,7 @@ router.post('/register', registerLimiter, register)
 // router.post('/login', loginLimiter, login)
 router.post('/login', login)
 router.post('/refresh', refreshToken)
-router.post('/logout', authenticate, logout)
+router.post('/logout', optionalAuth, logout)
 router.post('/verify-email', verifyEmail)
 router.post('/forgot-password', forgotPassword)
 router.post('/reset-password', resetPassword)

@@ -425,7 +425,7 @@ export const getApprovedPosts = async (req, res, next) => {
             as: 'authorId',
           },
         },
-        { $unwind: { path: '$authorId', preserveNullAndEmpty: true } },
+        { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } },
       ]
 
       const posts = await Post.aggregate(pipeline)
