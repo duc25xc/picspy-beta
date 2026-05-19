@@ -5,7 +5,7 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2, Settings, Zap, ZapOff, Timer,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -467,9 +467,18 @@ const UsersTab = () => {
   const [coinModal, setCoinModal] = useState(null)
   const [coinAmount, setCoinAmount] = useState('')
   const [coinLoading, setCoinLoading] = useState(false)
-  const [tierModal, setTierModal] = useState(null)   // user đang đổi tier
+  const [tierModal, setTierModal] = useState(null)
   const [tierLoading, setTierLoading] = useState(false)
   const [selectedTier, setSelectedTier] = useState('free')
+  // Ban modal
+  const [banModal, setBanModal] = useState(null)      // { user, ban: true/false }
+  const [banReason, setBanReason] = useState('')
+  const [banDuration, setBanDuration] = useState(0)   // 0 = vĩnh viễn
+  const [banLoading, setBanLoading] = useState(false)
+  // Role modal
+  const [roleModal, setRoleModal] = useState(null)    // user
+  const [selectedRole, setSelectedRole] = useState('user')
+  const [roleLoading, setRoleLoading] = useState(false)
   const currentAdminId = useAuthStore(s => s.user?._id)
 
   const fetchUsers = useCallback(async (reset = false) => {
@@ -502,13 +511,47 @@ const UsersTab = () => {
     finally { setCoinLoading(false) }
   }
 
-  const handleBan = async (user, ban) => {
-    const reason = ban ? prompt('Lý do ban (tùy chọn):') ?? '' : ''
+  const openBanModal = (user, ban) => {
+    setBanModal({ user, ban })
+    setBanReason('')
+    setBanDuration(0)
+  }
+
+  const handleBan = async () => {
+    if (!banModal) return
+    const { user, ban } = banModal
+    setBanLoading(true)
     try {
-      await api.patch(`/admin/users/${user._id}/ban`, { ban, reason })
-      setUsers(prev => prev.map(u => u._id === user._id ? { ...u, isBanned: ban } : u))
-      toast.success(ban ? `Đã ban @${user.username}` : `Đã unban @${user.username}`)
-    } catch (err) { toast.error(err.response?.data?.message || 'Lỗi') }
+      const { data } = await api.patch(`/admin/users/${user._id}/ban`, {
+        ban,
+        reason: banReason.trim() || undefined,
+        banDurationDays: banDuration > 0 ? banDuration : undefined,
+      })
+      setUsers(prev => prev.map(u => u._id === user._id
+        ? { ...u, isBanned: data.isBanned, banReason: data.banReason }
+        : u
+      ))
+      toast.success(data.message)
+      setBanModal(null)
+    } catch (err) { toast.error(err.response?.data?.message || 'Lỗi ban') }
+    finally { setBanLoading(false) }
+  }
+
+  const openRoleModal = (user) => {
+    setSelectedRole(user.role || 'user')
+    setRoleModal(user)
+  }
+
+  const handleSetRole = async () => {
+    if (!roleModal) return
+    setRoleLoading(true)
+    try {
+      const { data } = await api.patch(`/admin/users/${roleModal._id}/role`, { role: selectedRole })
+      toast.success(data.message)
+      setUsers(prev => prev.map(u => u._id === roleModal._id ? { ...u, role: data.role } : u))
+      setRoleModal(null)
+    } catch (err) { toast.error(err.response?.data?.message || 'Lỗi đổi role') }
+    finally { setRoleLoading(false) }
   }
 
   const openTierModal = (user) => {
@@ -579,16 +622,31 @@ const UsersTab = () => {
                 <p className="text-sm font-bold text-violet-400">{user.tokenBalance || 0} token</p>
                 <p className="text-[10px] text-white/30">{user.stats?.postsCount || 0} posts</p>
               </div>
-              <div className="flex gap-2 flex-shrink-0">
+              <div className="flex gap-1.5 flex-shrink-0">
                 <button onClick={() => { setCoinModal(user); setCoinAmount('') }}
-                  className="p-2 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all" title="Điều chỉnh xu">
-                  <Coins size={15} />
+                  className="p-2 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all" title="Điều chỉnh token">
+                  <Coins size={14} />
                 </button>
-                {user.role !== 'admin' && (
-                  <button onClick={() => handleBan(user, !user.isBanned)}
-                    className={`p-2 rounded-xl border transition-all ${user.isBanned ? 'bg-green-600/20 border-green-500/30 text-green-400 hover:bg-green-600/30' : 'bg-red-600/20 border-red-500/30 text-red-400 hover:bg-red-600/30'}`}
+                {user._id !== currentAdminId && (
+                  <button onClick={() => openRoleModal(user)}
+                    className={`p-2 rounded-xl border transition-all ${
+                      user.role === 'admin'
+                        ? 'bg-violet-600/20 border-violet-500/30 text-violet-400 hover:bg-violet-600/30'
+                        : 'bg-white/5 border-white/10 text-white/40 hover:border-violet-500/40 hover:text-violet-400'
+                    }`}
+                    title="Đổi Role">
+                    <Shield size={14} />
+                  </button>
+                )}
+                {user._id !== currentAdminId && (
+                  <button onClick={() => openBanModal(user, !user.isBanned)}
+                    className={`p-2 rounded-xl border transition-all ${
+                      user.isBanned
+                        ? 'bg-green-600/20 border-green-500/30 text-green-400 hover:bg-green-600/30'
+                        : 'bg-red-600/20 border-red-500/30 text-red-400 hover:bg-red-600/30'
+                    }`}
                     title={user.isBanned ? 'Unban' : 'Ban'}>
-                    {user.isBanned ? <ShieldCheck size={15} /> : <ShieldAlert size={15} />}
+                    {user.isBanned ? <ShieldCheck size={14} /> : <ShieldAlert size={14} />}
                   </button>
                 )}
               </div>
@@ -728,9 +786,119 @@ const UsersTab = () => {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* ── Ban Modal ── */}
+      <AnimatePresence>
+        {banModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={e => e.target === e.currentTarget && setBanModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="card p-6 max-w-sm w-full">
+              <div className="flex items-center gap-3 mb-5">
+                <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${banModal.ban ? 'bg-red-600/20' : 'bg-green-600/20'}`}>
+                  {banModal.ban ? <ShieldAlert size={22} className="text-red-400" /> : <ShieldCheck size={22} className="text-green-400" />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">{banModal.ban ? 'Ban user' : 'Unban user'}</h3>
+                  <p className="text-xs text-white/40">@{banModal.user.username}</p>
+                </div>
+              </div>
+
+              {banModal.ban && (<>
+                <div className="mb-3">
+                  <label className="input-label">Lý do ban <span className="text-white/30 font-normal">(tuỳ chọn)</span></label>
+                  <textarea className="input resize-none text-sm" rows={3}
+                    placeholder="Vi phạm quy định, spam, nội dung không phù hợp..."
+                    value={banReason} onChange={e => setBanReason(e.target.value)} />
+                </div>
+                <div className="mb-5">
+                  <label className="input-label">Thời hạn ban</label>
+                  <div className="flex gap-2 mt-1 flex-wrap">
+                    {[{v:0,l:'Vĩnh viễn'},{v:1,l:'1 ngày'},{v:7,l:'7 ngày'},{v:30,l:'30 ngày'},{v:90,l:'90 ngày'}].map(opt => (
+                      <button key={opt.v} onClick={() => setBanDuration(opt.v)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all ${
+                          banDuration === opt.v
+                            ? 'bg-red-600/30 border-red-500/50 text-red-300'
+                            : 'bg-white/5 border-white/10 text-white/50 hover:border-white/20'
+                        }`}>{opt.l}</button>
+                    ))}
+                  </div>
+                </div>
+              </>)}
+
+              {!banModal.ban && (
+                <p className="text-sm text-white/50 mb-5">Xác nhận gỡ lệnh ban cho user này? Họ sẽ có thể đăng nhập lại bình thường.</p>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setBanModal(null)} className="btn-secondary flex-1" disabled={banLoading}>Hủy</button>
+                <button onClick={handleBan} disabled={banLoading}
+                  className={`flex-1 py-2.5 px-4 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition-colors ${
+                    banModal.ban ? 'bg-red-600 hover:bg-red-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white'
+                  }`}>
+                  {banLoading ? <Loader2 size={15} className="animate-spin" /> : (banModal.ban ? '🔨 Xác nhận ban' : '✓ Gỡ ban')}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Role Modal ── */}
+      <AnimatePresence>
+        {roleModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={e => e.target === e.currentTarget && setRoleModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="card p-6 max-w-sm w-full">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-11 h-11 rounded-2xl bg-violet-600/20 flex items-center justify-center">
+                  <UserCheck size={22} className="text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Đổi Role</h3>
+                  <p className="text-xs text-white/40">@{roleModal.username} — hiện tại: <span className={roleModal.role === 'admin' ? 'text-violet-400 font-bold' : 'text-white/60'}>{roleModal.role || 'user'}</span></p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 mb-5">
+                {[{v:'user', l:'👤 User', desc:'Quyền thường'}, {v:'admin', l:'🛡️ Admin', desc:'Toàn quyền quản lý'}].map(opt => (
+                  <button key={opt.v} onClick={() => setSelectedRole(opt.v)}
+                    className={`flex-1 p-3 rounded-xl border text-left transition-all ${
+                      selectedRole === opt.v
+                        ? (opt.v === 'admin' ? 'border-violet-500 bg-violet-500/10' : 'border-brand-500 bg-brand-500/10')
+                        : 'border-white/10 bg-surface-100 hover:border-white/20'
+                    }`}>
+                    <p className={`text-sm font-bold ${selectedRole === opt.v ? (opt.v === 'admin' ? 'text-violet-300' : 'text-brand-300') : 'text-white/60'}`}>{opt.l}</p>
+                    <p className="text-xs text-white/30 mt-0.5">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+
+              {selectedRole === 'admin' && (
+                <div className="mb-4 p-3 rounded-xl bg-yellow-500/10 border border-yellow-500/30">
+                  <p className="text-xs text-yellow-400">⚠ Admin có toàn quyền: duyệt post, ban user, quản lý hệ thống.</p>
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <button onClick={() => setRoleModal(null)} className="btn-secondary flex-1" disabled={roleLoading}>Hủy</button>
+                <button onClick={handleSetRole}
+                  disabled={roleLoading || selectedRole === (roleModal.role || 'user')}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-40">
+                  {roleLoading ? <Loader2 size={15} className="animate-spin" /> : <><Shield size={14}/> Xác nhận</>}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
+
 
 // ══════════════════════════════════════════════════════════════════
 // TAB: CATEGORIES

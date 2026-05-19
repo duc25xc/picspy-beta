@@ -203,7 +203,7 @@ export const adjustUserTokens = async (req, res, next) => {
 export const toggleBanUser = async (req, res, next) => {
   try {
     const { id } = req.params
-    const { ban, reason } = req.body
+    const { ban, reason, banDurationDays } = req.body
     if (id === req.user._id.toString())
       throw new AppError('FORBIDDEN', 'Không thể tự ban bản thân', 403)
 
@@ -212,12 +212,53 @@ export const toggleBanUser = async (req, res, next) => {
 
     user.isBanned = ban
     if (ban && reason) user.banReason = reason
-    if (!ban) user.banReason = undefined
+    if (!ban) { user.banReason = undefined; user.banExpiry = undefined }
+
+    // Hỗ trợ ban có thời hạn
+    if (ban && banDurationDays && banDurationDays > 0) {
+      user.banExpiry = new Date(Date.now() + banDurationDays * 24 * 60 * 60 * 1000)
+    }
+
     await user.save()
 
-    res.json({ message: ban ? `Đã ban @${user.username}` : `Đã unban @${user.username}`, isBanned: user.isBanned })
+    res.json({
+      message: ban ? `Đã ban @${user.username}` : `Đã unban @${user.username}`,
+      isBanned: user.isBanned,
+      banReason: user.banReason,
+      banExpiry: user.banExpiry,
+    })
   } catch (err) { next(err) }
 }
+
+/** PATCH /admin/users/:id/role — Set role user/admin */
+export const setUserRole = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { role } = req.body
+
+    if (id === req.user._id.toString())
+      throw new AppError('FORBIDDEN', 'Không thể tự thay đổi role của bản thân', 403)
+
+    const VALID_ROLES = ['user', 'admin']
+    if (!VALID_ROLES.includes(role))
+      throw new AppError('INVALID_ROLE', `Role không hợp lệ. Chọn: ${VALID_ROLES.join(', ')}`, 400)
+
+    const user = await User.findById(id)
+    if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
+
+    const prevRole = user.role
+    user.role = role
+    await user.save()
+
+    res.json({
+      message: `Đã đổi role @${user.username}: ${prevRole} → ${role}`,
+      username: user.username,
+      role: user.role,
+      prevRole,
+    })
+  } catch (err) { next(err) }
+}
+
 
 /** PATCH /admin/users/:id/tier — Đổi subscription tier (dev/admin tool) */
 export const changeUserTier = async (req, res, next) => {
