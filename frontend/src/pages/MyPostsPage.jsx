@@ -559,20 +559,14 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
               </div>
 
               {!multiModelMode && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="input-label">Công cụ AI</label>
-                    <div className="relative">
-                      <select className="input appearance-none pr-8 text-sm" value={form.aiTool} onChange={e => set('aiTool', e.target.value)}>
-                        <option value="">-- Chọn --</option>
-                        {AI_TOOL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                      </select>
-                      <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-                    </div>
-                  </div>
-                  <div>
-                    <label className="input-label">Model / Version</label>
-                    <input className="input text-sm" value={form.aiModel} onChange={e => set('aiModel', e.target.value)} placeholder="v6.1, SDXL..." />
+                <div>
+                  <label className="input-label">Công cụ AI</label>
+                  <div className="relative">
+                    <select className="input appearance-none pr-8 text-sm" value={form.aiTool} onChange={e => set('aiTool', e.target.value)}>
+                      <option value="">-- Chọn --</option>
+                      {AI_TOOL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                    </select>
+                    <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
                   </div>
                 </div>
               )}

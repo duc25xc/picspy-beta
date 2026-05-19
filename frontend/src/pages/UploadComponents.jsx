@@ -400,25 +400,17 @@ export function ModelSlot({ slot, index, onUpdate, onRemove, canRemove }) {
         )}
       </div>
 
-      {/* AI Tool mini-selector */}
-      <div className="flex gap-2">
+      <div>
         <select
           value={slot.aiTool}
           onChange={(e) => onUpdate(index, { ...slot, aiTool: e.target.value })}
-          className="input flex-1 text-sm py-2"
+          className="input w-full text-sm py-2"
         >
           <option value="">Chọn công cụ AI...</option>
           {AI_TOOLS.map((t) => (
             <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
           ))}
         </select>
-        <input
-          type="text"
-          value={slot.aiModel || ''}
-          onChange={(e) => onUpdate(index, { ...slot, aiModel: e.target.value })}
-          placeholder="Model version"
-          className="input w-28 text-sm py-2"
-        />
       </div>
 
       {/* Image thumbnails + drop zone */}

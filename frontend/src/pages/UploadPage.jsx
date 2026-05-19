@@ -430,11 +430,6 @@ function Step1Prompt({ form, setForm, tierAccess }) {
 
       <AIToolSelector value={form.aiTool} onChange={set('aiTool')} />
 
-      <div>
-        <label className="input-label">Phiên bản / Model <span className="text-white/30">(tuỳ chọn)</span></label>
-        <input type="text" value={form.aiModel} onChange={e => set('aiModel')(e.target.value)}
-          placeholder="v6.1, SDXL, Flux Dev, Turbo..." className="input" />
-      </div>
 
       <PromptField label="Prompt" required value={form.prompt} onChange={set('prompt')}
         placeholder="Mô tả chi tiết nội dung bạn muốn tạo..." maxLength={2000} />

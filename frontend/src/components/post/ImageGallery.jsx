@@ -42,12 +42,22 @@ export default function ImageGallery({
   isUnlocked = false,
   caption = '',
   onImageChange,
+  isMultiModel = false,
+  modelComparisons = [],
 }) {
   // activeKey: 'gen-0' ... 'gen-4' | 'src-0' ... 'src-4'
   // Fallback: nếu cả hai rỗng, dùng legacy images[] vào slot gen
-  const allGen = generatedImages.length > 0
-    ? generatedImages.slice(0, 5)
-    : legacyImages.slice(0, 5)  // legacy data dùng images[]
+  const allGen = isMultiModel && modelComparisons?.length > 0
+    ? modelComparisons.flatMap((comp) =>
+        (comp.generatedImages || []).map(img => ({
+          ...img,
+          aiTool: comp.aiTool,
+          aiModel: comp.aiModel,
+        }))
+      )
+    : (generatedImages.length > 0
+        ? generatedImages.slice(0, 5)
+        : legacyImages.slice(0, 5))  // legacy data dùng images[]
   const allSrc = sourceImages.slice(0, 5)
   const hasSource = allSrc.length > 0
   const hasThumbs = allGen.length > 1 || hasSource
@@ -105,7 +115,9 @@ export default function ImageGallery({
     }
   }, [activeKey]) // eslint-disable-line
 
-  const toolMeta = aiTool ? getToolMeta(aiTool) : null
+  const currentAiTool = activeImg?.aiTool || aiTool
+  const currentAiModel = activeImg?.aiModel || aiModel
+  const toolMeta = currentAiTool ? getToolMeta(currentAiTool) : null
   const showBlurred = isPremium && !isUnlocked
   const displayUrl = showBlurred
     ? makeBlurredUrl(activeImg?.thumbnailUrl || activeImg?.url)
@@ -115,7 +127,7 @@ export default function ImageGallery({
     ? `Ảnh tham khảo cho "${caption}"`
     : isLegacy
       ? (caption || 'Ảnh')
-      : `${caption || 'Ảnh AI'} — tạo bằng ${aiTool || 'AI'}`
+      : `${caption || 'Ảnh AI'} — tạo bằng ${currentAiTool || 'AI'}`
 
   // slide variants
   const slideVariants = {
@@ -222,7 +234,7 @@ export default function ImageGallery({
             >
               <span className="text-[13px] leading-none">{toolMeta.icon}</span>
               {toolMeta.label}
-              {aiModel && <span className="opacity-60 font-normal">{aiModel}</span>}
+              {currentAiModel && <span className="opacity-60 font-normal">{currentAiModel}</span>}
             </span>
           )}
           {activeIsSource && (
@@ -355,13 +367,20 @@ export default function ImageGallery({
                       }}
                     >
                       {(img.thumbnailUrl || img.url) ? (
-                        <img
-                          src={img.thumbnailUrl || img.url}
-                          alt={`Kết quả ${i + 1}`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
-                          style={{ filter: showBlurred ? 'blur(4px)' : 'none' }}
-                        />
+                        <>
+                          <img
+                            src={img.thumbnailUrl || img.url}
+                            alt={`Kết quả ${i + 1}`}
+                            className="w-full h-full object-cover"
+                            loading="lazy"
+                            style={{ filter: showBlurred ? 'blur(4px)' : 'none' }}
+                          />
+                          {isMultiModel && img.aiTool && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-black/60 py-0.5 text-[8px] text-white/90 font-bold text-center truncate px-1 uppercase tracking-tight">
+                              {getToolMeta(img.aiTool).label}
+                            </div>
+                          )}
+                        </>
                       ) : (
                         <div
                           className="w-full h-full flex items-center justify-center"

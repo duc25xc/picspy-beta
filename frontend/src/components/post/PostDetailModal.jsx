@@ -386,6 +386,8 @@ const PostDetailModal = ({
                   isUnlocked={!post.isPremium}
                   caption={post.caption}
                   onExpand={goToDetail}
+                  isMultiModel={post.isMultiModel}
+                  modelComparisons={post.modelComparisons}
                 />
                 {/* Trang riêng button */}
                 <button

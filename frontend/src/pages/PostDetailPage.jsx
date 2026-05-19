@@ -332,6 +332,8 @@ const PostDetailPage = () => {
               isUnlocked={isUnlocked}
               caption={post.caption}
               onImageChange={handleImageChange}
+              isMultiModel={post.isMultiModel}
+              modelComparisons={post.modelComparisons}
             />
 
             {/* Mobile stats */}
