@@ -17,9 +17,15 @@ const imageSchema = new mongoose.Schema(
 
 // Danh sách AI tools được hỗ trợ
 export const AI_TOOLS = [
+  // Image generation
   'midjourney', 'dalle-3', 'stable-diffusion', 'flux',
   'leonardo', 'firefly', 'ideogram', 'bing-creator',
   'playground', 'canva-ai', 'comfyui',
+  // Gemini family
+  'gemini-flash', 'gemini-think', 'gemini-pro',
+  'gemini-nano-banana', 'gemini-nano-banana-pro', 'gemini-nano-banana-2',
+  // Other LLM-based tools
+  'chatgpt', 'deepseek', 'grok',
   // Video AI (reserve)
   'sora', 'kling', 'runway', 'pika', 'luma', 'hailuo',
   'other',

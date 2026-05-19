@@ -91,36 +91,60 @@ const StatusBadge = ({ status }) => {
 }
 
 // ─── Edit Modal ─────────────────────────────────────────────
+const AI_TOOL_OPTIONS = [
+  'midjourney','dalle-3','stable-diffusion','flux','leonardo',
+  'firefly','ideogram','bing-creator','playground','canva-ai','comfyui',
+  'gemini-flash','gemini-think','gemini-pro',
+  'gemini-nano-banana','gemini-nano-banana-pro','gemini-nano-banana-2',
+  'chatgpt','deepseek','grok','other',
+]
+
 const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) => {
-  const [form, setForm] = useState({
-    caption: post.caption || '',
-    category: post.category || '',
-    tags: post.tags || [],
-    isPremium: post.isPremium || false,
-    priceInCoins: post.priceInCoins || 50,
+  const [tab, setTab]     = useState('info')   // 'info' | 'ai' | 'pricing'
+  const [form, setForm]   = useState({
+    // Info tab
+    caption:        post.caption        || '',
+    category:       post.category       || '',
+    tags:           post.tags           || [],
+    // AI tab
+    prompt:         post.prompt         || '',
+    negativePrompt: post.negativePrompt || '',
+    aiTool:         post.aiTool         || '',
+    aiModel:        post.aiModel        || '',
+    parameters:     post.parameters     || '',
+    // Pricing tab
+    isPremium:      post.isPremium      || false,
+    priceInTokens:  post.priceInTokens  || 10,
   })
-  const [tag, setTag] = useState('')
+  const [tag, setTag]       = useState('')
   const [saving, setSaving] = useState(false)
 
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+
   const addTag = () => {
-    const t = tag
-      .toLowerCase()
-      .trim()
-      .replace(/[^a-z0-9_]/g, '')
-    if (t && !form.tags.includes(t) && form.tags.length < 10) {
-      setForm({ ...form, tags: [...form.tags, t] })
-    }
+    const t = tag.toLowerCase().trim().replace(/[^a-z0-9_]/g, '')
+    if (t && !form.tags.includes(t) && form.tags.length < 10) set('tags', [...form.tags, t])
     setTag('')
   }
 
   const handleSave = async () => {
+    if (!form.category) return toast.error('Vui lòng chọn danh mục')
     setSaving(true)
     try {
-      const { data } = await api.put(`/posts/${post._id}`, {
-        ...form,
-        tags: JSON.stringify(form.tags),
-      })
-      toast.success('Đã cập nhật bài đăng')
+      const payload = {
+        caption:        form.caption.trim()        || undefined,
+        category:       form.category,
+        tags:           form.tags,
+        prompt:         form.prompt.trim()         || undefined,
+        negativePrompt: form.negativePrompt.trim() || undefined,
+        aiTool:         form.aiTool                || undefined,
+        aiModel:        form.aiModel.trim()        || undefined,
+        parameters:     form.parameters.trim()     || undefined,
+        isPremium:      form.isPremium,
+        priceInTokens:  Number(form.priceInTokens),
+      }
+      const { data } = await api.put(`/posts/${post._id}`, payload)
+      toast.success('Đã cập nhật bài đăng ✓')
       onSave(data.post)
       onClose()
     } catch (err) {
@@ -129,6 +153,12 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
       setSaving(false)
     }
   }
+
+  const TABS = [
+    { id: 'info',    label: '📋 Thông tin' },
+    { id: 'ai',      label: '✦ AI & Prompt' },
+    { id: 'pricing', label: '💎 Giá' },
+  ]
 
   return (
     <motion.div
@@ -143,167 +173,225 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
         animate={{ y: 0, opacity: 1 }}
         exit={{ y: 80, opacity: 0 }}
         transition={{ type: 'spring', damping: 20 }}
-        className="card w-full max-w-lg max-h-[90vh] overflow-y-auto"
+        className="card w-full max-w-lg max-h-[92vh] overflow-hidden flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-white/10">
-          <h3 className="font-bold text-lg">Chỉnh sửa bài đăng</h3>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20"
-          >
+        <div className="flex items-center justify-between p-5 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-600/20 border border-brand-500/30 flex items-center justify-center shrink-0">
+              <Pencil size={15} className="text-brand-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base">Chỉnh sửa bài đăng</h3>
+              <p className="text-[11px] text-white/30 mt-0.5 truncate max-w-[220px]">
+                {post.caption || post.prompt?.slice(0, 40) || 'Không có tiêu đề'}
+              </p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0">
             <X size={16} />
           </button>
         </div>
 
-        {/* Preview */}
-        <div className="p-5 pb-0">
-          <div className="relative w-full max-h-[350px] min-h-[160px] overflow-hidden rounded-2xl mb-5 bg-surface-100 flex items-center justify-center border border-white/5">
+        {/* Preview thumbnail */}
+        <div className="px-5 pt-4 shrink-0">
+          <div className="relative w-full h-24 rounded-xl overflow-hidden bg-surface-100 border border-white/5">
             <img
               src={post.generatedImages?.[0]?.thumbnailUrl || post.generatedImages?.[0]?.url || post.images?.[0]?.url}
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-20 scale-110"
+              alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110"
             />
-
             <img
-              src={post.generatedImages?.[0]?.url || post.images?.[0]?.url}
-              alt={post.caption}
-              className="relative z-10 max-h-[350px] w-auto object-contain shadow-2xl transition-transform duration-500"
+              src={post.generatedImages?.[0]?.thumbnailUrl || post.generatedImages?.[0]?.url || post.images?.[0]?.url}
+              alt={post.caption} className="relative z-10 h-full w-full object-contain"
             />
-
-            <div className="absolute bottom-2 right-2 z-20">
-              <span className="px-2 py-1 rounded-lg bg-black/40 backdrop-blur-md text-[10px] text-white/60">
-                Preview Mode
-              </span>
-            </div>
           </div>
         </div>
 
-        <div className="p-5 space-y-4">
-          {/* Caption */}
-          <div>
-            <label className="input-label">Mô tả</label>
-            <textarea
-              className="input resize-none"
-              rows={3}
-              maxLength={500}
-              value={form.caption}
-              onChange={(e) => setForm({ ...form, caption: e.target.value })}
-              placeholder="Mô tả bức ảnh..."
-            />
-            <p className="text-xs text-white/30 text-right mt-1">
-              {form.caption.length}/500
-            </p>
-          </div>
+        {/* Tabs */}
+        <div className="flex gap-0.5 px-5 pt-3 shrink-0">
+          {TABS.map(t => (
+            <button
+              key={t.id}
+              onClick={() => setTab(t.id)}
+              className={`px-3 py-2 text-xs font-medium rounded-t-lg transition-all border-b-2 -mb-px
+                ${tab === t.id
+                  ? 'border-brand-500 text-brand-400'
+                  : 'border-transparent text-white/40 hover:text-white/70'}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        <div className="border-b border-white/8 mx-5 shrink-0" />
 
-          {/* Category */}
-          <div>
-            <label className="input-label">Danh mục</label>
-            <div className="flex flex-wrap gap-2">
-              {categories.map((cat) => (
-                <button
-                  key={cat.slug}
-                  type="button"
-                  onClick={() => setForm({ ...form, category: cat.slug })}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border
-                    ${
-                      form.category === cat.slug
+        {/* Scrollable content */}
+        <div className="p-5 space-y-4 overflow-y-auto flex-1">
+
+          {/* ── INFO TAB ── */}
+          {tab === 'info' && (<>
+            <div>
+              <label className="input-label">Mô tả</label>
+              <textarea className="input resize-none" rows={3} maxLength={500}
+                value={form.caption} onChange={e => set('caption', e.target.value)}
+                placeholder="Mô tả bức ảnh..."
+              />
+              <p className="text-xs text-white/30 text-right mt-1">{form.caption.length}/500</p>
+            </div>
+
+            <div>
+              <label className="input-label">Danh mục *</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {categories.map(cat => (
+                  <button key={cat.slug} type="button" onClick={() => set('category', cat.slug)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border
+                      ${form.category === cat.slug
                         ? 'bg-brand-600 border-brand-500 text-white'
-                        : 'bg-surface-100 border-white/10 text-white/60 hover:border-brand-500/50'
-                    }`}
-                >
-                  {cat.name}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <label className="input-label">Tags</label>
-            <div className="flex gap-2 mb-2">
-              <div className="relative flex-1">
-                <Tag
-                  size={14}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
-                />
-                <input
-                  className="input pl-8 text-sm"
-                  placeholder="Thêm tag..."
-                  value={tag}
-                  onChange={(e) => setTag(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ',') {
-                      e.preventDefault()
-                      addTag()
-                    }
-                  }}
-                />
-              </div>
-              <button
-                type="button"
-                onClick={addTag}
-                className="btn-secondary px-3 text-sm"
-              >
-                Thêm
-              </button>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <AnimatePresence>
-                {form.tags.map((t) => (
-                  <motion.span
-                    key={t}
-                    initial={{ scale: 0 }}
-                    animate={{ scale: 1 }}
-                    exit={{ scale: 0 }}
-                    className="flex items-center gap-1 badge-brand text-xs px-2.5 py-1"
-                  >
-                    #{t}
-                    <button
-                      onClick={() =>
-                        setForm({
-                          ...form,
-                          tags: form.tags.filter((x) => x !== t),
-                        })
-                      }
-                    >
-                      <X size={10} />
-                    </button>
-                  </motion.span>
+                        : 'bg-surface-100 border-white/10 text-white/60 hover:border-brand-500/50'}`}
+                  >{cat.name}</button>
                 ))}
-              </AnimatePresence>
+              </div>
             </div>
-          </div>
 
-          {/* Actions */}
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onClose}
-              className="btn-secondary flex-1"
-              disabled={saving}
-            >
-              Hủy
-            </button>
-            <button
-              onClick={handleSave}
-              className="btn-primary flex-1"
-              disabled={saving}
-            >
-              {saving ? (
-                <motion.div
-                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    duration: 0.8,
-                    repeat: Infinity,
-                    ease: 'linear',
-                  }}
-                />
-              ) : (
-                'Lưu thay đổi'
+            <div>
+              <label className="input-label">Tags ({form.tags.length}/10)</label>
+              <div className="flex gap-2 mb-2">
+                <div className="relative flex-1">
+                  <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
+                  <input className="input pl-8 text-sm" placeholder="Nhập tag rồi nhấn Enter..."
+                    value={tag} onChange={e => setTag(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag() } }}
+                  />
+                </div>
+                <button type="button" onClick={addTag} className="btn-secondary px-3 text-sm">Thêm</button>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <AnimatePresence>
+                  {form.tags.map(t => (
+                    <motion.span key={t} initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
+                      className="flex items-center gap-1 badge-brand text-xs px-2.5 py-1"
+                    >
+                      #{t}
+                      <button onClick={() => set('tags', form.tags.filter(x => x !== t))}><X size={10} /></button>
+                    </motion.span>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          </>)}
+
+          {/* ── AI TAB ── */}
+          {tab === 'ai' && (<>
+            <div>
+              <label className="input-label">Prompt *</label>
+              <textarea className="input resize-none font-mono text-sm" rows={5} maxLength={2000}
+                value={form.prompt} onChange={e => set('prompt', e.target.value)}
+                placeholder="Nhập prompt đã dùng để tạo ảnh..."
+              />
+              <p className="text-xs text-white/30 text-right mt-1">{form.prompt.length}/2000</p>
+            </div>
+
+            <div>
+              <label className="input-label">Negative Prompt <span className="text-white/30 font-normal">(tuỳ chọn)</span></label>
+              <textarea className="input resize-none font-mono text-sm" rows={3} maxLength={1000}
+                value={form.negativePrompt} onChange={e => set('negativePrompt', e.target.value)}
+                placeholder="ugly, blurry, low quality..."
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="input-label">Công cụ AI</label>
+                <div className="relative">
+                  <select className="input appearance-none pr-8 text-sm" value={form.aiTool} onChange={e => set('aiTool', e.target.value)}>
+                    <option value="">-- Chọn --</option>
+                    {AI_TOOL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+                </div>
+              </div>
+              <div>
+                <label className="input-label">Model / Version</label>
+                <input className="input text-sm" value={form.aiModel} onChange={e => set('aiModel', e.target.value)} placeholder="v6.1, SDXL..." />
+              </div>
+            </div>
+
+            <div>
+              <label className="input-label">Parameters <span className="text-white/30 font-normal">(tuỳ chọn)</span></label>
+              <textarea className="input resize-none font-mono text-sm" rows={2}
+                value={form.parameters} onChange={e => set('parameters', e.target.value)}
+                placeholder="--ar 9:16 --v 6 --seed 12345..."
+              />
+            </div>
+          </>)}
+
+          {/* ── PRICING TAB ── */}
+          {tab === 'pricing' && (<>
+            <div>
+              <label className="input-label">Loại bài đăng</label>
+              <div className="flex gap-3 mt-2">
+                {[
+                  { val: false, label: '🆓 Miễn phí', desc: 'Ai cũng tải được' },
+                  { val: true,  label: '💎 Premium',  desc: 'Dùng token để tải' },
+                ].map(opt => (
+                  <button key={String(opt.val)} type="button" onClick={() => set('isPremium', opt.val)}
+                    className={`flex-1 p-3 rounded-xl border text-left transition-all
+                      ${form.isPremium === opt.val
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-white/10 bg-surface-100 hover:border-white/20'}`}
+                  >
+                    <p className={`text-sm font-bold ${form.isPremium === opt.val ? 'text-brand-300' : 'text-white/70'}`}>{opt.label}</p>
+                    <p className="text-xs text-white/30 mt-0.5">{opt.desc}</p>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {form.isPremium && (
+              <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
+                <label className="input-label">Giá (tokens)</label>
+                <div className="flex items-center gap-3 mt-2">
+                  <input type="range" min={1} max={500} step={1}
+                    value={form.priceInTokens} onChange={e => set('priceInTokens', Number(e.target.value))}
+                    className="flex-1 accent-brand-500"
+                  />
+                  <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-100 border border-white/10 min-w-[80px] justify-center">
+                    <span className="text-yellow-400 text-sm">🪙</span>
+                    <span className="font-bold text-sm">{form.priceInTokens}</span>
+                  </div>
+                </div>
+                <div className="flex justify-between text-xs text-white/25 mt-1 px-1">
+                  <span>1</span><span>250</span><span>500</span>
+                </div>
+              </motion.div>
+            )}
+
+            <div className="rounded-xl bg-surface-50 border border-white/5 p-4 space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-white/40">Trạng thái</span>
+                <span className={form.isPremium ? 'text-yellow-400 font-medium' : 'text-green-400 font-medium'}>
+                  {form.isPremium ? '💎 Premium' : '🆓 Miễn phí'}
+                </span>
+              </div>
+              {form.isPremium && (
+                <div className="flex justify-between">
+                  <span className="text-white/40">Giá niêm yết</span>
+                  <span className="font-bold">🪙 {form.priceInTokens} tokens</span>
+                </div>
               )}
-            </button>
-          </div>
+            </div>
+          </>)}
+        </div>
+
+        {/* Footer */}
+        <div className="flex gap-3 p-5 border-t border-white/10 shrink-0">
+          <button onClick={onClose} className="btn-secondary flex-1" disabled={saving}>Hủy</button>
+          <button onClick={handleSave} disabled={saving}
+            className="btn-primary flex-1 flex items-center justify-center gap-2"
+          >
+            {saving
+              ? <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
+              : '💾 Lưu thay đổi'}
+          </button>
         </div>
       </motion.div>
     </motion.div>

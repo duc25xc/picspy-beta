@@ -25,17 +25,17 @@ import {
 
 const router = Router()
 
-// Rate limit upload: 20 ảnh/ngày/user
-const uploadLimiter = rateLimit({
-  windowMs: 24 * 60 * 60 * 1000,
-  max: 20,
-  validate: { xForwardedForHeader: false, default: false },
-  keyGenerator: (req) => req.user?._id?.toString() || req.ip,
-  message: {
-    error: 'RATE_LIMITED',
-    message: 'Bạn đã upload quá 20 ảnh hôm nay. Thử lại vào ngày mai.',
-  },
-})
+// Rate limit upload: TẮT TẠM để dev/test (bật lại khi production)
+// const uploadLimiter = rateLimit({
+//   windowMs: 24 * 60 * 60 * 1000,
+//   max: 20,
+//   validate: { xForwardedForHeader: false, default: false },
+//   keyGenerator: (req) => req.user?._id?.toString() || req.ip,
+//   message: {
+//     error: 'RATE_LIMITED',
+//     message: 'Bạn đã upload quá 20 ảnh hôm nay. Thử lại vào ngày mai.',
+//   },
+// })
 
 // =====================
 // PUBLIC ROUTES
@@ -58,7 +58,7 @@ router.get('/following', authenticate, getFollowingFeed)
 router.post(
   '/',
   authenticate,
-  uploadLimiter,
+  // uploadLimiter, // TẮT TẠM — bật lại khi production
   upload.fields([
     { name: 'sourceImages', maxCount: 5 },
     { name: 'generatedImages', maxCount: 5 },

@@ -22,7 +22,15 @@ const MAX_SIZE = 20 * 1024 * 1024 // 20MB
  * @param {string}   hint     - mô tả phụ
  * @param {boolean}  required - hiển thị dấu *
  */
-export function ImageDropZone({ images = [], onAdd, onRemove, max = 5, label, hint, required }) {
+export function ImageDropZone({
+  images = [],
+  onAdd,
+  onRemove,
+  max = 5,
+  label,
+  hint,
+  required,
+}) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: ACCEPT,
     maxSize: MAX_SIZE,
@@ -42,7 +50,9 @@ export function ImageDropZone({ images = [], onAdd, onRemove, max = 5, label, hi
       <div className="flex items-center justify-between">
         <label className="text-sm font-semibold text-white/80">
           {label} {required && <span className="text-red-400">*</span>}
-          <span className="ml-2 text-white/30 font-normal">({images.length}/{max})</span>
+          <span className="ml-2 text-white/30 font-normal">
+            ({images.length}/{max})
+          </span>
         </label>
         {hint && <span className="text-xs text-white/30">{hint}</span>}
       </div>
@@ -59,7 +69,11 @@ export function ImageDropZone({ images = [], onAdd, onRemove, max = 5, label, hi
             transition={{ duration: 0.2 }}
             className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 group"
           >
-            <img src={img.preview} alt="" className="w-full h-full object-cover" />
+            <img
+              src={img.preview}
+              alt=""
+              className="w-full h-full object-cover"
+            />
             <button
               type="button"
               onClick={() => onRemove(img.id)}
@@ -77,13 +91,17 @@ export function ImageDropZone({ images = [], onAdd, onRemove, max = 5, label, hi
             {...getRootProps()}
             className={`w-24 h-24 rounded-xl border-2 border-dashed flex flex-col items-center justify-center cursor-pointer
               transition-all duration-200 select-none
-              ${isDragActive
-                ? 'border-brand-400 bg-brand-900/30'
-                : 'border-white/15 hover:border-white/30 hover:bg-white/5'
+              ${
+                isDragActive
+                  ? 'border-brand-400 bg-brand-900/30'
+                  : 'border-white/15 hover:border-white/30 hover:bg-white/5'
               }`}
           >
             <input {...getInputProps()} />
-            <Plus size={20} className={isDragActive ? 'text-brand-400' : 'text-white/30'} />
+            <Plus
+              size={20}
+              className={isDragActive ? 'text-brand-400' : 'text-white/30'}
+            />
             <span className="text-[10px] text-white/30 mt-1">
               {isDragActive ? 'Thả vào' : 'Thêm'}
             </span>
@@ -97,7 +115,7 @@ export function ImageDropZone({ images = [], onAdd, onRemove, max = 5, label, hi
 // ── AIToolSelector ───────────────────────────────────────────────
 export function AIToolSelector({ value, onChange }) {
   const [open, setOpen] = useState(false)
-  const selected = AI_TOOLS.find(t => t.value === value) || null
+  const selected = AI_TOOLS.find((t) => t.value === value) || null
 
   return (
     <div className="relative">
@@ -106,12 +124,15 @@ export function AIToolSelector({ value, onChange }) {
       </label>
       <button
         type="button"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => setOpen((o) => !o)}
         className="input text-left flex items-center justify-between gap-2"
       >
         {selected ? (
           <span className="flex items-center gap-2">
-            <span style={{ color: selected.color }} className="font-bold text-lg leading-none">
+            <span
+              style={{ color: selected.color }}
+              className="font-bold text-lg leading-none"
+            >
               {selected.icon}
             </span>
             <span>{selected.label}</span>
@@ -136,21 +157,35 @@ export function AIToolSelector({ value, onChange }) {
               shadow-[0_16px_48px_rgba(0,0,0,0.5)]"
             style={{ background: '#1a1a24' }}
           >
-            {AI_TOOLS.map(tool => (
+            {AI_TOOLS.map((tool) => (
               <button
                 key={tool.value}
                 type="button"
-                onClick={() => { onChange(tool.value); setOpen(false) }}
+                onClick={() => {
+                  onChange(tool.value)
+                  setOpen(false)
+                }}
                 className={`w-full px-4 py-2.5 flex items-center gap-3 text-left text-sm transition-colors
                   hover:bg-white/6 ${value === tool.value ? 'bg-white/8' : ''}`}
               >
-                <span style={{ color: tool.color }} className="font-bold text-base w-5 text-center">
+                <span
+                  style={{ color: tool.color }}
+                  className="font-bold text-base w-5 text-center"
+                >
                   {tool.icon}
                 </span>
-                <span className={value === tool.value ? 'text-white font-medium' : 'text-white/70'}>
+                <span
+                  className={
+                    value === tool.value
+                      ? 'text-white font-medium'
+                      : 'text-white/70'
+                  }
+                >
                   {tool.label}
                 </span>
-                {value === tool.value && <Check size={14} className="ml-auto text-brand-400" />}
+                {value === tool.value && (
+                  <Check size={14} className="ml-auto text-brand-400" />
+                )}
               </button>
             ))}
           </motion.div>
@@ -161,7 +196,14 @@ export function AIToolSelector({ value, onChange }) {
 }
 
 // ── PromptField ──────────────────────────────────────────────────
-export function PromptField({ value, onChange, label, placeholder, maxLength = 2000, required }) {
+export function PromptField({
+  value,
+  onChange,
+  label,
+  placeholder,
+  maxLength = 2000,
+  required,
+}) {
   const [copied, setCopied] = useState(false)
   const pct = Math.min((value.length / maxLength) * 100, 100)
   const near = value.length > maxLength * 0.85
@@ -179,7 +221,9 @@ export function PromptField({ value, onChange, label, placeholder, maxLength = 2
           {label} {required && <span className="text-red-400">*</span>}
         </label>
         <div className="flex items-center gap-2">
-          <span className={`text-xs ${near ? 'text-amber-400' : 'text-white/30'}`}>
+          <span
+            className={`text-xs ${near ? 'text-amber-400' : 'text-white/30'}`}
+          >
             {value.length}/{maxLength}
           </span>
           {value.length > 0 && (
@@ -188,7 +232,11 @@ export function PromptField({ value, onChange, label, placeholder, maxLength = 2
               onClick={handleCopy}
               className="text-xs flex items-center gap-1 text-white/30 hover:text-white/70 transition-colors"
             >
-              {copied ? <Check size={11} className="text-green-400" /> : <Copy size={11} />}
+              {copied ? (
+                <Check size={11} className="text-green-400" />
+              ) : (
+                <Copy size={11} />
+              )}
               {copied ? 'Copied' : 'Copy'}
             </button>
           )}
@@ -197,7 +245,7 @@ export function PromptField({ value, onChange, label, placeholder, maxLength = 2
 
       <textarea
         value={value}
-        onChange={e => onChange(e.target.value)}
+        onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         maxLength={maxLength}
         rows={label === 'Negative Prompt' ? 3 : 5}
@@ -220,15 +268,19 @@ export function PromptField({ value, onChange, label, placeholder, maxLength = 2
 export function StepHeader({ step, total, title, subtitle }) {
   return (
     <div className="flex items-start gap-4 mb-6">
-      <div className="w-9 h-9 rounded-xl bg-brand-600/20 border border-brand-600/40
-        flex items-center justify-center flex-shrink-0 mt-0.5">
+      <div
+        className="w-9 h-9 rounded-xl bg-brand-600/20 border border-brand-600/40
+        flex items-center justify-center flex-shrink-0 mt-0.5"
+      >
         <span className="text-sm font-bold text-brand-400">{step}</span>
       </div>
       <div>
         <h2 className="text-base font-bold text-white">{title}</h2>
         {subtitle && <p className="text-sm text-white/40 mt-0.5">{subtitle}</p>}
       </div>
-      <span className="ml-auto text-xs text-white/20 font-mono pt-1">{step}/{total}</span>
+      <span className="ml-auto text-xs text-white/20 font-mono pt-1">
+        {step}/{total}
+      </span>
     </div>
   )
 }
