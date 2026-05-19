@@ -47,17 +47,54 @@ export default function ImageGallery({
 }) {
   // activeKey: 'gen-0' ... 'gen-4' | 'src-0' ... 'src-4'
   // Fallback: nếu cả hai rỗng, dùng legacy images[] vào slot gen
-  const allGen = isMultiModel && modelComparisons?.length > 0
-    ? modelComparisons.flatMap((comp) =>
-        (comp.generatedImages || []).map(img => ({
+  // Hợp nhất ảnh chính (primary model) và ảnh từ các so sánh khác, tránh trùng lặp
+  const allGen = (() => {
+    const list = []
+    
+    // 1. Thêm các ảnh chính từ generatedImages (model primary)
+    if (generatedImages && generatedImages.length > 0) {
+      generatedImages.forEach(img => {
+        list.push({
           ...img,
-          aiTool: comp.aiTool,
-          aiModel: comp.aiModel,
-        }))
-      )
-    : (generatedImages.length > 0
-        ? generatedImages.slice(0, 5)
-        : legacyImages.slice(0, 5))  // legacy data dùng images[]
+          aiTool: aiTool,
+          aiModel: aiModel,
+          isPrimary: true
+        })
+      })
+    } else if (legacyImages && legacyImages.length > 0) {
+      legacyImages.forEach(img => {
+        list.push({
+          ...img,
+          isPrimary: true
+        })
+      })
+    }
+
+    // 2. Thêm các ảnh từ modelComparisons (nếu ở chế độ multi-model)
+    if (isMultiModel && modelComparisons && modelComparisons.length > 0) {
+      modelComparisons.forEach(comp => {
+        if (comp.generatedImages && comp.generatedImages.length > 0) {
+          comp.generatedImages.forEach(img => {
+            // Lọc trùng lặp theo publicId hoặc URL để tránh lặp slot 0 trong updatePost
+            const exists = list.some(existing => 
+              (existing.publicId && existing.publicId === img.publicId) || 
+              (existing.url && existing.url === img.url)
+            )
+            if (!exists) {
+              list.push({
+                ...img,
+                aiTool: comp.aiTool,
+                aiModel: comp.aiModel,
+                isPrimary: false
+              })
+            }
+          })
+        }
+      })
+    }
+    
+    return list
+  })()
   const allSrc = sourceImages.slice(0, 5)
   const hasSource = allSrc.length > 0
   const hasThumbs = allGen.length > 1 || hasSource
@@ -66,6 +103,17 @@ export default function ImageGallery({
   const [activeKey, setActiveKey] = useState(() => allGen.length > 0 ? 'gen-0' : (allSrc.length > 0 ? 'src-0' : 'gen-0'))
   const [imgLoaded, setImgLoaded] = useState(false)
   const [direction, setDirection] = useState(1) // 1 = forward, -1 = back
+
+  // Đồng bộ/Reset activeKey khi dữ liệu thay đổi (ví dụ đổi bài viết hoặc dữ liệu load bất đồng bộ)
+  useEffect(() => {
+    const allKeys = [
+      ...allGen.map((_, i) => `gen-${i}`),
+      ...allSrc.map((_, i) => `src-${i}`),
+    ]
+    if (!allKeys.includes(activeKey)) {
+      setActiveKey(allGen.length > 0 ? 'gen-0' : (allSrc.length > 0 ? 'src-0' : 'gen-0'))
+    }
+  }, [allGen, allSrc, activeKey])
 
   // Resolve active image object
   const resolveActive = useCallback((key) => {

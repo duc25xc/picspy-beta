@@ -150,26 +150,67 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     }))
   })
 
-  // Khởi tạo modelSlots từ post.modelComparisons
+  // Khởi tạo modelSlots từ post.modelComparisons và post.generatedImages
   const [modelSlots, setModelSlots] = useState(() => {
-    if (post.isMultiModel && post.modelComparisons?.length > 0) {
-      return post.modelComparisons.map((s, idx) => ({
-        id: `slot-${idx}-${Date.now()}`,
-        aiTool: s.aiTool || '',
-        aiModel: s.aiModel || '',
-        genImages: (s.generatedImages || []).map(img => ({
-          id: img.publicId || Math.random().toString(),
-          preview: img.url,
-          url: img.url,
-          publicId: img.publicId,
-          isOld: true
-        }))
-      }))
+    if (post.isMultiModel) {
+      // Kiểm tra xem post.modelComparisons[0] có trùng với post.generatedImages[0] không
+      const firstCompImg = post.modelComparisons?.[0]?.generatedImages?.[0];
+      const firstGenImg = post.generatedImages?.[0];
+      const isSlot0Included = firstCompImg && firstGenImg && (
+        (firstCompImg.publicId && firstCompImg.publicId === firstGenImg.publicId) ||
+        (firstCompImg.url && firstCompImg.url === firstGenImg.url)
+      );
+
+      if (isSlot0Included) {
+        // Đã bao gồm slot 0, chỉ cần map trực tiếp modelComparisons
+        return (post.modelComparisons || []).map((s, idx) => ({
+          id: `slot-${idx}-${Date.now()}-${Math.random()}`,
+          aiTool: s.aiTool || '',
+          aiModel: s.aiModel || '',
+          genImages: (s.generatedImages || []).map(img => ({
+            id: img.publicId || Math.random().toString(),
+            preview: img.url,
+            url: img.url,
+            publicId: img.publicId,
+            isOld: true
+          }))
+        }));
+      } else {
+        // Chưa bao gồm slot 0, tạo slot 0 từ generatedImages/aiTool/aiModel chính
+        const slot0 = {
+          id: `slot-0-${Date.now()}-${Math.random()}`,
+          aiTool: post.aiTool || '',
+          aiModel: post.aiModel || '',
+          genImages: (post.generatedImages || []).map(img => ({
+            id: img.publicId || Math.random().toString(),
+            preview: img.url,
+            url: img.url,
+            publicId: img.publicId,
+            isOld: true
+          }))
+        };
+
+        const otherSlots = (post.modelComparisons || []).map((s, idx) => ({
+          id: `slot-${idx + 1}-${Date.now()}-${Math.random()}`,
+          aiTool: s.aiTool || '',
+          aiModel: s.aiModel || '',
+          genImages: (s.generatedImages || []).map(img => ({
+            id: img.publicId || Math.random().toString(),
+            preview: img.url,
+            url: img.url,
+            publicId: img.publicId,
+            isOld: true
+          }))
+        }));
+
+        return [slot0, ...otherSlots];
+      }
     }
+    
     // Fallback slot nếu post cũ là single model nhưng user chuyển sang multi-model
     return [
       {
-        id: `slot-0-${Date.now()}`,
+        id: `slot-0-${Date.now()}-${Math.random()}`,
         aiTool: post.aiTool || '',
         aiModel: post.aiModel || '',
         genImages: (post.generatedImages || []).map(img => ({
