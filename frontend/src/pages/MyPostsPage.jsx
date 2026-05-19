@@ -15,9 +15,15 @@ import {
   ChevronDown,
   RefreshCw,
   ImageOff,
+  GitCompare,
+  PlusCircle,
+  Plus,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
+import { ImageDropZone, SourceHistoryPanel, ModelSlot } from './UploadComponents.jsx'
+import { deduplicateByPublicId, fileToPreview } from './uploadConstants.js'
+
 
 // ─── Constants ─────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -100,7 +106,7 @@ const AI_TOOL_OPTIONS = [
 ]
 
 const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) => {
-  const [tab, setTab]     = useState('info')   // 'info' | 'ai' | 'pricing'
+  const [tab, setTab]     = useState('info')   // 'info' | 'ai' | 'images' | 'pricing'
   const [form, setForm]   = useState({
     // Info tab
     caption:        post.caption        || '',
@@ -119,6 +125,69 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   const [tag, setTag]       = useState('')
   const [saving, setSaving] = useState(false)
 
+  // ── States cho ảnh trong EditModal ──────────────────────────────────
+  const [multiModelMode, setMultiModelMode] = useState(post.isMultiModel || false)
+
+  // Khởi tạo sourceImages cũ từ post.sourceImages
+  const [sourceImages, setSourceImages] = useState(() => {
+    return (post.sourceImages || []).map(img => ({
+      id: img.publicId || Math.random().toString(),
+      preview: img.url,
+      url: img.url,
+      publicId: img.publicId,
+      isOld: true
+    }))
+  })
+
+  // Khởi tạo genImages cũ từ post.generatedImages
+  const [genImages, setGenImages] = useState(() => {
+    return (post.generatedImages || []).map(img => ({
+      id: img.publicId || Math.random().toString(),
+      preview: img.url,
+      url: img.url,
+      publicId: img.publicId,
+      isOld: true
+    }))
+  })
+
+  // Khởi tạo modelSlots từ post.modelComparisons
+  const [modelSlots, setModelSlots] = useState(() => {
+    if (post.isMultiModel && post.modelComparisons?.length > 0) {
+      return post.modelComparisons.map((s, idx) => ({
+        id: `slot-${idx}-${Date.now()}`,
+        aiTool: s.aiTool || '',
+        aiModel: s.aiModel || '',
+        genImages: (s.generatedImages || []).map(img => ({
+          id: img.publicId || Math.random().toString(),
+          preview: img.url,
+          url: img.url,
+          publicId: img.publicId,
+          isOld: true
+        }))
+      }))
+    }
+    // Fallback slot nếu post cũ là single model nhưng user chuyển sang multi-model
+    return [
+      {
+        id: `slot-0-${Date.now()}`,
+        aiTool: post.aiTool || '',
+        aiModel: post.aiModel || '',
+        genImages: (post.generatedImages || []).map(img => ({
+          id: img.publicId || Math.random().toString(),
+          preview: img.url,
+          url: img.url,
+          publicId: img.publicId,
+          isOld: true
+        }))
+      }
+    ]
+  })
+
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState(new Set())
+  const [sourceHistory, setSourceHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [sourceTab, setSourceTab] = useState('upload') // 'upload' | 'history'
+
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
 
   const addTag = () => {
@@ -127,26 +196,170 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     setTag('')
   }
 
+  // ── Image handlers ──────────────────────────────────────────────────
+  const addSourceImages = useCallback((files) => {
+    const totalCount = sourceImages.length + selectedHistoryIds.size
+    const remaining = 5 - totalCount
+    if (remaining <= 0) return toast.error('Tối đa 5 ảnh tham khảo')
+    const toAdd = files.slice(0, remaining).map(fileToPreview)
+    setSourceImages(prev => [...prev, ...toAdd])
+  }, [sourceImages.length, selectedHistoryIds.size])
+
+  const removeSourceImage = useCallback((id) => {
+    setSourceImages(prev => {
+      const img = prev.find(i => i.id === id)
+      if (img && !img.isOld) URL.revokeObjectURL(img.preview)
+      return prev.filter(i => i.id !== id)
+    })
+  }, [])
+
+  const addGenImages = useCallback((files) => {
+    const remaining = 5 - genImages.length
+    if (remaining <= 0) return toast.error('Tối đa 5 ảnh kết quả')
+    const toAdd = files.slice(0, remaining).map(fileToPreview)
+    setGenImages(prev => [...prev, ...toAdd])
+  }, [genImages.length])
+
+  const removeGenImage = useCallback((id) => {
+    setGenImages(prev => {
+      const img = prev.find(i => i.id === id)
+      if (img && !img.isOld) URL.revokeObjectURL(img.preview)
+      return prev.filter(i => i.id !== id)
+    })
+  }, [])
+
+  const updateModelSlot = useCallback((i, updated) => setModelSlots(prev => prev.map((s, idx) => idx === i ? updated : s)), [])
+  const removeModelSlot = useCallback((i) => setModelSlots(prev => {
+    prev[i].genImages?.forEach(img => {
+      if (!img.isOld) URL.revokeObjectURL(img.preview)
+    })
+    return prev.filter((_, idx) => idx !== i)
+  }), [])
+  const addModelSlot = useCallback(() => {
+    if (modelSlots.length >= 5) return toast.error('Tối đa 5 model')
+    setModelSlots(prev => [...prev, { id: `slot-${Date.now()}`, aiTool: '', aiModel: '', genImages: [] }])
+  }, [modelSlots.length])
+
+  const toggleHistoryImage = useCallback((img) => {
+    setSelectedHistoryIds(prev => {
+      const next = new Set(prev)
+      if (next.has(img.publicId)) {
+        next.delete(img.publicId)
+      } else {
+        const totalCount = sourceImages.length + next.size
+        if (totalCount >= 5) {
+          toast.error('Tối đa 5 ảnh tham khảo')
+          return prev
+        }
+        next.add(img.publicId)
+      }
+      return next
+    })
+  }, [sourceImages.length])
+
+  // Tải lịch sử ảnh tham khảo
+  useEffect(() => {
+    if (tab === 'images' && sourceTab === 'history' && sourceHistory.length === 0) {
+      setHistoryLoading(true)
+      api.get('/posts/me', { params: { limit: 50 } })
+        .then(({ data }) => {
+          const allSrcs = (data.posts || [])
+            .flatMap(p => p.sourceImages || [])
+            .filter(img => img && img.publicId)
+          setSourceHistory(deduplicateByPublicId(allSrcs))
+        })
+        .catch(() => toast.error('Không thể tải lịch sử ảnh'))
+        .finally(() => setHistoryLoading(false))
+    }
+  }, [tab, sourceTab, sourceHistory.length])
+
+  // Revoke preview URLs khi đóng modal
+  const handleClose = () => {
+    sourceImages.forEach(img => { if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview) })
+    genImages.forEach(img => { if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview) })
+    modelSlots.forEach(s => s.genImages?.forEach(img => { if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview) }))
+    onClose()
+  }
+
   const handleSave = async () => {
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
+
+    // Validate multi-model
+    if (multiModelMode) {
+      if (modelSlots.length < 2) return toast.error('Cần ít nhất 2 model để so sánh')
+      if (modelSlots.some(s => !s.aiTool)) return toast.error('Mỗi model so sánh cần chọn công cụ AI')
+      if (modelSlots.some(s => !s.genImages?.length)) return toast.error('Mỗi model cần ít nhất 1 ảnh kết quả')
+    } else {
+      if (genImages.length === 0) return toast.error('Cần ít nhất 1 ảnh kết quả AI')
+    }
+
     setSaving(true)
     try {
-      const payload = {
-        caption:        form.caption.trim()        || undefined,
-        category:       form.category,
-        tags:           form.tags,
-        prompt:         form.prompt.trim()         || undefined,
-        negativePrompt: form.negativePrompt.trim() || undefined,
-        aiTool:         form.aiTool                || undefined,
-        aiModel:        form.aiModel.trim()        || undefined,
-        parameters:     form.parameters.trim()     || undefined,
-        isPremium:      form.isPremium,
-        priceInTokens:  Number(form.priceInTokens),
+      const fd = new FormData()
+      
+      // Append text fields
+      fd.append('caption', form.caption.trim())
+      fd.append('category', form.category)
+      fd.append('tags', JSON.stringify(form.tags))
+      fd.append('prompt', form.prompt.trim())
+      if (form.negativePrompt.trim()) fd.append('negativePrompt', form.negativePrompt.trim())
+      fd.append('aiTool', multiModelMode ? (modelSlots[0].aiTool || 'other') : form.aiTool)
+      if (!multiModelMode && form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
+      if (form.parameters.trim()) fd.append('parameters', form.parameters.trim())
+      fd.append('isPremium', String(form.isPremium))
+      fd.append('priceInTokens', String(Number(form.priceInTokens)))
+
+      // ── Xử lý ảnh gốc (Source Images) ──
+      // Cũ được giữ lại
+      const keepSourceImagePublicIds = sourceImages.filter(img => img.isOld).map(img => img.publicId)
+      fd.append('keepSourceImagePublicIds', JSON.stringify(keepSourceImagePublicIds))
+      
+      // Mới upload
+      sourceImages.filter(img => !img.isOld).forEach(img => {
+        fd.append('sourceImages', img.file)
+      })
+
+      // Chọn từ lịch sử
+      if (selectedHistoryIds.size > 0) {
+        const refs = sourceHistory.filter(img => selectedHistoryIds.has(img.publicId))
+          .map(({ url, publicId, width, height, fileSize, format, thumbnailUrl }) => ({
+            url, publicId, width, height, fileSize, format, thumbnailUrl
+          }))
+        fd.append('sourceImageRefs', JSON.stringify(refs))
       }
-      const { data } = await api.put(`/posts/${post._id}`, payload)
+
+      // ── Xử lý ảnh kết quả & Multi-model ──
+      if (multiModelMode) {
+        const comparisonsPayload = modelSlots.map((s, idx) => ({
+          aiTool: s.aiTool,
+          aiModel: s.aiModel || undefined,
+          slotIndex: idx,
+          keepImagePublicIds: s.genImages.filter(img => img.isOld).map(img => img.publicId)
+        }))
+        fd.append('modelComparisons', JSON.stringify(comparisonsPayload))
+        
+        // Append các file mới cho model slot
+        modelSlots.forEach((s, idx) => {
+          s.genImages.filter(img => !img.isOld).forEach(img => {
+            fd.append(`compImages_${idx}`, img.file)
+          })
+        })
+      } else {
+        const keepGeneratedImagePublicIds = genImages.filter(img => img.isOld).map(img => img.publicId)
+        fd.append('keepGeneratedImagePublicIds', JSON.stringify(keepGeneratedImagePublicIds))
+        
+        // Append các file mới
+        genImages.filter(img => !img.isOld).forEach(img => {
+          fd.append('generatedImages', img.file)
+        })
+      }
+
+      const { data } = await api.put(`/posts/${post._id}`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' }
+      })
       toast.success('Đã cập nhật bài đăng ✓')
       onSave(data.post)
-      onClose()
+      handleClose()
     } catch (err) {
       toast.error(err.response?.data?.message || 'Cập nhật thất bại')
     } finally {
@@ -157,8 +370,18 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   const TABS = [
     { id: 'info',    label: '📋 Thông tin' },
     { id: 'ai',      label: '✦ AI & Prompt' },
+    { id: 'images',  label: '🖼️ Hình ảnh' },
     { id: 'pricing', label: '💎 Giá' },
   ]
+
+  // Xác định preview ở panel bên trái
+  const getPrimaryPreviewUrl = () => {
+    if (multiModelMode) {
+      const firstSlotImg = modelSlots[0]?.genImages?.[0]
+      return firstSlotImg?.preview || firstSlotImg?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+    }
+    return genImages[0]?.preview || genImages[0]?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+  }
 
   return (
     <motion.div
@@ -166,7 +389,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 z-50 flex items-end md:items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
+      onClick={(e) => e.target === e.currentTarget && handleClose()}
     >
       <motion.div
         initial={{ y: 80, opacity: 0 }}
@@ -179,22 +402,24 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
         <div className="hidden md:flex md:w-[320px] lg:w-[380px] shrink-0 bg-surface-100/50 flex-col border-r border-white/8">
           <div className="relative flex-1 flex items-center justify-center p-5 overflow-hidden">
             <img
-              src={post.generatedImages?.[0]?.thumbnailUrl || post.generatedImages?.[0]?.url || post.images?.[0]?.url}
+              src={getPrimaryPreviewUrl()}
               alt=""
               className="absolute inset-0 w-full h-full object-cover blur-2xl opacity-15 scale-110"
             />
             <img
-              src={post.generatedImages?.[0]?.url || post.images?.[0]?.url}
+              src={getPrimaryPreviewUrl()}
               alt={post.caption}
               className="relative z-10 max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
             />
           </div>
           {/* Image info bar */}
           <div className="p-4 border-t border-white/5 space-y-1.5">
-            {post.aiTool && (
+            {(multiModelMode ? modelSlots[0]?.aiTool : form.aiTool) && (
               <div className="flex items-center gap-2">
                 <span className="text-[10px] text-white/30 w-12">Tool</span>
-                <span className="text-xs text-white/60 font-medium">{post.aiTool}</span>
+                <span className="text-xs text-white/60 font-medium">
+                  {multiModelMode ? modelSlots[0]?.aiTool : form.aiTool}
+                </span>
               </div>
             )}
             <div className="flex items-center gap-2">
@@ -223,7 +448,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 </p>
               </div>
             </div>
-            <button onClick={onClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0">
+            <button onClick={handleClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0">
               <X size={16} />
             </button>
           </div>
@@ -232,11 +457,11 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
           <div className="md:hidden px-5 pt-4 shrink-0">
             <div className="relative w-full h-28 rounded-xl overflow-hidden bg-surface-100 border border-white/5">
               <img
-                src={post.generatedImages?.[0]?.thumbnailUrl || post.generatedImages?.[0]?.url || post.images?.[0]?.url}
+                src={getPrimaryPreviewUrl()}
                 alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110"
               />
               <img
-                src={post.generatedImages?.[0]?.thumbnailUrl || post.generatedImages?.[0]?.url || post.images?.[0]?.url}
+                src={getPrimaryPreviewUrl()}
                 alt={post.caption} className="relative z-10 h-full w-full object-contain"
               />
             </div>
@@ -333,22 +558,24 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="input-label">Công cụ AI</label>
-                  <div className="relative">
-                    <select className="input appearance-none pr-8 text-sm" value={form.aiTool} onChange={e => set('aiTool', e.target.value)}>
-                      <option value="">-- Chọn --</option>
-                      {AI_TOOL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+              {!multiModelMode && (
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="input-label">Công cụ AI</label>
+                    <div className="relative">
+                      <select className="input appearance-none pr-8 text-sm" value={form.aiTool} onChange={e => set('aiTool', e.target.value)}>
+                        <option value="">-- Chọn --</option>
+                        {AI_TOOL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
+                      </select>
+                      <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="input-label">Model / Version</label>
+                    <input className="input text-sm" value={form.aiModel} onChange={e => set('aiModel', e.target.value)} placeholder="v6.1, SDXL..." />
                   </div>
                 </div>
-                <div>
-                  <label className="input-label">Model / Version</label>
-                  <input className="input text-sm" value={form.aiModel} onChange={e => set('aiModel', e.target.value)} placeholder="v6.1, SDXL..." />
-                </div>
-              </div>
+              )}
 
               <div>
                 <label className="input-label">Parameters <span className="text-white/30 font-normal">(tuỳ chọn)</span></label>
@@ -358,6 +585,134 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 />
               </div>
             </>)}
+
+            {/* ── IMAGES TAB ── */}
+            {tab === 'images' && (
+              <div className="space-y-6">
+                {/* 1. Phần Ảnh gốc / Ảnh tham khảo */}
+                <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
+                  <div className="flex justify-between items-center">
+                    <label className="input-label font-bold text-sm">Ảnh tham khảo / Ảnh gốc</label>
+                    <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
+                      <button
+                        type="button"
+                        onClick={() => setSourceTab('upload')}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                          sourceTab === 'upload' ? 'bg-brand-600 text-white shadow-sm' : 'text-white/40 hover:text-white/70'
+                        }`}
+                      >
+                        Upload mới
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSourceTab('history')}
+                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                          sourceTab === 'history' ? 'bg-brand-600 text-white shadow-sm' : 'text-white/40 hover:text-white/70'
+                        }`}
+                      >
+                        Từ lịch sử
+                      </button>
+                    </div>
+                  </div>
+
+                  {sourceTab === 'upload' ? (
+                    <ImageDropZone
+                      images={sourceImages}
+                      onAdd={addSourceImages}
+                      onRemove={removeSourceImage}
+                      max={5 - selectedHistoryIds.size}
+                      label="Kéo thả ảnh tham khảo vào đây"
+                      hint="Hỗ trợ tối đa 5 ảnh để AI học bố cục, phong cách"
+                    />
+                  ) : (
+                    <SourceHistoryPanel
+                      images={sourceHistory}
+                      selectedIds={selectedHistoryIds}
+                      onToggle={toggleHistoryImage}
+                      loading={historyLoading}
+                    />
+                  )}
+
+                  {/* Hiển thị số ảnh tham khảo hiện tại */}
+                  <div className="text-xs text-white/35 flex items-center justify-between pt-1">
+                    <span>
+                      Đã chuẩn bị:{' '}
+                      <span className="text-brand-400 font-semibold">
+                        {sourceImages.length + selectedHistoryIds.size} / 5
+                      </span>{' '}
+                      ảnh tham khảo
+                    </span>
+                    {selectedHistoryIds.size > 0 && (
+                      <span className="text-brand-300">({selectedHistoryIds.size} từ lịch sử)</span>
+                    )}
+                  </div>
+                </div>
+
+                {/* 2. Phần Ảnh kết quả AI */}
+                <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
+                  <div className="flex justify-between items-center">
+                    <label className="input-label font-bold text-sm">Ảnh kết quả AI</label>
+                    
+                    <button
+                      type="button"
+                      onClick={() => setMultiModelMode(v => !v)}
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all border
+                        ${multiModelMode
+                          ? 'bg-purple-600/25 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10'
+                          : 'bg-white/5 border-white/10 text-white/40 hover:border-purple-500/30 hover:text-purple-300'}`}
+                    >
+                      <GitCompare size={13} />
+                      « So sánh nhiều model »
+                    </button>
+                  </div>
+
+                  {multiModelMode ? (
+                    <div className="space-y-3">
+                      <p className="text-xs text-white/35">
+                        Thêm ít nhất 2 model — mỗi card có công cụ AI và ảnh riêng để người dùng dễ so sánh.
+                      </p>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <AnimatePresence mode="popLayout">
+                          {modelSlots.map((slot, index) => (
+                            <ModelSlot
+                              key={slot.id}
+                              slot={slot}
+                              index={index}
+                              onUpdate={updateModelSlot}
+                              onRemove={removeModelSlot}
+                              canRemove={modelSlots.length > 2}
+                            />
+                          ))}
+                        </AnimatePresence>
+
+                        {modelSlots.length < 5 && (
+                          <motion.button
+                            layout
+                            type="button"
+                            onClick={addModelSlot}
+                            className="card p-4 border-2 border-dashed border-white/8 hover:border-white/20 flex flex-col items-center justify-center gap-2 h-[156px] text-white/40 hover:text-white/80 transition-colors"
+                          >
+                            <Plus size={20} />
+                            <span className="text-xs font-semibold">Thêm model</span>
+                          </motion.button>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <ImageDropZone
+                      images={genImages}
+                      onAdd={addGenImages}
+                      onRemove={removeGenImage}
+                      max={5}
+                      label="Kéo thả ảnh kết quả AI của bạn vào đây"
+                      hint="Upload 1–5 ảnh kết quả tốt nhất của bạn"
+                      required
+                    />
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* ── PRICING TAB ── */}
             {tab === 'pricing' && (<>
@@ -419,7 +774,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
           {/* Footer */}
           <div className="flex gap-3 p-5 border-t border-white/10 shrink-0">
-            <button onClick={onClose} className="btn-secondary flex-1" disabled={saving}>Hủy</button>
+            <button onClick={handleClose} className="btn-secondary flex-1" disabled={saving}>Hủy</button>
             <button onClick={handleSave} disabled={saving}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >

@@ -81,7 +81,22 @@ router.post(
 router.get('/:id', optionalAuth, getPostDetail)
 
 /** PUT /posts/:id — Sửa bài đăng (chỉ owner) */
-router.put('/:id', authenticate, updatePost)
+router.put(
+  '/:id',
+  authenticate,
+  upload.fields([
+    { name: 'sourceImages', maxCount: 5 },
+    { name: 'generatedImages', maxCount: 5 },
+    // Multi-model comparison slots (tối đa 5 model, mỗi model 5 ảnh)
+    { name: 'compImages_0', maxCount: 5 },
+    { name: 'compImages_1', maxCount: 5 },
+    { name: 'compImages_2', maxCount: 5 },
+    { name: 'compImages_3', maxCount: 5 },
+    { name: 'compImages_4', maxCount: 5 },
+  ]),
+  handleMulterError,
+  updatePost
+)
 
 /** DELETE /posts/:id — Xóa bài đăng (chỉ owner) */
 router.delete('/:id', authenticate, deletePost)

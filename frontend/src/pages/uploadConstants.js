@@ -23,31 +23,7 @@ export const AI_TOOLS = [
   { value: 'comfyui', label: 'ComfyUI', color: '#64748b', icon: '⬡' },
 
   // ── Gemini / Banana / ChatGPT / DeepSeek / Grok (tools) ──
-  {
-    value: 'gemini-flash',
-    label: 'Gemini 3.1 Flash',
-    color: '#10b981',
-    icon: '◎',
-  },
-  {
-    value: 'gemini-think',
-    label: 'Gemini Tư Duy',
-    color: '#22c55e',
-    icon: '◈',
-  },
   { value: 'gemini-pro', label: 'Gemini Pro', color: '#06b6d4', icon: '⬡' },
-  {
-    value: 'gemini-nano-banana',
-    label: 'Nano Banana',
-    color: '#f97316',
-    icon: '🍌',
-  },
-  {
-    value: 'gemini-nano-banana-pro',
-    label: 'Nano Banana Pro',
-    color: '#f59e0b',
-    icon: '🍌',
-  },
   {
     value: 'gemini-nano-banana-2',
     label: 'Nano Banana 2',

@@ -564,28 +564,248 @@ export const updatePost = async (req, res, next) => {
       )
     }
 
-    // Parse booleans từ JSON body hoặc FormData
+    // ── Parse FormData fields ───────────────────────────────────
     let body = { ...req.body }
-    if (typeof body.isPremium === 'string')
-      body.isPremium = body.isPremium === 'true'
-    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
     if (typeof body.tags === 'string') {
       try {
         body.tags = JSON.parse(body.tags)
       } catch {
-        body.tags = []
+        body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean)
       }
     }
+    if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
 
+    // Validate textual data qua Zod
     const data = updatePostSchema.parse(body)
 
-    const updated = await Post.findByIdAndUpdate(
-      req.params.id,
-      { $set: data },
-      { new: true }
+    // ── Xử lý ảnh gốc (Source Images) ───────────────────────────
+    let keepSourceImagePublicIds = []
+    if (body.keepSourceImagePublicIds) {
+      try {
+        keepSourceImagePublicIds = JSON.parse(body.keepSourceImagePublicIds)
+      } catch {}
+    }
+
+    let sourceImageRefs = []
+    if (body.sourceImageRefs) {
+      try {
+        sourceImageRefs = JSON.parse(body.sourceImageRefs)
+      } catch {}
+    }
+
+    const srcFiles = req.files?.sourceImages || []
+    
+    // Gom danh sách ảnh gốc cũ được giữ lại
+    const oldSourceImagesKept = (post.sourceImages || []).filter(img => 
+      img.publicId && keepSourceImagePublicIds.includes(img.publicId)
     )
 
-    res.json({ message: 'Cập nhật thành công', post: updated })
+    // Xác định ảnh gốc cũ cần xóa
+    const sourceImagesToDestroy = (post.sourceImages || []).filter(img => 
+      img.publicId && !keepSourceImagePublicIds.includes(img.publicId)
+    )
+
+    // Upload các ảnh tham khảo mới
+    const newSourceUploads = []
+    if (srcFiles.length > 0) {
+      const srcUploads = await Promise.all(
+        srcFiles.map((file, i) =>
+          uploadImage(file.buffer, 'picspy/posts/sources', `src_${req.user._id}_${i}`, file.size)
+        )
+      )
+      newSourceUploads.push(...srcUploads)
+    }
+
+    const finalSourceImages = [...oldSourceImagesKept, ...sourceImageRefs, ...newSourceUploads]
+    if (finalSourceImages.length > 5) {
+      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh tham khảo', 400)
+    }
+
+    // Xóa ảnh gốc cũ khỏi Cloudinary
+    if (sourceImagesToDestroy.length > 0) {
+      await Promise.all(
+        sourceImagesToDestroy.map(img => cloudinary.uploader.destroy(img.publicId).catch(() => {}))
+      )
+    }
+
+    // ── Xử lý ảnh kết quả & Multi-model ────────────────────────
+    let compMeta = []
+    if (body.modelComparisons) {
+      try {
+        compMeta = JSON.parse(body.modelComparisons)
+      } catch {}
+    }
+    const isMultiModel = compMeta.length >= 2
+
+    // Danh sách tất cả các ảnh kết quả cũ đã có (để check dọn dẹp)
+    const allOldGeneratedImages = []
+    if (post.generatedImages && post.generatedImages.length > 0) {
+      allOldGeneratedImages.push(...post.generatedImages)
+    }
+    if (post.modelComparisons && post.modelComparisons.length > 0) {
+      post.modelComparisons.forEach(slot => {
+        if (slot.generatedImages && slot.generatedImages.length > 0) {
+          allOldGeneratedImages.push(...slot.generatedImages)
+        }
+      })
+    }
+
+    let finalGeneratedImages = []
+    let finalModelComparisons = []
+    const keptImagePublicIds = new Set() // để theo dõi các ảnh cũ được giữ lại
+
+    if (isMultiModel) {
+      // Chế độ so sánh nhiều model
+      for (let i = 0; i < compMeta.length; i++) {
+        const slot = compMeta[i]
+        
+        // Lấy ảnh cũ được giữ lại trong slot này
+        let slotKeepIds = slot.keepImagePublicIds || []
+        const oldImagesKept = allOldGeneratedImages.filter(img => 
+          img.publicId && slotKeepIds.includes(img.publicId)
+        )
+        oldImagesKept.forEach(img => keptImagePublicIds.add(img.publicId))
+
+        // Upload ảnh mới cho slot này (compImages_X)
+        const slotFiles = req.files?.[`compImages_${slot.slotIndex}`] || []
+        const newSlotUploads = await Promise.all(
+          slotFiles.map((file, j) =>
+            uploadImage(file.buffer, 'picspy/posts/originals', `comp_${req.user._id}_${i}_${j}`, file.size)
+          )
+        )
+
+        const slotImages = [...oldImagesKept, ...newSlotUploads]
+        if (slotImages.length === 0) {
+          throw new AppError('VALIDATION_ERROR', `Model ${i + 1} cần ít nhất 1 ảnh kết quả`, 400)
+        }
+        if (slotImages.length > 5) {
+          throw new AppError('VALIDATION_ERROR', `Model ${i + 1} tối đa 5 ảnh kết quả`, 400)
+        }
+
+        finalModelComparisons.push({
+          aiTool: slot.aiTool,
+          aiModel: slot.aiModel || undefined,
+          generatedImages: slotImages,
+        })
+      }
+
+      // Slot đầu tiên làm primary cho tương thích ngược
+      finalGeneratedImages = finalModelComparisons[0].generatedImages
+    } else {
+      // Chế độ single-model
+      let keepGeneratedImagePublicIds = []
+      if (body.keepGeneratedImagePublicIds) {
+        try {
+          keepGeneratedImagePublicIds = JSON.parse(body.keepGeneratedImagePublicIds)
+        } catch {}
+      }
+
+      const oldImagesKept = allOldGeneratedImages.filter(img =>
+        img.publicId && keepGeneratedImagePublicIds.includes(img.publicId)
+      )
+      oldImagesKept.forEach(img => keptImagePublicIds.add(img.publicId))
+
+      const genFiles = req.files?.generatedImages || []
+      const newGenUploads = await Promise.all(
+        genFiles.map((file, i) =>
+          uploadImage(file.buffer, 'picspy/posts/originals', `gen_${req.user._id}_${i}`, file.size)
+        )
+      )
+
+      finalGeneratedImages = [...oldImagesKept, ...newGenUploads]
+      if (finalGeneratedImages.length === 0) {
+        throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh kết quả AI', 400)
+      }
+      if (finalGeneratedImages.length > 5) {
+        throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả AI', 400)
+      }
+      finalModelComparisons = []
+    }
+
+    // Xác định các ảnh kết quả cũ cần xóa khỏi Cloudinary (những ảnh không được giữ lại ở bất kỳ đâu)
+    const imagesToDestroy = allOldGeneratedImages.filter(img => 
+      img.publicId && !keptImagePublicIds.has(img.publicId)
+    )
+
+    if (imagesToDestroy.length > 0) {
+      await Promise.all(
+        imagesToDestroy.map(img => {
+          const promises = [cloudinary.uploader.destroy(img.publicId).catch(() => {})]
+          const baseName = img.publicId.split('/').pop()
+          promises.push(cloudinary.uploader.destroy(`picspy/posts/thumbnails/${baseName}_thumb`).catch(() => {}))
+          promises.push(cloudinary.uploader.destroy(`picspy/posts/previews/${baseName}_preview`).catch(() => {}))
+          return Promise.all(promises)
+        })
+      )
+    }
+
+    // Determine primary aiTool & aiModel
+    const primaryAiTool = isMultiModel ? (compMeta[0]?.aiTool || data.aiTool) : data.aiTool
+    const primaryAiModel = isMultiModel ? (compMeta[0]?.aiModel || data.aiModel) : data.aiModel
+
+    // Check workflowJson gate
+    const userTier = req.user.subscriptionTier
+    const allowWorkflow = userTier === 'ultimate'
+
+    // Update fields
+    const promptChanged = data.prompt !== undefined && data.prompt !== post.prompt
+    post.prompt = data.prompt !== undefined ? data.prompt : post.prompt
+    post.negativePrompt = data.negativePrompt !== undefined ? data.negativePrompt : post.negativePrompt
+    post.aiTool = primaryAiTool !== undefined ? primaryAiTool : post.aiTool
+    post.aiModel = primaryAiModel !== undefined ? primaryAiModel : post.aiModel
+    post.parameters = data.parameters !== undefined ? data.parameters : post.parameters
+    if (allowWorkflow) {
+      post.workflowJson = data.workflowJson !== undefined ? data.workflowJson : post.workflowJson
+    }
+    post.caption = data.caption !== undefined ? data.caption : post.caption
+    post.tags = data.tags !== undefined ? data.tags : post.tags
+    post.category = data.category !== undefined ? data.category : post.category
+    post.isPremium = data.isPremium !== undefined ? data.isPremium : post.isPremium
+    post.priceInTokens = data.priceInTokens !== undefined ? data.priceInTokens : post.priceInTokens
+    
+    // Resolution, orientation, aspectRatio
+    if (data.resolution) post.resolution = data.resolution
+    if (data.orientation) post.orientation = data.orientation
+    if (data.aspectRatio) post.aspectRatio = data.aspectRatio
+
+    // Update images
+    post.sourceImages = finalSourceImages
+    
+    // Để xem ảnh chính có bị đổi không
+    const oldPrimaryPublicId = post.generatedImages?.[0]?.publicId
+    const newPrimaryPublicId = finalGeneratedImages[0]?.publicId
+
+    post.generatedImages = finalGeneratedImages
+    post.isMultiModel = isMultiModel
+    post.modelComparisons = finalModelComparisons
+
+    // Nếu thay đổi ảnh chính đầu tiên, ta trigger hàng chờ re-processing
+    const hasPrimaryImageChanged = oldPrimaryPublicId !== newPrimaryPublicId
+
+    // Cập nhật trạng thái duyệt về 'pending' khi bài viết sửa ảnh hoặc prompt quan trọng
+    if (hasPrimaryImageChanged || promptChanged) {
+      post.status = 'pending'
+    }
+
+    await post.save()
+
+    // Enqueue processing job if primary image changed
+    if (hasPrimaryImageChanged && newPrimaryPublicId) {
+      await imageQueue.add(
+        'process-image',
+        {
+          postId: post._id.toString(),
+          imageUrl: finalGeneratedImages[0].url,
+          publicId: finalGeneratedImages[0].publicId,
+          authorId: req.user._id.toString(),
+          generatedCount: finalGeneratedImages.length,
+        },
+        { priority: 1 }
+      )
+    }
+
+    res.json({ message: 'Cập nhật thành công', post })
   } catch (err) {
     if (err instanceof z.ZodError) {
       return next(
