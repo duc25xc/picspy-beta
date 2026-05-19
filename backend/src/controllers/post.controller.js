@@ -174,99 +174,123 @@ const uploadImage = async (buffer, folder, publicIdPrefix, fileSize) => {
  */
 export const createPost = async (req, res, next) => {
   try {
-    const genFiles = req.files?.generatedImages || []
-    if (genFiles.length === 0) {
-      throw new AppError(
-        'VALIDATION_ERROR',
-        'Cần ít nhất 1 ảnh kết quả AI',
-        400
-      )
+    // ── Parse FormData fields ───────────────────────────────────
+    let body = { ...req.body }
+    if (typeof body.tags === 'string') {
+      try { body.tags = JSON.parse(body.tags) }
+      catch { body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean) }
     }
-    if (genFiles.length > 5) {
+    if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
+
+    // ── Multi-model mode detection ──────────────────────────────
+    // modelComparisons JSON: [{aiTool, aiModel, slotIndex}]
+    let compMeta = []
+    if (body.modelComparisons) {
+      try { compMeta = JSON.parse(body.modelComparisons) } catch {}
+    }
+    const isMultiModel = compMeta.length >= 2 // cần ít nhất 2 slots mới là so sánh
+
+    // ── Validate & collect primary generated images ─────────────
+    // Single-model: dùng field 'generatedImages'
+    // Multi-model:  dùng field 'compImages_0' làm primary
+    const primaryFiles = isMultiModel
+      ? (req.files?.[`compImages_${compMeta[0]?.slotIndex ?? 0}`] || [])
+      : (req.files?.generatedImages || [])
+
+    if (primaryFiles.length === 0) {
+      throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh kết quả AI', 400)
+    }
+    if (primaryFiles.length > 5) {
       throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả AI', 400)
     }
 
+    // ── Source images ────────────────────────────────────────────
     const srcFiles = req.files?.sourceImages || []
     if (srcFiles.length > 5) {
       throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh tham khảo', 400)
     }
 
-    // Parse FormData fields
-    let body = { ...req.body }
-    if (typeof body.tags === 'string') {
-      try {
-        body.tags = JSON.parse(body.tags)
-      } catch {
-        body.tags = body.tags
-          .split(',')
-          .map((t) => t.trim())
-          .filter(Boolean)
-      }
+    // sourceImageRefs: ảnh tham khảo reuse từ Cloudinary (không re-upload)
+    let sourceImageRefs = []
+    if (body.sourceImageRefs) {
+      try { sourceImageRefs = JSON.parse(body.sourceImageRefs) } catch {}
     }
-    if (typeof body.isPremium === 'string')
-      body.isPremium = body.isPremium === 'true'
-    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
+    if (sourceImageRefs.length + srcFiles.length > 5) {
+      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh tham khảo (bao gồm ảnh từ lịch sử)', 400)
+    }
 
     const data = createPostSchema.parse(body)
 
-    // Upload source images (optional, parallel)
-    const sourceImages = []
+    // ── Upload source images (new files, parallel) ────────────────
+    const sourceImages = [...sourceImageRefs] // bắt đầu bằng refs đã có
     let exifData = {}
 
     if (srcFiles.length > 0) {
       const srcUploads = await Promise.all(
         srcFiles.map((file, i) =>
-          uploadImage(
-            file.buffer,
-            'picspy/posts/sources',
-            `src_${req.user._id}_${i}`,
-            file.size
-          )
+          uploadImage(file.buffer, 'picspy/posts/sources', `src_${req.user._id}_${i}`, file.size)
         )
       )
       sourceImages.push(...srcUploads)
 
-      // Extract EXIF from first source image only
+      // Extract EXIF from first new source image (refs không có buffer)
       exifData = await extractExif(srcFiles[0].buffer)
       if (Object.keys(exifData).length > 0) {
-        console.log(
-          '📷 EXIF extracted from source image:',
-          JSON.stringify(exifData)
-        )
+        console.log('📷 EXIF extracted from source image:', JSON.stringify(exifData))
       }
     }
 
-    // Upload generated images (required, parallel)
+    // ── Upload primary generated images ──────────────────────────
     const genUploads = await Promise.all(
-      genFiles.map((file, i) =>
-        uploadImage(
-          file.buffer,
-          'picspy/posts/originals',
-          `gen_${req.user._id}_${i}`,
-          file.size
-        )
+      primaryFiles.map((file, i) =>
+        uploadImage(file.buffer, 'picspy/posts/originals', `gen_${req.user._id}_${i}`, file.size)
       )
     )
 
-    // Create Post document (status: pending)
-    const hasExif = Object.keys(exifData).length > 0
+    // ── Upload comparison model slots (multi-model only) ──────────
+    const modelComparisons = []
+    if (isMultiModel) {
+      // Slot 0 đã là primary — bắt đầu từ slot 1
+      for (let i = 1; i < compMeta.length; i++) {
+        const slot = compMeta[i]
+        const slotFiles = req.files?.[`compImages_${slot.slotIndex}`] || []
+        if (slotFiles.length === 0) continue // skip slot trống
+        if (slotFiles.length > 5) continue   // validate nhẹ
 
-    // workflowJson: chỉ lưu nếu user là ultimate (server-side gate)
+        const slotUploads = await Promise.all(
+          slotFiles.map((file, j) =>
+            uploadImage(file.buffer, 'picspy/posts/originals', `comp_${req.user._id}_${i}_${j}`, file.size)
+          )
+        )
+        modelComparisons.push({
+          aiTool: slot.aiTool,
+          aiModel: slot.aiModel || undefined,
+          generatedImages: slotUploads,
+        })
+      }
+    }
+
+    // ── Determine primary aiTool from slot 0 meta (multi-model) ──
+    const primaryAiTool = isMultiModel ? (compMeta[0]?.aiTool || data.aiTool) : data.aiTool
+    const primaryAiModel = isMultiModel ? (compMeta[0]?.aiModel || data.aiModel) : data.aiModel
+
+    // ── workflowJson gate (Ultimate only) ────────────────────────
     const userTier = req.user.subscriptionTier
     const allowWorkflow = userTier === 'ultimate'
+    const hasExif = Object.keys(exifData).length > 0
 
+    // ── Create Post document ──────────────────────────────────────
     const post = await Post.create({
       authorId: req.user._id,
       sourceImages,
       generatedImages: genUploads,
       prompt: data.prompt,
       negativePrompt: data.negativePrompt,
-      aiTool: data.aiTool,
-      aiModel: data.aiModel,
+      aiTool: primaryAiTool,
+      aiModel: primaryAiModel,
       parameters: data.parameters,
-      ...(allowWorkflow && data.workflowJson
-        ? { workflowJson: data.workflowJson }
-        : {}),
+      ...(allowWorkflow && data.workflowJson ? { workflowJson: data.workflowJson } : {}),
       contentType: data.contentType,
       caption: data.caption,
       tags: data.tags,
@@ -277,15 +301,17 @@ export const createPost = async (req, res, next) => {
       orientation: data.orientation,
       aspectRatio: data.aspectRatio,
       ...(hasExif ? { exifData } : {}),
+      // Multi-model
+      isMultiModel,
+      modelComparisons,
       status: 'pending',
     })
 
-    // Enqueue job: worker xử lý generatedImages[0] (thumbnail, palette, blurHash, NSFW)
+    // ── Enqueue image processing job ──────────────────────────────
     await imageQueue.add(
       'process-image',
       {
         postId: post._id.toString(),
-        // Worker sẽ xử lý generatedImages[0] cho blurHash, palette, histogram, NSFW
         imageUrl: genUploads[0].url,
         publicId: genUploads[0].publicId,
         authorId: req.user._id.toString(),
@@ -294,27 +320,19 @@ export const createPost = async (req, res, next) => {
       { priority: 1 }
     )
 
-    // Update user stats
+    // ── Update user stats ─────────────────────────────────────────
     const User = (await import('../models/User.model.js')).default
-    await User.findByIdAndUpdate(req.user._id, {
-      $inc: { 'stats.postsCount': 1 },
-    })
+    await User.findByIdAndUpdate(req.user._id, { $inc: { 'stats.postsCount': 1 } })
 
     res.status(202).json({
       message: 'Nội dung đang được xử lý. Bạn sẽ nhận thông báo khi hoàn tất.',
       postId: post._id,
       status: 'pending',
+      isMultiModel,
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return next(
-        new AppError(
-          'VALIDATION_ERROR',
-          'Dữ liệu không hợp lệ',
-          422,
-          err.errors
-        )
-      )
+      return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
     }
     next(err)
   }

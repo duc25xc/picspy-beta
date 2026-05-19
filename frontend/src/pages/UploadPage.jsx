@@ -4,14 +4,15 @@ import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload, CheckCircle, Clock, LayoutGrid, ArrowRight, ArrowLeft,
   Sparkles, Settings, Tag, Coins, ChevronDown, Image as ImageIcon,
-  AlertCircle, Loader2, Crown, FileJson,
+  AlertCircle, Loader2, Crown, FileJson, Plus, GitCompare,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useTierAccess from '../hooks/useTierAccess'
-import { detectDimensions, fileToPreview, FALLBACK_CATEGORIES } from './uploadConstants.js'
+import { detectDimensions, fileToPreview, deduplicateByPublicId, FALLBACK_CATEGORIES } from './uploadConstants.js'
 import {
   ImageDropZone, AIToolSelector, PromptField, StepHeader,
+  SourceHistoryPanel, ModelSlot,
 } from './UploadComponents.jsx'
 
 // ── Wizard steps ─────────────────────────────────────────────────
@@ -47,52 +48,71 @@ export default function UploadPage() {
   const navigate = useNavigate()
   const tierAccess = useTierAccess()
 
-  // Wizard state
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(defaultForm())
-
-  // Image lists
-  const [sourceImages, setSourceImages] = useState([])   // 0–5
-  const [genImages, setGenImages] = useState([])          // 1–5
-
-  // Categories
+  const [sourceImages, setSourceImages] = useState([])   // new file uploads
+  const [genImages, setGenImages] = useState([])
+  const [sourceHistory, setSourceHistory] = useState([])  // Cloudinary refs from past posts
+  const [selectedHistoryIds, setSelectedHistoryIds] = useState(new Set())
+  const [historyLoading, setHistoryLoading] = useState(false)
+  const [sourceTab, setSourceTab] = useState('upload')
+  const [multiModelMode, setMultiModelMode] = useState(false)
+  const [modelSlots, setModelSlots] = useState([{ id: 'slot-0', aiTool: '', aiModel: '', genImages: [] }])
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
-
-  // Upload state
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState(false)
 
-  // Load categories from API
   useEffect(() => {
     api.get('/categories').then(({ data }) => {
       if (data?.categories?.length) setCategories(data.categories)
     }).catch(() => {})
   }, [])
 
-  // ── Prevent accidental navigation ────────────────────────────────
-  // isDirty = user đã nhập gì đó chưa submit
-  const isDirty = form.prompt.trim().length > 0 || sourceImages.length > 0 || genImages.length > 0
+  // Load source image history
+  useEffect(() => {
+    setHistoryLoading(true)
+    api.get('/posts/me?limit=50').then(({ data }) => {
+      const imgs = (data?.posts || []).flatMap(p => p.sourceImages || []).filter(img => img.url && img.publicId)
+      setSourceHistory(deduplicateByPublicId(imgs))
+    }).catch(() => {}).finally(() => setHistoryLoading(false))
+  }, [])
 
-  // Chặn reload / đóng tab khi form chưa xong
+  const hasModelImages = modelSlots.some(s => s.genImages?.length > 0)
+  const isDirty = form.prompt.trim().length > 0 || sourceImages.length > 0 || genImages.length > 0 || selectedHistoryIds.size > 0 || hasModelImages
+
   useEffect(() => {
     if (!isDirty || done) return
-    const handleBeforeUnload = (e) => {
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+    const h = (e) => { e.preventDefault(); e.returnValue = '' }
+    window.addEventListener('beforeunload', h)
+    return () => window.removeEventListener('beforeunload', h)
   }, [isDirty, done])
 
-  // Wrapper navigate: hỏi xác nhận trước khi rời trang nếu form còn dữ liệu
   const safeNavigate = (path) => {
     if (isDirty && !done) {
-      const ok = window.confirm('Bài đăng của bạn chưa hoàn tất. Bạn có chắc chắn muốn rời đi?')
-      if (!ok) return
+      if (!window.confirm('Bài đăng của bạn chưa hoàn tất. Bạn có chắc chắn muốn rời đi?')) return
     }
     navigate(path)
   }
+
+  const toggleHistoryImage = useCallback((img) => {
+    setSelectedHistoryIds(prev => {
+      const next = new Set(prev)
+      if (next.has(img.publicId)) { next.delete(img.publicId) }
+      else {
+        if (next.size + sourceImages.length >= 5) { toast.error('Tối đa 5 ảnh tham khảo'); return prev }
+        next.add(img.publicId)
+      }
+      return next
+    })
+  }, [sourceImages.length])
+
+  const updateModelSlot = useCallback((i, updated) => setModelSlots(prev => prev.map((s, idx) => idx === i ? updated : s)), [])
+  const removeModelSlot = useCallback((i) => setModelSlots(prev => { prev[i].genImages?.forEach(img => URL.revokeObjectURL(img.preview)); return prev.filter((_, idx) => idx !== i) }), [])
+  const addModelSlot = useCallback(() => {
+    if (modelSlots.length >= 5) return toast.error('Tối đa 5 model')
+    setModelSlots(prev => [...prev, { id: `slot-${Date.now()}`, aiTool: '', aiModel: '', genImages: [] }])
+  }, [modelSlots.length])
 
   // ── Image handlers ─────────────────────────────────────────────
   const addSourceImages = useCallback((files) => {
@@ -127,14 +147,18 @@ export default function UploadPage() {
   const canGoNext = () => {
     if (step === 1) return form.aiTool && form.prompt.trim().length >= 3
     if (step === 2) return true // optional
-    if (step === 3) return genImages.length >= 1
+    if (step === 3) {
+      if (multiModelMode)
+        return modelSlots.length >= 2 && modelSlots.every(s => s.aiTool && s.genImages?.length >= 1)
+      return genImages.length >= 1
+    }
     return true
   }
 
   const goNext = () => {
     if (!canGoNext()) {
       if (step === 1) toast.error('Chọn công cụ AI và nhập prompt')
-      if (step === 3) toast.error('Cần ít nhất 1 ảnh kết quả AI')
+      if (step === 3) toast.error(multiModelMode ? 'Cần ít nhất 2 model, mỗi model ít nhất 1 ảnh' : 'Cần ít nhất 1 ảnh kết quả AI')
       return
     }
     setStep(s => Math.min(s + 1, 4))
@@ -145,95 +169,69 @@ export default function UploadPage() {
   // ── Submit ─────────────────────────────────────────────────────
   const handleSubmit = async () => {
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
-    if (genImages.length === 0) return toast.error('Cần ít nhất 1 ảnh kết quả AI')
-
-    setUploading(true)
-    setProgress(0)
-
-    // Detect dimensions from genImages[0]
+    if (multiModelMode) {
+      if (modelSlots.length < 2) return toast.error('Cần ít nhất 2 model')
+      if (modelSlots.some(s => !s.aiTool)) return toast.error('Mỗi model cần chọn công cụ AI')
+      if (modelSlots.some(s => !s.genImages?.length)) return toast.error('Mỗi model cần ít nhất 1 ảnh')
+    } else {
+      if (genImages.length === 0) return toast.error('Cần ít nhất 1 ảnh kết quả AI')
+    }
+    setUploading(true); setProgress(0)
     let dims = {}
-    try { dims = await detectDimensions(genImages[0].file) } catch {}
-
-    // Validate workflowJson trước khi bắt đầu upload
+    try { const f = multiModelMode ? modelSlots[0].genImages[0]?.file : genImages[0]?.file; if (f) dims = await detectDimensions(f) } catch {}
     let workflowJsonStr = ''
     if (tierAccess.canExportJson && form.workflowJson.trim()) {
-      try {
-        JSON.parse(form.workflowJson) // validate only
-        workflowJsonStr = form.workflowJson.trim()
-      } catch {
-        toast.error('JSON Workflow không hợp lệ — kiểm tra lại cú pháp!')
-        setUploading(false)
-        setProgress(0)
-        return
-      }
- }
-
+      try { JSON.parse(form.workflowJson); workflowJsonStr = form.workflowJson.trim() }
+      catch { toast.error('JSON Workflow không hợp lệ!'); setUploading(false); setProgress(0); return }
+    }
     const fd = new FormData()
-    // AI generation fields
     fd.append('prompt', form.prompt.trim())
     if (form.negativePrompt.trim()) fd.append('negativePrompt', form.negativePrompt.trim())
-    fd.append('aiTool', form.aiTool)
-    if (form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
+    fd.append('aiTool', multiModelMode ? (modelSlots[0].aiTool || 'other') : form.aiTool)
+    if (!multiModelMode && form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
     if (form.parameters.trim()) fd.append('parameters', form.parameters.trim())
     fd.append('contentType', 'image')
-
-    // Metadata
     fd.append('caption', form.caption.trim())
-    const tagsArr = form.tags.split(',').map(t => t.trim()).filter(Boolean)
-    fd.append('tags', JSON.stringify(tagsArr))
+    fd.append('tags', JSON.stringify(form.tags.split(',').map(t => t.trim()).filter(Boolean)))
     fd.append('category', form.category)
     fd.append('isPremium', String(form.isPremium))
     fd.append('priceInTokens', String(Number(form.priceInTokens)))
-
-    // Dimension auto-detect
     if (dims.resolution) fd.append('resolution', dims.resolution)
     if (dims.orientation) fd.append('orientation', dims.orientation)
     if (dims.aspectRatio) fd.append('aspectRatio', dims.aspectRatio)
-
-    // Source images (optional)
-    sourceImages.forEach(img => fd.append('sourceImages', img.file))
-
-    // Generated images (required)
-    genImages.forEach(img => fd.append('generatedImages', img.file))
-
-    // workflowJson — đã được validate phía trên
     if (workflowJsonStr) fd.append('workflowJson', workflowJsonStr)
-
-    // Fake progress
-    let fakeP = 0
-    const timer = setInterval(() => {
-      fakeP = Math.min(fakeP + 2, 89)
-      setProgress(Math.round(fakeP))
-    }, 80)
-
-    try {
-      await api.post('/posts', fd, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-        onUploadProgress: evt => {
-          const real = Math.round((evt.loaded * 100) / evt.total)
-          if (real > fakeP) { fakeP = real; setProgress(real) }
-        },
-      })
-      clearInterval(timer)
-      setProgress(100)
-      setTimeout(() => setDone(true), 400)
-    } catch (err) {
-      clearInterval(timer)
-      setProgress(0)
-      toast.error(err.response?.data?.message || 'Upload thất bại, thử lại!')
-    } finally {
-      setUploading(false)
+    sourceImages.forEach(img => fd.append('sourceImages', img.file))
+    if (selectedHistoryIds.size > 0) {
+      const refs = sourceHistory.filter(img => selectedHistoryIds.has(img.publicId))
+        .map(({ url, publicId, width, height, fileSize, format, thumbnailUrl }) => ({ url, publicId, width, height, fileSize, format, thumbnailUrl }))
+      fd.append('sourceImageRefs', JSON.stringify(refs))
     }
+    if (multiModelMode) {
+      fd.append('modelComparisons', JSON.stringify(modelSlots.map((s, i) => ({ aiTool: s.aiTool, aiModel: s.aiModel || undefined, slotIndex: i }))))
+      modelSlots.forEach((s, i) => s.genImages.forEach(img => fd.append(`compImages_${i}`, img.file)))
+    } else {
+      genImages.forEach(img => fd.append('generatedImages', img.file))
+    }
+    let fakeP = 0
+    const timer = setInterval(() => { fakeP = Math.min(fakeP + 2, 89); setProgress(Math.round(fakeP)) }, 80)
+    try {
+      await api.post('/posts', fd, { headers: { 'Content-Type': 'multipart/form-data' },
+        onUploadProgress: evt => { const r = Math.round((evt.loaded * 100) / evt.total); if (r > fakeP) { fakeP = r; setProgress(r) } } })
+      clearInterval(timer); setProgress(100); setTimeout(() => setDone(true), 400)
+    } catch (err) {
+      clearInterval(timer); setProgress(0)
+      toast.error(err.response?.data?.message || 'Upload thất bại, thử lại!')
+    } finally { setUploading(false) }
   }
 
   const resetForm = () => {
     ;[...sourceImages, ...genImages].forEach(i => URL.revokeObjectURL(i.preview))
-    setSourceImages([])
-    setGenImages([])
-    setForm(defaultForm())
-    setStep(1)
-    setDone(false)
-    setProgress(0)
+    modelSlots.forEach(s => s.genImages?.forEach(i => URL.revokeObjectURL(i.preview)))
+    setSourceImages([]); setGenImages([])
+    setSelectedHistoryIds(new Set())
+    setModelSlots([{ id: 'slot-0', aiTool: '', aiModel: '', genImages: [] }])
+    setMultiModelMode(false)
+    setForm(defaultForm()); setStep(1); setDone(false); setProgress(0)
   }
 
   // ── Done screen ────────────────────────────────────────────────
@@ -308,16 +306,18 @@ export default function UploadPage() {
               )}
               {step === 2 && (
                 <Step2Source
-                  images={sourceImages}
-                  onAdd={addSourceImages}
-                  onRemove={removeSourceImage}
+                  images={sourceImages} onAdd={addSourceImages} onRemove={removeSourceImage}
+                  sourceHistory={sourceHistory} historyLoading={historyLoading}
+                  selectedHistoryIds={selectedHistoryIds} onToggleHistory={toggleHistoryImage}
+                  sourceTab={sourceTab} onTabChange={setSourceTab}
                 />
               )}
               {step === 3 && (
                 <Step3Generated
-                  images={genImages}
-                  onAdd={addGenImages}
-                  onRemove={removeGenImage}
+                  images={genImages} onAdd={addGenImages} onRemove={removeGenImage}
+                  multiModelMode={multiModelMode} onToggleMultiModel={() => setMultiModelMode(v => !v)}
+                  modelSlots={modelSlots} onUpdateSlot={updateModelSlot}
+                  onRemoveSlot={removeModelSlot} onAddSlot={addModelSlot}
                 />
               )}
               {step === 4 && (
@@ -561,64 +561,104 @@ function Step1Prompt({ form, setForm, tierAccess }) {
 }
 
 
-// ── STEP 2: Source images ────────────────────────────────────────
-function Step2Source({ images, onAdd, onRemove }) {
+// ── STEP 2: Source images ─────────────────────────────────────────
+function Step2Source({
+  images, onAdd, onRemove,
+  sourceHistory, historyLoading, selectedHistoryIds, onToggleHistory,
+  sourceTab, onTabChange,
+}) {
+  const totalSelected = images.length + selectedHistoryIds.size
   return (
     <div className="card p-6 space-y-4">
       <StepHeader step={2} total={4} title="Ảnh tham khảo / Input"
         subtitle="Ảnh gốc bạn đã dùng làm tham khảo cho AI (không bắt buộc)" />
-
       <div className="p-3 rounded-xl bg-brand-900/20 border border-brand-700/30 text-sm text-brand-300/80">
         💡 Bước này <strong>không bắt buộc</strong>. Thêm ảnh nếu bạn dùng img2img, inpainting,
         hoặc có ảnh tham khảo phong cách.
       </div>
-
-      <ImageDropZone
-        images={images}
-        onAdd={onAdd}
-        onRemove={onRemove}
-        max={5}
-        label="Ảnh tham khảo"
-        hint="JPG, PNG, WebP · tối đa 20MB/ảnh"
-      />
-
-      {images.length === 0 && (
-        <p className="text-center text-white/25 text-sm py-4">
-          Bỏ qua nếu bạn tạo từ text prompt thuần tuý
+      <div className="flex gap-1 p-1 rounded-xl bg-white/4 border border-white/6">
+        {[{ id: 'upload', label: '⬆️ Upload mới' }, { id: 'history', label: '🗂️ Từ lịch sử' }].map(tab => (
+          <button key={tab.id} type="button" onClick={() => onTabChange(tab.id)}
+            className={`flex-1 py-1.5 text-sm rounded-lg font-medium transition-all
+              ${sourceTab === tab.id ? 'bg-brand-600/30 text-brand-300 border border-brand-500/40' : 'text-white/40 hover:text-white/70'}`}
+          >
+            {tab.label}
+            {tab.id === 'history' && sourceHistory.length > 0 && (
+              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-white/8 text-white/50">{sourceHistory.length}</span>
+            )}
+          </button>
+        ))}
+      </div>
+      {sourceTab === 'upload' ? (
+        <ImageDropZone images={images} onAdd={onAdd} onRemove={onRemove}
+          max={5 - selectedHistoryIds.size} label="Ảnh tham khảo" hint="JPG, PNG, WebP · tối đa 20MB/ảnh" />
+      ) : (
+        <SourceHistoryPanel images={sourceHistory} selectedIds={selectedHistoryIds}
+          onToggle={onToggleHistory} loading={historyLoading} />
+      )}
+      {totalSelected === 0 ? (
+        <p className="text-center text-white/25 text-sm py-2">Bỏ qua nếu bạn tạo từ text prompt thuần tuý</p>
+      ) : (
+        <p className="text-xs text-white/30 text-center">
+          {totalSelected}/5 ảnh tham khảo
+          {selectedHistoryIds.size > 0 && <span className="text-brand-400"> • {selectedHistoryIds.size} từ lịch sử (không cần upload lại)</span>}
         </p>
       )}
     </div>
   )
 }
 
-// ── STEP 3: Generated images ─────────────────────────────────────
-function Step3Generated({ images, onAdd, onRemove }) {
+// ── STEP 3: Generated images ──────────────────────────────────────
+function Step3Generated({
+  images, onAdd, onRemove,
+  multiModelMode, onToggleMultiModel,
+  modelSlots, onUpdateSlot, onRemoveSlot, onAddSlot,
+}) {
   return (
     <div className="card p-6 space-y-4">
-      <StepHeader step={3} total={4} title="Ảnh kết quả AI"
-        subtitle="Upload 1–5 ảnh AI đã tạo ra từ prompt của bạn" />
-
-      <ImageDropZone
-        images={images}
-        onAdd={onAdd}
-        onRemove={onRemove}
-        max={5}
-        label="Ảnh kết quả"
-        hint="Tối thiểu 1, tối đa 5 ảnh"
-        required
-      />
-
-      {images.length === 0 && (
-        <div className="flex items-center gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
-          <AlertCircle size={18} className="text-red-400 flex-shrink-0" />
-          <p className="text-sm text-red-300/80">Cần ít nhất 1 ảnh kết quả AI để tiếp tục</p>
+      <StepHeader step={3} total={4} title="Kết quả AI" subtitle="Upload ảnh AI đã tạo ra từ prompt của bạn" />
+      <div className="flex items-center justify-between p-3 rounded-xl bg-white/3 border border-white/8">
+        <div className="flex items-center gap-2">
+          <GitCompare size={16} className="text-brand-400" />
+          <div>
+            <p className="text-sm font-semibold text-white">« So sánh nhiều model »</p>
+            <p className="text-xs text-white/40">Mỗi model có kết quả riêng cho cùng 1 prompt</p>
+          </div>
         </div>
-      )}
-
-      {images.length > 0 && (
-        <p className="text-xs text-white/30 text-center">
-          Ảnh đầu tiên sẽ là ảnh đại diện cho bài đăng
-        </p>
+        <button type="button" onClick={onToggleMultiModel}
+          className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0 ${multiModelMode ? 'bg-brand-600' : 'bg-white/15'}`}>
+          <div className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200 ${multiModelMode ? 'translate-x-6' : 'translate-x-1'}`} />
+        </button>
+      </div>
+      {multiModelMode ? (
+        <div className="space-y-3">
+          <p className="text-xs text-white/40">Thêm ít nhất 2 model — mỗi card có công cụ AI và ảnh riêng</p>
+          <AnimatePresence>
+            {modelSlots.map((slot, i) => (
+              <ModelSlot key={slot.id} slot={slot} index={i}
+                onUpdate={onUpdateSlot} onRemove={onRemoveSlot} canRemove={modelSlots.length > 1} />
+            ))}
+          </AnimatePresence>
+          {modelSlots.length < 5 && (
+            <button type="button" onClick={onAddSlot}
+              className="w-full py-2.5 rounded-xl border-2 border-dashed border-white/12 hover:border-brand-500/40 hover:bg-brand-900/20 text-white/40 hover:text-brand-300 text-sm flex items-center justify-center gap-2 transition-all duration-200">
+              <Plus size={15} /> Thêm model
+            </button>
+          )}
+          <p className="text-xs text-white/25 text-center">{modelSlots.filter(s => s.genImages?.length > 0).length}/{modelSlots.length} model đã có ảnh</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <ImageDropZone images={images} onAdd={onAdd} onRemove={onRemove}
+            max={5} label="Ảnh kết quả" hint="Tối thiểu 1, tối đa 5 ảnh" required />
+          {images.length === 0 && (
+            <div className="flex items-center gap-3 p-4 rounded-xl border border-red-500/20 bg-red-500/5">
+              <AlertCircle size={18} className="text-red-400 flex-shrink-0" />
+              <p className="text-sm text-red-300/80">Cần ít nhất 1 ảnh kết quả AI để tiếp tục</p>
+            </div>
+          )}
+          {images.length > 0 && <p className="text-xs text-white/30 text-center">Ảnh đầu tiên sẽ là ảnh đại diện cho bài đăng</p>}
+        </div>
       )}
     </div>
   )

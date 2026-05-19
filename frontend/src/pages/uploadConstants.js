@@ -136,3 +136,14 @@ export const fileToPreview = (file) => ({
   preview: URL.createObjectURL(file),
   id: Math.random().toString(36).slice(2),
 })
+
+// ── Deduplicate source images by Cloudinary publicId ──────────────
+// Trả về danh sách ảnh unique từ lịch sử posts, tránh hiển thị trùng
+export const deduplicateByPublicId = (images) => {
+  const seen = new Set()
+  return images.filter((img) => {
+    if (!img.publicId || seen.has(img.publicId)) return false
+    seen.add(img.publicId)
+    return true
+  })
+}

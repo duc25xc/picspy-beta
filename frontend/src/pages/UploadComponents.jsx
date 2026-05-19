@@ -284,3 +284,170 @@ export function StepHeader({ step, total, title, subtitle }) {
     </div>
   )
 }
+
+// ── SourceHistoryPanel ───────────────────────────────────────────
+// Grid ảnh tham khảo từ lịch sử uploads — click để toggle chọn
+export function SourceHistoryPanel({ images, selectedIds, onToggle, loading }) {
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-8 text-white/30 text-sm">
+        <div className="w-5 h-5 border-2 border-white/20 border-t-brand-400 rounded-full animate-spin mr-2" />
+        Đang tải lịch sử ảnh...
+      </div>
+    )
+  }
+
+  if (images.length === 0) {
+    return (
+      <div className="text-center py-6 text-white/25 text-sm">
+        Bạn chưa có ảnh tham khảo nào từ bài đăng trước
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-white/40">
+        Click để chọn / bỏ chọn · <span className="text-brand-400">{selectedIds.size}</span> đã chọn
+      </p>
+      <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1
+        scrollbar-thin scrollbar-thumb-white/10">
+        {images.map((img) => {
+          const isSelected = selectedIds.has(img.publicId)
+          return (
+            <button
+              key={img.publicId}
+              type="button"
+              onClick={() => onToggle(img)}
+              className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-150
+                ${isSelected
+                  ? 'border-brand-500 ring-2 ring-brand-500/30 scale-[0.96]'
+                  : 'border-white/8 hover:border-white/25'}`}
+            >
+              <img
+                src={img.thumbnailUrl || img.url}
+                alt=""
+                className="w-full h-full object-cover"
+                loading="lazy"
+              />
+              {isSelected && (
+                <div className="absolute inset-0 bg-brand-600/30 flex items-center justify-center">
+                  <Check size={18} className="text-white drop-shadow" />
+                </div>
+              )}
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+// ── ModelSlot ─────────────────────────────────────────────────────
+// Một card cho 1 model trong multi-model comparison
+export function ModelSlot({ slot, index, onUpdate, onRemove, canRemove }) {
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { 'image/jpeg': [], 'image/png': [], 'image/webp': [] },
+    maxSize: 20 * 1024 * 1024,
+    maxFiles: 5 - (slot.genImages?.length || 0),
+    onDropAccepted: (files) => {
+      const toAdd = files.map((f) => ({
+        file: f,
+        preview: URL.createObjectURL(f),
+        id: Math.random().toString(36).slice(2),
+      }))
+      onUpdate(index, {
+        ...slot,
+        genImages: [...(slot.genImages || []), ...toAdd].slice(0, 5),
+      })
+    },
+    disabled: (slot.genImages?.length || 0) >= 5,
+  })
+
+  const removeImage = (imgId) => {
+    const img = slot.genImages.find((i) => i.id === imgId)
+    if (img) URL.revokeObjectURL(img.preview)
+    onUpdate(index, {
+      ...slot,
+      genImages: slot.genImages.filter((i) => i.id !== imgId),
+    })
+  }
+
+  const selectedTool = AI_TOOLS.find((t) => t.value === slot.aiTool) || null
+
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, y: 12 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -12 }}
+      className="card p-4 space-y-3 relative"
+      style={{ borderLeft: selectedTool ? `3px solid ${selectedTool.color}` : '3px solid rgba(255,255,255,0.08)' }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-bold text-white/50 uppercase tracking-wider">
+          Model {index + 1}
+        </span>
+        {canRemove && (
+          <button
+            type="button"
+            onClick={() => onRemove(index)}
+            className="text-white/20 hover:text-red-400 transition-colors"
+          >
+            <X size={16} />
+          </button>
+        )}
+      </div>
+
+      {/* AI Tool mini-selector */}
+      <div className="flex gap-2">
+        <select
+          value={slot.aiTool}
+          onChange={(e) => onUpdate(index, { ...slot, aiTool: e.target.value })}
+          className="input flex-1 text-sm py-2"
+        >
+          <option value="">Chọn công cụ AI...</option>
+          {AI_TOOLS.map((t) => (
+            <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          value={slot.aiModel || ''}
+          onChange={(e) => onUpdate(index, { ...slot, aiModel: e.target.value })}
+          placeholder="Model version"
+          className="input w-28 text-sm py-2"
+        />
+      </div>
+
+      {/* Image thumbnails + drop zone */}
+      <div className="flex flex-wrap gap-2">
+        {(slot.genImages || []).map((img) => (
+          <div key={img.id} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group">
+            <img src={img.preview} alt="" className="w-full h-full object-cover" />
+            <button
+              type="button"
+              onClick={() => removeImage(img.id)}
+              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center
+                opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+            >
+              <X size={10} className="text-white" />
+            </button>
+          </div>
+        ))}
+
+        {(slot.genImages?.length || 0) < 5 && (
+          <div
+            {...getRootProps()}
+            className={`w-16 h-16 rounded-lg border-2 border-dashed flex items-center justify-center cursor-pointer transition-all
+              ${isDragActive ? 'border-brand-400 bg-brand-900/30' : 'border-white/12 hover:border-white/25'}`}
+          >
+            <input {...getInputProps()} />
+            <Plus size={16} className={isDragActive ? 'text-brand-400' : 'text-white/25'} />
+          </div>
+        )}
+      </div>
+    </motion.div>
+  )
+}

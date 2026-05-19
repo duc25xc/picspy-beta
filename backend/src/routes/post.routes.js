@@ -62,6 +62,12 @@ router.post(
   upload.fields([
     { name: 'sourceImages', maxCount: 5 },
     { name: 'generatedImages', maxCount: 5 },
+    // Multi-model comparison slots (tối đa 5 model, mỗi model 5 ảnh)
+    { name: 'compImages_0', maxCount: 5 },
+    { name: 'compImages_1', maxCount: 5 },
+    { name: 'compImages_2', maxCount: 5 },
+    { name: 'compImages_3', maxCount: 5 },
+    { name: 'compImages_4', maxCount: 5 },
   ]),
   handleMulterError,
   createPost

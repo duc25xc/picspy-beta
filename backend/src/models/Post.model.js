@@ -106,6 +106,22 @@ const postSchema = new mongoose.Schema(
       ],
     },
 
+    // === MULTI-MODEL COMPARISON (optional) ===
+    // Khi isMultiModel=true, mỗi entry chứa kết quả từ 1 AI model khác nhau
+    // cho cùng 1 prompt — cho phép viewer so sánh trực tiếp.
+    isMultiModel: { type: Boolean, default: false },
+    modelComparisons: {
+      type: [
+        {
+          aiTool: { type: String, enum: AI_TOOLS },
+          aiModel: { type: String, trim: true },
+          generatedImages: { type: [imageSchema], default: [] },
+          _id: false,
+        },
+      ],
+      default: [],
+    },
+
     // === GENERATED VIDEO (phase sau — reserve schema) ===
     generatedVideo: {
       url: String,
