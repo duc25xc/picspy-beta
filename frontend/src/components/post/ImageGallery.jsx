@@ -210,7 +210,7 @@ export default function ImageGallery({
         )}
 
         {/* ── Top-left: AI tool badge + source label ──── */}
-        <div className="absolute top-3 left-3 z-20 flex items-center gap-2">
+        <div className="absolute top-3 left-3 z-20 flex items-center gap-2" style={{ marginTop: 24 }}>
           {toolMeta && !activeIsSource && !isLegacy && (
             <span
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold backdrop-blur-md border border-white/10"

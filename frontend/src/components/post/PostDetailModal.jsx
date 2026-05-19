@@ -1,8 +1,17 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  X, Share2, Eye, Tag, Calendar, CheckCircle,
-  ChevronLeft, ChevronRight, UserPlus, UserCheck, Maximize2,
+  X,
+  Share2,
+  Eye,
+  Tag,
+  Calendar,
+  CheckCircle,
+  ChevronLeft,
+  ChevronRight,
+  UserPlus,
+  UserCheck,
+  Maximize2,
 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/api'
@@ -24,7 +33,12 @@ import toast from 'react-hot-toast'
 const buildAmbientGradient = (palette = []) => {
   if (!palette?.length) return null
   const positions = [
-    '10% 20%', '90% 15%', '50% 80%', '20% 70%', '80% 60%', '40% 30%',
+    '10% 20%',
+    '90% 15%',
+    '50% 80%',
+    '20% 70%',
+    '80% 60%',
+    '40% 30%',
   ]
   const layers = palette.slice(0, 6).map((hex, i) => {
     const pos = positions[i % positions.length]
@@ -58,13 +72,18 @@ const AuthorAvatar = ({ user, size = 10 }) => {
   const s = `w-${size} h-${size}`
   if (user?.avatar) {
     return (
-      <img src={user.avatar} alt={user.username}
-        className={`${s} rounded-full object-cover ring-2 ring-white/10 flex-shrink-0`} />
+      <img
+        src={user.avatar}
+        alt={user.username}
+        className={`${s} rounded-full object-cover ring-2 ring-white/10 flex-shrink-0`}
+      />
     )
   }
   return (
-    <div className={`${s} rounded-full bg-gradient-to-br from-violet-600 to-blue-500
-      flex items-center justify-center text-white font-bold pj flex-shrink-0`}>
+    <div
+      className={`${s} rounded-full bg-gradient-to-br from-violet-600 to-blue-500
+      flex items-center justify-center text-white font-bold pj flex-shrink-0`}
+    >
       {user?.username?.[0]?.toUpperCase() || '?'}
     </div>
   )
@@ -75,7 +94,9 @@ const ColorPaletteStrip = ({ palette }) => {
   if (!palette?.length) return null
   return (
     <div className="px-5 py-2.5 border-b border-white/8">
-      <p className="text-[10px] text-white/25 mb-2 font-medium tracking-wider uppercase">Màu chủ đạo</p>
+      <p className="text-[10px] text-white/25 mb-2 font-medium tracking-wider uppercase">
+        Màu chủ đạo
+      </p>
       <div className="flex gap-2 items-center">
         {palette.slice(0, 6).map((hex, i) => (
           <motion.div
@@ -92,9 +113,11 @@ const ColorPaletteStrip = ({ palette }) => {
               style={{ backgroundColor: hex }}
             />
             {/* Tooltip hex */}
-            <span className="absolute -bottom-5 left-1/2 -translate-x-1/2
+            <span
+              className="absolute -bottom-5 left-1/2 -translate-x-1/2
               text-[9px] text-white/40 opacity-0 group-hover:opacity-100
-              transition-opacity whitespace-nowrap pointer-events-none">
+              transition-opacity whitespace-nowrap pointer-events-none"
+            >
               {hex}
             </span>
           </motion.div>
@@ -105,19 +128,26 @@ const ColorPaletteStrip = ({ palette }) => {
 }
 
 /* ─── Main Modal ──────────────────────────────────────────────── */
-const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) => {
-  const navigate   = useNavigate()
+const PostDetailModal = ({
+  postId,
+  onClose,
+  onPrev,
+  onNext,
+  hasPrev,
+  hasNext,
+}) => {
+  const navigate = useNavigate()
   const currentUser = useAuthStore((s) => s.user)
-  const isLoggedIn  = useAuthStore((s) => !!s.user && !!s.accessToken)
+  const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
 
-  const [post, setPost]             = useState(null)
-  const [isLiked, setIsLiked]       = useState(false)
+  const [post, setPost] = useState(null)
+  const [isLiked, setIsLiked] = useState(false)
   const [isBookmarked, setIsBookmarked] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [followLoading, setFollowLoading] = useState(false)
-  const [imgLoaded, setImgLoaded]   = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
   const [ambientReady, setAmbientReady] = useState(false)
 
   /* Tính ambient gradient memoized — chỉ recompute khi palette đổi */
@@ -131,14 +161,20 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
   const trackView = useCallback((id) => {
     clearTimeout(viewTimer.current)
     viewTimer.current = setTimeout(async () => {
-      try { await api.post(`/posts/${id}/view`) } catch { /* bỏ qua nếu lỗi */ }
+      try {
+        await api.post(`/posts/${id}/view`)
+      } catch {
+        /* bỏ qua nếu lỗi */
+      }
     }, 800)
   }, [])
 
   /* Fetch post — KHÔNG gọi trackView ở đây (tránh double count) */
   const fetchPost = useCallback(async (id) => {
-    setLoading(true); setError(null)
-    setImgLoaded(false); setAmbientReady(false)
+    setLoading(true)
+    setError(null)
+    setImgLoaded(false)
+    setAmbientReady(false)
     try {
       const { data } = await api.get(`/posts/${id}`)
       setPost(data.post)
@@ -164,7 +200,7 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
   useEffect(() => {
     const handleKey = (e) => {
       if (e.key === 'Escape') onClose()
-      if (e.key === 'ArrowLeft'  && hasPrev) onPrev?.()
+      if (e.key === 'ArrowLeft' && hasPrev) onPrev?.()
       if (e.key === 'ArrowRight' && hasNext) onNext?.()
     }
     window.addEventListener('keydown', handleKey)
@@ -174,7 +210,9 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
   /* Lock body scroll */
   useEffect(() => {
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = '' }
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [])
 
   /* Kích hoạt ambient sau khi ảnh load xong */
@@ -187,22 +225,32 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
 
   /* ─── Follow/Unfollow ── */
   const handleFollow = async () => {
-    if (!isLoggedIn) { toast('Đăng nhập để follow creator này 💜', { icon: '🔒' }); return }
+    if (!isLoggedIn) {
+      toast('Đăng nhập để follow creator này 💜', { icon: '🔒' })
+      return
+    }
     if (followLoading) return
     const was = isFollowing
-    setIsFollowing(!was); setFollowLoading(true)
+    setIsFollowing(!was)
+    setFollowLoading(true)
     try {
       await api.post(`/users/${post.authorId._id}/follow`)
       toast(was ? 'Đã bỏ follow' : `Đang follow @${post.authorId.username}`, {
-        icon: was ? '✓' : '💜', duration: 1500,
+        icon: was ? '✓' : '💜',
+        duration: 1500,
       })
-    } catch { setIsFollowing(was); toast.error('Không thể thực hiện') }
-    finally { setFollowLoading(false) }
+    } catch {
+      setIsFollowing(was)
+      toast.error('Không thể thực hiện')
+    } finally {
+      setFollowLoading(false)
+    }
   }
 
   /* ─── Share ── */
   const handleShare = () => {
-    navigator.clipboard.writeText(`${window.location.origin}/posts/${postId}`)
+    navigator.clipboard
+      .writeText(`${window.location.origin}/posts/${postId}`)
       .then(() => toast.success('Đã sao chép link!'))
       .catch(() => toast.error('Không thể sao chép'))
   }
@@ -211,7 +259,10 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
   const displayUrl = firstImg?.thumbnailUrl || firstImg?.url
   const isOwnPost = currentUser && post?.authorId?._id === currentUser._id
 
-  const goToDetail = () => { onClose(); navigate(`/posts/${postId}`) }
+  const goToDetail = () => {
+    onClose()
+    navigate(`/posts/${postId}`)
+  }
 
   return (
     <AnimatePresence>
@@ -228,8 +279,10 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
 
         {/* Close */}
         <motion.button
-          initial={{ opacity: 0, scale: 0.8 }} animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: 0.1 }} onClick={onClose}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+          onClick={onClose}
           className="absolute top-4 right-4 z-50 w-10 h-10 rounded-full
             bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/10
             flex items-center justify-center text-white transition-all"
@@ -240,22 +293,28 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
 
         {/* Prev/Next */}
         {hasPrev && (
-          <motion.button initial={{ opacity: 0, x: -10 }} animate={{ opacity: 1, x: 0 }}
+          <motion.button
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
             onClick={onPrev}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-50
               w-10 h-10 rounded-full bg-white/10 hover:bg-white/20
               backdrop-blur-md border border-white/10
-              flex items-center justify-center text-white transition-all hidden md:flex">
+              flex items-center justify-center text-white transition-all hidden md:flex"
+          >
             <ChevronLeft size={20} />
           </motion.button>
         )}
         {hasNext && (
-          <motion.button initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }}
+          <motion.button
+            initial={{ opacity: 0, x: 10 }}
+            animate={{ opacity: 1, x: 0 }}
             onClick={onNext}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-50
               w-10 h-10 rounded-full bg-white/10 hover:bg-white/20
               backdrop-blur-md border border-white/10
-              flex items-center justify-center text-white transition-all hidden md:flex">
+              flex items-center justify-center text-white transition-all hidden md:flex"
+          >
             <ChevronRight size={20} />
           </motion.button>
         )}
@@ -273,11 +332,11 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
             border border-white/8 relative"
           onClick={(e) => e.stopPropagation()}
         >
-
           {/* ═══ LEFT: Image Gallery ════════════════════════════ */}
-          <div className="img-panel relative flex items-center justify-center
-            md:flex-1 min-h-[280px] md:min-h-0 overflow-hidden p-3">
-
+          <div
+            className="img-panel relative flex items-center justify-center
+            md:flex-1 min-h-[280px] md:min-h-0 overflow-hidden p-3"
+          >
             {/* ── Ambient Mode Layer ── */}
             {ambientGradient && (
               <motion.div
@@ -298,13 +357,22 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
                 <motion.div
                   className="w-8 h-8 border-2 border-[#7986eb]/40 border-t-[#7986eb] rounded-full"
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
                 />
               </div>
             ) : error ? (
               <div className="text-center p-8 relative z-10">
                 <p className="text-red-400 text-sm">{error}</p>
-                <button onClick={onClose} className="mt-4 text-white/40 text-xs hover:text-white">Đóng</button>
+                <button
+                  onClick={onClose}
+                  className="mt-4 text-white/40 text-xs hover:text-white"
+                >
+                  Đóng
+                </button>
               </div>
             ) : post ? (
               <div className="relative z-10 w-full">
@@ -317,14 +385,18 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
                   isPremium={post.isPremium}
                   isUnlocked={!post.isPremium}
                   caption={post.caption}
+                  onExpand={goToDetail}
                 />
                 {/* Trang riêng button */}
                 <button
                   onClick={goToDetail}
-                  className="mt-2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-                    border border-white/10 text-white/50 hover:text-white/80
-                    transition-all text-xs font-semibold backdrop-blur-md"
-                  style={{ background: 'rgba(10,9,14,0.5)', fontFamily: 'Outfit, sans-serif' }}
+                  className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-xl
+    border border-white/10 text-white/50 hover:text-white/80 shadow-lg
+    transition-all text-xs font-semibold backdrop-blur-md"
+                  style={{
+                    background: 'rgba(10,9,14,0.5)',
+                    fontFamily: 'Outfit, sans-serif',
+                  }}
                 >
                   <Maximize2 size={11} />
                   Xem trang riêng
@@ -334,53 +406,83 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
           </div>
 
           {/* ═══ RIGHT: Info Panel ═══════════════════════════════ */}
-          <div className="flex flex-col w-full md:w-[380px] lg:w-[420px] min-h-0
-            border-t md:border-t-0 md:border-l border-white/8 pj">
-
+          <div
+            className="flex flex-col w-full md:w-[380px] lg:w-[420px] min-h-0
+            border-t md:border-t-0 md:border-l border-white/8 pj"
+          >
             {/* Author + Actions */}
             <div className="flex flex-col gap-3 p-5 border-b border-white/8">
               {post?.authorId && (
                 <div className="flex items-center gap-3">
-                  <Link to={`/profile/${post.authorId.username}`} onClick={onClose} className="flex-shrink-0">
+                  <Link
+                    to={`/profile/${post.authorId.username}`}
+                    onClick={onClose}
+                    className="flex-shrink-0"
+                  >
                     <AuthorAvatar user={post.authorId} size={11} />
                   </Link>
                   <div className="flex-1 min-w-0">
-                    <Link to={`/profile/${post.authorId.username}`} onClick={onClose}
-                      className="flex items-center gap-1.5 hover:text-violet-300 transition-colors">
+                    <Link
+                      to={`/profile/${post.authorId.username}`}
+                      onClick={onClose}
+                      className="flex items-center gap-1.5 hover:text-violet-300 transition-colors"
+                    >
                       <span className="font-semibold text-sm text-white truncate">
                         {post.authorId.displayName || post.authorId.username}
                       </span>
-                      {post.authorId.isVerified && <CheckCircle size={13} className="text-violet-400 flex-shrink-0" />}
+                      {post.authorId.isVerified && (
+                        <CheckCircle
+                          size={13}
+                          className="text-violet-400 flex-shrink-0"
+                        />
+                      )}
                     </Link>
-                    <p className="text-xs text-white/40">@{post.authorId.username}</p>
+                    <p className="text-xs text-white/40">
+                      @{post.authorId.username}
+                    </p>
                   </div>
                   {!isOwnPost && (
                     <motion.button
-                      onClick={handleFollow} disabled={followLoading}
+                      onClick={handleFollow}
+                      disabled={followLoading}
                       whileTap={{ scale: 0.95 }}
                       className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold
                         transition-all border flex-shrink-0
-                        ${isFollowing
-                          ? 'bg-white/5 border-white/15 text-white/60 hover:border-red-500/40 hover:text-red-400'
-                          : 'bg-violet-600/80 border-violet-500/50 text-white hover:bg-violet-600'}`}
+                        ${
+                          isFollowing
+                            ? 'bg-white/5 border-white/15 text-white/60 hover:border-red-500/40 hover:text-red-400'
+                            : 'bg-violet-600/80 border-violet-500/50 text-white hover:bg-violet-600'
+                        }`}
                     >
-                      {isFollowing ? <><UserCheck size={12} /> Đang follow</> : <><UserPlus size={12} /> Follow</>}
+                      {isFollowing ? (
+                        <>
+                          <UserCheck size={12} /> Đang follow
+                        </>
+                      ) : (
+                        <>
+                          <UserPlus size={12} /> Follow
+                        </>
+                      )}
                     </motion.button>
                   )}
                 </div>
               )}
 
               {post?.caption && (
-                <p className="text-sm text-white/70 leading-relaxed line-clamp-3">{post.caption}</p>
+                <p className="text-sm text-white/70 leading-relaxed line-clamp-3">
+                  {post.caption}
+                </p>
               )}
 
               {post?.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {post.tags.map((tag) => (
-                    <span key={tag}
+                    <span
+                      key={tag}
                       className="flex items-center gap-1 px-2 py-0.5 rounded-lg
                         bg-violet-600/15 border border-violet-500/25
-                        text-violet-400 text-[11px] font-medium">
+                        text-violet-400 text-[11px] font-medium"
+                    >
                       <Tag size={9} />#{tag}
                     </span>
                   ))}
@@ -391,32 +493,62 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
             {/* Prompt Blocks — compact trong modal */}
             {post?.prompt && (
               <div className="px-5 pt-3 space-y-2">
-                <PromptBlock text={post.prompt} variant="prompt" collapseAfter={4} />
+                <PromptBlock
+                  text={post.prompt}
+                  variant="prompt"
+                  collapseAfter={4}
+                />
                 {post.negativePrompt && (
-                  <PromptBlock text={post.negativePrompt} variant="negative" collapseAfter={3} />
+                  <PromptBlock
+                    text={post.negativePrompt}
+                    variant="negative"
+                    collapseAfter={3}
+                  />
                 )}
                 {post.parameters && (
-                  <PromptBlock text={post.parameters} variant="parameters" collapseAfter={3} />
+                  <PromptBlock
+                    text={post.parameters}
+                    variant="parameters"
+                    collapseAfter={3}
+                  />
                 )}
                 {post.workflowJson && (
-                  <PromptBlock text={post.workflowJson} variant="json" collapseAfter={6} />
+                  <PromptBlock
+                    text={post.workflowJson}
+                    variant="json"
+                    collapseAfter={6}
+                  />
                 )}
               </div>
             )}
 
             {/* Meta Info */}
             {post && (
-              <div className="px-5 py-3 border-b border-white/8 flex flex-wrap gap-x-4 gap-y-1.5">
+              <div className="px-5 py-3 border-b border-white/8 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 {post.category && (
                   <span className="text-xs text-white/40">{post.category}</span>
                 )}
                 {post.resolution && (
-                  <span className="text-xs font-bold uppercase" style={{ color: '#7986eb' }}>{post.resolution}</span>
+                  <span
+                    className="text-xs font-bold uppercase"
+                    style={{ color: '#7986eb' }}
+                  >
+                    {post.resolution}
+                  </span>
                 )}
                 {post.aiTool && (
-                  <span className="text-xs font-medium" style={{ color: '#7986eb' }}>✨ {post.aiTool}</span>
+                  <span
+                    className="text-xs font-medium"
+                    style={{ color: '#7986eb' }}
+                  >
+                    ✨ {post.aiTool}
+                  </span>
                 )}
-                {post.isPremium && <span className="text-xs text-amber-400 font-medium">💎 Premium</span>}
+                {post.isPremium && (
+                  <span className="text-xs text-amber-400 font-medium">
+                    💎 Premium
+                  </span>
+                )}
                 <span className="flex items-center gap-1 text-xs text-white/30">
                   <Calendar size={10} />
                   {new Date(post.createdAt).toLocaleDateString('vi-VN')}
@@ -443,20 +575,25 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
             {post && (
               <div className="px-5 py-3 border-b border-white/8 flex items-center gap-4 flex-wrap">
                 <LikeButton
-                  postId={post._id} initialLiked={isLiked}
-                  initialCount={post.stats?.likesCount || 0} size="md"
+                  postId={post._id}
+                  initialLiked={isLiked}
+                  initialCount={post.stats?.likesCount || 0}
+                  size="md"
                   onToggle={(liked) => setIsLiked(liked)}
                 />
                 <BookmarkButton
-                  postId={post._id} initialBookmarked={isBookmarked}
-                  size="md" onToggle={(b) => setIsBookmarked(b)}
+                  postId={post._id}
+                  initialBookmarked={isBookmarked}
+                  size="md"
+                  onToggle={(b) => setIsBookmarked(b)}
                 />
                 <span className="flex items-center gap-1.5 text-white/30 text-xs">
                   <Eye size={14} />
                   {(post.stats?.viewsCount || 0).toLocaleString()}
                 </span>
                 <motion.button
-                  onClick={handleShare} whileTap={{ scale: 0.9 }}
+                  onClick={handleShare}
+                  whileTap={{ scale: 0.9 }}
                   className="flex items-center gap-1.5 text-white/30 hover:text-white transition-colors"
                   title="Sao chép link"
                 >
@@ -473,8 +610,10 @@ const PostDetailModal = ({ postId, onClose, onPrev, onNext, hasPrev, hasNext }) 
             )}
 
             {/* Comments */}
-            <div className="flex-1 overflow-y-auto px-5 py-4 min-h-0
-              scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+            <div
+              className="flex-1 overflow-y-auto px-5 py-4 min-h-0
+              scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10"
+            >
               {post && (
                 <CommentSection
                   postId={post._id}
