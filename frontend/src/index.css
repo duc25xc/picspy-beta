@@ -8,20 +8,57 @@
   :root {
     --toaster-bg: #1a1a24;
     --toaster-color: #e9e9f0;
+    
+    /* Theme Dark (Mac dinh) */
+    --color-surface: #0f0f13;
+    --color-surface-50: #1a1a24;
+    --color-surface-100: #222230;
+    --color-surface-200: #2a2a3d;
+    --color-surface-300: #32324a;
+    --color-foreground: #f5f3ff;
+    --color-border: rgba(255, 255, 255, 0.05);
+    --color-border-input: rgba(255, 255, 255, 0.10);
+    --color-placeholder: rgba(255, 255, 255, 0.40);
+    --color-text-muted: rgba(255, 255, 255, 0.70);
+    --color-glass-bg: rgba(15, 15, 19, 0.7);
+    --color-glass-border: rgba(255, 255, 255, 0.08);
+    --color-glass-shadow: rgba(0, 0, 0, 0.25);
+  }
+
+  .light {
+    --toaster-bg: #f1e9db;
+    --toaster-color: #000000;
+
+    /* Theme Light (YouMind Style) */
+    --color-surface: #fffcf5;
+    --color-surface-50: #fbedd6;
+    --color-surface-100: #f1e9db;
+    --color-surface-200: #abaa6b;
+    --color-surface-300: #d37036;
+    --color-foreground: #000000;
+    --color-border: rgba(0, 0, 0, 0.08);
+    --color-border-input: rgba(0, 0, 0, 0.12);
+    --color-placeholder: rgba(0, 0, 0, 0.40);
+    --color-text-muted: rgba(0, 0, 0, 0.65);
+    --color-glass-bg: rgba(255, 252, 245, 0.75);
+    --color-glass-border: rgba(0, 0, 0, 0.06);
+    --color-glass-shadow: rgba(0, 0, 0, 0.05);
   }
 
   * {
-    @apply border-white/5;
+    border-color: var(--color-border);
   }
 
   html {
     @apply scroll-smooth;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   body {
-    @apply bg-surface text-white font-sans antialiased;
+    @apply bg-surface text-foreground font-sans antialiased;
     /* Prevent horizontal scroll on mobile */
     overflow-x: hidden;
+    transition: background-color 0.3s ease, color 0.3s ease;
   }
 
   /* Custom scrollbar */
@@ -51,11 +88,19 @@
   }
 
   .btn-secondary {
-    @apply btn bg-surface-100 hover:bg-surface-200 active:scale-95 text-white;
+    @apply btn bg-surface-100 hover:bg-surface-200 active:scale-95 text-foreground;
   }
 
   .btn-ghost {
-    @apply btn hover:bg-white/10 active:scale-95 text-white;
+    @apply btn active:scale-95;
+    color: var(--color-foreground);
+    opacity: 0.8;
+  }
+
+  .btn-ghost:hover {
+    background-color: var(--color-border);
+    color: var(--color-foreground);
+    opacity: 1;
   }
 
   .btn-danger {
@@ -72,23 +117,33 @@
 
   /* Input */
   .input {
-    @apply w-full px-4 py-3 rounded-xl bg-surface-100 border border-white/10 text-white placeholder:text-white/40
+    @apply w-full px-4 py-3 rounded-xl bg-surface-100 border text-foreground
     focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all duration-200;
+    border-color: var(--color-border-input);
     min-height: 44px;
   }
 
+  .input::placeholder {
+    color: var(--color-placeholder);
+  }
+
   .input-label {
-    @apply block text-sm font-medium text-white/70 mb-1.5;
+    @apply block text-sm font-medium mb-1.5;
+    color: var(--color-text-muted);
   }
 
   /* Card */
   .card {
-    @apply bg-surface-50 border border-white/5 rounded-2xl;
+    @apply bg-surface-50 border rounded-2xl;
+    border-color: var(--color-border);
   }
 
   /* Glass morphism */
   .glass {
-    @apply bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl;
+    @apply backdrop-blur-md border rounded-2xl;
+    background-color: var(--color-glass-bg);
+    border-color: var(--color-glass-border);
+    box-shadow: 0 8px 32px var(--color-glass-shadow);
   }
 
   /* Skeleton loading */
@@ -120,12 +175,22 @@
 
   /* Page container */
   .page-container {
-    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
+    max-width: 1692px;
+    @apply mx-auto px-4 md:px-12;
   }
 
   /* Gradient text */
   .gradient-text {
     @apply bg-gradient-to-r from-brand-400 to-blue-400 bg-clip-text text-transparent;
+  }
+
+  /* Liquid glass navbar */
+  .liquid-glass {
+    background-color: var(--color-glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    border-bottom: 1px solid var(--color-glass-border);
+    box-shadow: 0 4px 30px var(--color-glass-shadow);
+    transition: background-color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
   }
 }
 

@@ -74,6 +74,7 @@ const ProfilePage = () => {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [activeTab, setActiveTab] = useState('posts')
+  const [avatarError, setAvatarError] = useState(false)
 
   const isOwnProfile = currentUser?.username === username
 
@@ -81,6 +82,7 @@ const ProfilePage = () => {
   useEffect(() => {
     setLoadingProfile(true)
     setError(null)
+    setAvatarError(false)
     api.get(`/users/${username}`)
       .then(({ data }) => {
         setProfile(data.user)
@@ -173,8 +175,8 @@ const ProfilePage = () => {
               className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden border-4 border-surface shadow-2xl"
               style={{ borderColor: tier !== 'free' ? tierMeta.color + '66' : undefined }}
             >
-              {profile.avatar
-                ? <img src={profile.avatar} alt={profile.displayName} className="w-full h-full object-cover bg-surface-100" />
+              {profile.avatar && !avatarError
+                ? <img src={profile.avatar} alt={profile.displayName} className="w-full h-full object-cover bg-surface-100" onError={() => setAvatarError(true)} />
                 : (
                   <div className="w-full h-full flex items-center justify-center text-3xl font-bold"
                     style={{ background: `linear-gradient(135deg, ${tierMeta.color}33, ${tierMeta.color}11)` }}>

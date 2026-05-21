@@ -19,14 +19,15 @@ export default {
           900: '#4c1d95',
           950: '#2e1065',
         },
-        // Neutral dark UI
+        // Dynamic UI mapping to CSS variables
         surface: {
-          DEFAULT: '#0f0f13',
-          50: '#1a1a24',
-          100: '#222230',
-          200: '#2a2a3d',
-          300: '#32324a',
+          DEFAULT: 'var(--color-surface)',
+          50: 'var(--color-surface-50)',
+          100: 'var(--color-surface-100)',
+          200: 'var(--color-surface-200)',
+          300: 'var(--color-surface-300)',
         },
+        foreground: 'var(--color-foreground)',
       },
       fontFamily: {
         sans: ['Outfit', 'Inter', 'system-ui', 'sans-serif'],
