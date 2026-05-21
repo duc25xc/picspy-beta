@@ -15,10 +15,25 @@ export const SettingsProvider = ({ children }) => {
     return savedLang || 'vi'; // Mac dinh tieng Viet
   });
 
-  // Ham cap nhat theme va luu vao localStorage
+  const [isThemeTransitioning, setIsThemeTransitioning] = useState(false);
+
+  // Ham cap nhat theme: overlay fade-in → đổi theme tức thì → overlay fade-out
   const changeTheme = (newTheme) => {
-    setThemeState(newTheme);
-    localStorage.setItem('picspy_theme', newTheme);
+    if (newTheme === theme) return;
+    setIsThemeTransitioning(true);
+    
+    // Chờ overlay fade-in xong (300ms) rồi đổi theme ngay lập tức phía sau
+    setTimeout(() => {
+      setThemeState(newTheme);
+      localStorage.setItem('picspy_theme', newTheme);
+      
+      // Chờ 1 frame để DOM repaint xong, rồi fade-out overlay
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsThemeTransitioning(false);
+        });
+      });
+    }, 300);
   };
 
   // Ham cap nhat ngon ngu va luu vao localStorage
@@ -71,7 +86,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, t }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t }}>
       {children}
     </SettingsContext.Provider>
   );

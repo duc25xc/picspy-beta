@@ -5,6 +5,52 @@ import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import useAuthStore from './store/auth.store'
+import { useSettings } from './context/SettingsContext'
+
+/**
+ * Overlay che phủ toàn màn hình khi chuyển theme.
+ * Fade-in nhanh → theme đổi tức thì phía sau → fade-out mượt mà.
+ * User không bao giờ thấy trạng thái trung gian lẫn lộn màu.
+ */
+const ThemeTransitionOverlay = () => {
+  const { isThemeTransitioning } = useSettings()
+  
+  return (
+    <AnimatePresence>
+      {isThemeTransitioning && (
+        <motion.div
+          key="theme-overlay"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ 
+            enter: { duration: 0.25, ease: 'easeOut' },
+            exit: { duration: 0.35, ease: 'easeInOut' },
+            duration: 0.25 
+          }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
+          style={{ 
+            backgroundColor: 'var(--color-surface)',
+          }}
+        >
+          {/* Logo pulse nhẹ nhàng khi chuyển theme */}
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 1.1, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+            className="w-12 h-12 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-2xl"
+          >
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  )
+}
 
 // Lazy load pages để code splitting
 const HomePage = lazy(() => import('./pages/HomePage'))
@@ -74,7 +120,9 @@ export default function App() {
   }, [isAuth]) // eslint-disable-line
 
   return (
-    <AnimatePresence mode="wait">
+    <>
+      <ThemeTransitionOverlay />
+      <AnimatePresence mode="wait">
       <Suspense fallback={<PageLoader />}>
         <Routes location={location} key={location.pathname}>
           {/* ===== AUTH ROUTES ===== */}
@@ -215,5 +263,6 @@ export default function App() {
         </Routes>
       </Suspense>
     </AnimatePresence>
+    </>
   )
 }

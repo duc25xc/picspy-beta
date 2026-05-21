@@ -325,7 +325,7 @@ const StatCard = ({ value, label, color, delay }) => (
       >
         {value}
       </p>
-      <p className="text-white/40 text-[10px] font-bold tracking-widest uppercase pj relative z-10">
+      <p className="text-foreground/45 dark:text-white/45 text-[10px] font-bold tracking-widest uppercase pj relative z-10">
         {label}
       </p>
     </LiquidCard>
@@ -354,7 +354,7 @@ const CategoryCard = ({ label, count, emoji, img, delay }) => (
         <span className="text-sm font-bold text-foreground dark:text-white pj flex items-center gap-2">
           <span>{emoji}</span> {label}
         </span>
-        <p className="text-[10px] text-foreground/60 dark:text-white/45 font-bold uppercase tracking-wider pj mt-0.5">
+        <p className="text-[10px] text-foreground/60 dark:text-white/60 font-bold uppercase tracking-wider pj mt-0.5">
           {count} tác phẩm
         </p>
       </LiquidCard>
@@ -769,7 +769,7 @@ const CommunityGallerySection = () => {
       }
     },
     [activeTab, cursor, tab]
-  ) // eslint-disable-line
+  )
 
   useEffect(() => {
     fetchPosts(true)
@@ -1162,8 +1162,11 @@ const HomePage = () => {
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
-                className="px-10 py-5 rounded-full font-bold text-foreground/80 text-base w-full sm:w-auto
-                  liquid-glass hover:text-foreground transition-all duration-300"
+                className="px-10 py-5 rounded-full font-bold text-base w-full sm:w-auto
+                  liquid-glass transition-all duration-300
+                  text-foreground/80 hover:text-foreground
+                  dark:text-white/80 dark:hover:text-white"
+                style={{ '--tw-bg-opacity': 1 }}
               >
                 Khám phá Gallery
               </motion.button>
@@ -1209,7 +1212,7 @@ const HomePage = () => {
             <div className="absolute top-6 left-6 z-20">
               <LiquidCard className="px-4 py-2 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                <span className="text-sm font-medium text-white/80 pj">
+                <span className="text-sm font-medium text-foreground/80 dark:text-white/80 pj">
                   50K+ wallpaper đang chờ bạn
                 </span>
               </LiquidCard>
@@ -1217,7 +1220,7 @@ const HomePage = () => {
             <div className="absolute top-6 right-6 z-20">
               <LiquidCard className="px-4 py-2 flex items-center gap-2">
                 <TrendingUp size={14} className="text-violet-400" />
-                <span className="text-sm font-medium text-white/80 pj">
+                <span className="text-sm font-medium text-foreground/80 dark:text-white/80 pj">
                   +340 ảnh hôm nay
                 </span>
               </LiquidCard>
@@ -1244,7 +1247,7 @@ const HomePage = () => {
                 >
                   {value}
                 </p>
-                <p className="text-[10px] font-bold tracking-widest uppercase text-foreground/45 pj">
+                <p className="text-[10px] font-bold tracking-widest uppercase text-[#6D6255] dark:text-white/45 pj">
                   {label}
                 </p>
               </div>
@@ -1364,7 +1367,7 @@ const HomePage = () => {
                   Bộ sưu tập mới
                 </h2>
               </div>
-              <span className="text-white/30 text-sm font-bold pj">
+              <span className="text-foreground/45 dark:text-white/30 text-sm font-bold pj">
                 Cập nhật 5 phút trước
               </span>
             </motion.div>
@@ -1388,7 +1391,7 @@ const HomePage = () => {
                 <h2 className="text-2xl font-black tracking-tight mb-8 pj">
                   Bảng xếp hạng
                 </h2>
-                <div className="space-y-4 divide-y divide-white/5">
+                <div className="space-y-4 divide-y divide-[var(--color-border)]">
                   {LEADERBOARD.map((c, i) => (
                     <div key={c.rank} className={i > 0 ? 'pt-4' : ''}>
                       <LeaderRow c={c} delay={i * 0.08} />
@@ -1400,7 +1403,7 @@ const HomePage = () => {
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     className="w-full mt-8 py-4 liquid-glass rounded-full text-sm font-bold pj
-                      hover:text-white text-white/60 transition-all"
+                      text-foreground/60 hover:text-foreground dark:text-white/60 dark:hover:text-white transition-all"
                   >
                     Xem tất cả creator
                   </motion.button>
