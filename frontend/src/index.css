@@ -43,7 +43,7 @@
     --color-surface-100: #f1e9db;
     --color-surface-200: #abaa6b;
     --color-surface-300: #d37036;
-    --color-foreground: #211D16;
+    --color-foreground: #211d16;
     --color-border: rgba(33, 29, 22, 0.08);
     --color-border-input: rgba(33, 29, 22, 0.12);
     --color-placeholder: rgba(33, 29, 22, 0.4);
@@ -73,6 +73,12 @@
     @apply bg-surface text-foreground font-sans antialiased;
     /* Prevent horizontal scroll on mobile */
     overflow-x: hidden;
+  }
+
+  svg {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 
   /* Custom scrollbar */

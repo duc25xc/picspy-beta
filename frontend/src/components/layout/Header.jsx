@@ -1,9 +1,19 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import { 
-  LogOut, Upload, Bell, Coins, Eye, LayoutGrid, 
-  User, Sun, Moon, Monitor, Globe, ChevronDown 
+import {
+  LogOut,
+  Upload,
+  Bell,
+  Coins,
+  Eye,
+  LayoutGrid,
+  User,
+  Sun,
+  Moon,
+  Monitor,
+  Globe,
+  ChevronDown,
 } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
 import { useSettings } from '../../context/SettingsContext'
@@ -54,24 +64,33 @@ const Header = () => {
 
   const handleLogout = async () => {
     await logout()
-    toast.success(language === 'vi' ? 'Đã đăng xuất thành công' : 'Logged out successfully')
+    toast.success(
+      language === 'vi' ? 'Đã đăng xuất thành công' : 'Logged out successfully'
+    )
     setIsDropdownOpen(false)
     navigate('/login')
   }
 
   return (
-    <header 
-      className={`hidden md:block sticky top-0 z-50 h-14 transition-all duration-300 ${
-        isScrolled 
-          ? 'liquid-glass navbar-liquid-glass' 
-          : 'bg-transparent border-b border-transparent'
+    <header
+      className={`hidden md:block sticky top-0 z-50 h-14 transition-colors duration-300 ${
+        isScrolled ? 'shadow-lg shadow-black/5' : ''
       }`}
     >
-      <div className="max-w-[1692px] mx-auto px-8 h-full flex items-center">
-        {/* Left: Logo — flex-1 để chiếm đều với bên phải */}
-        <div className="flex-1 flex items-center">
+      {/* Lớp nền Liquid Glass riêng biệt - Không làm ảnh hưởng tới tọa độ absolute bên trong */}
+      <div
+        className={`absolute inset-0 -z-10 border-b backdrop-blur-md transition-all duration-500 ${
+          isScrolled
+            ? 'bg-surface-50/70 border-[var(--color-glass-border)]'
+            : 'bg-transparent border-transparent'
+        }`}
+      />
+
+      <div className="max-w-[1692px] mx-auto px-8 h-full flex items-center relative">
+        {/* Left: Logo */}
+        <div className="flex-1 flex items-center select-none">
           <Link to="/" className="flex items-center gap-2 group">
-            <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-brand-900/40 group-hover:scale-105 transition-transform">
+            <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-brand-900/40 group-hover:scale-105 transition-transform flex-shrink-0">
               <Eye size={16} className="text-white" />
             </div>
             <span className="font-display font-bold text-lg tracking-wide bg-gradient-to-r from-brand-500 to-indigo-500 bg-clip-text text-transparent">
@@ -80,7 +99,7 @@ const Header = () => {
           </Link>
         </div>
 
-        {/* Center: Navigation links — luôn căn giữa tuyệt đối */}
+        {/* Center: Navigation links */}
         <nav className="flex items-center gap-1">
           <Link to="/" className="nav-link">
             {t.nav.explore}
@@ -92,61 +111,78 @@ const Header = () => {
             {t.nav.pricing}
           </Link>
           {user && (
-            <Link to="/my-posts" className="nav-link inline-flex items-center gap-1.5">
+            <Link
+              to="/my-posts"
+              className="nav-link inline-flex items-center gap-1.5"
+            >
               <LayoutGrid size={14} />
               {t.nav.myPosts}
             </Link>
           )}
         </nav>
 
-        {/* Right: Actions — flex-1 justify-end để cân bằng với bên trái */}
+        {/* Right: Actions */}
         <div className="flex-1 flex items-center justify-end">
           {user ? (
             <div className="flex items-center gap-3">
               {/* Token balance + tier badge */}
-              <Link 
-                to="/pricing" 
-                className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-50 border hover:bg-[var(--color-border)] transition-all text-foreground hover:scale-102"
+              <Link
+                to="/pricing"
+                className="flex items-center gap-2 px-3 h-8 rounded-full bg-surface-50/50 border hover:bg-[var(--color-border)] transition-all text-foreground hover:scale-102 flex-shrink-0"
               >
                 <Coins size={15} className="text-yellow-500" />
                 <span className="text-xs font-bold font-sans">
                   {(user.tokenBalance || 0).toLocaleString()}
                 </span>
                 {user.subscriptionTier && user.subscriptionTier !== 'free' && (
-                  <span className={`text-[9px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase flex items-center gap-0.5 ${
-                    user.subscriptionTier === 'founder' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' :
-                    user.subscriptionTier === 'ultimate' ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20' :
-                    'bg-brand-500/10 text-brand-500 border border-brand-500/20'
-                  }`}>
-                    {user.subscriptionTier === 'founder' ? '🎖️' : user.subscriptionTier === 'ultimate' ? '💎' : '⭐'}
+                  <span
+                    className={`text-[9px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase flex items-center gap-0.5 ${
+                      user.subscriptionTier === 'founder'
+                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                        : user.subscriptionTier === 'ultimate'
+                          ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20'
+                          : 'bg-brand-500/10 text-brand-500 border border-brand-500/20'
+                    }`}
+                  >
+                    {user.subscriptionTier === 'founder'
+                      ? '🎖️'
+                      : user.subscriptionTier === 'ultimate'
+                        ? '💎'
+                        : '⭐'}
                     {user.subscriptionTier}
                   </span>
                 )}
               </Link>
 
               {/* Upload Button */}
-              <Link to="/upload" className="nav-link-primary inline-flex items-center gap-1.5">
+              <Link
+                to="/upload"
+                className="nav-link-primary h-8 !py-0 inline-flex items-center justify-center gap-1.5 flex-shrink-0"
+              >
                 <Upload size={14} />
                 <span>{t.nav.upload}</span>
               </Link>
 
               {/* Notifications */}
-              <Link to="/notifications" className="relative p-2 rounded-full hover:bg-[var(--color-border)] transition-colors text-[var(--color-text-muted)] hover:text-foreground">
+              <Link
+                to="/notifications"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-border)] transition-colors text-[var(--color-text-muted)] hover:text-foreground flex-shrink-0"
+              >
                 <Bell size={18} />
               </Link>
 
               {/* Avatar Dropdown Container */}
-              <div className="relative" ref={dropdownRef}>
-                <button 
+              <div className="relative inline-block" ref={dropdownRef}>
+                <button
                   onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                  className="flex items-center gap-1.5 p-0.5 rounded-full hover:bg-[var(--color-border)] transition-colors focus:outline-none"
+                  className="flex items-center gap-1.5 p-0.5 h-8 rounded-full hover:bg-[var(--color-border)] transition-colors focus:outline-none"
                 >
-                  <div className="w-8 h-8 rounded-full overflow-hidden border-2 border-brand-500 shadow-sm">
+                  <div className="w-7 h-7 rounded-full overflow-hidden border-2 border-brand-500 shadow-sm flex-shrink-0">
                     {user.avatar && !avatarError ? (
-                      <img 
-                        src={user.avatar} 
-                        alt={user.username} 
-                        className="w-full h-full object-cover" 
+                      <img
+                        src={user.avatar}
+                        alt={user.username}
+                        className="w-full h-full object-cover"
                         onError={() => setAvatarError(true)}
                       />
                     ) : (
@@ -155,9 +191,14 @@ const Header = () => {
                       </div>
                     )}
                   </div>
-                  <ChevronDown size={14} className="text-[var(--color-text-muted)] hover:text-foreground transition-transform duration-200" style={{ transform: isDropdownOpen ? 'rotate(180deg)' : 'none' }} />
+                  <ChevronDown
+                    size={14}
+                    className="text-[var(--color-text-muted)] hover:text-foreground transition-transform duration-200 flex-shrink-0"
+                    style={{
+                      transform: isDropdownOpen ? 'rotate(180deg)' : 'none',
+                    }}
+                  />
                 </button>
-
                 {/* Dropdown Menu */}
                 <AnimatePresence>
                   {isDropdownOpen && (
@@ -172,10 +213,10 @@ const Header = () => {
                       <div className="p-3 flex items-center gap-3 bg-surface-100 rounded-xl mb-1">
                         <div className="w-10 h-10 rounded-full overflow-hidden border border-brand-500/20 flex-shrink-0">
                           {user.avatar && !avatarError ? (
-                            <img 
-                              src={user.avatar} 
-                              alt={user.username} 
-                              className="w-full h-full object-cover" 
+                            <img
+                              src={user.avatar}
+                              alt={user.username}
+                              className="w-full h-full object-cover"
                               onError={() => setAvatarError(true)}
                             />
                           ) : (
@@ -185,27 +226,37 @@ const Header = () => {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className="text-xs font-semibold truncate text-foreground">{user.username}</p>
-                          <p className="text-[10px] text-[var(--color-text-muted)] truncate">{user.email}</p>
+                          <p className="text-xs font-semibold truncate text-foreground">
+                            {user.username}
+                          </p>
+                          <p className="text-[10px] text-[var(--color-text-muted)] truncate">
+                            {user.email}
+                          </p>
                         </div>
                       </div>
 
                       {/* Navigation Items */}
-                      <Link 
+                      <Link
                         to={`/profile/${user.username}`}
                         onClick={() => setIsDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-[var(--color-border)] transition-colors"
                       >
-                        <User size={14} className="text-[var(--color-text-muted)]" />
+                        <User
+                          size={14}
+                          className="text-[var(--color-text-muted)]"
+                        />
                         <span>{t.dropdown.profile}</span>
                       </Link>
 
-                      <Link 
+                      <Link
                         to="/my-posts"
                         onClick={() => setIsDropdownOpen(false)}
                         className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-[var(--color-border)] transition-colors"
                       >
-                        <LayoutGrid size={14} className="text-[var(--color-text-muted)]" />
+                        <LayoutGrid
+                          size={14}
+                          className="text-[var(--color-text-muted)]"
+                        />
                         <span>{t.dropdown.myPosts}</span>
                       </Link>
 
@@ -216,24 +267,26 @@ const Header = () => {
                       <div className="px-3 py-2 flex flex-col gap-1.5">
                         <div className="flex items-center gap-1.5 text-[var(--color-text-muted)]">
                           <Globe size={13} />
-                          <span className="text-[10px] font-black uppercase tracking-wider">{t.dropdown.language}</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {t.dropdown.language}
+                          </span>
                         </div>
                         <div className="grid grid-cols-2 gap-1 bg-surface-100 p-0.5 rounded-lg border">
-                          <button 
+                          <button
                             onClick={() => changeLanguage('vi')}
                             className={`text-xs py-1 rounded-md font-medium transition-all ${
-                              language === 'vi' 
-                                ? 'bg-brand-600 text-white shadow-sm' 
+                              language === 'vi'
+                                ? 'bg-brand-600 text-white shadow-sm'
                                 : 'text-foreground hover:bg-[var(--color-border)]'
                             }`}
                           >
                             VI
                           </button>
-                          <button 
+                          <button
                             onClick={() => changeLanguage('en')}
                             className={`text-xs py-1 rounded-md font-medium transition-all ${
-                              language === 'en' 
-                                ? 'bg-brand-600 text-white shadow-sm' 
+                              language === 'en'
+                                ? 'bg-brand-600 text-white shadow-sm'
                                 : 'text-foreground hover:bg-[var(--color-border)]'
                             }`}
                           >
@@ -247,14 +300,16 @@ const Header = () => {
                         <div className="flex items-center gap-1.5 text-[var(--color-text-muted)]">
                           <Sun size={13} className="block dark:hidden" />
                           <Moon size={13} className="hidden dark:block" />
-                          <span className="text-[10px] font-black uppercase tracking-wider">{t.dropdown.theme}</span>
+                          <span className="text-[10px] font-black uppercase tracking-wider">
+                            {t.dropdown.theme}
+                          </span>
                         </div>
                         <div className="grid grid-cols-3 gap-0.5 bg-surface-100 p-0.5 rounded-lg border">
-                          <button 
+                          <button
                             onClick={() => changeTheme('light')}
                             className={`text-[9px] sm:text-xs py-1 rounded-md font-medium transition-all flex items-center justify-center gap-1 ${
-                              theme === 'light' 
-                                ? 'bg-brand-600 text-white shadow-sm' 
+                              theme === 'light'
+                                ? 'bg-brand-600 text-white shadow-sm'
                                 : 'text-foreground hover:bg-[var(--color-border)]'
                             }`}
                             title={t.dropdown.themeLight}
@@ -262,11 +317,11 @@ const Header = () => {
                             <Sun size={10} />
                             <span>{t.dropdown.themeLight}</span>
                           </button>
-                          <button 
+                          <button
                             onClick={() => changeTheme('dark')}
                             className={`text-[9px] sm:text-xs py-1 rounded-md font-medium transition-all flex items-center justify-center gap-1 ${
-                              theme === 'dark' 
-                                ? 'bg-brand-600 text-white shadow-sm' 
+                              theme === 'dark'
+                                ? 'bg-brand-600 text-white shadow-sm'
                                 : 'text-foreground hover:bg-[var(--color-border)]'
                             }`}
                             title={t.dropdown.themeDark}
@@ -274,11 +329,11 @@ const Header = () => {
                             <Moon size={10} />
                             <span>{t.dropdown.themeDark}</span>
                           </button>
-                          <button 
+                          <button
                             onClick={() => changeTheme('system')}
                             className={`text-[9px] sm:text-xs py-1 rounded-md font-medium transition-all flex items-center justify-center gap-1 ${
-                              theme === 'system' 
-                                ? 'bg-brand-600 text-white shadow-sm' 
+                              theme === 'system'
+                                ? 'bg-brand-600 text-white shadow-sm'
                                 : 'text-foreground hover:bg-[var(--color-border)]'
                             }`}
                             title={t.dropdown.themeSystem}
@@ -293,7 +348,7 @@ const Header = () => {
                       <hr className="my-1 border-[var(--color-border)]" />
 
                       {/* Logout Button */}
-                      <button 
+                      <button
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-red-500 hover:bg-red-500/10 transition-colors text-left"
                       >
