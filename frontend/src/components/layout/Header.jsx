@@ -63,7 +63,7 @@ const Header = () => {
     <header 
       className={`hidden md:block sticky top-0 z-50 h-14 transition-all duration-300 ${
         isScrolled 
-          ? 'liquid-glass' 
+          ? 'liquid-glass navbar-liquid-glass' 
           : 'bg-transparent border-b border-transparent'
       }`}
     >

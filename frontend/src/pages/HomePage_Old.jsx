@@ -44,49 +44,43 @@ const FontLoader = () => (
 
     /* ── Liquid Glass core ── */
     .liquid-glass {
-      background: var(--color-glass-bg);
+      background: rgba(255,255,255,0.04);
       backdrop-filter: blur(28px) saturate(180%);
       -webkit-backdrop-filter: blur(28px) saturate(180%);
-      border: 1px solid var(--color-glass-border);
+      border: 1px solid rgba(255,255,255,0.09);
       box-shadow: 
-        inset 0 1px 0 var(--color-glass-inset-glow),
-        0 8px 32px var(--color-glass-shadow);
-      transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        inset 0 1px 0 rgba(255,255,255,0.12),
+        0 8px 32px rgba(0,0,0,0.35),
+        0 0 0 0.5px rgba(255,255,255,0.04);
     }
 
     .liquid-glass-strong {
-      background: var(--color-glass-strong-bg);
+      background: rgba(32,31,34,0.45);
       backdrop-filter: blur(40px) saturate(200%);
       -webkit-backdrop-filter: blur(40px) saturate(200%);
-      border: 1px solid var(--color-glass-strong-border);
+      border: 1px solid rgba(255,255,255,0.10);
       box-shadow:
-        inset 0 1px 0 var(--color-glass-strong-inset),
-        0 20px 60px var(--color-glass-shadow);
-      transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+        inset 0 1px 0 rgba(255,255,255,0.14),
+        inset 0 -1px 0 rgba(0,0,0,0.3),
+        0 20px 60px rgba(0,0,0,0.4),
+        0 0 0 0.5px rgba(255,255,255,0.05);
     }
 
     .liquid-glass-hover {
       transition: all 0.4s cubic-bezier(0.23, 1, 0.32, 1);
     }
     .liquid-glass-hover:hover {
-      background: var(--color-glass-hover-bg);
-      border-color: var(--color-glass-hover-border);
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(255,255,255,0.15);
       box-shadow:
-        inset 0 1px 0 var(--color-glass-hover-inset),
-        0 12px 40px var(--color-glass-shadow),
-        0 0 40px var(--color-glass-hover-glow);
+        inset 0 1px 0 rgba(255,255,255,0.18),
+        0 12px 40px rgba(0,0,0,0.45),
+        0 0 40px rgba(124,58,237,0.08);
     }
 
-    /* ── Gradient text — giống HomePage cũ, tương thích Light/Dark ── */
+    /* ── Gradient text — giống HomePage cũ, không animation ── */
     .hero-gradient-text {
       background: linear-gradient(135deg, #a78bfa 0%, #818cf8 40%, #60a5fa 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
-    }
-
-    .light .hero-gradient-text {
-      background: linear-gradient(135deg, #7c3aed 0%, #fe843e 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
       background-clip: text;
@@ -351,10 +345,10 @@ const CategoryCard = ({ label, count, emoji, img, delay }) => (
     {/* Floating label */}
     <div className="absolute bottom-5 left-4 right-4 translate-y-1 group-hover:translate-y-0 transition-transform duration-400">
       <LiquidCard className="px-4 py-3">
-        <span className="text-sm font-bold text-foreground dark:text-white pj flex items-center gap-2">
+        <span className="text-sm font-bold text-white pj flex items-center gap-2">
           <span>{emoji}</span> {label}
         </span>
-        <p className="text-[10px] text-foreground/60 dark:text-white/45 font-bold uppercase tracking-wider pj mt-0.5">
+        <p className="text-[10px] text-white/45 font-bold uppercase tracking-wider pj mt-0.5">
           {count} tác phẩm
         </p>
       </LiquidCard>
@@ -388,13 +382,11 @@ const TrendingCard = ({ item, delay }) => (
             {item.avatar}
           </div>
           <div>
-            <p className="font-bold text-sm text-foreground pj">
-              {item.author}
-            </p>
-            <p className="text-[11px] text-foreground/60 pj">{item.title}</p>
+            <p className="font-bold text-sm text-white pj">{item.author}</p>
+            <p className="text-[11px] text-white/50 pj">{item.title}</p>
           </div>
         </div>
-        <div className="flex items-center gap-3 text-sm text-foreground/80">
+        <div className="flex items-center gap-3 text-sm text-white/80">
           <button className="flex items-center gap-1 hover:text-red-400 transition-colors">
             <Heart size={14} className="fill-red-400 text-red-400" />
             <span className="font-bold pj">
@@ -665,13 +657,13 @@ const LeaderRow = ({ c, delay }) => (
     className="flex items-center justify-between group cursor-pointer py-2"
   >
     <div className="flex items-center gap-4">
-      <span className="text-foreground/30 font-black italic text-xl w-7 pj">
+      <span className="text-white/20 font-black italic text-xl w-7 pj">
         {c.rank}
       </span>
       <div className="relative">
         <div
           className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-blue-500
-          flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
+          flex items-center justify-center text-white text-sm font-black pj border border-white/10"
         >
           {c.avatar}
         </div>
@@ -685,15 +677,15 @@ const LeaderRow = ({ c, delay }) => (
         )}
       </div>
       <div>
-        <div className="font-bold text-sm text-foreground pj">{c.name}</div>
-        <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider pj">
+        <div className="font-bold text-sm text-white pj">{c.name}</div>
+        <div className="text-[10px] text-white/35 font-bold uppercase tracking-wider pj">
           {c.followers} followers
         </div>
       </div>
     </div>
     <button
       className="w-8 h-8 rounded-full liquid-glass flex items-center justify-center
-      text-foreground/30 group-hover:text-brand-600 dark:group-hover:text-violet-400 transition-colors"
+      text-white/30 group-hover:text-violet-400 transition-colors"
     >
       <Plus size={14} />
     </button>
@@ -821,7 +813,7 @@ const CommunityGallerySection = () => {
             </div>
 
             {/* Feed Tabs */}
-            <div className="flex gap-1.5 bg-surface-50 p-1 rounded-2xl border border-[var(--color-border)] self-start md:self-auto">
+            <div className="flex gap-1.5 bg-white/5 p-1 rounded-2xl border border-white/10 self-start md:self-auto">
               {FEED_TABS.map(({ key, label, needAuth }) => (
                 <button
                   key={key}
@@ -829,15 +821,15 @@ const CommunityGallerySection = () => {
                   className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all pj
                     ${
                       activeTab === key
-                        ? 'bg-brand-600 text-white shadow-md'
-                        : 'text-foreground/50 hover:text-foreground'
+                        ? 'bg-violet-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.4)]'
+                        : 'text-white/50 hover:text-white/80'
                     }
                     ${needAuth && !isLoggedIn ? 'opacity-60' : ''}
                   `}
                 >
                   {label}
                   {needAuth && !isLoggedIn && (
-                    <span className="ml-1 text-[9px] opacity-40">🔒</span>
+                    <span className="ml-1 text-[9px] text-white/30">🔒</span>
                   )}
                 </button>
               ))}
@@ -862,10 +854,10 @@ const CommunityGallerySection = () => {
               <div className="w-20 h-20 rounded-3xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">💜</span>
               </div>
-              <h3 className="text-foreground font-bold text-lg mb-2 pj">
+              <h3 className="text-white font-bold text-lg mb-2 pj">
                 Chưa follow ai cả
               </h3>
-              <p className="text-foreground/50 text-sm max-w-xs mx-auto pj">
+              <p className="text-white/40 text-sm max-w-xs mx-auto pj">
                 Follow những creator bạn yêu thích để xem ảnh của họ tại đây.
               </p>
               <Link
@@ -921,8 +913,8 @@ const CommunityGallerySection = () => {
                     onClick={() => fetchPosts(false)}
                     disabled={loadingMore}
                     className="flex items-center gap-2 px-6 py-3 rounded-2xl
-                      bg-surface-50 border border-[var(--color-border)] text-foreground/60
-                      hover:bg-surface-100 hover:text-foreground transition-all text-sm font-semibold pj
+                      bg-white/5 border border-white/10 text-white/60
+                      hover:bg-white/10 hover:text-white transition-all text-sm font-semibold pj
                       disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {loadingMore ? (
@@ -944,7 +936,7 @@ const CommunityGallerySection = () => {
               )}
 
               {!hasMore && posts.length >= 12 && (
-                <p className="text-center text-foreground/30 text-xs mt-10 pj italic">
+                <p className="text-center text-white/20 text-xs mt-10 pj italic">
                   — Đã xem hết {posts.length} ảnh —
                 </p>
               )}
@@ -956,7 +948,7 @@ const CommunityGallerySection = () => {
             <div className="flex justify-end mt-6">
               <Link
                 to="/search"
-                className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-violet-400 dark:hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
+                className="flex items-center gap-2 text-violet-400 hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
               >
                 Xem tất cả
                 <ArrowRight
@@ -1089,7 +1081,7 @@ const HomePage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-8
-              liquid-glass text-brand-600 dark:text-violet-300 text-[11px] font-bold tracking-[0.2em] uppercase"
+              liquid-glass text-violet-300 text-[11px] font-bold tracking-[0.2em] uppercase"
           >
             <Sparkles size={11} className="animate-pulse" />
             AI-Powered Visual Curator #1 Việt Nam
@@ -1107,10 +1099,10 @@ const HomePage = () => {
             className="text-5xl sm:text-6xl md:text-7xl lg:text-[5.5rem] font-black
               tracking-tighter leading-[1.1] mb-8"
           >
-            <span className="block text-foreground">
+            <span className="block text-white">
               Chia sẻ <span className="hero-gradient-text">sáng tạo,</span>
             </span>
-            <span className="block text-foreground">
+            <span className="block text-white">
               Kiếm tiền từ{' '}
               <span className="relative inline-block">
                 <span class="hero-gradient-text inline-block pr-[2px]">
@@ -1131,7 +1123,7 @@ const HomePage = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="max-w-2xl mx-auto text-foreground/60 text-lg md:text-xl
+            className="max-w-2xl mx-auto text-white/50 text-lg md:text-xl
               font-light leading-relaxed mb-12"
           >
             Nền tảng nghệ thuật số hàng đầu nơi các nhà sáng tạo nội dung trình
@@ -1162,8 +1154,8 @@ const HomePage = () => {
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
-                className="px-10 py-5 rounded-full font-bold text-foreground/80 text-base w-full sm:w-auto
-                  liquid-glass hover:text-foreground transition-all duration-300"
+                className="px-10 py-5 rounded-full font-bold text-white/80 text-base w-full sm:w-auto
+                  liquid-glass hover:text-white transition-all duration-300"
               >
                 Khám phá Gallery
               </motion.button>
@@ -1231,7 +1223,7 @@ const HomePage = () => {
       ════════════════════════════════════════ */}
       <section className="max-w-7xl mx-auto px-4 -mt-16 relative z-20">
         <LiquidCard strong className="p-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-[var(--color-border)]">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-white/5">
             {STATS.map(({ value, label, color }, i) => (
               <div
                 key={label}
@@ -1244,7 +1236,7 @@ const HomePage = () => {
                 >
                   {value}
                 </p>
-                <p className="text-[10px] font-bold tracking-widest uppercase text-foreground/45 pj">
+                <p className="text-[10px] font-bold tracking-widest uppercase text-white/35 pj">
                   {label}
                 </p>
               </div>
@@ -1266,19 +1258,19 @@ const HomePage = () => {
             className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-6"
           >
             <div>
-              <p className="text-brand-600 dark:text-violet-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
+              <p className="text-violet-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
                 🎯 Danh mục nổi bật
               </p>
               <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-3 pj">
                 Danh mục nổi bật
               </h2>
-              <p className="text-foreground/60 dark:text-white/40 max-w-md text-base leading-relaxed pj">
+              <p className="text-white/40 max-w-md text-base leading-relaxed pj">
                 Khám phá kho lưu trữ được phân loại chuyên nghiệp bởi cộng đồng.
               </p>
             </div>
             <Link
               to="/search"
-              className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-violet-400 dark:hover:text-white
+              className="flex items-center gap-2 text-violet-400 hover:text-white
                 font-bold transition-colors group text-sm shrink-0 pj"
             >
               Xem tất cả danh mục
@@ -1301,12 +1293,12 @@ const HomePage = () => {
       {/* ════════════════════════════════════════
           TRENDING COMMUNITY
       ════════════════════════════════════════ */}
-      <section className="py-24 bg-surface-50/50 border-y border-[var(--color-border)]">
+      <section className="py-24 bg-white/[0.015] border-y border-white/5">
         <div className="max-w-7xl mx-auto px-4">
           {/* Header */}
           <div className="flex items-center justify-between mb-14">
             <div>
-              <p className="text-brand-600 dark:text-blue-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
+              <p className="text-blue-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
                 🔥 Trending tuần này
               </p>
               <h2 className="text-4xl font-black tracking-tight pj">
@@ -1316,13 +1308,13 @@ const HomePage = () => {
             <div className="flex gap-2">
               <button
                 className="w-12 h-12 rounded-full liquid-glass flex items-center justify-center
-                text-foreground/50 hover:text-foreground transition-colors"
+                text-white/50 hover:text-white transition-colors"
               >
                 <ChevronLeft size={20} />
               </button>
               <button
                 className="w-12 h-12 rounded-full liquid-glass flex items-center justify-center
-                text-foreground/50 hover:text-foreground transition-colors"
+                text-white/50 hover:text-white transition-colors"
               >
                 <ChevronRight size={20} />
               </button>
@@ -1431,11 +1423,12 @@ const HomePage = () => {
           <div
             className="relative rounded-[2.5rem] overflow-hidden p-12 md:p-20 noise"
             style={{
-              background: 'var(--cta-bg)',
+              background: 'rgba(20, 18, 35, 0.75)',
               backdropFilter: 'blur(48px) saturate(160%)',
               WebkitBackdropFilter: 'blur(48px) saturate(160%)',
-              border: '1px solid var(--cta-border)',
-              boxShadow: 'inset 0 1px 0 var(--cta-inset), var(--cta-shadow)',
+              border: '1px solid rgba(124, 58, 237, 0.2)',
+              boxShadow:
+                'inset 0 1px 0 rgba(255,255,255,0.07), 0 30px 80px rgba(0,0,0,0.5)',
             }}
           >
             {/* Subtle violet tint blob */}
@@ -1459,13 +1452,13 @@ const HomePage = () => {
             <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16">
               {/* Left text */}
               <div className="max-w-xl text-center lg:text-left">
-                <p className="text-brand-600 dark:text-violet-400 text-[11px] font-bold tracking-widest uppercase mb-4 pj">
+                <p className="text-violet-400/80 text-[11px] font-bold tracking-widest uppercase mb-4 pj">
                   🚀 Creator Program
                 </p>
-                <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tighter mb-6 leading-tight pj">
+                <h2 className="text-4xl md:text-5xl font-black text-white tracking-tighter mb-6 leading-tight pj">
                   Bạn là nhà sáng tạo nghệ thuật AI?
                 </h2>
-                <p className="text-foreground/70 text-base mb-8 leading-relaxed pj">
+                <p className="text-white/55 text-base mb-8 leading-relaxed pj">
                   Gia nhập đội ngũ PICSPY Creators ngay. Hệ thống Coin minh bạch
                   giúp bạn nhận lại giá trị xứng đáng từ mỗi lượt yêu thích.
                 </p>
@@ -1473,21 +1466,19 @@ const HomePage = () => {
                 {/* Coin equation */}
                 <div className="flex items-center justify-center lg:justify-start gap-5 mb-8">
                   <div className="liquid-glass rounded-2xl p-4 text-center">
-                    <div className="text-2xl font-black text-foreground pj">
+                    <div className="text-2xl font-black text-white pj">
                       1,000
                     </div>
-                    <div className="text-[10px] font-bold uppercase text-foreground/50 pj">
+                    <div className="text-[10px] font-bold uppercase text-white/40 pj">
                       Lượt thích
                     </div>
                   </div>
-                  <div className="text-foreground/60 text-2xl font-black pj">
-                    =
-                  </div>
+                  <div className="text-white/60 text-2xl font-black pj">=</div>
                   <div className="liquid-glass rounded-2xl p-4 text-center">
                     <div className="text-2xl font-black hero-gradient-text pj">
                       5 Xu
                     </div>
-                    <div className="text-[10px] font-bold uppercase text-foreground/50 pj">
+                    <div className="text-[10px] font-bold uppercase text-white/40 pj">
                       Coin
                     </div>
                   </div>
@@ -1497,7 +1488,7 @@ const HomePage = () => {
               {/* Right: PRO card */}
               <div
                 className="liquid-glass rounded-2xl p-8 max-w-sm w-full"
-                style={{ borderColor: 'var(--cta-border)' }}
+                style={{ borderColor: 'rgba(124,58,237,0.2)' }}
               >
                 <div className="text-center mb-7">
                   <div
@@ -1506,7 +1497,7 @@ const HomePage = () => {
                   >
                     <Star size={26} className="text-amber-300" />
                   </div>
-                  <h3 className="text-xl font-bold text-foreground pj">
+                  <h3 className="text-xl font-bold text-white pj">
                     Trở thành Creator PRO
                   </h3>
                 </div>
@@ -1518,13 +1509,13 @@ const HomePage = () => {
                   ].map((item) => (
                     <li
                       key={item}
-                      className="flex items-center gap-3 text-sm text-foreground/75 pj"
+                      className="flex items-center gap-3 text-sm text-white/70 pj"
                     >
                       <div
-                        className="w-5 h-5 rounded-full bg-brand-500/10 dark:bg-violet-500/20 border border-brand-500/20 dark:border-violet-400/30
+                        className="w-5 h-5 rounded-full bg-violet-500/20 border border-violet-400/30
                         flex items-center justify-center shrink-0"
                       >
-                        <div className="w-2 h-2 rounded-full bg-brand-600 dark:bg-violet-300" />
+                        <div className="w-2 h-2 rounded-full bg-violet-300" />
                       </div>
                       {item}
                     </li>
@@ -1552,7 +1543,7 @@ const HomePage = () => {
       {/* ════════════════════════════════════════
           FOOTER
       ════════════════════════════════════════ */}
-      <footer className="bg-surface-50 border-t border-[var(--color-border)] pt-20 pb-10 px-4">
+      <footer className="bg-black/40 border-t border-white/5 pt-20 pb-10 px-4">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
             {/* Brand */}
@@ -1566,12 +1557,12 @@ const HomePage = () => {
                 </div>
                 <span
                   className="text-2xl font-black tracking-tight pj
-                  bg-gradient-to-r from-violet-600 to-blue-600 dark:from-violet-400 dark:to-blue-400 bg-clip-text text-transparent"
+                  bg-gradient-to-r from-violet-400 to-blue-400 bg-clip-text text-transparent"
                 >
                   PICSPY
                 </span>
               </div>
-              <p className="text-foreground/60 max-w-xs mb-7 leading-relaxed text-sm pj">
+              <p className="text-white/35 max-w-xs mb-7 leading-relaxed text-sm pj">
                 Nền tảng curator nghệ thuật số lớn nhất Việt Nam, kết nối hàng
                 triệu trái tim yêu cái đẹp thông qua công nghệ AI.
               </p>
@@ -1615,15 +1606,15 @@ const HomePage = () => {
               },
             ].map(({ title, links }) => (
               <div key={title}>
-                <h4 className="font-bold mb-5 text-foreground text-sm uppercase tracking-wider pj">
+                <h4 className="font-bold mb-5 text-white text-sm uppercase tracking-wider pj">
                   {title}
                 </h4>
-                <ul className="space-y-3 text-sm text-foreground/50">
+                <ul className="space-y-3 text-sm text-white/35">
                   {links.map((l) => (
                     <li key={l}>
                       <a
                         href="#"
-                        className="hover:text-brand-600 dark:hover:text-violet-400 transition-colors pj"
+                        className="hover:text-violet-400 transition-colors pj"
                       >
                         {l}
                       </a>
@@ -1635,13 +1626,13 @@ const HomePage = () => {
           </div>
 
           <div
-            className="pt-8 border-t border-[var(--color-border)] flex flex-col sm:flex-row
+            className="pt-8 border-t border-white/5 flex flex-col sm:flex-row
             justify-between items-center gap-4"
           >
-            <p className="text-foreground/40 text-xs font-bold tracking-widest uppercase pj">
+            <p className="text-white/25 text-xs font-bold tracking-widest uppercase pj">
               © 2026 PICSPY Vietnam. All rights reserved.
             </p>
-            <p className="text-foreground/40 text-xs font-bold pj flex items-center gap-1">
+            <p className="text-white/25 text-xs font-bold pj flex items-center gap-1">
               Made with{' '}
               <Heart size={11} className="text-red-400 fill-red-400 mx-1" /> in
               Vietnam

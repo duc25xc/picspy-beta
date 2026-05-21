@@ -64,7 +64,7 @@ const BottomNav = () => {
   return (
     <>
       <nav className="fixed bottom-0 left-0 right-0 z-40 md:hidden pb-safe">
-        <div className="bg-surface-50/90 backdrop-blur-xl border-t border-[var(--color-border)] transition-all">
+        <div className="bg-[rgba(255,252,245,0.75)] dark:bg-surface-50/90 backdrop-blur-xl border-t border-[var(--color-border)] transition-all">
           <div className="flex items-center justify-around px-2 py-2">
             {navItems.map((item) => {
               const { to, icon: Icon, label, isPrimary, isMenuTrigger } = item
