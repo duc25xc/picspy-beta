@@ -1563,9 +1563,9 @@ const HomePage = () => {
               <div className="flex items-center gap-3 mb-5">
                 <div
                   className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-blue-600
-                  flex items-center justify-center shadow-lg shadow-violet-900/50"
+                  flex items-center justify-center shadow-lg shadow-violet-900/50 flex-shrink-0 p-1.5"
                 >
-                  <span className="text-white text-base">👁</span>
+                  <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
                 </div>
                 <span
                   className="text-2xl font-black tracking-tight pj

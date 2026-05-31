@@ -1,0 +1,119 @@
+:root {
+  --color-bg: #0f0f13;
+  --color-brand-start: #7c3aed; /* Studio Violet */
+  --color-brand-end: #7986eb; /* Gallery Periwinkle */
+  --color-glow: rgba(121, 134, 235, 0.3);
+}
+
+body.loader-bg {
+  margin: 0;
+  padding: 0;
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--color-bg);
+  overflow: hidden;
+}
+
+.loader-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loader-icon-wrapper {
+  position: relative;
+  width: 96px;
+  height: 96px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.loader-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  padding: 3px; /* Độ dày của viền xoay */
+  background: conic-gradient(from 0deg, var(--color-brand-start), var(--color-brand-end), transparent 60%);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: spinRing 1.8s linear infinite;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+.loader-ring-glow {
+  position: absolute;
+  inset: -6px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--color-brand-end) 0%, transparent 70%);
+  opacity: 0.15;
+  filter: blur(12px);
+  animation: pulseGlow 3s ease-in-out infinite alternate;
+  transform: translateZ(0);
+  will-change: opacity, filter;
+}
+
+.loader-logo-container {
+  position: relative;
+  width: 72px;
+  height: 72px;
+  border-radius: 20px;
+  background-color: rgba(26, 26, 36, 0.8); /* Panel Smoke */
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  box-shadow: 
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    0 10px 30px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+  animation: pulseLogo 3s ease-in-out infinite;
+}
+
+.loader-logo {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  user-select: none;
+}
+
+@keyframes spinRing {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulseGlow {
+  from {
+    opacity: 0.1;
+    filter: blur(8px);
+  }
+  to {
+    opacity: 0.25;
+    filter: blur(16px);
+  }
+}
+
+@keyframes pulseLogo {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 10px 30px rgba(0, 0, 0, 0.5);
+  }
+  50% {
+    transform: scale(0.96);
+    box-shadow: 
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 10px 30px rgba(121, 134, 235, 0.15),
+      0 0 20px rgba(124, 58, 237, 0.2);
+    border-color: rgba(121, 134, 235, 0.3);
+  }
+}

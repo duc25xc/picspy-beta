@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { Suspense, lazy, useEffect } from 'react'
+import { Suspense, lazy, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
@@ -24,9 +24,8 @@ const ThemeTransitionOverlay = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ 
-            enter: { duration: 0.25, ease: 'easeOut' },
-            exit: { duration: 0.35, ease: 'easeInOut' },
-            duration: 0.25 
+            duration: 0.2,
+            ease: 'easeOut'
           }}
           className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
           style={{ 
@@ -35,16 +34,19 @@ const ThemeTransitionOverlay = () => {
         >
           {/* Logo pulse nhẹ nhàng khi chuyển theme */}
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
+            initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 1.1, opacity: 0 }}
-            transition={{ duration: 0.2 }}
-            className="w-12 h-12 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-2xl"
+            exit={{ scale: 1.05, opacity: 0 }}
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="relative w-20 h-20 flex items-center justify-center"
           >
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
-              <circle cx="12" cy="12" r="3"/>
-            </svg>
+            <div className="absolute inset-0 rounded-full loader-ring-mask animate-spin-ring opacity-70 translate-z-0 will-change-transform" />
+            <div 
+              className="relative rounded-[16px] bg-surface-50 border border-white/5 flex items-center justify-center shadow-xl translate-z-0"
+              style={{ width: '60px', height: '60px' }}
+            >
+              <img src="/icon-512.png" className="w-10 h-10 object-contain animate-pulse" alt="PICSPY Logo" />
+            </div>
           </motion.div>
         </motion.div>
       )}
@@ -69,14 +71,57 @@ const PricingPage = lazy(() => import('./pages/PricingPage'))
 // PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
 
 // Skeleton page loading
-const PageLoader = () => (
-  <div className="min-h-screen flex items-center justify-center">
-    <div className="flex flex-col items-center gap-3">
-      <div className="w-10 h-10 rounded-2xl bg-gradient-brand animate-pulse" />
-      <p className="text-white/30 text-sm">Đang tải...</p>
+const PageLoader = () => {
+  return (
+    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0b0f19] select-none">
+      <div className="flex flex-col items-center gap-14 md:gap-20">
+        {/* Banter Photo Overlay Loader */}
+        <div className="banter-loader-container">
+          <div className="banter-loader">
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+            <div className="banter-loader__box"></div>
+          </div>
+          <div className="photo-overlay"></div>
+        </div>
+
+        {/* Pro Liquid Text Loader (PICSPY - To và sắc nét) */}
+        <div className="liquid-loader" aria-label="PICSPY">
+          <div className="letter">
+            <span className="bg">P</span>
+            <span className="fg p1">P</span>
+          </div>
+          <div className="letter">
+            <span className="bg">I</span>
+            <span className="fg i">I</span>
+          </div>
+          <div className="letter">
+            <span className="bg">C</span>
+            <span className="fg c">C</span>
+          </div>
+          <div className="letter">
+            <span className="bg">S</span>
+            <span className="fg s">S</span>
+          </div>
+          <div className="letter">
+            <span className="bg">P</span>
+            <span className="fg p2">P</span>
+          </div>
+          <div className="letter">
+            <span className="bg">Y</span>
+            <span className="fg y">Y</span>
+          </div>
+        </div>
+      </div>
     </div>
-  </div>
-)
+  )
+}
 
 // Animation wrapper cho page transitions
 const PageTransition = ({ children }) => (
@@ -109,6 +154,14 @@ export default function App() {
   const refreshMe = useAuthStore((s) => s.refreshMe)
   const isAuth = useAuthStore((s) => !!s.user && !!s.accessToken)
 
+  // === DEBUG LOADER ===
+  const [debugLoading, setDebugLoading] = useState(true)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebugLoading(false), 5000) // 5 giây
+    return () => clearTimeout(timer)
+  }, [])
+  // ====================
+
   // Sync user data (coin, stats) mỗi khi user quay lại tab
   useEffect(() => {
     if (!isAuth) return
@@ -118,6 +171,12 @@ export default function App() {
     refreshMe()
     return () => window.removeEventListener('focus', onFocus)
   }, [isAuth]) // eslint-disable-line
+
+  // === DEBUG LOADER ===
+  if (debugLoading) {
+    return <PageLoader />
+  }
+  // ====================
 
   return (
     <>

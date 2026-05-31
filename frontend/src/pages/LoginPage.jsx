@@ -290,7 +290,12 @@ const LoginPage = () => {
           transition={{ delay: 1, duration: 0.6 }}
           className="absolute bottom-10 left-10 z-20"
         >
-          <h1 className="text-5xl font-black tracking-tighter hero-gradient-text pj">PICSPY</h1>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-2xl shadow-brand-900/40 p-2">
+              <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
+            </div>
+            <h1 className="text-5xl font-black tracking-tighter hero-gradient-text pj">PICSPY</h1>
+          </div>
           <p className="text-white/30 text-sm mt-1.5 max-w-xs font-medium pj">
             Curate your visual universe with AI-powered precision.
           </p>
@@ -318,7 +323,12 @@ const LoginPage = () => {
             transition={{ delay: 0.1 }}
             className="lg:hidden mb-10"
           >
-            <h1 className="text-4xl font-black tracking-tighter hero-gradient-text pj">PICSPY</h1>
+            <div className="flex items-center justify-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg p-1.5">
+                <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
+              </div>
+              <h1 className="text-4xl font-black tracking-tighter hero-gradient-text pj">PICSPY</h1>
+            </div>
             <p className="text-white/30 text-sm mt-1 pj">Visual curator platform</p>
           </motion.div>
 
