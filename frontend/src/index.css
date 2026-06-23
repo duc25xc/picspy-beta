@@ -680,4 +680,65 @@
     80% { clip-path: polygon(0% 12%, 18% 18%, 36% 12%, 50% 15%, 68% 22%, 84% 18%, 100% 12%, 100% 100%, 0% 100%); }
     90%, 100% { clip-path: polygon(0% 100%, 15% 100%, 35% 100%, 55% 100%, 75% 100%, 90% 100%, 100% 100%, 100% 100%, 0% 100%); }
   }
+
+  /* ==========================================================================
+     EFFECT 3: TEXT WAVE LOADER (FROM load3.css)
+     ========================================================================== */
+  .text-wave-loader {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+  }
+
+  .text-wave-loader span {
+    font-family: 'Arial Black', -apple-system, sans-serif;
+    font-weight: 900;
+    white-space: nowrap;
+    line-height: 1;
+    user-select: none;
+    display: block;
+  }
+
+  /* Biến thể kích thước chữ */
+  .text-wave-loader.size-sm span {
+    font-size: 16px;
+    letter-spacing: 2px;
+  }
+  .text-wave-loader.size-md span {
+    font-size: 26px;
+    letter-spacing: 3px;
+    filter: drop-shadow(0 0 8px rgba(128, 198, 255, 0.65));
+  }
+  .text-wave-loader.size-lg span {
+    font-size: 48px;
+    letter-spacing: 5px;
+    filter: drop-shadow(0 0 12px rgba(128, 198, 255, 0.75));
+  }
+
+  /* Chữ viền rỗng nằm dưới - giữ luồng static để cha tự co giãn kích thước */
+  .text-wave-loader span:nth-child(1) {
+    color: transparent;
+    -webkit-text-stroke: 1px rgba(128, 198, 255, 0.3);
+  }
+
+  /* Chữ chứa nước màu xanh chuyển động nằm đè khít lên trên */
+  .text-wave-loader span:nth-child(2) {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    color: rgb(128, 198, 255);
+    -webkit-text-stroke: 1px rgb(128, 198, 255);
+    animation: uiverse723 3s ease-in-out infinite;
+  }
+
+  @keyframes uiverse723 {
+    0%, 100% {
+      clip-path: polygon(0% 45%, 15% 44%, 32% 50%, 54% 60%, 70% 61%, 84% 59%, 100% 52%, 100% 100%, 0% 100%);
+    }
+    50% {
+      clip-path: polygon(0% 60%, 16% 65%, 34% 66%, 51% 62%, 67% 50%, 84% 45%, 100% 46%, 100% 100%, 0% 100%);
+    }
+  }
 }

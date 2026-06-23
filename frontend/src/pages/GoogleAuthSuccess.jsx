@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import useAuthStore from '../store/auth.store'
 import api from '../api/api'
 import toast from 'react-hot-toast'
+import ContentLoader from '../components/ui/ContentLoader'
 
 export default function GoogleAuthSuccess() {
   const [searchParams] = useSearchParams()
@@ -62,19 +63,13 @@ export default function GoogleAuthSuccess() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-surface">
-      <div className="flex flex-col items-center gap-5">
-        {/* Hiệu ứng loading khớp với phong cách PicSpy */}
-        <div className="relative w-16 h-16">
-          <div className="absolute inset-0 rounded-2xl bg-brand-500/20 animate-pulse" />
-          <div className="w-full h-full rounded-2xl bg-gradient-brand animate-spin shadow-lg shadow-brand-500/20" />
-        </div>
+      <div className="flex flex-col items-center gap-6">
+        {/* Logo brand animation đồng nhất với toàn hệ thống */}
+        <ContentLoader size="lg" />
 
         <div className="text-center">
-          <h2 className="text-white text-lg font-bold tracking-widest uppercase">
-            Đang đồng bộ dữ liệu
-          </h2>
-          <p className="text-white/40 text-sm mt-2 animate-bounce">
-            Vui lòng chờ trong giây lát...
+          <p className="text-white/40 text-sm mt-1 animate-pulse tracking-widest uppercase text-xs">
+            Đang đồng bộ tài khoản...
           </p>
         </div>
       </div>

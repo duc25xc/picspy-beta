@@ -6,6 +6,7 @@ import BottomNav from './components/layout/BottomNav'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import useAuthStore from './store/auth.store'
 import { useSettings } from './context/SettingsContext'
+import ContentLoader from './components/ui/ContentLoader'
 
 /**
  * Overlay che phủ toàn màn hình khi chuyển theme.
@@ -32,21 +33,15 @@ const ThemeTransitionOverlay = () => {
             backgroundColor: 'var(--color-surface)',
           }}
         >
-          {/* Logo pulse nhẹ nhàng khi chuyển theme */}
+          {/* Logo chữ nước phát sáng cỡ lớn khi chuyển theme */}
           <motion.div
-            initial={{ scale: 0.85, opacity: 0 }}
+            initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.05, opacity: 0 }}
-            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-            className="relative w-20 h-20 flex items-center justify-center"
+            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="flex items-center justify-center"
           >
-            <div className="absolute inset-0 rounded-full loader-ring-mask animate-spin-ring opacity-70 translate-z-0 will-change-transform" />
-            <div 
-              className="relative rounded-[16px] bg-surface-50 border border-white/5 flex items-center justify-center shadow-xl translate-z-0"
-              style={{ width: '60px', height: '60px' }}
-            >
-              <img src="/icon-512.png" className="w-10 h-10 object-contain animate-pulse" alt="PICSPY Logo" />
-            </div>
+            <ContentLoader size="lg" />
           </motion.div>
         </motion.div>
       )}

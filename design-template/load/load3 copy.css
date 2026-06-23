@@ -1,0 +1,128 @@
+/* Giao diện nền tối sang trọng */
+body {
+  margin: 0;
+  padding: 0;
+  background-color: #0b0f19;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+}
+
+.loader {
+  position: relative;
+}
+
+.loader span {
+  position: absolute;
+  transform: translate(-50%, -50%);
+
+  /* Cấu hình Font chữ dày chuyên nghiệp nguyên bản */
+  font-family:
+    'Arial Black',
+    -apple-system,
+    sans-serif;
+  font-size: 55px;
+  font-weight: 900;
+  letter-spacing: 6px;
+  white-space: nowrap;
+}
+
+/* Chữ viền rỗng nằm dưới */
+.loader span:nth-child(1) {
+  color: transparent;
+  -webkit-text-stroke: 1px rgba(128, 198, 255, 0.3);
+}
+
+/* Chữ chứa nước màu xanh chuyển động nằm đè lên trên */
+.loader span:nth-child(2) {
+  color: rgb(128, 198, 255);
+  /* Đồng bộ viền khít với chữ dưới, không tạo cảm giác lem hay blur */
+  -webkit-text-stroke: 1px rgb(128, 198, 255);
+
+  /* Tăng thời gian lên 6s để chu kỳ "ngẫu nhiên" diễn ra tự nhiên, mượt mà hơn */
+  animation: wave-ocean 6s ease-in-out infinite;
+}
+
+/* ANIMATION ĐÃ ĐƯỢC TỐI ƯU:
+  - Tọa độ Y trong clip-path tính từ đỉnh chữ (0%) xuống đáy chữ (100%).
+  - Để nước dâng cao 85% chữ, tọa độ Y của mực nước trung bình sẽ dao động quanh mức 15% - 25%.
+  - Chu kỳ được chia nhỏ để tạo ra các đợt sóng dập dềnh lệch pha và có đợt cao trào (random).
+*/
+@keyframes wave-ocean {
+  /* 0% - Bắt đầu ở mực nước cao (khoảng 75% chữ) */
+  0%,
+  100% {
+    clip-path: polygon(
+      0% 25%,
+      18% 22%,
+      35% 28%,
+      52% 23%,
+      68% 27%,
+      84% 22%,
+      100% 25%,
+      100% 100%,
+      0% 100%
+    );
+  }
+
+  /* 20% - Sóng rút nhẹ xuống dập dềnh tự nhiên */
+  20% {
+    clip-path: polygon(
+      0% 30%,
+      15% 32%,
+      32% 26%,
+      55% 33%,
+      72% 28%,
+      85% 32%,
+      100% 27%,
+      100% 100%,
+      0% 100%
+    );
+  }
+
+  /* 40% - ĐỢT SÓNG TO RANDOM: Nước dâng cuộn cao lên mốc ~85% chữ (tọa độ Y cực thấp ~12%) */
+  40% {
+    clip-path: polygon(
+      0% 15%,
+      16% 12%,
+      34% 18%,
+      51% 13%,
+      67% 20%,
+      82% 14%,
+      100% 16%,
+      100% 100%,
+      0% 100%
+    );
+  }
+
+  /* 60% - Sóng vỗ ngược lại để đổi chiều cuộn nước */
+  60% {
+    clip-path: polygon(
+      0% 20%,
+      20% 25%,
+      38% 18%,
+      50% 24%,
+      70% 15%,
+      88% 22%,
+      100% 17%,
+      100% 100%,
+      0% 100%
+    );
+  }
+
+  /* 80% - Nước lặng dần trước khi lặp lại chu kỳ mới */
+  80% {
+    clip-path: polygon(
+      0% 28%,
+      14% 25%,
+      32% 30%,
+      53% 24%,
+      69% 29%,
+      83% 23%,
+      100% 26%,
+      100% 100%,
+      0% 100%
+    );
+  }
+}

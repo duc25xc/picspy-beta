@@ -18,6 +18,7 @@ import {
 import useAuthStore from '../../store/auth.store'
 import { useSettings } from '../../context/SettingsContext'
 import toast from 'react-hot-toast'
+import ContentLoader from '../ui/ContentLoader'
 
 /**
  * Header chỉ hiển thị trên desktop (md+)
@@ -89,22 +90,8 @@ const Header = () => {
       <div className="max-w-[1692px] mx-auto px-8 h-full flex items-center relative">
         {/* Left: Logo */}
         <div className="flex-1 flex items-center select-none">
-          <Link to="/" className="flex items-center gap-2 group">
-            {/* <div className="w-8 h-8 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg shadow-brand-900/40 group-hover:scale-105 transition-transform flex-shrink-0 p-1.5">
-              <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
-            </div> */}
-            <div class="w-8 h-8 rounded-xl bg-white/[0.02] border border-white/[0.08] backdrop-blur-xl flex items-center justify-center shadow-lg shadow-[#4718ea]/[0.2] group-hover:scale-105 transition-transform flex-shrink-0 relative overflow-hidden">
-              <div class="absolute inset-0 bg-gradient-to-br from-[#4718ea]/[0.25] to-transparent z-0">
-                <img
-                  alt="PicSpy Logo"
-                  class="w-full h-full object-contain p-1 relative z-10"
-                  src="/picspy-icon.svg"
-                />
-              </div>
-            </div>
-            <span className="font-display font-bold text-lg tracking-wide bg-gradient-to-r from-brand-500 to-indigo-500 bg-clip-text text-transparent">
-              PICSPY
-            </span>
+          <Link to="/" className="flex items-center group">
+            <ContentLoader size="sm" />
           </Link>
         </div>
 

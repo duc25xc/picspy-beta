@@ -2,6 +2,7 @@ import { useRef, useEffect, useState, useCallback } from 'react'
 import api from '../api/api'
 import { Link, useNavigate } from 'react-router-dom'
 import PostDetailModal from '../components/post/PostDetailModal'
+import ContentLoader from '../components/ui/ContentLoader'
 import useModalUrl from '../hooks/useModalUrl'
 import {
   motion,
@@ -1560,19 +1561,8 @@ const HomePage = () => {
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-12 mb-16">
             {/* Brand */}
             <div className="col-span-2">
-              <div className="flex items-center gap-3 mb-5">
-                <div
-                  className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-600 to-blue-600
-                  flex items-center justify-center shadow-lg shadow-violet-900/50 flex-shrink-0 p-1.5"
-                >
-                  <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
-                </div>
-                <span
-                  className="text-2xl font-black tracking-tight pj
-                  bg-gradient-to-r from-violet-600 to-blue-600 dark:from-violet-400 dark:to-blue-400 bg-clip-text text-transparent"
-                >
-                  PICSPY
-                </span>
+              <div className="mb-5 flex items-center">
+                <ContentLoader size="sm" />
               </div>
               <p className="text-foreground/60 max-w-xs mb-7 leading-relaxed text-sm pj">
                 Nền tảng curator nghệ thuật số lớn nhất Việt Nam, kết nối hàng
