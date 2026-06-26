@@ -15,7 +15,7 @@ import ContentLoader from './components/ui/ContentLoader'
  */
 const ThemeTransitionOverlay = () => {
   const { isThemeTransitioning } = useSettings()
-  
+
   return (
     <AnimatePresence>
       {isThemeTransitioning && (
@@ -24,12 +24,12 @@ const ThemeTransitionOverlay = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ 
+          transition={{
             duration: 0.2,
-            ease: 'easeOut'
+            ease: 'easeOut',
           }}
           className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
-          style={{ 
+          style={{
             backgroundColor: 'var(--color-surface)',
           }}
         >
@@ -152,7 +152,7 @@ export default function App() {
   // === DEBUG LOADER ===
   const [debugLoading, setDebugLoading] = useState(true)
   useEffect(() => {
-    const timer = setTimeout(() => setDebugLoading(false), 5000) // 5 giây
+    const timer = setTimeout(() => setDebugLoading(false), 100)
     return () => clearTimeout(timer)
   }, [])
   // ====================
@@ -177,146 +177,146 @@ export default function App() {
     <>
       <ThemeTransitionOverlay />
       <AnimatePresence mode="wait">
-      <Suspense fallback={<PageLoader />}>
-        <Routes location={location} key={location.pathname}>
-          {/* ===== AUTH ROUTES ===== */}
-          <Route
-            path="/login"
-            element={
-              <AuthLayout>
-                <PageTransition>
-                  <LoginPage />
-                </PageTransition>
-              </AuthLayout>
-            }
-          />
-          <Route
-            path="/auth/google/success"
-            element={
-              <AuthLayout>
-                <PageTransition>
-                  <GoogleAuthSuccess />
-                </PageTransition>
-              </AuthLayout>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <AuthLayout>
-                <PageTransition>
-                  <RegisterPage />
-                </PageTransition>
-              </AuthLayout>
-            }
-          />
+        <Suspense fallback={<PageLoader />}>
+          <Routes location={location} key={location.pathname}>
+            {/* ===== AUTH ROUTES ===== */}
+            <Route
+              path="/login"
+              element={
+                <AuthLayout>
+                  <PageTransition>
+                    <LoginPage />
+                  </PageTransition>
+                </AuthLayout>
+              }
+            />
+            <Route
+              path="/auth/google/success"
+              element={
+                <AuthLayout>
+                  <PageTransition>
+                    <GoogleAuthSuccess />
+                  </PageTransition>
+                </AuthLayout>
+              }
+            />
+            <Route
+              path="/register"
+              element={
+                <AuthLayout>
+                  <PageTransition>
+                    <RegisterPage />
+                  </PageTransition>
+                </AuthLayout>
+              }
+            />
 
-          {/* ===== MAIN ROUTES ===== */}
-          <Route
-            path="/"
-            element={
-              <MainLayout>
-                <PageTransition>
-                  <HomePage />
-                </PageTransition>
-              </MainLayout>
-            }
-          />
-          <Route
-            path="/search"
-            element={
-              <MainLayout>
-                <PageTransition>
-                  <SearchPage />
-                </PageTransition>
-              </MainLayout>
-            }
-          />
-          <Route
-            path="/profile/:username"
-            element={
-              <MainLayout>
-                <PageTransition>
-                  <ProfilePage />
-                </PageTransition>
-              </MainLayout>
-            }
-          />
-          <Route
-            path="/posts/:id"
-            element={
-              <MainLayout>
-                <PageTransition>
-                  <PostDetailPage />
-                </PageTransition>
-              </MainLayout>
-            }
-          />
-          <Route
-            path="/pricing"
-            element={
-              <MainLayout>
-                <PageTransition>
-                  <PricingPage />
-                </PageTransition>
-              </MainLayout>
-            }
-          />
-
-          {/* ===== PROTECTED ROUTES ===== */}
-          <Route
-            path="/upload"
-            element={
-              <ProtectedRoute>
+            {/* ===== MAIN ROUTES ===== */}
+            <Route
+              path="/"
+              element={
                 <MainLayout>
                   <PageTransition>
-                    <UploadPage />
+                    <HomePage />
                   </PageTransition>
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/my-posts"
-            element={
-              <ProtectedRoute>
+              }
+            />
+            <Route
+              path="/search"
+              element={
                 <MainLayout>
                   <PageTransition>
-                    <MyPostsPage />
+                    <SearchPage />
                   </PageTransition>
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute>
+              }
+            />
+            <Route
+              path="/profile/:username"
+              element={
                 <MainLayout>
                   <PageTransition>
-                    <AdminPage />
+                    <ProfilePage />
                   </PageTransition>
                 </MainLayout>
-              </ProtectedRoute>
-            }
-          />
+              }
+            />
+            <Route
+              path="/posts/:id"
+              element={
+                <MainLayout>
+                  <PageTransition>
+                    <PostDetailPage />
+                  </PageTransition>
+                </MainLayout>
+              }
+            />
+            <Route
+              path="/pricing"
+              element={
+                <MainLayout>
+                  <PageTransition>
+                    <PricingPage />
+                  </PageTransition>
+                </MainLayout>
+              }
+            />
 
-          {/* ===== FALLBACKS ===== */}
-          <Route path="/profile" element={<Navigate to="/" replace />} />
-          <Route
-            path="*"
-            element={
-              <AuthLayout>
-                <PageTransition>
-                  <NotFoundPage />
-                </PageTransition>
-              </AuthLayout>
-            }
-          />
-        </Routes>
-      </Suspense>
-    </AnimatePresence>
+            {/* ===== PROTECTED ROUTES ===== */}
+            <Route
+              path="/upload"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PageTransition>
+                      <UploadPage />
+                    </PageTransition>
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/my-posts"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PageTransition>
+                      <MyPostsPage />
+                    </PageTransition>
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PageTransition>
+                      <AdminPage />
+                    </PageTransition>
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ===== FALLBACKS ===== */}
+            <Route path="/profile" element={<Navigate to="/" replace />} />
+            <Route
+              path="*"
+              element={
+                <AuthLayout>
+                  <PageTransition>
+                    <NotFoundPage />
+                  </PageTransition>
+                </AuthLayout>
+              }
+            />
+          </Routes>
+        </Suspense>
+      </AnimatePresence>
     </>
   )
 }

@@ -9,10 +9,12 @@ import { v2 as cloudinary } from 'cloudinary'
 // === ZOD SCHEMAS ===
 
 const createPostSchema = z.object({
-  // AI generation (core)
-  prompt: z.string().min(1, 'Prompt là bắt buộc').max(2000).trim(),
+  // Phân loại bài viết
+  postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).default('ai'),
+  // AI generation (core) - optional ở Zod, validate thủ công sau dựa trên postType
+  prompt: z.string().max(2000).trim().optional(),
   negativePrompt: z.string().max(1000).trim().optional(),
-  aiTool: z.enum(AI_TOOLS, { message: 'Công cụ AI không hợp lệ' }),
+  aiTool: z.enum(AI_TOOLS).optional(),
   aiModel: z.string().trim().optional(),
   parameters: z.string().trim().optional(),
   // workflowJson: được gửi từ client nhưng được kiểm tra tier ở middleware
@@ -49,6 +51,7 @@ const createPostSchema = z.object({
 })
 
 const updatePostSchema = z.object({
+  postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).optional(),
   prompt: z.string().min(1).max(2000).trim().optional(),
   negativePrompt: z.string().max(1000).trim().optional(),
   aiTool: z.enum(AI_TOOLS).optional(),
@@ -81,6 +84,46 @@ const updatePostSchema = z.object({
 
 // === HELPERS ===
 
+const cleanCameraName = (make, model) => {
+  if (!make && !model) return undefined
+  const mk = (make || '').trim()
+  const md = (model || '').trim()
+  if (!mk) return md
+  if (!md) return mk
+  if (md.toLowerCase().startsWith(mk.toLowerCase())) {
+    return md
+  }
+  return `${mk} ${md}`
+}
+
+const cleanLensModel = (lens, cameraName) => {
+  if (!lens) return undefined
+  let cleaned = lens.trim()
+  
+  if (cameraName) {
+    const escaped = cameraName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    cleaned = cleaned.replace(new RegExp(escaped, 'gi'), '')
+    
+    const parts = cameraName.split(/\s+/).filter(p => p.length >= 2)
+    parts.forEach(part => {
+      const escapedPart = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}\\b`, 'gi'), '')
+      if (part.length > 3) {
+        cleaned = cleaned.replace(new RegExp(escapedPart, 'gi'), '')
+      }
+    })
+  }
+
+  cleaned = cleaned.replace(/\s+/g, ' ')
+  cleaned = cleaned.replace(/^[,\-\s]+|[,\-\s]+$/g, '')
+  cleaned = cleaned.trim()
+
+  if (cleaned.length > 0) {
+    cleaned = cleaned.charAt(0).toUpperCase() + cleaned.slice(1)
+  }
+  return cleaned || undefined
+}
+
 /** Parse EXIF metadata from an image buffer */
 const extractExif = async (buffer) => {
   try {
@@ -99,22 +142,27 @@ const extractExif = async (buffer) => {
         'GPSLongitude',
         'ExposureValue',
         'Flash',
-      ],
-      translateKeys: false,
-      translateValues: false,
+        'WhiteBalance',
+      ]
     })
     if (!rawExif) return {}
 
-    const cameraName = [rawExif.Make, rawExif.Model]
-      .filter(Boolean)
-      .join(' ')
-      .trim()
+    const cameraName = cleanCameraName(rawExif.Make, rawExif.Model)
+    const cleanedLens = cleanLensModel(rawExif.LensModel, cameraName)
+    
+    const rawAperture = rawExif.FNumber 
+      ? Math.round(rawExif.FNumber * 100) / 100 
+      : undefined
+    const rawFocalLength = rawExif.FocalLength 
+      ? Math.round(rawExif.FocalLength * 100) / 100 
+      : undefined
+
     const exifData = {
       camera: cameraName || undefined,
-      lensModel: rawExif.LensModel || undefined,
+      lensModel: cleanedLens || undefined,
       iso: rawExif.ISO || undefined,
-      aperture: rawExif.FNumber ? `f/${rawExif.FNumber}` : undefined,
-      focalLength: rawExif.FocalLength ? `${rawExif.FocalLength}mm` : undefined,
+      aperture: rawAperture ? `f/${rawAperture}` : undefined,
+      focalLength: rawFocalLength ? `${rawFocalLength}mm` : undefined,
       shutterSpeed: rawExif.ExposureTime
         ? rawExif.ExposureTime >= 1
           ? `${rawExif.ExposureTime}s`
@@ -127,6 +175,7 @@ const extractExif = async (buffer) => {
       flash: rawExif.Flash !== undefined ? rawExif.Flash : undefined,
       dateTaken: rawExif.DateTimeOriginal || undefined,
       software: rawExif.Software || undefined,
+      whiteBalance: rawExif.WhiteBalance || undefined,
       gpsLat: rawExif.GPSLatitude || undefined,
       gpsLng: rawExif.GPSLongitude || undefined,
     }
@@ -199,10 +248,10 @@ export const createPost = async (req, res, next) => {
       : (req.files?.generatedImages || [])
 
     if (primaryFiles.length === 0) {
-      throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh kết quả AI', 400)
+      throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh tải lên', 400)
     }
     if (primaryFiles.length > 5) {
-      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả AI', 400)
+      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả', 400)
     }
 
     // ── Source images ────────────────────────────────────────────
@@ -221,6 +270,59 @@ export const createPost = async (req, res, next) => {
     }
 
     const data = createPostSchema.parse(body)
+
+    // ── Validation based on postType ─────────────────────────────
+    if (data.postType === 'ai') {
+      if (!data.prompt || data.prompt.trim().length === 0) {
+        throw new AppError('VALIDATION_ERROR', 'Prompt là bắt buộc đối với ảnh AI', 400)
+      }
+      if (!data.aiTool) {
+        throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn công cụ AI', 400)
+      }
+    }
+
+    // ── Upload rawFile & colorFile (Digital attachments) ──────────
+    let rawFile = undefined
+    if (req.files?.rawFile?.[0]) {
+      const file = req.files.rawFile[0]
+      const uploadRes = await uploadBuffer(
+        file.buffer,
+        'picspy/posts/raws',
+        `raw_${req.user._id}_${Date.now()}`,
+        { resource_type: 'raw' }
+      )
+      rawFile = {
+        url: uploadRes.secure_url,
+        publicId: uploadRes.public_id,
+        fileSize: file.size,
+        format: file.originalname.split('.').pop().toLowerCase(),
+        originalName: file.originalname,
+      }
+    }
+
+    let colorFile = undefined
+    if (req.files?.colorFile?.[0]) {
+      const file = req.files.colorFile[0]
+      const uploadRes = await uploadBuffer(
+        file.buffer,
+        'picspy/posts/colors',
+        `color_${req.user._id}_${Date.now()}`,
+        { resource_type: 'raw' }
+      )
+      colorFile = {
+        url: uploadRes.secure_url,
+        publicId: uploadRes.public_id,
+        fileSize: file.size,
+        format: file.originalname.split('.').pop().toLowerCase(),
+        originalName: file.originalname,
+      }
+    }
+
+    // Determine final postType
+    let finalPostType = data.postType
+    if (finalPostType.startsWith('digital')) {
+      finalPostType = rawFile ? 'digital-raw' : 'digital-normal'
+    }
 
     // ── Upload source images (new files, parallel) ────────────────
     const sourceImages = [...sourceImageRefs] // bắt đầu bằng refs đã có
@@ -248,9 +350,17 @@ export const createPost = async (req, res, next) => {
       )
     )
 
+    // Trích xuất EXIF từ ảnh kết quả chính nếu không có ảnh tham khảo hoặc ảnh tham khảo không có EXIF
+    if (Object.keys(exifData).length === 0 && primaryFiles.length > 0) {
+      exifData = await extractExif(primaryFiles[0].buffer)
+      if (Object.keys(exifData).length > 0) {
+        console.log('📷 EXIF extracted from primary image:', JSON.stringify(exifData))
+      }
+    }
+
     // ── Upload comparison model slots (multi-model only) ──────────
     const modelComparisons = []
-    if (isMultiModel) {
+    if (isMultiModel && finalPostType === 'ai') {
       // Slot 0 đã là primary — bắt đầu từ slot 1
       for (let i = 1; i < compMeta.length; i++) {
         const slot = compMeta[i]
@@ -272,8 +382,8 @@ export const createPost = async (req, res, next) => {
     }
 
     // ── Determine primary aiTool from slot 0 meta (multi-model) ──
-    const primaryAiTool = isMultiModel ? (compMeta[0]?.aiTool || data.aiTool) : data.aiTool
-    const primaryAiModel = isMultiModel ? (compMeta[0]?.aiModel || data.aiModel) : data.aiModel
+    const primaryAiTool = (isMultiModel && finalPostType === 'ai') ? (compMeta[0]?.aiTool || data.aiTool) : data.aiTool
+    const primaryAiModel = (isMultiModel && finalPostType === 'ai') ? (compMeta[0]?.aiModel || data.aiModel) : data.aiModel
 
     // ── workflowJson gate (Ultimate only) ────────────────────────
     const userTier = req.user.subscriptionTier
@@ -283,14 +393,15 @@ export const createPost = async (req, res, next) => {
     // ── Create Post document ──────────────────────────────────────
     const post = await Post.create({
       authorId: req.user._id,
+      postType: finalPostType,
       sourceImages,
       generatedImages: genUploads,
-      prompt: data.prompt,
-      negativePrompt: data.negativePrompt,
-      aiTool: primaryAiTool,
-      aiModel: primaryAiModel,
-      parameters: data.parameters,
-      ...(allowWorkflow && data.workflowJson ? { workflowJson: data.workflowJson } : {}),
+      prompt: finalPostType === 'ai' ? data.prompt : undefined,
+      negativePrompt: finalPostType === 'ai' ? data.negativePrompt : undefined,
+      aiTool: finalPostType === 'ai' ? primaryAiTool : undefined,
+      aiModel: finalPostType === 'ai' ? primaryAiModel : undefined,
+      parameters: finalPostType === 'ai' ? data.parameters : undefined,
+      ...(allowWorkflow && data.workflowJson && finalPostType === 'ai' ? { workflowJson: data.workflowJson } : {}),
       contentType: data.contentType,
       caption: data.caption,
       tags: data.tags,
@@ -301,9 +412,11 @@ export const createPost = async (req, res, next) => {
       orientation: data.orientation,
       aspectRatio: data.aspectRatio,
       ...(hasExif ? { exifData } : {}),
+      rawFile,
+      colorFile,
       // Multi-model
-      isMultiModel,
-      modelComparisons,
+      isMultiModel: finalPostType === 'ai' ? isMultiModel : false,
+      modelComparisons: finalPostType === 'ai' ? modelComparisons : [],
       status: 'pending',
     })
 

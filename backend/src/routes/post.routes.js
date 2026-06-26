@@ -68,6 +68,9 @@ router.post(
     { name: 'compImages_2', maxCount: 5 },
     { name: 'compImages_3', maxCount: 5 },
     { name: 'compImages_4', maxCount: 5 },
+    // Digital Photo optional attachments
+    { name: 'rawFile', maxCount: 1 },
+    { name: 'colorFile', maxCount: 1 },
   ]),
   handleMulterError,
   createPost
@@ -93,6 +96,9 @@ router.put(
     { name: 'compImages_2', maxCount: 5 },
     { name: 'compImages_3', maxCount: 5 },
     { name: 'compImages_4', maxCount: 5 },
+    // Digital Photo optional attachments
+    { name: 'rawFile', maxCount: 1 },
+    { name: 'colorFile', maxCount: 1 },
   ]),
   handleMulterError,
   updatePost

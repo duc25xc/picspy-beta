@@ -199,6 +199,11 @@ const PostDetailModal = ({
   /* Keyboard nav */
   useEffect(() => {
     const handleKey = (e) => {
+      const isEditable = e.target.tagName === 'INPUT' || 
+                         e.target.tagName === 'TEXTAREA' || 
+                         e.target.isContentEditable
+      if (isEditable) return
+
       if (e.key === 'Escape') onClose()
       if (e.key === 'ArrowLeft' && hasPrev) onPrev?.()
       if (e.key === 'ArrowRight' && hasNext) onNext?.()

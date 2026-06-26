@@ -271,7 +271,9 @@ const PostDetailPage = () => {
   const genImages = post.generatedImages || []
   // Source images: mọi user đều xem được (chỉ gate download high-res, không gate view)
   const srcImages = post.sourceImages || []
-  const hasExif = activeIsSource && tierAccess.canSeeSourceImages && (post.exifData || post.histogram || palette.length > 0)
+  const isDigital = post.postType?.startsWith('digital')
+  const hasExifData = post.exifData && Object.keys(post.exifData).length > 0
+  const hasExif = !!(hasExifData || post.histogram)
   const hasNegative = !!post.negativePrompt
   const hasParameters = !!post.parameters
   // JSON workflow: chỉ Ultimate có post.workflowJson
@@ -529,8 +531,8 @@ const PostDetailPage = () => {
               )}
             </AnimatePresence>
 
-            {/* LensSpy — chỉ khi xem source image và có lens data */}
-            {activeIsSource && !post.aiTool && (
+            {/* LensSpy — chỉ khi xem source image hoặc ảnh digital và có lens data */}
+            {(activeIsSource || isDigital) && !post.aiTool && (
               <LensSpyPanel postId={post._id} />
             )}
 

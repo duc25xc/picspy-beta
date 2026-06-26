@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Camera, Aperture, Zap, Focus, Timer, Calendar, Cpu, Crosshair, Copy, Check,
-  SunDim, ZapOff,
+  SunDim, ZapOff, Sun,
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────────────────
@@ -279,6 +279,7 @@ const STAT_STYLES = {
   'Ống kính': { ring: 'border-white/12',      icon: 'text-white/40',    badge: 'bg-white/6 text-white/50',         mono: false },
   'Ngày chụp':{ ring: 'border-slate-500/30',  icon: 'text-slate-400',   badge: 'bg-slate-500/15 text-slate-300',   mono: false },
   'Phần mềm': { ring: 'border-white/10',      icon: 'text-white/35',    badge: 'bg-white/5 text-white/40',         mono: false },
+  'Cân bằng trắng': { ring: 'border-amber-500/30', icon: 'text-amber-300',  badge: 'bg-amber-500/10 text-amber-200',   mono: false },
 }
 
 const ExifStatCard = ({ icon: Icon, label, value, delay = 0 }) => {
@@ -343,6 +344,7 @@ const ExifPanel = ({ exifData, histogram, colorPalette, compact = false }) => {
   if (exifData?.focalLength)  primaryStats.push({ icon: Crosshair, label: 'Tiêu cự', value: exifData.focalLength })
   if (exifData?.ev !== undefined) primaryStats.push({ icon: SunDim, label: 'EV', value: `EV ${exifData.ev > 0 ? '+' : ''}${exifData.ev}` })
   if (exifData?.flash !== undefined) primaryStats.push({ icon: ZapOff, label: 'Flash', value: exifData.flash ? 'Đã bật đèn' : 'Không đèn' })
+  if (exifData?.whiteBalance) primaryStats.push({ icon: Sun, label: 'Cân bằng trắng', value: exifData.whiteBalance })
 
   if (exifData?.camera)     secondaryStats.push({ icon: Camera,   label: 'Thiết bị',  value: exifData.camera })
   if (exifData?.lensModel)  secondaryStats.push({ icon: Focus,    label: 'Ống kính',  value: exifData.lensModel })

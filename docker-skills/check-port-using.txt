@@ -1,0 +1,7 @@
+1. Cách tìm và diệt tận gốc tiến trình chiếm port 5000
+    Terminal: netstat -ano | findstr :5000
+    Nó sẽ trả về một vài dòng, bạn hãy nhìn vào con số ở cuối cùng của dòng (đó chính là số PID). Ví dụ kết quả hiện ra dạng:
+    TCP    0.0.0.0:5000    0.0.0.0:0    LISTENING    12345  -> Số PID ở đây là 12345.
+
+2. Ép tiến trình đó phải tắt (Kill Process)
+taskkill /F /PID <Số_PID_Vừa_Tìm_Thấy>

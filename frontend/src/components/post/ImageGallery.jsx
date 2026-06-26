@@ -141,6 +141,11 @@ export default function ImageGallery({
 
   useEffect(() => {
     const handler = (e) => {
+      const isEditable = e.target.tagName === 'INPUT' || 
+                         e.target.tagName === 'TEXTAREA' || 
+                         e.target.isContentEditable
+      if (isEditable) return
+
       if (e.key === 'ArrowLeft') navigate(-1)
       if (e.key === 'ArrowRight') navigate(1)
     }

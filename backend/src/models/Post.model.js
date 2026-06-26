@@ -58,6 +58,7 @@ const postSchema = new mongoose.Schema(
       flash: Number,         // 0 = off, 1 = fired
       dateTaken: Date,
       software: String,      // "Adobe Lightroom"
+      whiteBalance: String,  // "Auto" or "Manual"
       gpsLat: Number,
       gpsLng: Number,
     },
@@ -69,10 +70,21 @@ const postSchema = new mongoose.Schema(
       b: [Number],
     },
 
+    // === POST TYPE & CLASSIFICATION ===
+    postType: {
+      type: String,
+      enum: ['ai', 'digital-raw', 'digital-normal'],
+      default: 'ai',
+      required: true,
+    },
+
     // === AI GENERATION (core mới) ===
     prompt: {
       type: String,
-      required: [true, 'Prompt là bắt buộc'],
+      required: [
+        function() { return this.postType === 'ai'; },
+        'Prompt là bắt buộc đối với ảnh AI'
+      ],
       maxlength: [2000, 'Prompt tối đa 2000 ký tự'],
       trim: true,
     },
@@ -83,12 +95,37 @@ const postSchema = new mongoose.Schema(
     },
     aiTool: {
       type: String,
-      required: [true, 'Vui lòng chọn công cụ AI'],
-      enum: { values: AI_TOOLS, message: 'Công cụ AI không hợp lệ' },
+      required: [
+        function() { return this.postType === 'ai'; },
+        'Vui lòng chọn công cụ AI'
+      ],
+      enum: {
+        values: AI_TOOLS,
+        message: 'Công cụ AI không hợp lệ',
+      },
+      // Note: we don't validate enum if it's not provided since it's only required for AI.
+      // But Mongoose default enum validator runs if the field is present/set.
+      // We will handle it by keeping it optional for digital type.
     },
     aiModel: { type: String, trim: true },       // "v6.1", "SDXL", "Flux Dev"
     parameters: { type: String, trim: true },     // "--ar 16:9 --v 6.1 --seed 12345"
     workflowJson: { type: String },               // ComfyUI/A1111 workflow JSON (Ultimate only)
+
+    // === DIGITAL / REAL IMAGES ATTACHMENTS ===
+    rawFile: {
+      url: String,
+      publicId: String,
+      fileSize: Number,
+      format: String,
+      originalName: String,
+    },
+    colorFile: {
+      url: String,
+      publicId: String,
+      fileSize: Number,
+      format: String,
+      originalName: String,
+    },
 
     // === CONTENT TYPE (reserve video) ===
     contentType: {
