@@ -45,10 +45,6 @@ const DownloadButton = ({
       const { data } = await api.post(`/posts/${postId}/download`, { fileType })
 
       if (data.downloadUrl) {
-        // Trigger download
-        const a = document.createElement('a')
-        a.href = data.downloadUrl
-        
         let filename = data.filename
         if (!filename) {
           filename = `picspy-${postId}`
@@ -66,11 +62,28 @@ const DownloadButton = ({
           }
         }
 
-        a.download = filename
-        a.target = '_blank'
-        document.body.appendChild(a)
-        a.click()
-        document.body.removeChild(a)
+        const a = document.createElement('a')
+        try {
+          // Fetch the file as a Blob to bypass CORS limitations on the a.download attribute
+          const response = await fetch(data.downloadUrl)
+          if (!response.ok) throw new Error('Network error or CORS restriction fetching file')
+          const blob = await response.blob()
+          const blobUrl = URL.createObjectURL(blob)
+          a.href = blobUrl
+          a.download = filename
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
+        } catch (fetchErr) {
+          console.error('Blob download failed, falling back to direct link', fetchErr)
+          a.href = data.downloadUrl
+          a.download = filename
+          a.target = '_blank'
+          document.body.appendChild(a)
+          a.click()
+          document.body.removeChild(a)
+        }
 
         setDone(true)
         setTimeout(() => setDone(false), 3000)

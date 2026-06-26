@@ -75,7 +75,7 @@ export const downloadPost = async (req, res, next) => {
       }
     }
 
-    // ─── Tạo tên tệp tin tải xuống đặc trưng ([tên_gốc_hoặc_caption]_[ngày_tháng_năm]_picspy.[ext]) ───
+    // ─── Tạo tên tệp tin tải xuống đặc trưng ───
     const dateObj = new Date()
     const day = String(dateObj.getDate()).padStart(2, '0')
     const month = String(dateObj.getMonth() + 1).padStart(2, '0')
@@ -84,6 +84,7 @@ export const downloadPost = async (req, res, next) => {
 
     let baseName = ''
     let ext = targetFile.format || 'jpg'
+    let finalFilename = ''
 
     if (fileType === 'original') {
       if (post.caption) {
@@ -99,42 +100,43 @@ export const downloadPost = async (req, res, next) => {
       if (!baseName) {
         baseName = `photo_${postId.toString().slice(-6)}`
       }
+      baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
+      finalFilename = `${baseName}_${dateStr}_picspy.${ext}`
     } else if (fileType === 'raw') {
       ext = targetFile.format || 'raw'
       if (targetFile.originalName) {
         const parts = targetFile.originalName.split('.')
         parts.pop()
-        baseName = parts.join('_')
+        baseName = parts.join('.')
           .trim()
-          .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/[^a-zA-Z0-9_\-]/g, '_')
           .replace(/_+/g, '_')
           .slice(0, 50)
       } else {
         baseName = `raw_${postId.toString().slice(-6)}`
       }
+      baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
+      finalFilename = `RAW-${baseName}-picspy.${ext}`
     } else if (fileType === 'color') {
-      ext = targetFile.format || 'lut'
+      ext = targetFile.format || 'cube'
       if (targetFile.originalName) {
         const parts = targetFile.originalName.split('.')
         parts.pop()
-        baseName = parts.join('_')
+        baseName = parts.join('.')
           .trim()
-          .toLowerCase()
           .normalize('NFD')
           .replace(/[\u0300-\u036f]/g, '')
-          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/[^a-zA-Z0-9_\-]/g, '_')
           .replace(/_+/g, '_')
           .slice(0, 50)
       } else {
         baseName = `lut_${postId.toString().slice(-6)}`
       }
+      baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
+      finalFilename = `LUT-${baseName}-picspy.${ext}`
     }
-
-    baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
-    const finalFilename = `${baseName}_${dateStr}_picspy.${ext}`
 
     // ─── Tạo Cloudinary signed URL (30 phút, force download) ──
     const EXPIRES_IN = 30 * 60 // 30 phút

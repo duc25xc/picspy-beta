@@ -350,17 +350,18 @@ export const createPost = async (req, res, next) => {
     let rawFile = undefined
     if (req.files?.rawFile?.[0]) {
       const file = req.files.rawFile[0]
+      const ext = file.originalname.split('.').pop().toLowerCase()
       const uploadRes = await uploadBuffer(
         file.buffer,
         'picspy/posts/raws',
-        `raw_${req.user._id}_${Date.now()}`,
+        `raw_${req.user._id}_${Date.now()}.${ext}`,
         { resource_type: 'raw' }
       )
       rawFile = {
         url: uploadRes.secure_url,
         publicId: uploadRes.public_id,
         fileSize: file.size,
-        format: file.originalname.split('.').pop().toLowerCase(),
+        format: ext,
         originalName: file.originalname,
       }
     }
@@ -368,17 +369,18 @@ export const createPost = async (req, res, next) => {
     let colorFile = undefined
     if (req.files?.colorFile?.[0]) {
       const file = req.files.colorFile[0]
+      const ext = file.originalname.split('.').pop().toLowerCase()
       const uploadRes = await uploadBuffer(
         file.buffer,
         'picspy/posts/colors',
-        `color_${req.user._id}_${Date.now()}`,
+        `color_${req.user._id}_${Date.now()}.${ext}`,
         { resource_type: 'raw' }
       )
       colorFile = {
         url: uploadRes.secure_url,
         publicId: uploadRes.public_id,
         fileSize: file.size,
-        format: file.originalname.split('.').pop().toLowerCase(),
+        format: ext,
         originalName: file.originalname,
       }
     }
