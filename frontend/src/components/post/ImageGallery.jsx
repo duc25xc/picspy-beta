@@ -173,8 +173,8 @@ export default function ImageGallery({
   const toolMeta = currentAiTool ? getToolMeta(currentAiTool) : null
   const showBlurred = isPremium && !isUnlocked
   const displayUrl = showBlurred
-    ? makeBlurredUrl(activeImg?.thumbnailUrl || activeImg?.url)
-    : (activeImg?.url || activeImg?.thumbnailUrl)
+    ? makeBlurredUrl(activeImg?.previewUrl || activeImg?.thumbnailUrl || activeImg?.url)
+    : (activeImg?.previewUrl || activeImg?.url || activeImg?.thumbnailUrl)
 
   const altText = activeIsSource
     ? `Ảnh tham khảo cho "${caption}"`
@@ -338,9 +338,9 @@ export default function ImageGallery({
           )}
           <div className="flex-1" />
           {/* Open full size */}
-          {activeImg?.url && !showBlurred && (
+          {(activeImg?.previewUrl || activeImg?.url) && !showBlurred && (
             <a
-              href={activeImg.url}
+              href={activeImg.previewUrl || activeImg.url}
               target="_blank"
               rel="noopener noreferrer"
               className="w-8 h-8 rounded-lg flex items-center justify-center backdrop-blur-md border border-white/8 transition-colors duration-150 hover:border-white/20"

@@ -94,10 +94,12 @@ const imageWorker = new Worker(
       await job.updateProgress(20)
       const [thumbnailBuffer, previewBuffer] = await Promise.all([
         sharp(imageBuffer)
+          .rotate()
           .resize(400, null, { withoutEnlargement: true })
           .webp({ quality: 80 })
           .toBuffer(),
         sharp(imageBuffer)
+          .rotate()
           .resize(1200, null, { withoutEnlargement: true })
           .webp({ quality: 85 })
           .toBuffer(),

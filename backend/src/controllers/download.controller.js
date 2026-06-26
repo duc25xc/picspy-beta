@@ -13,15 +13,31 @@ export const downloadPost = async (req, res, next) => {
   try {
     const { id: postId } = req.params
     const userId = req.user._id
+    const { fileType = 'original' } = req.body // 'original', 'raw', 'color'
 
     const post = await Post.findById(postId).lean()
     if (!post || post.status !== 'approved') {
       throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại', 404)
     }
 
-    const img = post.generatedImages?.[0]
-    if (!img?.publicId) {
-      throw new AppError('NOT_FOUND', 'Không tìm thấy file ảnh', 404)
+    let targetFile = null
+    let resourceType = 'image'
+
+    if (fileType === 'original') {
+      targetFile = post.generatedImages?.[0]
+      resourceType = 'image'
+    } else if (fileType === 'raw') {
+      targetFile = post.rawFile
+      resourceType = 'raw'
+    } else if (fileType === 'color') {
+      targetFile = post.colorFile
+      resourceType = 'raw'
+    } else {
+      throw new AppError('BAD_REQUEST', 'Loại tệp tải xuống không hợp lệ', 400)
+    }
+
+    if (!targetFile || !targetFile.publicId) {
+      throw new AppError('NOT_FOUND', `Không tìm thấy tệp yêu cầu (${fileType})`, 404)
     }
 
     // ─── Premium: kiểm tra và trừ token ─────────────────────────
@@ -59,17 +75,83 @@ export const downloadPost = async (req, res, next) => {
       }
     }
 
+    // ─── Tạo tên tệp tin tải xuống đặc trưng ([tên_gốc_hoặc_caption]_[ngày_tháng_năm]_picspy.[ext]) ───
+    const dateObj = new Date()
+    const day = String(dateObj.getDate()).padStart(2, '0')
+    const month = String(dateObj.getMonth() + 1).padStart(2, '0')
+    const year = dateObj.getFullYear()
+    const dateStr = `${day}_${month}_${year}`
+
+    let baseName = ''
+    let ext = targetFile.format || 'jpg'
+
+    if (fileType === 'original') {
+      if (post.caption) {
+        baseName = post.caption
+          .trim()
+          .toLowerCase()
+          .normalize('NFD') // remove accents
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/_+/g, '_')
+          .slice(0, 50)
+      }
+      if (!baseName) {
+        baseName = `photo_${postId.toString().slice(-6)}`
+      }
+    } else if (fileType === 'raw') {
+      ext = targetFile.format || 'raw'
+      if (targetFile.originalName) {
+        const parts = targetFile.originalName.split('.')
+        parts.pop()
+        baseName = parts.join('_')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/_+/g, '_')
+          .slice(0, 50)
+      } else {
+        baseName = `raw_${postId.toString().slice(-6)}`
+      }
+    } else if (fileType === 'color') {
+      ext = targetFile.format || 'lut'
+      if (targetFile.originalName) {
+        const parts = targetFile.originalName.split('.')
+        parts.pop()
+        baseName = parts.join('_')
+          .trim()
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/_+/g, '_')
+          .slice(0, 50)
+      } else {
+        baseName = `lut_${postId.toString().slice(-6)}`
+      }
+    }
+
+    baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
+    const finalFilename = `${baseName}_${dateStr}_picspy.${ext}`
+
     // ─── Tạo Cloudinary signed URL (30 phút, force download) ──
-    // Signed URL ngắn hạn → vô dụng nếu ai copy từ DevTools
     const EXPIRES_IN = 30 * 60 // 30 phút
     const expiresAt = Math.floor(Date.now() / 1000) + EXPIRES_IN
-    const downloadUrl = cloudinary.url(img.publicId, {
+    const urlOptions = {
       sign_url: true,
       expires_at: expiresAt,
-      resource_type: 'image',
-      flags: 'attachment', // Force download, không hiển thị inline
-      format: img.format || 'jpg',
-    })
+      resource_type: resourceType,
+    }
+
+    if (resourceType === 'image') {
+      const filenameWithoutExt = `${baseName}_${dateStr}_picspy`
+      urlOptions.flags = `attachment:${filenameWithoutExt}`
+      urlOptions.format = ext
+    }
+
+    const downloadUrl = cloudinary.url(targetFile.publicId, urlOptions)
 
     // ─── Ghi interaction + cập nhật stats ─────────────────────
     await Interaction.create({ userId, postId, type: 'download' }).catch(() => {})
@@ -84,6 +166,7 @@ export const downloadPost = async (req, res, next) => {
 
     res.json({
       downloadUrl,
+      filename: finalFilename,
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       expiresInMinutes: EXPIRES_IN / 60,
       tokensSpent: post.isPremium ? (post.priceInTokens || 10) : 0,

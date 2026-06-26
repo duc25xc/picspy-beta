@@ -277,6 +277,32 @@ export default function UploadPage() {
     return cleaned || null
   }
 
+  const formatLensInfo = (arr) => {
+    if (!Array.isArray(arr) || arr.length < 4) return null
+    const rounded = arr.map(v => typeof v === 'number' ? Math.round(v * 100) / 100 : v)
+    const [minF, maxF, minA, maxA] = rounded
+    const focal = minF === maxF ? `${minF}mm` : `${minF}-${maxF}mm`
+    const aperture = minA === maxA ? `f/${minA}` : `f/${minA}-${maxA}`
+    return `${focal} ${aperture}`
+  }
+
+  const parseGpsCoord = (coord) => {
+    if (typeof coord === 'number') return coord
+    if (Array.isArray(coord) && coord.length >= 3) {
+      const [deg, min, sec] = coord
+      return deg + min / 60 + sec / 3600
+    }
+    return null
+  }
+
+  const mapColorSpace = (cs) => {
+    if (cs === 1 || String(cs).toLowerCase().includes('srgb')) return 'sRGB'
+    if (cs === 2 || String(cs).toLowerCase().includes('adobe')) return 'Adobe RGB'
+    if (cs === 65535 || String(cs).toLowerCase().includes('p3') || String(cs).toLowerCase().includes('wide')) return 'Display P3 (Wide Color)'
+    if (cs) return String(cs)
+    return null
+  }
+
   // ── EXIF Reader ────────────────────────────────────────────────
   const handleReadExif = async (file) => {
     try {
@@ -288,10 +314,27 @@ export default function UploadPage() {
           'FNumber',
           'FocalLength',
           'ExposureTime',
+          'DateTimeOriginal',
           'LensModel',
           'Software',
-          'DateTimeOriginal',
+          'GPSLatitude',
+          'GPSLongitude',
+          'ExposureValue',
+          'Flash',
           'WhiteBalance',
+          'Artist',
+          'Copyright',
+          'ExposureProgram',
+          'MeteringMode',
+          'ExposureBiasValue',
+          'DigitalZoomRatio',
+          'BodySerialNumber',
+          'SerialNumber',
+          'CameraSerialNumber',
+          'LensSerialNumber',
+          'LensSpecification',
+          'LensInfo',
+          'ColorSpace',
         ],
       })
       if (raw) {
@@ -314,6 +357,22 @@ export default function UploadPage() {
           ? Math.round(raw.FocalLength * 100) / 100 
           : null
 
+        const evVal = typeof raw.ExposureBiasValue === 'number'
+          ? (raw.ExposureBiasValue === 0
+            ? '0.00 EV'
+            : `${raw.ExposureBiasValue > 0 ? '+' : ''}${parseFloat(raw.ExposureBiasValue.toFixed(2))} EV`)
+          : null
+
+        const zoomVal = typeof raw.DigitalZoomRatio === 'number'
+          ? `${parseFloat(raw.DigitalZoomRatio.toFixed(2))}x`
+          : null
+
+        const serialVal = raw.BodySerialNumber || raw.SerialNumber || raw.CameraSerialNumber || null
+
+        const lensSpec = raw.LensSpecification 
+          ? (Array.isArray(raw.LensSpecification) ? formatLensInfo(raw.LensSpecification) : String(raw.LensSpecification))
+          : (raw.LensInfo ? formatLensInfo(raw.LensInfo) : null)
+
         const info = {
           camera: cameraName || null,
           lensModel: cleanedLens || null,
@@ -321,7 +380,23 @@ export default function UploadPage() {
           aperture: roundedAperture ? `f/${roundedAperture}` : null,
           focalLength: roundedFocalLength ? `${roundedFocalLength}mm` : null,
           shutterSpeed: shutter || null,
+          ev: typeof raw.ExposureValue === 'number' ? Math.round(raw.ExposureValue * 10) / 10 : null,
+          flash: raw.Flash !== undefined ? raw.Flash : null,
+          dateTaken: raw.DateTimeOriginal || null,
+          software: raw.Software || null,
           whiteBalance: raw.WhiteBalance || null,
+          artist: raw.Artist || null,
+          copyright: raw.Copyright || null,
+          exposureProgram: raw.ExposureProgram || null,
+          meteringMode: raw.MeteringMode || null,
+          exposureCompensation: evVal,
+          digitalZoomRatio: zoomVal,
+          bodySerialNumber: serialVal,
+          lensSerialNumber: raw.LensSerialNumber || null,
+          lensSpecification: lensSpec,
+          colorSpace: mapColorSpace(raw.ColorSpace),
+          gpsLat: parseGpsCoord(raw.GPSLatitude),
+          gpsLng: parseGpsCoord(raw.GPSLongitude),
         }
         const hasAny = Object.values(info).some((v) => v !== null)
         if (hasAny) {
@@ -1853,6 +1928,54 @@ function Step1DigitalImage({
               <span className="text-white/40 block mb-0.5">Cân bằng trắng</span>
               <span className="text-white/90 font-medium">
                 {exifInfo.whiteBalance || 'Không rõ'}
+              </span>
+            </div>
+            {exifInfo.exposureProgram && (
+              <div>
+                <span className="text-white/40 block mb-0.5">Chế độ chụp</span>
+                <span className="text-white/90 font-medium truncate block">
+                  {exifInfo.exposureProgram}
+                </span>
+              </div>
+            )}
+            {exifInfo.meteringMode && (
+              <div>
+                <span className="text-white/40 block mb-0.5">Đo sáng</span>
+                <span className="text-white/90 font-medium truncate block">
+                  {exifInfo.meteringMode}
+                </span>
+              </div>
+            )}
+            {exifInfo.exposureCompensation && (
+              <div>
+                <span className="text-white/40 block mb-0.5">Bù trừ sáng (EV)</span>
+                <span className="text-white/90 font-medium">
+                  {exifInfo.exposureCompensation}
+                </span>
+              </div>
+            )}
+            {exifInfo.digitalZoomRatio && (
+              <div>
+                <span className="text-white/40 block mb-0.5">Zoom số</span>
+                <span className="text-white/90 font-medium">
+                  {exifInfo.digitalZoomRatio}
+                </span>
+              </div>
+            )}
+            {exifInfo.colorSpace && (
+              <div>
+                <span className="text-white/40 block mb-0.5">Không gian màu</span>
+                <span className="text-white/90 font-medium">
+                  {exifInfo.colorSpace}
+                </span>
+              </div>
+            )}
+            <div>
+              <span className="text-white/40 block mb-0.5">Toạ độ GPS</span>
+              <span className="text-white/90 font-medium">
+                {exifInfo.gpsLat !== null && exifInfo.gpsLng !== null && exifInfo.gpsLat !== undefined && exifInfo.gpsLng !== undefined
+                  ? `${parseFloat(exifInfo.gpsLat.toFixed(4))}, ${parseFloat(exifInfo.gpsLng.toFixed(4))}`
+                  : 'Không có'}
               </span>
             </div>
           </div>

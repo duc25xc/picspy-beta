@@ -516,9 +516,10 @@ const CommunityPostCard = ({ post, index, onClick }) => {
 
   // Smart crop URL: Cloudinary AI tìm điểm đẹp nhất đúng với tỷ lệ card
   const { w, h, face } = CARD_THUMB[pattern.type]
-  const displayUrl = img?.url
-    ? getSmartCropUrl(img.url, w, h, face)
-    : img?.thumbnailUrl || null
+  const sourceUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
+  const displayUrl = sourceUrl
+    ? getSmartCropUrl(sourceUrl, w, h, face)
+    : null
 
   return (
     <div

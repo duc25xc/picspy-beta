@@ -608,9 +608,10 @@ const PostDetailModal = ({
                 </motion.button>
                 <div className="ml-auto">
                   <DownloadButton
+                    post={post}
                     postId={post._id}
                     isPremium={post.isPremium}
-                    priceInCoins={post.priceInCoins}
+                    priceInTokens={post.priceInTokens}
                   />
                 </div>
               </div>

@@ -124,6 +124,32 @@ const cleanLensModel = (lens, cameraName) => {
   return cleaned || undefined
 }
 
+const formatLensInfo = (arr) => {
+  if (!Array.isArray(arr) || arr.length < 4) return undefined
+  const rounded = arr.map(v => typeof v === 'number' ? Math.round(v * 100) / 100 : v)
+  const [minF, maxF, minA, maxA] = rounded
+  const focal = minF === maxF ? `${minF}mm` : `${minF}-${maxF}mm`
+  const aperture = minA === maxA ? `f/${minA}` : `f/${minA}-${maxA}`
+  return `${focal} ${aperture}`
+}
+
+const parseGpsCoord = (coord) => {
+  if (typeof coord === 'number') return coord
+  if (Array.isArray(coord) && coord.length >= 3) {
+    const [deg, min, sec] = coord
+    return deg + min / 60 + sec / 3600
+  }
+  return undefined
+}
+
+const mapColorSpace = (cs) => {
+  if (cs === 1 || String(cs).toLowerCase().includes('srgb')) return 'sRGB'
+  if (cs === 2 || String(cs).toLowerCase().includes('adobe')) return 'Adobe RGB'
+  if (cs === 65535 || String(cs).toLowerCase().includes('p3') || String(cs).toLowerCase().includes('wide')) return 'Display P3 (Wide Color)'
+  if (cs) return String(cs)
+  return undefined
+}
+
 /** Parse EXIF metadata from an image buffer */
 const extractExif = async (buffer) => {
   try {
@@ -143,6 +169,19 @@ const extractExif = async (buffer) => {
         'ExposureValue',
         'Flash',
         'WhiteBalance',
+        'Artist',
+        'Copyright',
+        'ExposureProgram',
+        'MeteringMode',
+        'ExposureBiasValue',
+        'DigitalZoomRatio',
+        'BodySerialNumber',
+        'SerialNumber',
+        'CameraSerialNumber',
+        'LensSerialNumber',
+        'LensSpecification',
+        'LensInfo',
+        'ColorSpace',
       ]
     })
     if (!rawExif) return {}
@@ -157,6 +196,22 @@ const extractExif = async (buffer) => {
       ? Math.round(rawExif.FocalLength * 100) / 100 
       : undefined
 
+    const evVal = typeof rawExif.ExposureBiasValue === 'number'
+      ? (rawExif.ExposureBiasValue === 0
+        ? '0.00 EV'
+        : `${rawExif.ExposureBiasValue > 0 ? '+' : ''}${parseFloat(rawExif.ExposureBiasValue.toFixed(2))} EV`)
+      : undefined
+
+    const zoomVal = typeof rawExif.DigitalZoomRatio === 'number'
+      ? `${parseFloat(rawExif.DigitalZoomRatio.toFixed(2))}x`
+      : undefined
+
+    const serialVal = rawExif.BodySerialNumber || rawExif.SerialNumber || rawExif.CameraSerialNumber || undefined
+
+    const lensSpec = rawExif.LensSpecification 
+      ? (Array.isArray(rawExif.LensSpecification) ? formatLensInfo(rawExif.LensSpecification) : String(rawExif.LensSpecification))
+      : (rawExif.LensInfo ? formatLensInfo(rawExif.LensInfo) : undefined)
+
     const exifData = {
       camera: cameraName || undefined,
       lensModel: cleanedLens || undefined,
@@ -169,15 +224,25 @@ const extractExif = async (buffer) => {
           : `1/${Math.round(1 / rawExif.ExposureTime)}s`
         : undefined,
       ev:
-        rawExif.ExposureValue !== undefined
+        typeof rawExif.ExposureValue === 'number'
           ? Math.round(rawExif.ExposureValue * 10) / 10
           : undefined,
       flash: rawExif.Flash !== undefined ? rawExif.Flash : undefined,
       dateTaken: rawExif.DateTimeOriginal || undefined,
       software: rawExif.Software || undefined,
       whiteBalance: rawExif.WhiteBalance || undefined,
-      gpsLat: rawExif.GPSLatitude || undefined,
-      gpsLng: rawExif.GPSLongitude || undefined,
+      artist: rawExif.Artist || undefined,
+      copyright: rawExif.Copyright || undefined,
+      exposureProgram: rawExif.ExposureProgram || undefined,
+      meteringMode: rawExif.MeteringMode || undefined,
+      exposureCompensation: evVal,
+      digitalZoomRatio: zoomVal,
+      bodySerialNumber: serialVal,
+      lensSerialNumber: rawExif.LensSerialNumber || undefined,
+      lensSpecification: lensSpec,
+      colorSpace: mapColorSpace(rawExif.ColorSpace),
+      gpsLat: parseGpsCoord(rawExif.GPSLatitude),
+      gpsLng: parseGpsCoord(rawExif.GPSLongitude),
     }
     // Remove undefined keys
     Object.keys(exifData).forEach(
@@ -196,7 +261,7 @@ const uploadImage = async (buffer, folder, publicIdPrefix, fileSize) => {
     buffer,
     folder,
     `${publicIdPrefix}_${Date.now()}`,
-    { resource_type: 'image' }
+    { resource_type: 'image', angle: 'exif' }
   )
   return {
     url: result.secure_url,
@@ -445,6 +510,7 @@ export const createPost = async (req, res, next) => {
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
+      console.error('❌ ZOD VALIDATION ERROR:', JSON.stringify(err.errors, null, 2))
       return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
     }
     next(err)

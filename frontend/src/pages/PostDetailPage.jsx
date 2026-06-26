@@ -9,6 +9,7 @@ import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import useTierAccess from '../hooks/useTierAccess'
+import DownloadButton from '../components/post/DownloadButton'
 import LikeButton from '../components/post/LikeButton'
 import BookmarkButton from '../components/post/BookmarkButton'
 import CommentSection from '../components/post/CommentSection'
@@ -75,65 +76,14 @@ const extractColorsFromImg = (src, count = 4) =>
     img.src = s
   })
 
-/* ─── Download Button (CTA Tactile spec) ───────────────────────── */
+/* ─── Download Button Wrapper ───────────────────────────────── */
 const PostDownloadButton = ({ post, onUnlock }) => {
-  const user = useAuthStore(s => s.user)
-  const [loading, setLoading] = useState(false)
-
-  const handleDownload = async () => {
-    if (!user) { toast.error('Đăng nhập để tải ảnh'); return }
-    if (loading) return
-    setLoading(true)
-    try {
-      const { data } = await api.post(`/posts/${post._id}/download`)
-      if (data.downloadUrl) {
-        onUnlock?.()
-        const a = document.createElement('a')
-        a.href = data.downloadUrl
-        a.download = `picspy_${post._id}.jpg`
-        a.target = '_blank'
-        document.body.appendChild(a); a.click(); document.body.removeChild(a)
-        toast.success('Đang tải ảnh...')
-      }
-    } catch (err) {
-      const msg = err.response?.data?.message
-      if (err.response?.status === 402) {
-        const needed = err.response?.data?.priceInTokens
-        toast.error(needed ? `Cần ${needed} token để tải ảnh này` : (msg || 'Cần token để tải ảnh Premium'))
-      } else toast.error(msg || 'Không thể tải ảnh')
-    } finally { setLoading(false) }
-  }
-
-  // CTA Tactile per DESIGN.md — solid Studio Violet, inset gloss, no gradient
-  const btnStyle = post.isPremium
-    ? {
-        background: 'oklch(72% 0.18 65)',  // Founder Amber
-        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.22), inset 0 -2px 0 rgba(0,0,0,0.2), 0 6px 24px rgba(217,119,6,0.4)',
-      }
-    : {
-        background: 'oklch(52% 0.28 285)',  // Studio Violet
-        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.26), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px rgba(109,40,217,0.45)',
-      }
-
   return (
-    <motion.button
-      whileTap={{ scale: 0.97 }}
-      onClick={handleDownload}
-      disabled={loading}
-      className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl
-        font-bold text-sm text-[#f5f3ff] disabled:opacity-60 transition-all duration-200"
-      style={{ ...btnStyle, fontFamily: 'Outfit, sans-serif', minHeight: 48 }}
-    >
-      {loading
-        ? <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-            animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
-        : <Download size={16} />
-      }
-      {post.isPremium
-        ? `Tải Premium · ${post.priceInTokens || post.priceInCoins || '?'} token`
-        : 'Tải miễn phí'
-      }
-    </motion.button>
+    <DownloadButton
+      post={post}
+      variant="detail"
+      onUnlock={onUnlock}
+    />
   )
 }
 

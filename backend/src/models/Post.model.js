@@ -55,10 +55,20 @@ const postSchema = new mongoose.Schema(
       focalLength: String,   // "50mm"
       shutterSpeed: String,  // "1/250s"
       ev: Number,            // Exposure Value: 10.5
-      flash: Number,         // 0 = off, 1 = fired
+      flash: String,         // e.g. "Flash did not fire", "0", "1" etc.
       dateTaken: Date,
       software: String,      // "Adobe Lightroom"
       whiteBalance: String,  // "Auto" or "Manual"
+      artist: String,
+      copyright: String,
+      exposureProgram: String,
+      meteringMode: String,
+      exposureCompensation: String,
+      digitalZoomRatio: String,
+      bodySerialNumber: String,
+      lensSerialNumber: String,
+      lensSpecification: String,
+      colorSpace: String,
       gpsLat: Number,
       gpsLng: Number,
     },

@@ -2,7 +2,7 @@ import { useMemo, useCallback, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Camera, Aperture, Zap, Focus, Timer, Calendar, Cpu, Crosshair, Copy, Check,
-  SunDim, ZapOff, Sun,
+  SunDim, ZapOff, Sun, MapPin, User, Copyright, SlidersHorizontal, Barcode, Disc, Layers
 } from 'lucide-react'
 
 /* ─────────────────────────────────────────────────────────────────
@@ -280,6 +280,17 @@ const STAT_STYLES = {
   'Ngày chụp':{ ring: 'border-slate-500/30',  icon: 'text-slate-400',   badge: 'bg-slate-500/15 text-slate-300',   mono: false },
   'Phần mềm': { ring: 'border-white/10',      icon: 'text-white/35',    badge: 'bg-white/5 text-white/40',         mono: false },
   'Cân bằng trắng': { ring: 'border-amber-500/30', icon: 'text-amber-300',  badge: 'bg-amber-500/10 text-amber-200',   mono: false },
+  'Tác giả':   { ring: 'border-blue-500/30',   icon: 'text-blue-400',    badge: 'bg-blue-500/15 text-blue-300',     mono: false },
+  'Bản quyền': { ring: 'border-red-500/30',    icon: 'text-red-400',     badge: 'bg-red-500/15 text-red-300',       mono: false },
+  'Chế độ chụp': { ring: 'border-emerald-500/30',icon: 'text-emerald-400',  badge: 'bg-emerald-500/15 text-emerald-300',mono: false },
+  'Đo sáng':   { ring: 'border-pink-500/30',   icon: 'text-pink-400',    badge: 'bg-pink-500/15 text-pink-300',     mono: false },
+  'EV Bias':   { ring: 'border-orange-500/35', icon: 'text-orange-400',  badge: 'bg-orange-500/15 text-orange-300', mono: true  },
+  'Zoom':      { ring: 'border-indigo-500/30', icon: 'text-indigo-400',  badge: 'bg-indigo-500/15 text-indigo-300', mono: true  },
+  'S/N Máy':   { ring: 'border-yellow-600/30', icon: 'text-yellow-500',  badge: 'bg-yellow-600/10 text-yellow-400', mono: true  },
+  'S/N Kính':  { ring: 'border-yellow-600/25', icon: 'text-yellow-500',  badge: 'bg-yellow-600/8 text-yellow-400',  mono: true  },
+  'Thông số kính': { ring: 'border-teal-500/30', icon: 'text-teal-400',  badge: 'bg-teal-500/15 text-teal-300',     mono: false },
+  'Không gian màu': { ring: 'border-rose-500/30', icon: 'text-rose-400',  badge: 'bg-rose-500/15 text-rose-300',     mono: false },
+  'Vị trí':    { ring: 'border-rose-500/40',   icon: 'text-rose-400',    badge: 'bg-rose-500/15 text-rose-300',     mono: false },
 }
 
 const ExifStatCard = ({ icon: Icon, label, value, delay = 0 }) => {
@@ -343,13 +354,97 @@ const ExifPanel = ({ exifData, histogram, colorPalette, compact = false }) => {
   if (exifData?.shutterSpeed) primaryStats.push({ icon: Timer,     label: 'Tốc độ',  value: exifData.shutterSpeed })
   if (exifData?.focalLength)  primaryStats.push({ icon: Crosshair, label: 'Tiêu cự', value: exifData.focalLength })
   if (exifData?.ev !== undefined) primaryStats.push({ icon: SunDim, label: 'EV', value: `EV ${exifData.ev > 0 ? '+' : ''}${exifData.ev}` })
-  if (exifData?.flash !== undefined) primaryStats.push({ icon: ZapOff, label: 'Flash', value: exifData.flash ? 'Đã bật đèn' : 'Không đèn' })
+  if (exifData?.flash !== undefined) {
+    let flashVal = exifData.flash
+    let flashFired = false
+    if (typeof flashVal === 'number') {
+      flashFired = (flashVal & 1) === 1
+      flashVal = flashFired ? 'Đã bật đèn' : 'Không bật đèn'
+    } else if (typeof flashVal === 'string') {
+      const lower = flashVal.toLowerCase()
+      if (lower.includes('did not fire') || lower.includes('no flash') || lower.includes('off') || lower === '0' || lower === 'false') {
+        flashFired = false
+        flashVal = 'Không bật đèn'
+      } else {
+        flashFired = true
+        flashVal = 'Đã bật đèn'
+      }
+    } else {
+      flashFired = !!flashVal
+      flashVal = flashFired ? 'Đã bật đèn' : 'Không bật đèn'
+    }
+    primaryStats.push({ icon: flashFired ? Zap : ZapOff, label: 'Flash', value: flashVal })
+  }
   if (exifData?.whiteBalance) primaryStats.push({ icon: Sun, label: 'Cân bằng trắng', value: exifData.whiteBalance })
+  if (exifData?.exposureCompensation) primaryStats.push({ icon: SunDim, label: 'EV Bias', value: exifData.exposureCompensation })
+  if (exifData?.digitalZoomRatio) primaryStats.push({ icon: Layers, label: 'Zoom', value: exifData.digitalZoomRatio })
 
   if (exifData?.camera)     secondaryStats.push({ icon: Camera,   label: 'Thiết bị',  value: exifData.camera })
   if (exifData?.lensModel)  secondaryStats.push({ icon: Focus,    label: 'Ống kính',  value: exifData.lensModel })
+  if (exifData?.lensSpecification) {
+    const cleanedSpec = String(exifData.lensSpecification).replace(/\d+\.\d+/g, (m) => {
+      const val = parseFloat(m)
+      return String(Math.round(val * 100) / 100)
+    })
+    secondaryStats.push({ icon: Disc, label: 'Thông số kính', value: cleanedSpec })
+  }
+  if (exifData?.colorSpace) secondaryStats.push({ icon: Cpu, label: 'Không gian màu', value: exifData.colorSpace })
+  
+  if (exifData) {
+    const software = exifData.software || ''
+    const sLower = software.toLowerCase()
+    const isEdited = sLower.includes('adobe') || sLower.includes('photoshop') || sLower.includes('lightroom') || 
+                     sLower.includes('gimp') || sLower.includes('snapseed') || sLower.includes('picsart') || 
+                     sLower.includes('pixelmator') || sLower.includes('canva') || sLower.includes('fotor') || 
+                     sLower.includes('capture one') || sLower.includes('luminar')
+    
+    if (software) {
+      if (isEdited) {
+        secondaryStats.push({
+          icon: Cpu,
+          label: 'Hậu kỳ',
+          value: `Đã chỉnh sửa (qua ${software})`,
+          isEditStatus: true,
+          isEdited: true
+        })
+      } else {
+        secondaryStats.push({
+          icon: Cpu,
+          label: 'Hậu kỳ',
+          value: `Ảnh gốc SOOC (Firmware: ${software})`,
+          isEditStatus: true,
+          isEdited: false
+        })
+      }
+    } else {
+      secondaryStats.push({
+        icon: Cpu,
+        label: 'Hậu kỳ',
+        value: 'Ảnh gốc SOOC (Chưa chỉnh sửa)',
+        isEditStatus: true,
+        isEdited: false
+      })
+    }
+  }
+
+  if (exifData?.exposureProgram) secondaryStats.push({ icon: SlidersHorizontal, label: 'Chế độ chụp', value: exifData.exposureProgram })
+  if (exifData?.meteringMode) secondaryStats.push({ icon: SlidersHorizontal, label: 'Đo sáng', value: exifData.meteringMode })
+  if (exifData?.bodySerialNumber) secondaryStats.push({ icon: Barcode, label: 'S/N Máy', value: exifData.bodySerialNumber })
+  if (exifData?.lensSerialNumber) secondaryStats.push({ icon: Barcode, label: 'S/N Kính', value: exifData.lensSerialNumber })
+  if (exifData?.artist) secondaryStats.push({ icon: User, label: 'Tác giả', value: exifData.artist })
+  if (exifData?.copyright) secondaryStats.push({ icon: Copyright, label: 'Bản quyền', value: exifData.copyright })
   if (exifData?.dateTaken)  secondaryStats.push({ icon: Calendar, label: 'Ngày chụp', value: new Date(exifData.dateTaken).toLocaleDateString('vi-VN') })
   if (exifData?.software)   secondaryStats.push({ icon: Cpu,      label: 'Phần mềm', value: exifData.software })
+  if (exifData?.gpsLat !== undefined && exifData?.gpsLng !== undefined && exifData?.gpsLat !== null && exifData?.gpsLng !== null) {
+    secondaryStats.push({
+      icon: MapPin,
+      label: 'Vị trí',
+      value: `${parseFloat(exifData.gpsLat.toFixed(4))}, ${parseFloat(exifData.gpsLng.toFixed(4))}`,
+      isGps: true,
+      lat: exifData.gpsLat,
+      lng: exifData.gpsLng
+    })
+  }
 
   const allStats = [...primaryStats, ...secondaryStats]
 
@@ -414,9 +509,29 @@ const ExifPanel = ({ exifData, histogram, colorPalette, compact = false }) => {
                   <span className="text-[9px] text-white/25 uppercase tracking-wider w-14 flex-shrink-0">
                     {s.label}
                   </span>
-                  <span className="text-[11px] text-white/65 font-medium truncate flex-1 min-w-0">
-                    {s.value}
-                  </span>
+                  {s.isEditStatus ? (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border leading-tight truncate max-w-[280px] ${
+                      s.isEdited 
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' 
+                        : 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                    }`} title={s.value}>
+                      {s.value}
+                    </span>
+                  ) : s.isGps ? (
+                    <a
+                      href={`https://www.google.com/maps/search/?api=1&query=${s.lat},${s.lng}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] text-sky-400 hover:text-sky-300 font-medium hover:underline flex items-center gap-1 transition-colors"
+                    >
+                      {s.value}
+                      <span className="text-[9px] text-sky-500/80">(Bản đồ)</span>
+                    </a>
+                  ) : (
+                    <span className="text-[11px] text-white/65 font-medium truncate flex-1 min-w-0" title={s.value}>
+                      {s.value}
+                    </span>
+                  )}
                 </motion.div>
               ))}
             </div>
