@@ -36,7 +36,7 @@ const DownloadButton = ({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState('original')
 
-  const hasAttachments = !!post?.rawFile || !!post?.colorFile
+  const hasAttachments = !!post?.rawFile || !!post?.colorFile || !!post?.sourceImages?.[0]
 
   const doDownload = async (fileType = selectedFileType) => {
     setShowConfirm(false)
@@ -50,6 +50,10 @@ const DownloadButton = ({
           filename = `picspy-${postId}`
           if (fileType === 'original') {
             const img = post?.generatedImages?.[0]
+            filename += img?.format ? `.${img.format}` : '.jpg'
+          } else if (fileType === 'source') {
+            const img = post?.sourceImages?.[0]
+            filename = `RAW-unedited-source-${postId}`
             filename += img?.format ? `.${img.format}` : '.jpg'
           } else if (fileType === 'raw' && post?.rawFile?.originalName) {
             filename = post.rawFile.originalName
@@ -174,8 +178,23 @@ const DownloadButton = ({
                 className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/80 hover:text-white hover:bg-white/5 transition-colors text-left"
               >
                 <Download size={14} className="text-white/40 flex-shrink-0" />
-                <span className="truncate">{formatItemText('Ảnh gốc', post?.generatedImages?.[0])}</span>
+                <span className="truncate">
+                  {formatItemText(post?.sourceImages?.[0] ? 'Ảnh đã chỉnh sửa' : 'Ảnh gốc', post?.generatedImages?.[0])}
+                </span>
               </button>
+
+              {post?.sourceImages?.[0] && (
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false)
+                    handleInitiateDownload('source')
+                  }}
+                  className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/80 hover:text-white hover:bg-white/5 transition-colors text-left"
+                >
+                  <Download size={14} className="text-white/40 flex-shrink-0" />
+                  <span className="truncate">{formatItemText('Ảnh gốc chưa sửa', post.sourceImages[0])}</span>
+                </button>
+              )}
 
               {post?.rawFile && (
                 <button

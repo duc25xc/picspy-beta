@@ -26,6 +26,9 @@ export const downloadPost = async (req, res, next) => {
     if (fileType === 'original') {
       targetFile = post.generatedImages?.[0]
       resourceType = 'image'
+    } else if (fileType === 'source') {
+      targetFile = post.sourceImages?.[0]
+      resourceType = 'image'
     } else if (fileType === 'raw') {
       targetFile = post.rawFile
       resourceType = 'raw'
@@ -102,6 +105,23 @@ export const downloadPost = async (req, res, next) => {
       }
       baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
       finalFilename = `${baseName}_${dateStr}_picspy.${ext}`
+    } else if (fileType === 'source') {
+      ext = targetFile.format || 'jpg'
+      if (post.caption) {
+        baseName = post.caption
+          .trim()
+          .toLowerCase()
+          .normalize('NFD') // remove accents
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[^a-z0-9_]/g, '_')
+          .replace(/_+/g, '_')
+          .slice(0, 50)
+      }
+      if (!baseName) {
+        baseName = `source_${postId.toString().slice(-6)}`
+      }
+      baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
+      finalFilename = `RAW-unedited-${baseName}-picspy.${ext}`
     } else if (fileType === 'raw') {
       ext = targetFile.format || 'raw'
       if (targetFile.originalName) {
@@ -147,11 +167,7 @@ export const downloadPost = async (req, res, next) => {
       resource_type: resourceType,
     }
 
-    if (resourceType === 'image') {
-      const filenameWithoutExt = `${baseName}_${dateStr}_picspy`
-      urlOptions.flags = `attachment:${filenameWithoutExt}`
-      urlOptions.format = ext
-    }
+    // No transformations are applied here to ensure Cloudinary serves the original byte-for-byte uploaded file without compression.
 
     const downloadUrl = cloudinary.url(targetFile.publicId, urlOptions)
 

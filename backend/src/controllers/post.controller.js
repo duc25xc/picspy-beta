@@ -496,6 +496,8 @@ export const createPost = async (req, res, next) => {
         publicId: genUploads[0].publicId,
         authorId: req.user._id.toString(),
         generatedCount: genUploads.length,
+        sourceImageUrl: sourceImages?.[0]?.url || undefined,
+        sourcePublicId: sourceImages?.[0]?.publicId || undefined,
       },
       { priority: 1 }
     )
@@ -950,29 +952,30 @@ export const updatePost = async (req, res, next) => {
     if (data.orientation) post.orientation = data.orientation
     if (data.aspectRatio) post.aspectRatio = data.aspectRatio
 
-    // Update images
-    post.sourceImages = finalSourceImages
-    
-    // Để xem ảnh chính có bị đổi không
     const oldPrimaryPublicId = post.generatedImages?.[0]?.publicId
     const newPrimaryPublicId = finalGeneratedImages[0]?.publicId
+    const oldSourcePublicId = post.sourceImages?.[0]?.publicId
+    const newSourcePublicId = finalSourceImages[0]?.publicId
 
+    // Update images
+    post.sourceImages = finalSourceImages
     post.generatedImages = finalGeneratedImages
     post.isMultiModel = isMultiModel
     post.modelComparisons = finalModelComparisons
 
-    // Nếu thay đổi ảnh chính đầu tiên, ta trigger hàng chờ re-processing
+    // Nếu thay đổi ảnh chính đầu tiên hoặc ảnh nguồn đầu tiên, ta trigger hàng chờ re-processing
     const hasPrimaryImageChanged = oldPrimaryPublicId !== newPrimaryPublicId
+    const hasSourceImageChanged = oldSourcePublicId !== newSourcePublicId
 
     // Cập nhật trạng thái duyệt về 'pending' khi bài viết sửa ảnh hoặc prompt quan trọng
-    if (hasPrimaryImageChanged || promptChanged) {
+    if (hasPrimaryImageChanged || hasSourceImageChanged || promptChanged) {
       post.status = 'pending'
     }
 
     await post.save()
 
-    // Enqueue processing job if primary image changed
-    if (hasPrimaryImageChanged && newPrimaryPublicId) {
+    // Enqueue processing job if primary image or source image changed
+    if ((hasPrimaryImageChanged && newPrimaryPublicId) || (hasSourceImageChanged && newSourcePublicId)) {
       await imageQueue.add(
         'process-image',
         {
@@ -981,6 +984,8 @@ export const updatePost = async (req, res, next) => {
           publicId: finalGeneratedImages[0].publicId,
           authorId: req.user._id.toString(),
           generatedCount: finalGeneratedImages.length,
+          sourceImageUrl: finalSourceImages[0]?.url || undefined,
+          sourcePublicId: finalSourceImages[0]?.publicId || undefined,
         },
         { priority: 1 }
       )

@@ -1,8 +1,13 @@
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  ChevronLeft, ChevronRight, ExternalLink, Maximize2,
-  ImageOff, Layers, Camera,
+  ChevronLeft,
+  ChevronRight,
+  ExternalLink,
+  Maximize2,
+  ImageOff,
+  Layers,
+  Camera,
 } from 'lucide-react'
 import { AI_TOOLS } from '../../pages/uploadConstants'
 
@@ -30,7 +35,11 @@ const makeBlurredUrl = (url) => {
 
 // Lấy AI tool meta từ enum value
 const getToolMeta = (value) =>
-  AI_TOOLS.find(t => t.value === value) || { label: value, color: '#6b7280', icon: '·' }
+  AI_TOOLS.find((t) => t.value === value) || {
+    label: value,
+    color: '#6b7280',
+    icon: '·',
+  }
 
 export default function ImageGallery({
   generatedImages = [],
@@ -50,49 +59,50 @@ export default function ImageGallery({
   // Hợp nhất ảnh chính (primary model) và ảnh từ các so sánh khác, tránh trùng lặp
   const allGen = (() => {
     const list = []
-    
+
     // 1. Thêm các ảnh chính từ generatedImages (model primary)
     if (generatedImages && generatedImages.length > 0) {
-      generatedImages.forEach(img => {
+      generatedImages.forEach((img) => {
         list.push({
           ...img,
           aiTool: aiTool,
           aiModel: aiModel,
-          isPrimary: true
+          isPrimary: true,
         })
       })
     } else if (legacyImages && legacyImages.length > 0) {
-      legacyImages.forEach(img => {
+      legacyImages.forEach((img) => {
         list.push({
           ...img,
-          isPrimary: true
+          isPrimary: true,
         })
       })
     }
 
     // 2. Thêm các ảnh từ modelComparisons (nếu ở chế độ multi-model)
     if (isMultiModel && modelComparisons && modelComparisons.length > 0) {
-      modelComparisons.forEach(comp => {
+      modelComparisons.forEach((comp) => {
         if (comp.generatedImages && comp.generatedImages.length > 0) {
-          comp.generatedImages.forEach(img => {
+          comp.generatedImages.forEach((img) => {
             // Lọc trùng lặp theo publicId hoặc URL để tránh lặp slot 0 trong updatePost
-            const exists = list.some(existing => 
-              (existing.publicId && existing.publicId === img.publicId) || 
-              (existing.url && existing.url === img.url)
+            const exists = list.some(
+              (existing) =>
+                (existing.publicId && existing.publicId === img.publicId) ||
+                (existing.url && existing.url === img.url)
             )
             if (!exists) {
               list.push({
                 ...img,
                 aiTool: comp.aiTool,
                 aiModel: comp.aiModel,
-                isPrimary: false
+                isPrimary: false,
               })
             }
           })
         }
       })
     }
-    
+
     return list
   })()
   const allSrc = sourceImages.slice(0, 5)
@@ -100,7 +110,9 @@ export default function ImageGallery({
   const hasThumbs = allGen.length > 1 || hasSource
   const isLegacy = generatedImages.length === 0 && legacyImages.length > 0
 
-  const [activeKey, setActiveKey] = useState(() => allGen.length > 0 ? 'gen-0' : (allSrc.length > 0 ? 'src-0' : 'gen-0'))
+  const [activeKey, setActiveKey] = useState(() =>
+    allGen.length > 0 ? 'gen-0' : allSrc.length > 0 ? 'src-0' : 'gen-0'
+  )
   const [imgLoaded, setImgLoaded] = useState(false)
   const [direction, setDirection] = useState(1) // 1 = forward, -1 = back
 
@@ -111,17 +123,23 @@ export default function ImageGallery({
       ...allSrc.map((_, i) => `src-${i}`),
     ]
     if (!allKeys.includes(activeKey)) {
-      setActiveKey(allGen.length > 0 ? 'gen-0' : (allSrc.length > 0 ? 'src-0' : 'gen-0'))
+      setActiveKey(
+        allGen.length > 0 ? 'gen-0' : allSrc.length > 0 ? 'src-0' : 'gen-0'
+      )
     }
   }, [allGen, allSrc, activeKey])
 
   // Resolve active image object
-  const resolveActive = useCallback((key) => {
-    const [type, idxStr] = key.split('-')
-    const idx = parseInt(idxStr, 10)
-    if (type === 'gen') return { img: allGen[idx] || allGen[0], isSource: false }
-    return { img: allSrc[idx] || allSrc[0], isSource: true }
-  }, [allGen, allSrc])
+  const resolveActive = useCallback(
+    (key) => {
+      const [type, idxStr] = key.split('-')
+      const idx = parseInt(idxStr, 10)
+      if (type === 'gen')
+        return { img: allGen[idx] || allGen[0], isSource: false }
+      return { img: allSrc[idx] || allSrc[0], isSource: true }
+    },
+    [allGen, allSrc]
+  )
 
   const { img: activeImg, isSource: activeIsSource } = resolveActive(activeKey)
 
@@ -132,18 +150,22 @@ export default function ImageGallery({
   ]
   const activeIdx = allKeys.indexOf(activeKey)
 
-  const navigate = useCallback((delta) => {
-    const nextIdx = (activeIdx + delta + allKeys.length) % allKeys.length
-    setDirection(delta)
-    setImgLoaded(false)
-    setActiveKey(allKeys[nextIdx])
-  }, [activeIdx, allKeys])
+  const navigate = useCallback(
+    (delta) => {
+      const nextIdx = (activeIdx + delta + allKeys.length) % allKeys.length
+      setDirection(delta)
+      setImgLoaded(false)
+      setActiveKey(allKeys[nextIdx])
+    },
+    [activeIdx, allKeys]
+  )
 
   useEffect(() => {
     const handler = (e) => {
-      const isEditable = e.target.tagName === 'INPUT' || 
-                         e.target.tagName === 'TEXTAREA' || 
-                         e.target.isContentEditable
+      const isEditable =
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable
       if (isEditable) return
 
       if (e.key === 'ArrowLeft') navigate(-1)
@@ -153,13 +175,16 @@ export default function ImageGallery({
     return () => window.removeEventListener('keydown', handler)
   }, [navigate])
 
-  const selectKey = useCallback((key) => {
-    const currIdx = allKeys.indexOf(activeKey)
-    const nextIdx = allKeys.indexOf(key)
-    setDirection(nextIdx >= currIdx ? 1 : -1)
-    setImgLoaded(false)
-    setActiveKey(key)
-  }, [activeKey, allKeys])
+  const selectKey = useCallback(
+    (key) => {
+      const currIdx = allKeys.indexOf(activeKey)
+      const nextIdx = allKeys.indexOf(key)
+      setDirection(nextIdx >= currIdx ? 1 : -1)
+      setImgLoaded(false)
+      setActiveKey(key)
+    },
+    [activeKey, allKeys]
+  )
 
   // Notify parent when active image changes
   useEffect(() => {
@@ -173,13 +198,15 @@ export default function ImageGallery({
   const toolMeta = currentAiTool ? getToolMeta(currentAiTool) : null
   const showBlurred = isPremium && !isUnlocked
   const displayUrl = showBlurred
-    ? makeBlurredUrl(activeImg?.previewUrl || activeImg?.thumbnailUrl || activeImg?.url)
-    : (activeImg?.previewUrl || activeImg?.url || activeImg?.thumbnailUrl)
+    ? makeBlurredUrl(
+        activeImg?.previewUrl || activeImg?.thumbnailUrl || activeImg?.url
+      )
+    : activeImg?.previewUrl || activeImg?.url || activeImg?.thumbnailUrl
 
   const altText = activeIsSource
     ? `Ảnh tham khảo cho "${caption}"`
     : isLegacy
-      ? (caption || 'Ảnh')
+      ? caption || 'Ảnh'
       : `${caption || 'Ảnh AI'} — tạo bằng ${currentAiTool || 'AI'}`
 
   // slide variants
@@ -231,7 +258,9 @@ export default function ImageGallery({
                   onContextMenu={(e) => showBlurred && e.preventDefault()}
                   className="block w-full h-auto max-h-[78vh] object-contain transition-all duration-500"
                   style={{
-                    filter: showBlurred ? 'blur(20px) brightness(0.45)' : 'none',
+                    filter: showBlurred
+                      ? 'blur(20px) brightness(0.45)'
+                      : 'none',
                     opacity: imgLoaded ? 1 : 0,
                     transition: 'opacity 0.3s ease, filter 0.4s ease',
                   }}
@@ -264,10 +293,16 @@ export default function ImageGallery({
               style={{ background: 'rgba(10,9,14,0.75)' }}
             >
               <span className="text-3xl block mb-2">💎</span>
-              <p className="text-white font-semibold text-sm mb-1" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <p
+                className="text-white font-semibold text-sm mb-1"
+                style={{ fontFamily: 'Outfit, sans-serif' }}
+              >
                 Nội dung Premium
               </p>
-              <p className="text-white/50 text-xs" style={{ fontFamily: 'Outfit, sans-serif' }}>
+              <p
+                className="text-white/50 text-xs"
+                style={{ fontFamily: 'Outfit, sans-serif' }}
+              >
                 Tải xuống để xem chất lượng gốc
               </p>
             </div>
@@ -275,7 +310,10 @@ export default function ImageGallery({
         )}
 
         {/* ── Top-left: AI tool badge + source label ──── */}
-        <div className="absolute top-3 left-3 z-20 flex items-center gap-2" style={{ marginTop: 24 }}>
+        <div
+          className="absolute top-3 left-3 z-20 flex items-center gap-2"
+          style={{ marginTop: 24 }}
+        >
           {toolMeta && !activeIsSource && !isLegacy && (
             <span
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold backdrop-blur-md border border-white/10"
@@ -287,7 +325,9 @@ export default function ImageGallery({
             >
               <span className="text-[13px] leading-none">{toolMeta.icon}</span>
               {toolMeta.label}
-              {currentAiModel && <span className="opacity-60 font-normal">{currentAiModel}</span>}
+              {currentAiModel && (
+                <span className="opacity-60 font-normal">{currentAiModel}</span>
+              )}
             </span>
           )}
           {activeIsSource && (
@@ -398,7 +438,7 @@ export default function ImageGallery({
                   style={{ fontFamily: 'Outfit, sans-serif' }}
                 >
                   <Layers size={9} className="text-[#7986eb]/60" />
-                  Kết quả AI
+                  Ảnh kết quả
                 </p>
               )}
               <div className="flex gap-2 flex-wrap">
@@ -413,20 +453,25 @@ export default function ImageGallery({
                       aria-label={`Kết quả AI ${i + 1}`}
                       className="relative overflow-hidden rounded-lg flex-shrink-0 transition-all duration-150"
                       style={{
-                        width: 56, height: 56,
-                        outline: isActive ? '2px solid #7986eb' : '2px solid transparent',
+                        width: 56,
+                        height: 56,
+                        outline: isActive
+                          ? '2px solid #7986eb'
+                          : '2px solid transparent',
                         outlineOffset: 1,
                         opacity: isActive ? 1 : 0.55,
                       }}
                     >
-                      {(img.thumbnailUrl || img.url) ? (
+                      {img.thumbnailUrl || img.url ? (
                         <>
                           <img
                             src={img.thumbnailUrl || img.url}
                             alt={`Kết quả ${i + 1}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
-                            style={{ filter: showBlurred ? 'blur(4px)' : 'none' }}
+                            style={{
+                              filter: showBlurred ? 'blur(4px)' : 'none',
+                            }}
                           />
                           {isMultiModel && img.aiTool && (
                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 py-0.5 text-[8px] text-white/90 font-bold text-center truncate px-1 uppercase tracking-tight">
@@ -479,13 +524,16 @@ export default function ImageGallery({
                       aria-label={`Ảnh gốc ${i + 1}`}
                       className="relative overflow-hidden rounded-lg flex-shrink-0 transition-all duration-150"
                       style={{
-                        width: 56, height: 56,
-                        outline: isActive ? '2px solid rgba(255,255,255,0.4)' : '2px solid transparent',
+                        width: 56,
+                        height: 56,
+                        outline: isActive
+                          ? '2px solid rgba(255,255,255,0.4)'
+                          : '2px solid transparent',
                         outlineOffset: 1,
                         opacity: isActive ? 1 : 0.55,
                       }}
                     >
-                      {(img.thumbnailUrl || img.url) ? (
+                      {img.thumbnailUrl || img.url ? (
                         <img
                           src={img.thumbnailUrl || img.url}
                           alt={`Ảnh gốc ${i + 1}`}
@@ -504,7 +552,9 @@ export default function ImageGallery({
                         <motion.div
                           layoutId="thumb-ring"
                           className="absolute inset-0 rounded-lg"
-                          style={{ boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.45)' }}
+                          style={{
+                            boxShadow: 'inset 0 0 0 2px rgba(255,255,255,0.45)',
+                          }}
                         />
                       )}
                     </motion.button>

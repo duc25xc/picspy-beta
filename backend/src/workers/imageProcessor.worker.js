@@ -78,21 +78,31 @@ const checkNSFW = async (imageUrl) => {
 const imageWorker = new Worker(
   'image-processing',
   async (job) => {
-    const { postId, imageUrl, publicId, authorId } = job.data
+    const { postId, imageUrl, publicId, authorId, sourceImageUrl, sourcePublicId } = job.data
     console.log(`🔄 Processing AI content for post: ${postId}`)
 
     try {
-      // 1. Download ảnh chính (generatedImages[0]) về buffer
+      // 1. Download ảnh chính (generatedImages[0]) và ảnh nguồn (sourceImages[0]) nếu có
       await job.updateProgress(10)
-      const response = await axios.get(imageUrl, {
-        responseType: 'arraybuffer',
-        timeout: 30000,
-      })
-      const imageBuffer = Buffer.from(response.data)
+      const downloadTasks = [
+        axios.get(imageUrl, { responseType: 'arraybuffer', timeout: 30000 })
+      ]
+      if (sourceImageUrl) {
+        downloadTasks.push(
+          axios.get(sourceImageUrl, { responseType: 'arraybuffer', timeout: 30000 }).catch(err => {
+            console.error(`⚠️ Failed to download source image ${sourceImageUrl}:`, err.message)
+            return null
+          })
+        )
+      }
+
+      const downloadResults = await Promise.all(downloadTasks)
+      const imageBuffer = Buffer.from(downloadResults[0].data)
+      const sourceBuffer = (downloadResults[1] && downloadResults[1].data) ? Buffer.from(downloadResults[1].data) : null
 
       // 2. Resize → thumbnail (400px) và preview (1200px)
       await job.updateProgress(20)
-      const [thumbnailBuffer, previewBuffer] = await Promise.all([
+      const resizeTasks = [
         sharp(imageBuffer)
           .rotate()
           .resize(400, null, { withoutEnlargement: true })
@@ -103,12 +113,32 @@ const imageWorker = new Worker(
           .resize(1200, null, { withoutEnlargement: true })
           .webp({ quality: 85 })
           .toBuffer(),
-      ])
+      ]
+      if (sourceBuffer) {
+        resizeTasks.push(
+          sharp(sourceBuffer)
+            .rotate()
+            .resize(400, null, { withoutEnlargement: true })
+            .webp({ quality: 80 })
+            .toBuffer(),
+          sharp(sourceBuffer)
+            .rotate()
+            .resize(1200, null, { withoutEnlargement: true })
+            .webp({ quality: 85 })
+            .toBuffer()
+        )
+      }
+
+      const resizeResults = await Promise.all(resizeTasks)
+      const thumbnailBuffer = resizeResults[0]
+      const previewBuffer = resizeResults[1]
+      const sourceThumbBuffer = resizeResults[2] || null
+      const sourcePreviewBuffer = resizeResults[3] || null
 
       // 3. Upload các size lên Cloudinary
       await job.updateProgress(40)
       const baseName = publicId.split('/').pop()
-      const [thumbResult, previewResult] = await Promise.all([
+      const uploadTasks = [
         uploadBuffer(
           thumbnailBuffer,
           'picspy/posts/thumbnails',
@@ -121,7 +151,30 @@ const imageWorker = new Worker(
           `${baseName}_preview`,
           { format: 'webp' }
         ),
-      ])
+      ]
+      if (sourceThumbBuffer && sourcePreviewBuffer && sourcePublicId) {
+        const sourceBaseName = sourcePublicId.split('/').pop()
+        uploadTasks.push(
+          uploadBuffer(
+            sourceThumbBuffer,
+            'picspy/posts/thumbnails',
+            `${sourceBaseName}_thumb`,
+            { format: 'webp' }
+          ),
+          uploadBuffer(
+            sourcePreviewBuffer,
+            'picspy/posts/previews',
+            `${sourceBaseName}_preview`,
+            { format: 'webp' }
+          )
+        )
+      }
+
+      const uploadResults = await Promise.all(uploadTasks)
+      const thumbResult = uploadResults[0]
+      const previewResult = uploadResults[1]
+      const sourceThumbResult = uploadResults[2] || null
+      const sourcePreviewResult = uploadResults[3] || null
 
       // 4. Color palette (từ generatedImages[0])
       // node-vibrant dùng Jimp nội bộ — Jimp không hỗ trợ WebP!
@@ -203,22 +256,29 @@ const imageWorker = new Worker(
         status = 'pending'
       }
 
-      // 8. Cập nhật Post — generatedImages[0] thêm thumbnail/preview
+      // 8. Cập nhật Post — generatedImages[0] và sourceImages[0] thêm thumbnail/preview
       await job.updateProgress(90)
+      const updateFields = {
+        'generatedImages.0.thumbnailUrl': thumbResult.secure_url,
+        'generatedImages.0.previewUrl': previewResult.secure_url,
+        colorPalette,
+        blurHash,
+        nsfwScore,
+        isNSFW: nsfwScore > 0.4,
+        status,
+        ...(histogram.r.length > 0 && { histogram }),
+        ...(status === 'rejected' && {
+          rejectionReason: 'Nội dung không phù hợp (NSFW)',
+        }),
+      }
+
+      if (sourceThumbResult && sourcePreviewResult) {
+        updateFields['sourceImages.0.thumbnailUrl'] = sourceThumbResult.secure_url
+        updateFields['sourceImages.0.previewUrl'] = sourcePreviewResult.secure_url
+      }
+
       await Post.findByIdAndUpdate(postId, {
-        $set: {
-          'generatedImages.0.thumbnailUrl': thumbResult.secure_url,
-          'generatedImages.0.previewUrl': previewResult.secure_url,
-          colorPalette,
-          blurHash,
-          nsfwScore,
-          isNSFW: nsfwScore > 0.4,
-          status,
-          ...(histogram.r.length > 0 && { histogram }),
-          ...(status === 'rejected' && {
-            rejectionReason: 'Nội dung không phù hợp (NSFW)',
-          }),
-        },
+        $set: updateFields,
       })
 
       // 9. Emit Socket.io notification cho creator
