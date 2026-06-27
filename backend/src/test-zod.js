@@ -1,18 +1,20 @@
 import { z } from 'zod'
 
 const AI_TOOLS = [
-  'midjourney', 'dalle-3', 'stable-diffusion', 'flux',
-  'leonardo', 'firefly', 'ideogram', 'bing-creator',
-  'playground', 'canva-ai', 'comfyui',
-  'gemini-flash', 'gemini-think', 'gemini-pro',
-  'gemini-nano-banana', 'gemini-nano-banana-pro', 'gemini-nano-banana-2',
-  'chatgpt', 'deepseek', 'grok',
-  'sora', 'kling', 'runway', 'pika', 'luma', 'hailuo',
-  'other',
+  'midjourney',
+  'dalle-3',
+  'stable-diffusion',
+  'flux',
+  'gemini-nano-banana-pro',
+  'chatgpt',
+  'seedream',
+  'grok',
 ]
 
 const createPostSchema = z.object({
-  postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).default('ai'),
+  postType: z
+    .enum(['ai', 'digital', 'digital-raw', 'digital-normal'])
+    .default('ai'),
   prompt: z.string().max(2000).trim().optional(),
   negativePrompt: z.string().max(1000).trim().optional(),
   aiTool: z.enum(AI_TOOLS).optional(),
@@ -58,16 +60,23 @@ const testBody = {
   priceInTokens: '10',
   resolution: 'hd',
   orientation: 'landscape',
-  aspectRatio: '16:9'
+  aspectRatio: '16:9',
 }
 
 // Emulate backend preprocessing:
 const body = { ...testBody }
 if (typeof body.tags === 'string') {
-  try { body.tags = JSON.parse(body.tags) }
-  catch { body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean) }
+  try {
+    body.tags = JSON.parse(body.tags)
+  } catch {
+    body.tags = body.tags
+      .split(',')
+      .map((t) => t.trim())
+      .filter(Boolean)
+  }
 }
-if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+if (typeof body.isPremium === 'string')
+  body.isPremium = body.isPremium === 'true'
 if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
 
 try {

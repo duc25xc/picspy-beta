@@ -14,28 +14,17 @@ export const AI_TOOLS = [
     icon: '◈',
   },
   { value: 'flux', label: 'Flux', color: '#f59e0b', icon: '◇' },
-  { value: 'leonardo', label: 'Leonardo AI', color: '#ef4444', icon: '★' },
-  { value: 'firefly', label: 'Adobe Firefly', color: '#ff6900', icon: '◎' },
-  { value: 'ideogram', label: 'Ideogram', color: '#8b5cf6', icon: '○' },
-  { value: 'bing-creator', label: 'Bing Creator', color: '#0078d4', icon: '◐' },
-  { value: 'playground', label: 'Playground AI', color: '#06b6d4', icon: '▲' },
-  { value: 'canva-ai', label: 'Canva AI', color: '#00c4cc', icon: '◑' },
-  { value: 'comfyui', label: 'ComfyUI', color: '#64748b', icon: '⬡' },
-
   // ── Gemini / Banana / ChatGPT / DeepSeek / Grok (tools) ──
-  { value: 'gemini-pro', label: 'Gemini Pro', color: '#06b6d4', icon: '⬡' },
   {
     value: 'gemini-nano-banana-2',
-    label: 'Nano Banana 2',
+    label: 'Nano Banana Pro',
     color: '#fb923c',
     icon: '🍌',
   },
 
-  { value: 'chatgpt', label: 'ChatGPT', color: '#6366f1', icon: '◍' },
-  { value: 'deepseek', label: 'DeepSeek', color: '#0ea5e9', icon: '◎' },
-  { value: 'grok', label: 'Grok', color: '#ef4444', icon: '◉' },
-
-  { value: 'other', label: 'Khác', color: '#6b7280', icon: '·' },
+  { value: 'chatgpt', label: 'ChatGPT 2.0', color: '#6366f1', icon: '◍' },
+  { value: 'seedream', label: 'Seedream 4.5', color: '#6366f1', icon: '◍' },
+  { value: 'grok', label: 'Grok Imagine', color: '#ef4444', icon: '◉' },
 ]
 
 // ── Categories ────────────────────────────────────────────────────

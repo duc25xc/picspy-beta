@@ -17,18 +17,14 @@ const imageSchema = new mongoose.Schema(
 
 // Danh sách AI tools được hỗ trợ
 export const AI_TOOLS = [
-  // Image generation
-  'midjourney', 'dalle-3', 'stable-diffusion', 'flux',
-  'leonardo', 'firefly', 'ideogram', 'bing-creator',
-  'playground', 'canva-ai', 'comfyui',
-  // Gemini family
-  'gemini-flash', 'gemini-think', 'gemini-pro',
-  'gemini-nano-banana', 'gemini-nano-banana-pro', 'gemini-nano-banana-2',
-  // Other LLM-based tools
-  'chatgpt', 'deepseek', 'grok',
-  // Video AI (reserve)
-  'sora', 'kling', 'runway', 'pika', 'luma', 'hailuo',
-  'other',
+  'midjourney',
+  'dalle-3',
+  'stable-diffusion',
+  'flux',
+  'gemini-nano-banana-pro',
+  'chatgpt',
+  'seedream',
+  'grok',
 ]
 
 const postSchema = new mongoose.Schema(
@@ -42,23 +38,23 @@ const postSchema = new mongoose.Schema(
     // === SOURCE IMAGES (ảnh input/tham khảo, tối đa 5) ===
     sourceImages: {
       type: [imageSchema],
-      validate: [arr => arr.length <= 5, 'Tối đa 5 ảnh tham khảo'],
+      validate: [(arr) => arr.length <= 5, 'Tối đa 5 ảnh tham khảo'],
       default: [],
     },
 
     // === EXIF (chỉ extract từ sourceImages[0] nếu có) ===
     exifData: {
-      camera: String,        // "Canon EOS R5"
-      lensModel: String,     // "RF 50mm F1.2L USM"
-      iso: Number,           // 400
-      aperture: String,      // "f/1.4"
-      focalLength: String,   // "50mm"
-      shutterSpeed: String,  // "1/250s"
-      ev: Number,            // Exposure Value: 10.5
-      flash: String,         // e.g. "Flash did not fire", "0", "1" etc.
+      camera: String, // "Canon EOS R5"
+      lensModel: String, // "RF 50mm F1.2L USM"
+      iso: Number, // 400
+      aperture: String, // "f/1.4"
+      focalLength: String, // "50mm"
+      shutterSpeed: String, // "1/250s"
+      ev: Number, // Exposure Value: 10.5
+      flash: String, // e.g. "Flash did not fire", "0", "1" etc.
       dateTaken: Date,
-      software: String,      // "Adobe Lightroom"
-      whiteBalance: String,  // "Auto" or "Manual"
+      software: String, // "Adobe Lightroom"
+      whiteBalance: String, // "Auto" or "Manual"
       artist: String,
       copyright: String,
       exposureProgram: String,
@@ -75,7 +71,7 @@ const postSchema = new mongoose.Schema(
 
     // === HISTOGRAM (RGB 64-bin — từ generatedImages[0]) ===
     histogram: {
-      r: [Number],   // 64 giá trị
+      r: [Number], // 64 giá trị
       g: [Number],
       b: [Number],
     },
@@ -92,8 +88,10 @@ const postSchema = new mongoose.Schema(
     prompt: {
       type: String,
       required: [
-        function() { return this.postType === 'ai'; },
-        'Prompt là bắt buộc đối với ảnh AI'
+        function () {
+          return this.postType === 'ai'
+        },
+        'Prompt là bắt buộc đối với ảnh AI',
       ],
       maxlength: [2000, 'Prompt tối đa 2000 ký tự'],
       trim: true,
@@ -106,8 +104,10 @@ const postSchema = new mongoose.Schema(
     aiTool: {
       type: String,
       required: [
-        function() { return this.postType === 'ai'; },
-        'Vui lòng chọn công cụ AI'
+        function () {
+          return this.postType === 'ai'
+        },
+        'Vui lòng chọn công cụ AI',
       ],
       enum: {
         values: AI_TOOLS,
@@ -117,9 +117,9 @@ const postSchema = new mongoose.Schema(
       // But Mongoose default enum validator runs if the field is present/set.
       // We will handle it by keeping it optional for digital type.
     },
-    aiModel: { type: String, trim: true },       // "v6.1", "SDXL", "Flux Dev"
-    parameters: { type: String, trim: true },     // "--ar 16:9 --v 6.1 --seed 12345"
-    workflowJson: { type: String },               // ComfyUI/A1111 workflow JSON (Ultimate only)
+    aiModel: { type: String, trim: true }, // "v6.1", "SDXL", "Flux Dev"
+    parameters: { type: String, trim: true }, // "--ar 16:9 --v 6.1 --seed 12345"
+    workflowJson: { type: String }, // ComfyUI/A1111 workflow JSON (Ultimate only)
 
     // === DIGITAL / REAL IMAGES ATTACHMENTS ===
     rawFile: {
@@ -148,7 +148,7 @@ const postSchema = new mongoose.Schema(
     generatedImages: {
       type: [imageSchema],
       validate: [
-        arr => arr.length >= 1 && arr.length <= 5,
+        (arr) => arr.length >= 1 && arr.length <= 5,
         'Cần 1–5 ảnh kết quả AI',
       ],
     },
@@ -174,7 +174,7 @@ const postSchema = new mongoose.Schema(
       url: String,
       thumbnailUrl: String,
       publicId: String,
-      duration: Number,     // seconds
+      duration: Number, // seconds
       width: Number,
       height: Number,
     },
@@ -212,7 +212,11 @@ const postSchema = new mongoose.Schema(
     isPremium: { type: Boolean, default: false },
     priceInTokens: { type: Number, default: 10, min: 1, max: 500 },
     totalTokensEarned: { type: Number, default: 0 },
-    accessTier: { type: String, enum: ['free', 'pro', 'ultimate'], default: 'free' },
+    accessTier: {
+      type: String,
+      enum: ['free', 'pro', 'ultimate'],
+      default: 'free',
+    },
 
     // === STATS (denormalized) ===
     stats: {
