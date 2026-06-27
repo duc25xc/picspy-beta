@@ -405,7 +405,7 @@ const PostDetailPage = () => {
 
                 {/* Main prompt */}
                 {post.prompt && (
-                  <PromptBlock text={post.prompt} variant="prompt" collapseAfter={6} />
+                  <PromptBlock text={post.prompt} variant="prompt" collapseAfter={6} parameters={post.parameters} />
                 )}
 
                 {/* Negative prompt — Pro gates ẩn/lock */}

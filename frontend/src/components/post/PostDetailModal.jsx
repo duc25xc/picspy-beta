@@ -504,6 +504,7 @@ const PostDetailModal = ({
                   text={post.prompt}
                   variant="prompt"
                   collapseAfter={4}
+                  parameters={post.parameters}
                 />
                 {post.negativePrompt && (
                   <PromptBlock

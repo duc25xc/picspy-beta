@@ -1036,6 +1036,58 @@ function Step1Prompt({ form, setForm, tierAccess }) {
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }))
   const [jsonError, setJsonError] = useState(null)
 
+  // Visual parameters states
+  const [aspectRatio, setAspectRatio] = useState('')
+  const [version, setVersion] = useState('')
+  const [seed, setSeed] = useState('')
+  const [customParams, setCustomParams] = useState('')
+
+  // Sync visual parameter states to form.parameters
+  useEffect(() => {
+    const parts = []
+    if (aspectRatio) parts.push(`--ar ${aspectRatio}`)
+    if (version) {
+      if (version.startsWith('niji')) {
+        parts.push(`--niji ${version.split(' ')[1]}`)
+      } else {
+        parts.push(`--v ${version}`)
+      }
+    }
+    if (seed) parts.push(`--seed ${seed}`)
+    if (customParams) parts.push(customParams.trim())
+
+    const formatted = parts.filter(Boolean).join(' ')
+    setForm(prev => ({ ...prev, parameters: formatted }))
+  }, [aspectRatio, version, seed, customParams])
+
+  // Sync form.parameters back to visual states (for edits/back navigation)
+  useEffect(() => {
+    if (form.parameters && !aspectRatio && !version && !seed && !customParams) {
+      const arMatch = form.parameters.match(/--ar\s+([0-9:]+)/)
+      const vMatch = form.parameters.match(/--v\s+([0-9.]+)/)
+      const nijiMatch = form.parameters.match(/--niji\s+(\d+)/)
+      const seedMatch = form.parameters.match(/--seed\s+(\d+)/)
+
+      let cleanParams = form.parameters
+      if (arMatch) {
+        setAspectRatio(arMatch[1])
+        cleanParams = cleanParams.replace(arMatch[0], '')
+      }
+      if (vMatch) {
+        setVersion(vMatch[1])
+        cleanParams = cleanParams.replace(vMatch[0], '')
+      } else if (nijiMatch) {
+        setVersion(`niji ${nijiMatch[1]}`)
+        cleanParams = cleanParams.replace(nijiMatch[0], '')
+      }
+      if (seedMatch) {
+        setSeed(seedMatch[1])
+        cleanParams = cleanParams.replace(seedMatch[0], '')
+      }
+      setCustomParams(cleanParams.trim().replace(/\s+/g, ' '))
+    }
+  }, [form.parameters])
+
   const handleJsonChange = (val) => {
     set('workflowJson')(val)
     if (!val.trim()) {
@@ -1122,15 +1174,101 @@ function Step1Prompt({ form, setForm, tierAccess }) {
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="overflow-hidden mt-3"
+              className="overflow-hidden mt-3 p-4 rounded-xl border border-white/5 bg-white/2 space-y-4"
             >
-              <input
-                type="text"
-                value={form.parameters}
-                onChange={(e) => set('parameters')(e.target.value)}
-                placeholder="--ar 16:9 --v 6.1 --seed 12345 --stylize 750"
-                className="input font-mono text-sm"
-              />
+              {/* Aspect Ratio Selector */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">
+                  Tỷ lệ khung hình (Aspect Ratio)
+                </label>
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2">
+                  {[
+                    { label: '1:1 Square', value: '1:1' },
+                    { label: '16:9 Landscape', value: '16:9' },
+                    { label: '9:16 Portrait', value: '9:16' },
+                    { label: '4:3 Photo', value: '4:3' },
+                    { label: '3:2 Classic', value: '3:2' },
+                    { label: '4:5 Social', value: '4:5' }
+                  ].map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => setAspectRatio(aspectRatio === opt.value ? '' : opt.value)}
+                      className={`px-2.5 py-2 rounded-lg text-xs font-semibold text-center border transition-all ${
+                        aspectRatio === opt.value
+                          ? 'bg-[#7986eb]/25 border-[#7986eb] text-[#a5b0f5]'
+                          : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
+                      }`}
+                    >
+                      <div className="text-[10px] text-white/40 mb-0.5">{opt.value}</div>
+                      <div>{opt.label.split(' ')[1]}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Version & Seed Row */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Model Version Dropdown */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">
+                    Phiên bản AI (Model Version)
+                  </label>
+                  <select
+                    value={version}
+                    onChange={(e) => setVersion(e.target.value)}
+                    className="input text-sm text-white/80 bg-black/40 border border-white/10 rounded-xl px-3 py-2 w-full focus:outline-none focus:ring-1 focus:ring-[#7986eb]"
+                  >
+                    <option value="">Mặc định / Không chỉ định</option>
+                    <option value="6.1">Midjourney v6.1 (--v 6.1)</option>
+                    <option value="6.0">Midjourney v6.0 (--v 6.0)</option>
+                    <option value="5.2">Midjourney v5.2 (--v 5.2)</option>
+                    <option value="5.0">Midjourney v5.0 (--v 5.0)</option>
+                    <option value="niji 6">Niji v6 (--niji 6)</option>
+                    <option value="niji 5">Niji v5 (--niji 5)</option>
+                  </select>
+                </div>
+
+                {/* Seed Number Input */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">
+                    Số ngẫu nhiên (Seed)
+                  </label>
+                  <input
+                    type="number"
+                    value={seed}
+                    onChange={(e) => setSeed(e.target.value)}
+                    placeholder="Ví dụ: 123456"
+                    className="input text-sm w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Custom Parameters */}
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-white/50 uppercase tracking-wider block">
+                  Tham số khác (Custom parameters)
+                </label>
+                <input
+                  type="text"
+                  value={customParams}
+                  onChange={(e) => setCustomParams(e.target.value)}
+                  placeholder="Ví dụ: --stylize 250 --chaos 10 --no text"
+                  className="input font-mono text-sm w-full"
+                />
+              </div>
+
+              {/* Auto Generated Display */}
+              {form.parameters && (
+                <div className="pt-2 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-[10px] text-white/35 font-bold uppercase tracking-wider">
+                    Tham số tự động sinh:
+                  </span>
+                  <code className="text-xs text-[#a5b0f5] bg-[#7986eb]/10 px-2 py-0.5 rounded font-mono">
+                    {form.parameters}
+                  </code>
+                </div>
+              )}
             </motion.div>
           )}
         </AnimatePresence>

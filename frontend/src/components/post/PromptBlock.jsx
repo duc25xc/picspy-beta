@@ -8,7 +8,7 @@
  *   ultimate → everything + JSON download
  */
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Copy, Check, ChevronDown, ChevronUp,
@@ -168,6 +168,20 @@ const JsonExportButton = ({ text }) => {
   )
 }
 
+const parseArguments = (txt) => {
+  const vars = {}
+  if (!txt) return vars
+  const regex = /\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/g
+  let match
+  while ((match = regex.exec(txt)) !== null) {
+    const [_, name, defaultValue] = match
+    if (!(name in vars)) {
+      vars[name] = defaultValue
+    }
+  }
+  return vars
+}
+
 /* ─── Main ───────────────────────────────────────────────────── */
 export default function PromptBlock({
   text,
@@ -176,6 +190,7 @@ export default function PromptBlock({
   isLocked = false,      // override external — nếu true luôn hiện upsell
   lockMessage,
   postId,                // dùng cho future analytics
+  parameters,            // New prop to append parameters on copy
 }) {
   const cfg = VARIANT_CONFIG[variant] || VARIANT_CONFIG.prompt
   const IconComp = cfg.icon
@@ -183,6 +198,11 @@ export default function PromptBlock({
 
   const [copied, setCopied] = useState(false)
   const [expanded, setExpanded] = useState(false)
+  const [variables, setVariables] = useState(() => parseArguments(text))
+
+  useEffect(() => {
+    setVariables(parseArguments(text))
+  }, [text])
 
   /* ── Tier gates ──────────────────────────────────────────── */
   const { isGuest } = tierAccess
@@ -209,11 +229,25 @@ export default function PromptBlock({
   const handleCopy = useCallback(async () => {
     if (!canCopy || !text) return
     try {
-      await navigator.clipboard.writeText(text)
+      let copyText = text
+      const regex = /\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/g
+      let match
+      regex.lastIndex = 0
+      while ((match = regex.exec(text)) !== null) {
+        const [fullTag, name, defaultValue] = match
+        const currentValue = variables[name] ?? defaultValue
+        copyText = copyText.replace(fullTag, currentValue)
+      }
+
+      if (variant === 'prompt' && parameters) {
+        copyText = `${copyText}\n\n${parameters}`
+      }
+
+      await navigator.clipboard.writeText(copyText)
       setCopied(true)
       setTimeout(() => setCopied(false), 1800)
     } catch { /* ignore */ }
-  }, [text, canCopy])
+  }, [text, canCopy, variables, variant, parameters])
 
   /* ── Empty guard ──────────────────────────────────────────── */
   if (!text && !locked && !isGuestLocked) return null
@@ -342,7 +376,41 @@ export default function PromptBlock({
               : 'none',
           }}
         >
-          {visibleText}
+          {(() => {
+            if (variant !== 'prompt' || isGuestLocked || locked) {
+              return visibleText
+            }
+            const regex = /(\{argument\s+name="[^"]+"\s+default="[^"]+"\})/g
+            const parts = (visibleText || '').split(regex)
+            return parts.map((part, idx) => {
+              const match = part.match(/\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/)
+              if (match) {
+                const [_, name, defaultValue] = match
+                const val = variables[name] ?? defaultValue
+                return (
+                  <input
+                    key={idx}
+                    type="text"
+                    value={val}
+                    onChange={(e) => {
+                      const newVal = e.target.value
+                      setVariables(prev => ({ ...prev, [name]: newVal }))
+                    }}
+                    className="mx-1 px-1.5 py-0.5 rounded text-[11px] font-bold text-center transition-all focus:outline-none focus:ring-1 focus:ring-[#7986eb]"
+                    style={{
+                      background: 'rgba(121,134,235,0.18)',
+                      color: '#a5b0f5',
+                      border: '1px solid rgba(121,134,235,0.35)',
+                      fontFamily: 'JetBrains Mono, monospace',
+                      width: `${Math.max(4, val.length) * 7.2 + 16}px`,
+                      minWidth: '40px',
+                    }}
+                  />
+                )
+              }
+              return part
+            })
+          })()}
         </pre>
 
         {/* Fade gradient khi collapsed nhưng KHÔNG bị lock */}

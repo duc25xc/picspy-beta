@@ -181,3 +181,84 @@ TRẢ VỀ DUY NHẤT JSON SAU ĐÂY (KHÔNG có markdown, KHÔNG có text xung 
   throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
 }
 
+export const extractPromptArguments = async (promptText) => {
+  const systemPrompt = `Bạn là một chuyên gia kỹ sư prompt AI. Nhiệm vụ của bạn là phân tích đoạn prompt tạo ảnh do người dùng cung cấp.
+Hãy xác định các từ khóa cốt lõi, quan trọng mà người dùng thường muốn thay đổi để tùy biến ảnh (như chủ thể chính, địa điểm, thiết bị máy ảnh/ống kính, chất liệu, màu sắc chủ đạo, phong cách nghệ thuật).
+Hãy trả về kết quả dưới định dạng JSON bao gồm:
+1. formatted_prompt: Đoạn prompt gốc nhưng các từ khóa tùy biến đã được bọc lại bằng cú pháp: {argument name="tên_biến" default="giá_trị_gốc"}.
+   Lưu ý quan trọng:
+   - Chỉ chọn từ 2 đến 6 từ khóa quan trọng nhất để bọc. Không bọc quá nhiều từ gây rối prompt.
+   - Tên biến phải viết bằng tiếng Anh, ngắn gọn, dùng snake_case (ví dụ: location, subject, camera_model, accent_color).
+   - Tên biến và giá trị mặc định phải khớp chính xác với ngữ cảnh trong prompt. Nếu từ khóa xuất hiện nhiều lần ở các vị trí giống nhau hoặc cùng vai trò, hãy sử dụng cùng một tên biến và cùng giá trị mặc định.
+2. variables: Mảng danh sách các biến được trích xuất. Mỗi phần tử chứa:
+   - name: Tên biến (ví dụ: "location")
+   - default: Giá trị mặc định gốc (ví dụ: "NEW YORK")`
+
+  const content = [
+    { text: systemPrompt },
+    { text: `Đoạn prompt cần phân tích: "${promptText}"` }
+  ]
+
+  let lastError = null
+
+  // Thử lần lượt các model trong chuỗi fallback
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      console.log(`🤖 extractPromptArguments: Trying model "${modelName}"...`)
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              formatted_prompt: {
+                type: 'STRING',
+                description: 'The original prompt text with customized keywords wrapped as {argument name="variable_name" default="original_value"}'
+              },
+              variables: {
+                type: 'ARRAY',
+                items: {
+                  type: 'OBJECT',
+                  properties: {
+                    name: { type: 'STRING', description: 'English name of the variable in snake_case' },
+                    default: { type: 'STRING', description: 'Original text value of the variable' }
+                  },
+                  required: ['name', 'default']
+                }
+              }
+            },
+            required: ['formatted_prompt', 'variables']
+          }
+        }
+      })
+
+      const result = await model.generateContent(content)
+      const rawText = result.response.text().trim()
+      const parsed = JSON.parse(rawText)
+      console.log(`✅ extractPromptArguments: Success with model "${modelName}"`)
+      return parsed
+    } catch (err) {
+      lastError = err
+      const errMsg = err.message || ''
+      const shouldFallback = errMsg.includes('429')
+        || errMsg.includes('quota')
+        || errMsg.includes('Too Many Requests')
+        || errMsg.includes('404')
+        || errMsg.includes('not found')
+        || errMsg.includes('503')
+        || errMsg.includes('500')
+        || errMsg.includes('high demand')
+        || errMsg.includes('overloaded')
+      if (shouldFallback) {
+        console.warn(`⚠️ extractPromptArguments: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`)
+        continue
+      }
+      throw err
+    }
+  }
+
+  console.error('❌ extractPromptArguments: Tất cả model đều bị rate-limited!')
+  throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+}
+

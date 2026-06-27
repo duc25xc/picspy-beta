@@ -3,7 +3,8 @@ import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import PostAnalysis from '../models/PostAnalysis.model.js'
 import UserUnlock from '../models/UserUnlock.model.js'
-import { analyzeLensSpy } from '../services/ai.service.js'
+import TokenTransaction from '../models/TokenTransaction.model.js'
+import { analyzeLensSpy, extractPromptArguments } from '../services/ai.service.js'
 
 const LENSSPY_COST = 2 // Token
 
@@ -42,18 +43,20 @@ export const getLensSpy = async (req, res, next) => {
     const imageUrl = post.generatedImages?.[0]?.url || post.generatedImages?.[0]?.previewUrl
     if (!imageUrl) throw new AppError('BAD_REQUEST', 'Bài đăng không có ảnh để phân tích', 400)
 
+    const isUltimate = req.user.subscriptionTier === 'ultimate'
+    const tokensCost = isUltimate ? 0 : LENSSPY_COST
+
     // ── 3. Kiểm tra số dư xu ──────────────────────────────────────
     const user = await User.findById(userId).select('tokenBalance')
-    if (!user || user.tokenBalance < LENSSPY_COST) {
+    if (!isUltimate && (!user || user.tokenBalance < tokensCost)) {
       throw new AppError(
         'INSUFFICIENT_TOKENS',
-        `Bạn cần ít nhất ${LENSSPY_COST} token để mở khoá LensSpy AI`,
+        `Bạn cần ít nhất ${tokensCost} token để mở khoá LensSpy AI`,
         402
       )
     }
 
     // ── 4. Kiểm tra PostAnalysis cache ────────────────────────────
-    // AI đã chạy từ user khác → dùng cache, chỉ trừ xu + tạo UserUnlock
     let analysis = await PostAnalysis.findOne({ postId })
     let fromAiCache = false
 
@@ -73,7 +76,7 @@ export const getLensSpy = async (req, res, next) => {
       analysis = await PostAnalysis.create({
         postId,
         unlockedBy: userId,
-        coinsCost: LENSSPY_COST,
+        coinsCost: tokensCost,
         aiModel: modelUsed,
         ...aiResult,
       })
@@ -81,26 +84,40 @@ export const getLensSpy = async (req, res, next) => {
       fromAiCache = true
     }
 
-    // ── 6. Trừ xu (atomic) + Tạo UserUnlock ──────────────────────
-    const [updatedUser] = await Promise.all([
-      User.findOneAndUpdate(
-        { _id: userId, tokenBalance: { $gte: LENSSPY_COST } },
-        { $inc: { tokenBalance: -LENSSPY_COST } },
+    // ── 6. Trừ xu + Tạo UserUnlock + Ghi nhận Transaction ─────────
+    let remainingTokens = user?.tokenBalance || 0
+    if (isUltimate) {
+      await UserUnlock.create({ userId, postId, tokensPaid: 0 })
+    } else {
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: userId, tokenBalance: { $gte: tokensCost } },
+        { $inc: { tokenBalance: -tokensCost } },
         { returnDocument: 'after', select: 'tokenBalance' }
-      ),
-      UserUnlock.create({ userId, postId, tokensPaid: LENSSPY_COST }),
-    ])
+      )
 
-    if (!updatedUser) {
-      throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
+      if (!updatedUser) {
+        throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
+      }
+      remainingTokens = updatedUser.tokenBalance
+
+      // Ghi nhận lịch sử giao dịch xu
+      await TokenTransaction.create({
+        userId,
+        type: 'spend_lensspy',
+        amount: -tokensCost,
+        balanceBefore: user.tokenBalance,
+        balanceAfter: remainingTokens,
+        description: `Mở khoá LensSpy AI cho bài đăng #${postId.toString().slice(-6)}`,
+        relatedPostId: postId
+      }).catch(err => console.error('Failed to log TokenTransaction for LensSpy:', err))
     }
 
     return res.json({
       success: true,
       alreadyUnlocked: false,
       fromAiCache,
-      tokensCost: LENSSPY_COST,
-      remainingTokens: updatedUser.tokenBalance,
+      tokensCost,
+      remainingTokens,
       analysis,
     })
   } catch (err) {
@@ -132,6 +149,67 @@ export const checkLensSpy = async (req, res, next) => {
     // User đã mở khoá → trả về kết quả
     const analysis = await PostAnalysis.findOne({ postId }).select('-__v')
     res.json({ hasUnlocked: true, analysis })
+  } catch (err) {
+    next(err)
+  }
+}
+
+export const extractArguments = async (req, res, next) => {
+  try {
+    const { prompt } = req.body
+    if (!prompt || prompt.trim().length === 0) {
+      throw new AppError('BAD_REQUEST', 'Vui lòng nhập prompt cần phân tích', 400)
+    }
+
+    const userId = req.user._id
+    const isUltimate = req.user.subscriptionTier === 'ultimate'
+    const EXTRACT_COST = isUltimate ? 0 : 2 // 2 tokens for dynamic keyword scan
+
+    // ── 1. Kiểm tra số dư xu ──────────────────────────────────────
+    const user = await User.findById(userId).select('tokenBalance')
+    if (!isUltimate && (!user || user.tokenBalance < EXTRACT_COST)) {
+      throw new AppError(
+        'INSUFFICIENT_TOKENS',
+        `Bạn cần ít nhất ${EXTRACT_COST} token để tự động tìm từ khóa động`,
+        402
+      )
+    }
+
+    // ── 2. Gọi Gemini API để trích xuất ──────────────────────────
+    const aiResult = await extractPromptArguments(prompt)
+
+    // ── 3. Trừ xu + Ghi nhận Transaction ─────────────────────────
+    let remainingTokens = user?.tokenBalance || 0
+    if (!isUltimate && EXTRACT_COST > 0) {
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: userId, tokenBalance: { $gte: EXTRACT_COST } },
+        { $inc: { tokenBalance: -EXTRACT_COST } },
+        { returnDocument: 'after', select: 'tokenBalance' }
+      )
+
+      if (!updatedUser) {
+        throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
+      }
+      remainingTokens = updatedUser.tokenBalance
+
+      // Ghi nhận lịch sử giao dịch xu
+      await TokenTransaction.create({
+        userId,
+        type: 'spend_lensspy', // Dùng chung phân loại của LensSpy như yêu cầu
+        amount: -EXTRACT_COST,
+        balanceBefore: user.tokenBalance,
+        balanceAfter: remainingTokens,
+        description: 'Tự động tìm từ khóa động cho prompt',
+      }).catch(err => console.error('Failed to log TokenTransaction for dynamic prompt scan:', err))
+    }
+
+    return res.json({
+      success: true,
+      formatted_prompt: aiResult.formatted_prompt,
+      variables: aiResult.variables,
+      tokensCost: EXTRACT_COST,
+      remainingTokens,
+    })
   } catch (err) {
     next(err)
   }

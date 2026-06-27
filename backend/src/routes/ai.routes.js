@@ -1,6 +1,6 @@
 import { Router } from 'express'
 import { authenticate, optionalAuth } from '../middlewares/authenticate.js'
-import { getLensSpy, checkLensSpy } from '../controllers/ai.controller.js'
+import { getLensSpy, checkLensSpy, extractArguments } from '../controllers/ai.controller.js'
 import rateLimit from 'express-rate-limit'
 
 const router = Router()
@@ -25,5 +25,11 @@ router.get('/lensspy/:postId', optionalAuth, checkLensSpy)
  * Kích hoạt phân tích LensSpy AI (tốn xu, phải đăng nhập)
  */
 router.post('/lensspy/:postId', authenticate, aiLimiter, getLensSpy)
+
+/**
+ * POST /v1/ai/extract-arguments
+ * Trích xuất từ khóa động từ prompt (tốn xu/tính phí, phải đăng nhập)
+ */
+router.post('/extract-arguments', authenticate, aiLimiter, extractArguments)
 
 export default router

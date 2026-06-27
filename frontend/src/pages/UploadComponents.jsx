@@ -4,8 +4,10 @@
  */
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Copy, Check, ChevronDown } from 'lucide-react'
-import { useState } from 'react'
+import { X, Plus, Copy, Check, ChevronDown, Sparkles, Coins, History, HelpCircle, Loader2 } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import toast from 'react-hot-toast'
+import api from '../api/api'
 import { AI_TOOLS } from './uploadConstants.js'
 
 const ACCEPT = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] }
@@ -208,14 +210,146 @@ export function PromptField({
   const pct = Math.min((value.length / maxLength) * 100, 100)
   const near = value.length > maxLength * 0.85
 
+  // Selection & AI Scan state
+  const textareaRef = useRef(null)
+  const [selection, setSelection] = useState({ start: 0, end: 0, text: '' })
+  const [loading, setLoading] = useState(false)
+  const [scanHistory, setScanHistory] = useState([])
+  const [activeHistoryIndex, setActiveHistoryIndex] = useState(-1)
+
+  const isPrimaryPrompt = label === 'Prompt'
+
   const handleCopy = () => {
     navigator.clipboard.writeText(value)
     setCopied(true)
     setTimeout(() => setCopied(false), 1500)
   }
 
+  // selection inside textarea
+  const handleSelect = (e) => {
+    if (!isPrimaryPrompt) return
+    const start = e.target.selectionStart
+    const end = e.target.selectionEnd
+    const selectedText = value.slice(start, end).trim()
+    if (selectedText.length > 0 && selectedText.length < 50) {
+      setSelection({ start, end, text: selectedText })
+    } else {
+      setSelection({ start: 0, end: 0, text: '' })
+    }
+  }
+
+  const handleMakeDynamic = () => {
+    if (!selection.text) return
+    const name = prompt('Nhập tên biến (Ví dụ: location, subject, camera, medium, accent_color...):')
+    if (name) {
+      const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+      if (!cleanName) return
+      
+      const replacement = `{argument name="${cleanName}" default="${selection.text}"}`
+      const newValue = value.slice(0, selection.start) + replacement + value.slice(selection.end)
+      onChange(newValue)
+      
+      // Save original version to history if empty
+      if (scanHistory.length === 0) {
+        setScanHistory([{ prompt: value, variables: parseVariables(value) }])
+        setActiveHistoryIndex(0)
+      }
+      
+      setSelection({ start: 0, end: 0, text: '' })
+    }
+  }
+
+  const handleMakeDynamicManual = () => {
+    if (selection.text) {
+      handleMakeDynamic()
+      return
+    }
+
+    const targetWord = prompt('Nhập từ khóa trong prompt cần đổi thành biến số (Ví dụ: NEW YORK):')
+    if (!targetWord || !targetWord.trim()) return
+
+    const trimmedTarget = targetWord.trim()
+    if (!value.includes(trimmedTarget)) {
+      toast.error(`Không tìm thấy từ khóa "${trimmedTarget}" trong prompt của bạn!`)
+      return
+    }
+
+    const name = prompt(`Nhập tên biến cho từ khóa "${trimmedTarget}" (Ví dụ: location, subject, camera...):`)
+    if (name) {
+      const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+      if (!cleanName) return
+
+      const replacement = `{argument name="${cleanName}" default="${trimmedTarget}"}`
+      const newValue = value.replaceAll(trimmedTarget, replacement)
+      onChange(newValue)
+
+      if (scanHistory.length === 0) {
+        setScanHistory([{ prompt: value, variables: parseVariables(value) }])
+        setActiveHistoryIndex(0)
+      }
+      toast.success(`Đã chuyển đổi "${trimmedTarget}" thành biến số "${cleanName}"!`)
+    }
+  }
+
+  const parseVariables = (txt) => {
+    const regex = /\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/g
+    const list = []
+    let match
+    while ((match = regex.exec(txt || '')) !== null) {
+      if (!list.some(item => item.fullTag === match[0])) {
+        list.push({ fullTag: match[0], name: match[1], default: match[2] })
+      }
+    }
+    return list
+  }
+
+  const activeVariables = parseVariables(value)
+
+  const handleDeleteVariable = (fullTag, defaultValue) => {
+    const newValue = value.replaceAll(fullTag, defaultValue)
+    onChange(newValue)
+  }
+
+  const handleAiScan = async () => {
+    if (!value || value.trim().length === 0) {
+      toast.error('Vui lòng nhập nội dung prompt trước khi quét!')
+      return
+    }
+    setLoading(true)
+    try {
+      const { data } = await api.post('/ai/extract-arguments', { prompt: value })
+      if (data.success) {
+        let currentHistory = [...scanHistory]
+        if (currentHistory.length === 0) {
+          currentHistory = [{ prompt: value, variables: parseVariables(value) }]
+        }
+        const newScan = { prompt: data.formatted_prompt, variables: data.variables }
+        const updatedHistory = [...currentHistory, newScan]
+        
+        setScanHistory(updatedHistory)
+        setActiveHistoryIndex(updatedHistory.length - 1)
+        onChange(data.formatted_prompt)
+        
+        toast.success(`Tự động trích xuất từ khóa động thành công! (Tiêu tốn ${data.tokensCost} token)`)
+      }
+    } catch (err) {
+      console.error(err)
+      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi quét từ khóa'
+      toast.error(msg)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const handleRestoreHistory = (idx) => {
+    if (idx >= 0 && idx < scanHistory.length) {
+      setActiveHistoryIndex(idx)
+      onChange(scanHistory[idx].prompt)
+    }
+  }
+
   return (
-    <div className="space-y-1.5">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <label className="input-label">
           {label} {required && <span className="text-red-400">*</span>}
@@ -243,15 +377,33 @@ export function PromptField({
         </div>
       </div>
 
-      <textarea
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        maxLength={maxLength}
-        rows={label === 'Negative Prompt' ? 3 : 5}
-        className="input resize-none leading-relaxed font-mono text-sm"
-        style={{ minHeight: label === 'Negative Prompt' ? '80px' : '120px' }}
-      />
+      <div className="relative">
+        <textarea
+          ref={textareaRef}
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onSelect={handleSelect}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          rows={label === 'Prompt' ? 10 : (label === 'Negative Prompt' ? 4 : 5)}
+          className="input resize-none leading-relaxed font-mono text-sm pr-10 focus:ring-1 focus:ring-brand-500"
+          style={{ minHeight: label === 'Prompt' ? '280px' : (label === 'Negative Prompt' ? '90px' : '150px') }}
+        />
+        {/* Helper overlay for selection */}
+        {isPrimaryPrompt && selection.text && (
+          <div className="absolute right-3 bottom-3 z-10">
+            <motion.button
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              type="button"
+              onClick={handleMakeDynamic}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-[#7986eb] text-white shadow-lg hover:bg-[#6c79df] transition-all"
+            >
+              <Plus size={11} /> Đặt làm biến số
+            </motion.button>
+          </div>
+        )}
+      </div>
 
       {/* Char bar */}
       <div className="h-0.5 bg-white/5 rounded-full overflow-hidden">
@@ -260,6 +412,106 @@ export function PromptField({
           style={{ width: `${pct}%` }}
         />
       </div>
+
+      {/* Dynamic Variables & AI scanning tools */}
+      {isPrimaryPrompt && (
+        <div className="space-y-3 pt-1">
+          {/* Action buttons row */}
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={handleAiScan}
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 size={13} className="animate-spin text-[#7986eb]" />
+                  Đang quét...
+                </>
+              ) : (
+                <>
+                  <Sparkles size={13} className="text-yellow-400" />
+                  Tự động tìm từ khóa <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal"><Coins size={9} /> -2 xu</span>
+                </>
+              )}
+            </button>
+
+            <button
+              type="button"
+              onClick={handleMakeDynamicManual}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20"
+            >
+              <Plus size={13} className="text-[#a5b0f5]" />
+              Đặt biến số thủ công
+            </button>
+
+            {/* Selection highlight prompt helper */}
+            <span className="text-[10px] text-white/35 flex items-center gap-1">
+              <HelpCircle size={10} />
+              Mẹo: Bôi đen từ bất kỳ để đặt làm từ khóa động
+            </span>
+          </div>
+
+          {/* History Drawer */}
+          {scanHistory.length > 0 && (
+            <div className="flex items-center gap-2 text-xs py-1">
+              <span className="text-white/35 flex items-center gap-1">
+                <History size={11} /> Lịch sử quét:
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {scanHistory.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleRestoreHistory(idx)}
+                    className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                      idx === activeHistoryIndex
+                        ? 'bg-[#7986eb]/25 border border-[#7986eb]/50 text-[#a5b0f5]'
+                        : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10'
+                    }`}
+                  >
+                    {idx === 0 ? 'Bản gốc' : `Lần quét ${idx}`}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Active Variable tags list */}
+          {activeVariables.length > 0 && (
+            <div className="space-y-1.5 p-3 rounded-xl border border-white/5 bg-white/2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-white/30">
+                Danh sách từ khóa động ({activeVariables.length})
+              </div>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {activeVariables.map((variable) => (
+                  <span
+                    key={variable.fullTag}
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium border"
+                    style={{
+                      background: 'rgba(121,134,235,0.06)',
+                      borderColor: 'rgba(121,134,235,0.18)',
+                      color: '#a5b0f5',
+                    }}
+                  >
+                    <span className="font-bold text-white/40">{variable.name}:</span>
+                    <span>{variable.default}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteVariable(variable.fullTag, variable.default)}
+                      title="Xóa biến số"
+                      className="p-0.5 rounded-full hover:bg-red-500/10 hover:text-red-400 transition-colors text-white/30"
+                    >
+                      <X size={10} />
+                    </button>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

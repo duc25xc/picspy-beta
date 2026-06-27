@@ -1,0 +1,59 @@
+#prompt1
+Transform the uploaded photo into a realistic World Cup stadium fan scene. Place the person naturally among thousands of supporters in a packed football stadium during a major international tournament. The person should be wearing the official national team jersey of {argument name="country" default="your country"}, sitting or standing among fans who are also supporting the same nation. Maintain the person’s facial identity, hairstyle, and recognizable features while creating a realistic candid sports photography look. Capture the excitement, emotion, and atmosphere of a live World Cup match, with authentic stadium seating, crowds, flags, scarves, team colors, and match-day energy. The subject should blend naturally into the crowd as if photographed by a professional sports photographer during a real game. Use realistic lighting, shallow depth of field, natural facial expressions, and documentary-style sports photography. The image should feel authentic, cinematic, highly detailed, and indistinguishable from a real photograph taken during an international football tournament. Ultra-realistic, professional photography, realistic crowd interactions, authentic fan culture, natural clothing folds, realistic stadium environment, high detail, 8k quality.Ratio 4:5
+
+#prompt2
+Redraw the attached image as if a 5-year-old drew it with crayons during math class while not paying attention. White background. Proportions should be hilariously wrong, colors outside the lines, faces that look more like potatoes than humans. The kind of drawing a proud parent puts on the fridge. Actually, never mind, just scribble something.
+
+
+#prompt3
+Sử dụng mô hình GPT Image 2 để tạo Hình ảnh. Prompt:
+
+Transform the uploaded travel photo into a playful travel scrapbook chibi collage while preserving the original photo as the base image.
+
+Keep the original photo recognizable and structurally intact. Preserve the main person's facial features, expression, body shape, pose, outfit, lighting, and real background. Do not replace the person, change their identity, redraw their face, or alter the actual travel setting. The edit should feel like illustration and scrapbook elements have been layered on top of a real photo.
+
+Add 4 to 7 cute chibi-style mini versions of the person from the uploaded photo. Each mini character should be based on the same person, keeping consistent facial traits, hairstyle, outfit details, and overall personality. Use big-head chibi proportions, lively expressions, refined details, and a light cartoon-rendered look.
+
+Make every mini character do a different natural travel action. Choose varied candid moments such as taking photos, walking while looking around, reading a map, checking navigation, pulling luggage, drinking coffee, gazing at scenery, posing near a landmark, crouching to notice flowers or street details, filming with a phone, having hair blown by the wind, looking around while slightly lost, or jumping happily. The poses should feel spontaneous and life-like, as if captured during a real trip, not staged.
+
+Overlay hand-drawn doodles, handwritten notes, and sticker-like details to create a relaxed travel journal scrapbook style. Use mainly white and soft pink accents, with slightly uneven hand-drawn lines. Include elements such as arrows, stars, hearts, sparkles, tiny airplanes, location pins, dashed route lines, hand-drawn circles, tape pieces, stickers, and small decorative marks.
+
+Add 3 to 6 short handwritten English phrases related to travel mood and memories. Vary the phrases each time instead of using a fixed set. Examples of the tone include: "go somewhere new", "chase the horizon", "little moments matter", "memory unlocked", "lost but happy", "soft days", "just wandering", "no plans, just go", "take it slow", "follow the sun", "breathe and see", "quiet joy", and "this feels right".
+
+Place the handwritten phrases near the person, mini characters, or travel actions so the text interacts naturally with the image. Avoid neat or formal typography. The writing should feel casual, personal, and spontaneously added to a travel journal.
+
+The final image should feel light, healing, airy, cute, and relaxed, with a sense of freedom and travel nostalgia. Keep a balanced mix of real photo and subtle illustration enhancement. The viewer should first recognize it as a real travel photo, then notice the charming chibi characters and scrapbook details.
+
+Yêu cầu người dùng tải lên một bức ảnh của chính họ để làm hình ảnh tham chiếu chủ đạo. Sử dụng nhân vật trong ảnh làm cơ sở cho một bức ảnh ghép chibi theo phong cách sổ lưu niệm du lịch (travel scrapbook), tập trung vào bố cục sổ lưu niệm, các hình vẽ chibi, các chi tiết nhãn dán và phong cách nhật ký du lịch vui nhộn. Người dùng cũng có thể mô tả các khoảnh khắc du lịch muốn đưa vào, chẳng hạn như chụp ảnh, uống cà phê, đọc bản đồ hoặc mua sắm.
+
+#promprt4
+Draw in a {argument name="medium" default="simple hand-drawn doodled style cartoon"}, as if sketched by a person with a {argument name="pen type" default="black felt-tip pen"}. Use natural marker lines, slightly wobbly contours, subtle hand-drawn imperfections, slightly open edges, and a warm editorial doodle feeling. Avoid polished vector-clean results, avoid overly crisp digital perfection, and keep the image simple, airy, flat, and understated. Use {argument name="accent color" default="sky blue"} only as the accent color.
+
+
+#prompt 5
+Goal: Create a 4:5 vertical image titled {argument name="artwork concept" default="Paper Becomes Real · Ancient-Style Costume Draft"}, showing an elegant ancient Chinese clothing design sketch awakening into reality on paper.
+
+Canvas and camera: Overhead view with a slight diagonal perspective, warm natural studio lighting, photorealistic details mixed with pencil fashion-sketch illustration. A large off-white garment-design sheet is clipped to a wooden drawing board on a warm brown wooden worktable.
+
+Main subject: One adult Chinese ancient-style beauty lies diagonally across the design paper as if emerging from the drawing. Her upper body is realistic and three-dimensional, while the lower skirt gradually transitions into pale watercolor fabric and pencil sketch lines. Her face is intentionally covered by a soft square mosaic blur. She has long black hair styled half-up with delicate silver floral hairpins, pearl tassels, and a small pale green ornament. Outfit: {argument name="costume palette" default="moon-white sheer gauze with pale mist-blue layers"}; translucent Hanfu-style robe, soft white inner wrap, pale blue embroidered collar and sash, layered gauze sleeves, flowing ribbon belt, pearl tassel accessory at the waist, and a long skirt fading into sketchy lines near the hem.
+
+Layout and visible design labels: Include exactly 5 handwritten annotation groups on the paper: 1) top right title “LOOK 01” underlined; 2) near the head, “hair ornament” with Chinese-style notes and a small floral hairpin sketch; 3) left side, “sleeve volume” with a sleeve silhouette sketch; 4) right side, “ribbon flow” with arrows and ribbon movement lines; 5) lower left, “skirt movement” with arrows and skirt-flow sketch lines. Use neat pencil handwriting with small bilingual-looking notes, but keep the English labels readable.
+
+Surrounding objects: Place exactly 7 studio props around the board: 1) a pale ceramic teacup at the upper left; 2) small paper color swatches at the left edge; 3) a pale jade pendant with tassel near the lower left; 4) two fabric swatches in white and mist blue at the bottom left; 5) a calligraphy paperweight or carved wooden block with a vertical calligraphy strip at the upper right; 6) two drawing pens on the right side; 7) one artist hand entering from the lower right holding a pencil and actively sketching the skirt hem.
+
+Visual style: High-end ancient Chinese fashion portrait plus costume design manuscript, delicate fabric transparency, realistic skin and hands, graphite pencil construction lines, pale blue-gray watercolor washes, soft shadows, tactile paper texture, cinematic but quiet atelier atmosphere. Emphasize the illusion that a 2D/3D costume sketch is breaking through the page into real life.
+
+Constraints: No extra characters, no modern clothing on the main subject, no clutter beyond the listed props, preserve the 4:5 vertical composition, keep the annotations subtle and hand-drawn, avoid logos or watermarks.
+
+prompt 6
+Create a stylized miniature 3D diorama viewed from a 45-degree angled perspective, emphasizing careful scale, clean geometry, and fine craftsmanship. {argument name="base device" default="WATER GLASS"} device serves as the central base of the composition. From within or above this device, a miniature interpretation of the selected {argument name="location" default="NEW YORK"} emerges naturally, forming a compact, self contained world.
+The scene highlights recognizable landmarks, terrain features, or symbolic structures associated with the {argument name="location" default="NEW YORK"}, arranged harmoniously and rendered with precise detail. Miniature roads, pathways, environmental elements, and tiny human figures interact naturally with the Nano Banana Pro, reinforcing its presence as the foundation of the world.
+Use cinematic lighting, soft highlights, reflections on premium surfaces, and selective depth-of-field blur to create a magical, dreamlike, ultra realistic promotional atmosphere. Emphasize the product’s premium materials, sleek design, and futuristic aesthetic,Image size 4 5..
+
+
+prrompt 7
+1:1 aspect ratio
+
+Raw Realistic candid natural amateur photo, background in focus, amateur candid photography, Captured on {argument name="camera model" default="Samsung Galaxy S21 Ultra"}, amateur candid smartphone photography, 24mm lens, f/8, Boring reality, natural soft shadows, candid snapshot, flat natural lighting, Realism, low contrast, disposable camera vibe, casual photography, background also completely in focus, Tiny imperfections, everyday aesthetic, slight JPEG artifacts, unpolished look, unedited, imperfect amateur photo
+
+only create real, non fictional images for max effect
