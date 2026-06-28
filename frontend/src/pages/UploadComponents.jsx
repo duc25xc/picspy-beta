@@ -313,7 +313,7 @@ export function PromptField({
   }
 
   const parseVariables = (txt) => {
-    const regex = /\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/g
+    const regex = /\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/g
     const list = []
     let match
     while ((match = regex.exec(txt || '')) !== null) {

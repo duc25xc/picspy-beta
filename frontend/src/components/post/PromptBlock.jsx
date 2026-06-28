@@ -171,7 +171,7 @@ const JsonExportButton = ({ text }) => {
 const parseArguments = (txt) => {
   const vars = {}
   if (!txt) return vars
-  const regex = /\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/g
+  const regex = /\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/g
   let match
   while ((match = regex.exec(txt)) !== null) {
     const [_, name, defaultValue] = match
@@ -230,7 +230,7 @@ export default function PromptBlock({
     if (!canCopy || !text) return
     try {
       let copyText = text
-      const regex = /\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/g
+      const regex = /\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/g
       let match
       regex.lastIndex = 0
       while ((match = regex.exec(text)) !== null) {
@@ -363,7 +363,7 @@ export default function PromptBlock({
       {/* ── Content ─────────────────────────────────────────── */}
       <div className="px-3.5 pb-3 relative">
         <pre
-          className="text-xs leading-relaxed whitespace-pre-wrap break-words m-0"
+          className="text-xs leading-loose whitespace-pre-wrap break-words m-0"
           style={{
             fontFamily: 'JetBrains Mono, Fira Code, monospace',
             color: 'rgba(245,243,255,0.75)',
@@ -380,32 +380,36 @@ export default function PromptBlock({
             if (variant !== 'prompt' || isGuestLocked || locked) {
               return visibleText
             }
-            const regex = /(\{argument\s+name="[^"]+"\s+default="[^"]+"\})/g
+            const regex = /(\{argument\s+name="[^"]+"\s+default="(?:[^"\\]|\\.)*"\})/g
             const parts = (visibleText || '').split(regex)
             return parts.map((part, idx) => {
-              const match = part.match(/\{argument\s+name="([^"]+)"\s+default="([^"]+)"\}/)
+              const match = part.match(/\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/)
               if (match) {
                 const [_, name, defaultValue] = match
                 const val = variables[name] ?? defaultValue
                 return (
-                  <input
+                  <span
                     key={idx}
-                    type="text"
-                    value={val}
-                    onChange={(e) => {
-                      const newVal = e.target.value
-                      setVariables(prev => ({ ...prev, [name]: newVal }))
+                    contentEditable
+                    suppressContentEditableWarning
+                    onBlur={(e) => {
+                      const newVal = e.target.textContent || ''
+                      setVariables((prev) => ({ ...prev, [name]: newVal }))
                     }}
-                    className="mx-1 px-1.5 py-0.5 rounded text-[11px] font-bold text-center transition-all focus:outline-none focus:ring-1 focus:ring-[#7986eb]"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault()
+                        e.target.blur()
+                      }
+                    }}
+                    className="mx-1 px-1.5 py-0.5 rounded font-bold border-b border-[#7986eb] bg-[#7986eb]/20 text-[#a5b0f5] focus:outline-none focus:bg-[#7986eb]/35 transition-all cursor-text inline"
                     style={{
-                      background: 'rgba(121,134,235,0.18)',
-                      color: '#a5b0f5',
-                      border: '1px solid rgba(121,134,235,0.35)',
-                      fontFamily: 'JetBrains Mono, monospace',
-                      width: `${Math.max(4, val.length) * 7.2 + 16}px`,
-                      minWidth: '40px',
+                      fontFamily: 'JetBrains Mono, Fira Code, monospace',
+                      outline: 'none',
                     }}
-                  />
+                  >
+                    {val}
+                  </span>
                 )
               }
               return part
