@@ -813,7 +813,7 @@ export default function UploadPage() {
         </div>
 
         {/* Options to select Upload Mode */}
-        <div className="flex gap-3 mb-8 p-1 rounded-2xl bg-white/5 border border-white/10">
+        <div className="flex gap-3 mb-8 p-1 rounded-2xl bg-white/5 border border-white/10 relative overflow-hidden">
           <button
             type="button"
             onClick={() => {
@@ -827,13 +827,24 @@ export default function UploadPage() {
               resetForm()
               setUploadType('ai')
             }}
-            className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
-              uploadType === 'ai'
-                ? 'bg-brand-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] border border-brand-500/30'
-                : 'text-white/45 hover:text-white/70 hover:bg-white/5'
-            }`}
+            className={`relative flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 z-10 cursor-pointer select-none
+              ${
+                uploadType === 'ai'
+                  ? 'text-white'
+                  : 'text-white/45 hover:text-white/70'
+              }
+            `}
           >
-            <Sparkles size={16} /> Chia sẻ nội dung AI
+            {uploadType === 'ai' && (
+              <motion.div
+                layoutId="activeUploadModeTab"
+                className="absolute inset-0 bg-brand-600 rounded-xl z-0 border border-brand-500/30 shadow-[0_0_20px_rgba(124,58,237,0.3)]"
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              <Sparkles size={16} /> Chia sẻ nội dung AI
+            </span>
           </button>
           <button
             type="button"
@@ -848,13 +859,24 @@ export default function UploadPage() {
               resetForm()
               setUploadType('digital')
             }}
-            className={`flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 ${
-              uploadType === 'digital'
-                ? 'bg-brand-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)] border border-brand-500/30'
-                : 'text-white/45 hover:text-white/70 hover:bg-white/5'
-            }`}
+            className={`relative flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 z-10 cursor-pointer select-none
+              ${
+                uploadType === 'digital'
+                  ? 'text-white'
+                  : 'text-white/45 hover:text-white/70'
+              }
+            `}
           >
-            <ImageIcon size={16} /> Chia sẻ ảnh Thực Tế (Digital)
+            {uploadType === 'digital' && (
+              <motion.div
+                layoutId="activeUploadModeTab"
+                className="absolute inset-0 bg-brand-600 rounded-xl z-0 border border-brand-500/30 shadow-[0_0_20px_rgba(124,58,237,0.3)]"
+                transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              <ImageIcon size={16} /> Chia sẻ ảnh Thực Tế (Digital)
+            </span>
           </button>
         </div>
 

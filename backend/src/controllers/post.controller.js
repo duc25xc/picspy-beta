@@ -539,6 +539,8 @@ export const getApprovedPosts = async (req, res, next) => {
       sort = 'new',
       authorId, // Lọc theo tác giả — dùng cho ProfilePage
       q, // free-text search: caption, prompt, tags
+      postType,
+      hasExif,
     } = req.query
 
     const baseMatch = { status: 'approved' }
@@ -585,9 +587,87 @@ export const getApprovedPosts = async (req, res, next) => {
     if (contentType) baseMatch.contentType = contentType
     if (orientation) baseMatch.orientation = orientation
     if (resolution) baseMatch.resolution = resolution
-    // Filter theo author (cho ProfilePage) — chỉ chấp nhận ObjectId hợp lệ
     if (authorId && /^[a-f\d]{24}$/i.test(authorId))
       baseMatch.authorId = authorId
+
+    // postType filtering
+    if (postType && postType !== 'all') {
+      if (postType === 'digital') {
+        baseMatch.postType = { $in: ['digital-raw', 'digital-normal'] }
+      } else {
+        baseMatch.postType = postType
+      }
+    }
+
+    // hasExif filtering (checks if camera metadata exists)
+    if (hasExif === 'true') {
+      baseMatch.exifData = { $ne: null }
+      baseMatch['exifData.camera'] = { $exists: true }
+    } else if (hasExif === 'false') {
+      const noExifCondition = {
+        $or: [
+          { exifData: null },
+          { 'exifData.camera': { $exists: false } }
+        ]
+      }
+      if (baseMatch.$or) {
+        if (!baseMatch.$and) baseMatch.$and = []
+        baseMatch.$and.push({ $or: baseMatch.$or })
+        delete baseMatch.$or
+        baseMatch.$and.push(noExifCondition)
+      } else {
+        baseMatch.$or = noExifCondition.$or
+      }
+    }
+
+    // Dynamic facet counts matching (excludes postType & hasExif)
+    const countsMatch = { status: 'approved' }
+    if (typeof q === 'string' && q.trim().length > 0) {
+      const queryText = q.trim().slice(0, 80)
+      const escaped = queryText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const rx = new RegExp(escaped, 'i')
+      const tokens = queryText.toLowerCase().split(/[\s,]+/).map(t => t.trim()).filter(Boolean).slice(0, 10)
+      const or = [{ caption: rx }, { prompt: rx }, { tags: rx }]
+      if (tokens.length > 0) {
+        or.push({ tags: { $in: tokens } })
+      }
+      countsMatch.$or = or
+    }
+    if (category && category !== 'all') countsMatch.category = category
+    if (aiTool) countsMatch.aiTool = aiTool
+    if (contentType) countsMatch.contentType = contentType
+    if (orientation) countsMatch.orientation = orientation
+    if (resolution) countsMatch.resolution = resolution
+    if (authorId && /^[a-f\d]{24}$/i.test(authorId)) countsMatch.authorId = authorId
+
+    // Calculate dynamic stats
+    const countsFacet = await Post.aggregate([
+      { $match: countsMatch },
+      {
+        $facet: {
+          total: [{ $count: 'count' }],
+          ai: [{ $match: { postType: 'ai' } }, { $count: 'count' }],
+          raw: [{ $match: { postType: 'digital-raw' } }, { $count: 'count' }],
+          cameraExif: [
+            {
+              $match: {
+                postType: 'digital-normal',
+                exifData: { $ne: null },
+                'exifData.camera': { $exists: true }
+              }
+            },
+            { $count: 'count' }
+          ]
+        }
+      }
+    ])
+
+    const stats = {
+      all: countsFacet[0]?.total[0]?.count || 0,
+      ai: countsFacet[0]?.ai[0]?.count || 0,
+      raw: countsFacet[0]?.raw[0]?.count || 0,
+      cameraExif: countsFacet[0]?.cameraExif[0]?.count || 0,
+    }
 
     // ─── HOT: Aggregation pipeline tính điểm real-time ──────
     if (sort === 'hot') {
@@ -637,6 +717,7 @@ export const getApprovedPosts = async (req, res, next) => {
         posts,
         pagination: { hasMore, nextCursor: null, count: posts.length },
         sortMode: 'hot',
+        stats,
       })
     }
 
@@ -667,6 +748,7 @@ export const getApprovedPosts = async (req, res, next) => {
       posts,
       pagination: { hasMore, nextCursor, count: posts.length },
       sortMode: sort,
+      stats,
     })
   } catch (err) {
     next(err)

@@ -498,7 +498,7 @@ const PostDetailModal = ({
             </div>
 
             {/* Prompt Blocks — compact trong modal */}
-            {post?.prompt && (
+            {post?.postType === 'ai' && post?.prompt && (
               <div className="px-5 pt-3 space-y-2">
                 <PromptBlock
                   text={post.prompt}

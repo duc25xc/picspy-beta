@@ -228,7 +228,7 @@ const PostDetailPage = () => {
   const hasParameters = !!post.parameters
   // JSON workflow: chỉ Ultimate có post.workflowJson
   const hasJson = !!post.workflowJson && tierAccess.canExportJson
-  const isAiPost = !!post.aiTool || genImages.length > 0
+  const isAiPost = post.postType === 'ai'
 
   return (
     <motion.div

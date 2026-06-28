@@ -727,9 +727,31 @@ const FEED_TABS = [
   },
 ]
 
+const POST_TYPE_TABS = [
+  { key: 'all', label: 'Tất cả', icon: Globe, countKey: 'all' },
+  { key: 'ai', label: 'Nghệ thuật AI', icon: Sparkles, countKey: 'ai' },
+  { key: 'digital-normal', label: 'Ảnh Camera (EXIF)', icon: Camera, countKey: 'cameraExif' },
+  { key: 'digital-raw', label: 'RAW & Presets', icon: Download, countKey: 'raw' },
+]
+
+const GALLERY_CATEGORIES = [
+  { key: 'all', label: 'Tất cả danh mục', emoji: '🌟' },
+  { key: 'nature', label: 'Thiên nhiên', emoji: '🌿' },
+  { key: 'cyberpunk', label: 'Cyberpunk', emoji: '🤖' },
+  { key: 'minimal', label: 'Tối giản', emoji: '⬜' },
+  { key: 'street', label: 'Đường phố', emoji: '🛣️' },
+  { key: 'studio', label: 'Studio', emoji: '📸' },
+  { key: 'anime', label: 'Anime', emoji: '🌸' },
+  { key: 'other', label: 'Khác', emoji: '✨' },
+]
+
 const CommunityGallerySection = () => {
   const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
   const [activeTab, setActiveTab] = useState('new')
+  const [activePostType, setActivePostType] = useState('all')
+  const [activeCategory, setActiveCategory] = useState('all')
+  const [onlyShowExif, setOnlyShowExif] = useState(true)
+  const [tabStats, setTabStats] = useState({ all: 0, ai: 0, raw: 0, cameraExif: 0 })
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(false)
@@ -750,6 +772,19 @@ const CommunityGallerySection = () => {
 
       try {
         const params = { limit: 12, ...tab.params }
+        
+        if (activeCategory !== 'all') {
+          params.category = activeCategory
+        }
+
+        if (activePostType !== 'all') {
+          params.postType = activePostType
+        }
+
+        if (activePostType === 'digital-normal' && onlyShowExif) {
+          params.hasExif = 'true'
+        }
+
         if (!reset && cursor) params.cursor = cursor
         const { data } = await api.get(tab.endpoint, { params })
 
@@ -763,6 +798,10 @@ const CommunityGallerySection = () => {
         setPosts(reset ? newPosts : (p) => [...p, ...newPosts])
         setHasMore(data.pagination?.hasMore || false)
         setCursor(data.pagination?.nextCursor || null)
+
+        if (data.stats) {
+          setTabStats(data.stats)
+        }
       } catch {
         if (reset) setPosts([])
       } finally {
@@ -770,12 +809,12 @@ const CommunityGallerySection = () => {
         setLoadingMore(false)
       }
     },
-    [activeTab, cursor, tab]
+    [activeTab, cursor, tab, activePostType, activeCategory, onlyShowExif]
   )
 
   useEffect(() => {
     fetchPosts(true)
-  }, [activeTab]) // eslint-disable-line
+  }, [activeTab, activePostType, activeCategory, onlyShowExif]) // eslint-disable-line
 
   // L\u1ea5y postId hi\u1ec7n t\u1ea1i \u0111\u1ec3 useModalUrl theo d\u00f5i
   const currentPostId =
@@ -846,6 +885,108 @@ const CommunityGallerySection = () => {
             </div>
           </motion.div>
 
+          {/* Post Type Tabs + Category Filter Row */}
+          <div className="flex flex-col gap-6 mb-10">
+            {/* Row 1: Post Type Tabs */}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex gap-2 p-1 bg-[#1a172e]/30 dark:bg-[#1a172e]/50 backdrop-blur-md rounded-2xl border border-violet-500/10 overflow-x-auto hide-scrollbar max-w-full">
+                {POST_TYPE_TABS.map((tabItem) => {
+                  const IconComp = tabItem.icon
+                  const isActive = activePostType === tabItem.key
+                  const count = tabStats[tabItem.countKey] ?? 0
+                  
+                  return (
+                    <button
+                      key={tabItem.key}
+                      onClick={() => {
+                        setActivePostType(tabItem.key)
+                      }}
+                      className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 pj cursor-pointer select-none whitespace-nowrap
+                        ${isActive ? 'text-white' : 'text-foreground/45 hover:text-foreground/80'}
+                      `}
+                    >
+                      {/* Spring Active Indicator sliding background */}
+                      {isActive && (
+                        <motion.div
+                          layoutId="activePostTypeTab"
+                          className="absolute inset-0 bg-gradient-to-r from-violet-600/90 to-indigo-600/90 shadow-md rounded-xl z-0"
+                          transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                        />
+                      )}
+                      
+                      <span className="relative z-10 flex items-center justify-center">
+                        <IconComp size={15} />
+                      </span>
+                      
+                      <span className="relative z-10">{tabItem.label}</span>
+                      
+                      {/* Live Stats Badge */}
+                      <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-all
+                        ${isActive ? 'bg-white/20 text-violet-100' : 'bg-foreground/5 text-foreground/40'}
+                      `}>
+                        {count.toLocaleString()}
+                      </span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Row 1.5: EXIF Toggle for Camera Tab */}
+              <AnimatePresence>
+                {activePostType === 'digital-normal' && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 15, scale: 0.95 }}
+                    animate={{ opacity: 1, x: 0, scale: 1 }}
+                    exit={{ opacity: 0, x: 10, scale: 0.95 }}
+                    transition={{ duration: 0.25, ease: 'easeOut' }}
+                    className="flex items-center gap-3 bg-[#1a172e]/30 backdrop-blur-md px-4 py-2.5 rounded-xl border border-violet-500/10 self-start sm:self-auto"
+                  >
+                    <span className="text-xs text-foreground/60 font-medium pj">Chỉ hiện ảnh có EXIF chi tiết</span>
+                    <button
+                      onClick={() => setOnlyShowExif(prev => !prev)}
+                      className={`w-9 h-5 rounded-full p-0.5 transition-all flex items-center cursor-pointer
+                        ${onlyShowExif ? 'bg-green-500 justify-end' : 'bg-foreground/15 justify-start'}
+                      `}
+                    >
+                      <motion.div
+                        layout
+                        className="w-4 h-4 rounded-full bg-white shadow-sm"
+                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                      />
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Row 2: Category Pills Row */}
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar py-1">
+              {GALLERY_CATEGORIES.map((cat) => {
+                const isActive = activeCategory === cat.key
+                return (
+                  <button
+                    key={cat.key}
+                    onClick={() => setActiveCategory(cat.key)}
+                    className={`relative px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 pj cursor-pointer select-none whitespace-nowrap
+                      ${isActive ? 'text-white' : 'bg-[#1a172e]/10 hover:bg-[#1a172e]/20 dark:bg-[#1a172e]/20 dark:hover:bg-[#1a172e]/40 text-foreground/50 border border-violet-500/5 hover:border-violet-500/10'}
+                    `}
+                  >
+                    {/* Spring Active Indicator sliding background */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeCategoryPill"
+                        className="absolute inset-0 bg-[#7c3aed] rounded-xl z-0"
+                        transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                      />
+                    )}
+                    <span className="relative z-10 text-xs">{cat.emoji}</span>
+                    <span className="relative z-10">{cat.label}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           {/* Content */}
           {loading ? (
             <motion.div
@@ -894,8 +1035,8 @@ const CommunityGallerySection = () => {
                     return (
                       <motion.div
                         key={post._id}
-                        initial={{ opacity: 0, filter: 'blur(4px)' }}
-                        animate={{ opacity: 1, filter: 'blur(0px)' }}
+                        initial={{ opacity: 0, filter: 'blur(4px)', y: 15 }}
+                        animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
                         transition={{
                           duration: 0.45,
                           // Chỉ delay khi batch LOAD MORE (i >= 8), batch đầu vẫn nhanh
