@@ -21,7 +21,10 @@ import postRoutes from './routes/post.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import subscriptionRoutes from './routes/subscription.routes.js'
-import { getPublicCategories, seedCategories } from './controllers/admin.controller.js'
+import {
+  getPublicCategories,
+  seedCategories,
+} from './controllers/admin.controller.js'
 import { seedSubscriptionPlans } from './models/SubscriptionPlan.model.js'
 
 // Workers (khởi động cùng server)
@@ -54,7 +57,10 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }))
 const postsLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 300,
-  message: { error: 'RATE_LIMITED', message: 'Quá nhiều request. Vui lòng chậm lại.' },
+  message: {
+    error: 'RATE_LIMITED',
+    message: 'Quá nhiều request. Vui lòng chậm lại.',
+  },
   skip: (req) => {
     // Bỏ qua limit cho view endpoint — tính lượt xem không cần giới hạn chặt
     return req.method === 'POST' && /^\/[a-f0-9]{24}\/view$/.test(req.path)
@@ -65,20 +71,25 @@ const postsLimiter = rateLimit({
 const authLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  message: { error: 'RATE_LIMITED', message: 'Quá nhiều thử đăng nhập. Vui lòng chờ 1 phút.' },
+  message: {
+    error: 'RATE_LIMITED',
+    message: 'Quá nhiều thử đăng nhập. Vui lòng chờ 1 phút.',
+  },
 })
 
 // Global fallback — áp dụng các route chưa có limiter riêng
 const globalLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 300,
-  message: { error: 'RATE_LIMITED', message: 'Quá nhiều request. Vui lòng chậm lại.' },
+  message: {
+    error: 'RATE_LIMITED',
+    message: 'Quá nhiều request. Vui lòng chậm lại.',
+  },
 })
 
 app.use('/v1/posts', postsLimiter)
 app.use('/v1/auth', authLimiter)
 app.use('/v1', globalLimiter)
-
 
 // =====================
 // ROUTES
@@ -123,8 +134,8 @@ const PORT = process.env.PORT || 5000
 
 const startServer = async () => {
   await connectDB()
-  await seedCategories()         // seed danh mục mặc định nếu chưa có
-  await seedSubscriptionPlans()  // seed 4 gói subscription nếu chưa có
+  await seedCategories() // seed danh mục mặc định nếu chưa có
+  await seedSubscriptionPlans() // seed 4 gói subscription nếu chưa có
   initSocket(httpServer)
 
   httpServer.listen(PORT, () => {

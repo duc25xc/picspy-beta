@@ -210,14 +210,35 @@ export function PromptField({
   const pct = Math.min((value.length / maxLength) * 100, 100)
   const near = value.length > maxLength * 0.85
 
+  const sharedStyle = {
+    lineHeight: '1.625',
+    fontSize: '14px',
+    fontFamily: 'JetBrains Mono, Fira Code, monospace',
+    boxSizing: 'border-box',
+  }
+
   // Selection & AI Scan state
   const textareaRef = useRef(null)
+  const backdropRef = useRef(null)
   const [selection, setSelection] = useState({ start: 0, end: 0, text: '' })
   const [loading, setLoading] = useState(false)
   const [scanHistory, setScanHistory] = useState([])
   const [activeHistoryIndex, setActiveHistoryIndex] = useState(-1)
 
   const isPrimaryPrompt = label === 'Prompt'
+
+  const adjustHeight = () => {
+    const textarea = textareaRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      const minH = label === 'Prompt' ? 280 : (label === 'Negative Prompt' ? 90 : 150)
+      textarea.style.height = `${Math.max(minH, textarea.scrollHeight)}px`
+    }
+  }
+
+  useEffect(() => {
+    adjustHeight()
+  }, [value, label])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(value)
@@ -377,7 +398,48 @@ export function PromptField({
         </div>
       </div>
 
-      <div className="relative">
+      <div className="relative w-full rounded-xl overflow-hidden border border-white/10 bg-black/20 focus-within:border-[#7986eb]">
+        {/* Backdrop highlights */}
+        {isPrimaryPrompt && (
+          <div
+            ref={backdropRef}
+            className="absolute inset-0 pointer-events-none whitespace-pre-wrap break-words font-mono text-sm leading-relaxed pr-10 bg-transparent border-none p-3.5 select-none overflow-hidden"
+            style={{
+              ...sharedStyle,
+              color: 'transparent',
+              minHeight: '280px',
+              height: '100%',
+              width: '100%',
+              whiteSpace: 'pre-wrap',
+              wordWrap: 'break-word',
+            }}
+          >
+            {(() => {
+              // Regex supporting escaped quotes (e.g. \"NĂNG LƯỢNG\")
+              const regex = /(\{argument\s+name="[^"]+"\s+default="(?:[^"\\]|\\.)*"\})/g
+              const parts = (value || '').split(regex)
+              return parts.map((part, index) => {
+                const match = part.match(/\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/)
+                if (match) {
+                  return (
+                    <span
+                      key={index}
+                      className="rounded px-1 py-0.5 border-b border-[#7986eb] bg-[#7986eb]/25 text-transparent"
+                      style={{
+                        boxDecorationBreak: 'clone',
+                        WebkitBoxDecorationBreak: 'clone',
+                      }}
+                    >
+                      {part}
+                    </span>
+                  )
+                }
+                return <span key={index}>{part}</span>
+              })
+            })()}
+          </div>
+        )}
+
         <textarea
           ref={textareaRef}
           value={value}
@@ -386,8 +448,15 @@ export function PromptField({
           placeholder={placeholder}
           maxLength={maxLength}
           rows={label === 'Prompt' ? 10 : (label === 'Negative Prompt' ? 4 : 5)}
-          className="input resize-none leading-relaxed font-mono text-sm pr-10 focus:ring-1 focus:ring-brand-500"
-          style={{ minHeight: label === 'Prompt' ? '280px' : (label === 'Negative Prompt' ? '90px' : '150px') }}
+          className="w-full resize-none leading-relaxed font-mono text-sm pr-10 focus:ring-0 focus:outline-none bg-transparent border-none p-3.5"
+          style={{
+            ...sharedStyle,
+            minHeight: label === 'Prompt' ? '280px' : (label === 'Negative Prompt' ? '90px' : '150px'),
+            position: 'relative',
+            zIndex: 1,
+            color: 'rgba(255, 255, 255, 0.85)',
+            overflow: 'hidden',
+          }}
         />
         {/* Helper overlay for selection */}
         {isPrimaryPrompt && selection.text && (

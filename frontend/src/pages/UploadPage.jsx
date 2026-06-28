@@ -164,7 +164,10 @@ export default function UploadPage() {
           const url = new URL(href, window.location.href)
           isInternal = url.origin === window.location.origin
         } catch (err) {
-          isInternal = !href.startsWith('http://') && !href.startsWith('https://') && !href.startsWith('javascript:')
+          isInternal =
+            !href.startsWith('http://') &&
+            !href.startsWith('https://') &&
+            !href.startsWith('javascript:')
         }
 
         if (isInternal) {
@@ -252,13 +255,13 @@ export default function UploadPage() {
   const cleanLensModel = (lens, cameraName) => {
     if (!lens) return null
     let cleaned = lens.trim()
-    
+
     if (cameraName) {
       const escaped = cameraName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
       cleaned = cleaned.replace(new RegExp(escaped, 'gi'), '')
-      
-      const parts = cameraName.split(/\s+/).filter(p => p.length >= 2)
-      parts.forEach(part => {
+
+      const parts = cameraName.split(/\s+/).filter((p) => p.length >= 2)
+      parts.forEach((part) => {
         const escapedPart = part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
         cleaned = cleaned.replace(new RegExp(`\\b${escapedPart}\\b`, 'gi'), '')
         if (part.length > 3) {
@@ -279,7 +282,9 @@ export default function UploadPage() {
 
   const formatLensInfo = (arr) => {
     if (!Array.isArray(arr) || arr.length < 4) return null
-    const rounded = arr.map(v => typeof v === 'number' ? Math.round(v * 100) / 100 : v)
+    const rounded = arr.map((v) =>
+      typeof v === 'number' ? Math.round(v * 100) / 100 : v
+    )
     const [minF, maxF, minA, maxA] = rounded
     const focal = minF === maxF ? `${minF}mm` : `${minF}-${maxF}mm`
     const aperture = minA === maxA ? `f/${minA}` : `f/${minA}-${maxA}`
@@ -297,8 +302,14 @@ export default function UploadPage() {
 
   const mapColorSpace = (cs) => {
     if (cs === 1 || String(cs).toLowerCase().includes('srgb')) return 'sRGB'
-    if (cs === 2 || String(cs).toLowerCase().includes('adobe')) return 'Adobe RGB'
-    if (cs === 65535 || String(cs).toLowerCase().includes('p3') || String(cs).toLowerCase().includes('wide')) return 'Display P3 (Wide Color)'
+    if (cs === 2 || String(cs).toLowerCase().includes('adobe'))
+      return 'Adobe RGB'
+    if (
+      cs === 65535 ||
+      String(cs).toLowerCase().includes('p3') ||
+      String(cs).toLowerCase().includes('wide')
+    )
+      return 'Display P3 (Wide Color)'
     if (cs) return String(cs)
     return null
   }
@@ -349,29 +360,39 @@ export default function UploadPage() {
 
         const cameraName = cleanCameraName(raw.Make, raw.Model)
         const cleanedLens = cleanLensModel(raw.LensModel, cameraName)
-        
-        const roundedAperture = raw.FNumber 
-          ? Math.round(raw.FNumber * 100) / 100 
-          : null
-        const roundedFocalLength = raw.FocalLength 
-          ? Math.round(raw.FocalLength * 100) / 100 
-          : null
 
-        const evVal = typeof raw.ExposureBiasValue === 'number'
-          ? (raw.ExposureBiasValue === 0
-            ? '0.00 EV'
-            : `${raw.ExposureBiasValue > 0 ? '+' : ''}${parseFloat(raw.ExposureBiasValue.toFixed(2))} EV`)
+        const roundedAperture = raw.FNumber
+          ? Math.round(raw.FNumber * 100) / 100
+          : null
+        const roundedFocalLength = raw.FocalLength
+          ? Math.round(raw.FocalLength * 100) / 100
           : null
 
-        const zoomVal = typeof raw.DigitalZoomRatio === 'number'
-          ? `${parseFloat(raw.DigitalZoomRatio.toFixed(2))}x`
-          : null
+        const evVal =
+          typeof raw.ExposureBiasValue === 'number'
+            ? raw.ExposureBiasValue === 0
+              ? '0.00 EV'
+              : `${raw.ExposureBiasValue > 0 ? '+' : ''}${parseFloat(raw.ExposureBiasValue.toFixed(2))} EV`
+            : null
 
-        const serialVal = raw.BodySerialNumber || raw.SerialNumber || raw.CameraSerialNumber || null
+        const zoomVal =
+          typeof raw.DigitalZoomRatio === 'number'
+            ? `${parseFloat(raw.DigitalZoomRatio.toFixed(2))}x`
+            : null
 
-        const lensSpec = raw.LensSpecification 
-          ? (Array.isArray(raw.LensSpecification) ? formatLensInfo(raw.LensSpecification) : String(raw.LensSpecification))
-          : (raw.LensInfo ? formatLensInfo(raw.LensInfo) : null)
+        const serialVal =
+          raw.BodySerialNumber ||
+          raw.SerialNumber ||
+          raw.CameraSerialNumber ||
+          null
+
+        const lensSpec = raw.LensSpecification
+          ? Array.isArray(raw.LensSpecification)
+            ? formatLensInfo(raw.LensSpecification)
+            : String(raw.LensSpecification)
+          : raw.LensInfo
+            ? formatLensInfo(raw.LensInfo)
+            : null
 
         const info = {
           camera: cameraName || null,
@@ -380,7 +401,10 @@ export default function UploadPage() {
           aperture: roundedAperture ? `f/${roundedAperture}` : null,
           focalLength: roundedFocalLength ? `${roundedFocalLength}mm` : null,
           shutterSpeed: shutter || null,
-          ev: typeof raw.ExposureValue === 'number' ? Math.round(raw.ExposureValue * 10) / 10 : null,
+          ev:
+            typeof raw.ExposureValue === 'number'
+              ? Math.round(raw.ExposureValue * 10) / 10
+              : null,
           flash: raw.Flash !== undefined ? raw.Flash : null,
           dateTaken: raw.DateTimeOriginal || null,
           software: raw.Software || null,
@@ -1057,7 +1081,7 @@ function Step1Prompt({ form, setForm, tierAccess }) {
     if (customParams) parts.push(customParams.trim())
 
     const formatted = parts.filter(Boolean).join(' ')
-    setForm(prev => ({ ...prev, parameters: formatted }))
+    setForm((prev) => ({ ...prev, parameters: formatted }))
   }, [aspectRatio, version, seed, customParams])
 
   // Sync form.parameters back to visual states (for edits/back navigation)
@@ -1087,6 +1111,35 @@ function Step1Prompt({ form, setForm, tierAccess }) {
       setCustomParams(cleanParams.trim().replace(/\s+/g, ' '))
     }
   }, [form.parameters])
+
+  // Auto-extract parameters from prompt text (e.g. aspect_ratio or command-line flags)
+  useEffect(() => {
+    if (!form.prompt) return
+
+    // 1. Aspect Ratio extraction
+    const arTagMatch = form.prompt.match(/\{argument\s+name="aspect_ratio"\s+default="([0-9:]+)"\}/i)
+    const arTextMatch = form.prompt.match(/tỷ lệ khung hình là\s+([0-9:]+)/i)
+    const arCmdMatch = form.prompt.match(/--ar\s+([0-9:]+)/i)
+    const extractedAr = arTagMatch?.[1] || arTextMatch?.[1] || arCmdMatch?.[1]
+    if (extractedAr && extractedAr !== aspectRatio) {
+      setAspectRatio(extractedAr)
+    }
+
+    // 2. Version extraction
+    const vCmdMatch = form.prompt.match(/--v\s+([0-9.]+)/i)
+    const nijiCmdMatch = form.prompt.match(/--niji\s+(\d+)/i)
+    const extractedVersion = vCmdMatch ? vCmdMatch[1] : (nijiCmdMatch ? `niji ${nijiCmdMatch[1]}` : null)
+    if (extractedVersion && extractedVersion !== version) {
+      setVersion(extractedVersion)
+    }
+
+    // 3. Seed extraction
+    const seedCmdMatch = form.prompt.match(/--seed\s+(\d+)/i)
+    const extractedSeed = seedCmdMatch?.[1]
+    if (extractedSeed && extractedSeed !== seed) {
+      setSeed(extractedSeed)
+    }
+  }, [form.prompt])
 
   const handleJsonChange = (val) => {
     set('workflowJson')(val)
@@ -1188,19 +1241,25 @@ function Step1Prompt({ form, setForm, tierAccess }) {
                     { label: '9:16 Portrait', value: '9:16' },
                     { label: '4:3 Photo', value: '4:3' },
                     { label: '3:2 Classic', value: '3:2' },
-                    { label: '4:5 Social', value: '4:5' }
-                  ].map(opt => (
+                    { label: '4:5 Social', value: '4:5' },
+                  ].map((opt) => (
                     <button
                       key={opt.value}
                       type="button"
-                      onClick={() => setAspectRatio(aspectRatio === opt.value ? '' : opt.value)}
+                      onClick={() =>
+                        setAspectRatio(
+                          aspectRatio === opt.value ? '' : opt.value
+                        )
+                      }
                       className={`px-2.5 py-2 rounded-lg text-xs font-semibold text-center border transition-all ${
                         aspectRatio === opt.value
                           ? 'bg-[#7986eb]/25 border-[#7986eb] text-[#a5b0f5]'
                           : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10'
                       }`}
                     >
-                      <div className="text-[10px] text-white/40 mb-0.5">{opt.value}</div>
+                      <div className="text-[10px] text-white/40 mb-0.5">
+                        {opt.value}
+                      </div>
                       <div>{opt.label.split(' ')[1]}</div>
                     </button>
                   ))}
@@ -2086,7 +2145,9 @@ function Step1DigitalImage({
             )}
             {exifInfo.exposureCompensation && (
               <div>
-                <span className="text-white/40 block mb-0.5">Bù trừ sáng (EV)</span>
+                <span className="text-white/40 block mb-0.5">
+                  Bù trừ sáng (EV)
+                </span>
                 <span className="text-white/90 font-medium">
                   {exifInfo.exposureCompensation}
                 </span>
@@ -2102,7 +2163,9 @@ function Step1DigitalImage({
             )}
             {exifInfo.colorSpace && (
               <div>
-                <span className="text-white/40 block mb-0.5">Không gian màu</span>
+                <span className="text-white/40 block mb-0.5">
+                  Không gian màu
+                </span>
                 <span className="text-white/90 font-medium">
                   {exifInfo.colorSpace}
                 </span>
@@ -2111,7 +2174,10 @@ function Step1DigitalImage({
             <div>
               <span className="text-white/40 block mb-0.5">Toạ độ GPS</span>
               <span className="text-white/90 font-medium">
-                {exifInfo.gpsLat !== null && exifInfo.gpsLng !== null && exifInfo.gpsLat !== undefined && exifInfo.gpsLng !== undefined
+                {exifInfo.gpsLat !== null &&
+                exifInfo.gpsLng !== null &&
+                exifInfo.gpsLat !== undefined &&
+                exifInfo.gpsLng !== undefined
                   ? `${parseFloat(exifInfo.gpsLat.toFixed(4))}, ${parseFloat(exifInfo.gpsLng.toFixed(4))}`
                   : 'Không có'}
               </span>
