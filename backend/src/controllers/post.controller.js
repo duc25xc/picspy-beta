@@ -5,6 +5,7 @@ import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
 import { imageQueue } from '../config/bullmq.js'
 import { v2 as cloudinary } from 'cloudinary'
+import sharp from 'sharp'
 
 // === ZOD SCHEMAS ===
 
@@ -256,9 +257,23 @@ const extractExif = async (buffer) => {
 }
 
 /** Upload single buffer to Cloudinary and return image object */
-const uploadImage = async (buffer, folder, publicIdPrefix, fileSize) => {
+const uploadImage = async (buffer, folder, publicIdPrefix, fileSize, shouldConvertToWebp = false) => {
+  let activeBuffer = buffer
+  let activeSize = fileSize
+  if (shouldConvertToWebp) {
+    try {
+      activeBuffer = await sharp(buffer)
+        .rotate()
+        .webp({ quality: 90 })
+        .toBuffer()
+      activeSize = activeBuffer.length
+    } catch (err) {
+      console.error('Failed to convert image to WebP on upload:', err.message)
+    }
+  }
+
   const result = await uploadBuffer(
-    buffer,
+    activeBuffer,
     folder,
     `${publicIdPrefix}_${Date.now()}`,
     { resource_type: 'image', angle: 'exif' }
@@ -268,7 +283,7 @@ const uploadImage = async (buffer, folder, publicIdPrefix, fileSize) => {
     publicId: result.public_id,
     width: result.width,
     height: result.height,
-    fileSize: fileSize || result.bytes,
+    fileSize: activeSize || result.bytes,
     format: result.format,
   }
 }
@@ -391,6 +406,9 @@ export const createPost = async (req, res, next) => {
       finalPostType = rawFile ? 'digital-raw' : 'digital-normal'
     }
 
+    // Determine format conversion for source images (only keep raw for digital-raw posts)
+    const shouldConvertSourceToWebp = finalPostType !== 'digital-raw'
+
     // ── Upload source images (new files, parallel) ────────────────
     const sourceImages = [...sourceImageRefs] // bắt đầu bằng refs đã có
     let exifData = {}
@@ -398,7 +416,13 @@ export const createPost = async (req, res, next) => {
     if (srcFiles.length > 0) {
       const srcUploads = await Promise.all(
         srcFiles.map((file, i) =>
-          uploadImage(file.buffer, 'picspy/posts/sources', `src_${req.user._id}_${i}`, file.size)
+          uploadImage(
+            file.buffer,
+            'picspy/posts/sources',
+            `src_${req.user._id}_${i}`,
+            file.size,
+            shouldConvertSourceToWebp
+          )
         )
       )
       sourceImages.push(...srcUploads)
@@ -871,12 +895,22 @@ export const updatePost = async (req, res, next) => {
       img.publicId && !keepSourceImagePublicIds.includes(img.publicId)
     )
 
+    // Determine format conversion for source images (only keep raw for digital-raw posts)
+    const currentPostType = data.postType || post.postType
+    const shouldConvertSourceToWebp = currentPostType !== 'digital-raw'
+
     // Upload các ảnh tham khảo mới
     const newSourceUploads = []
     if (srcFiles.length > 0) {
       const srcUploads = await Promise.all(
         srcFiles.map((file, i) =>
-          uploadImage(file.buffer, 'picspy/posts/sources', `src_${req.user._id}_${i}`, file.size)
+          uploadImage(
+            file.buffer,
+            'picspy/posts/sources',
+            `src_${req.user._id}_${i}`,
+            file.size,
+            shouldConvertSourceToWebp
+          )
         )
       )
       newSourceUploads.push(...srcUploads)

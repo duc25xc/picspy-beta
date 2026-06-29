@@ -8,6 +8,7 @@ import {
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
 import api from '../api/api'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 
 // ─── Tier config (đồng bộ với useTierAccess + AdminPage) ────────
 const TIER_META = {
@@ -334,9 +335,9 @@ const ProfilePage = () => {
                   <img
                     src={
                       post.images?.[0]?.thumbnailUrl
-                      || post.images?.[0]?.url
+                      || getOptimizedWebpUrl(post.images?.[0]?.url, 400)
                       || post.generatedImages?.[0]?.thumbnailUrl
-                      || post.generatedImages?.[0]?.url
+                      || getOptimizedWebpUrl(post.generatedImages?.[0]?.url, 400)
                       || post.thumbnail
                     }
                     alt={post.caption}

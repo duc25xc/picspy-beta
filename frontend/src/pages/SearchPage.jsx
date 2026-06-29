@@ -14,6 +14,7 @@ import {
 import api from '../api/api'
 import PostDetailModal from '../components/post/PostDetailModal'
 import useModalUrl from '../hooks/useModalUrl'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 
 // ── Fallback categories ─────────────────────────────────────────
 const FALLBACK_CATEGORIES = [
@@ -143,7 +144,7 @@ const PostCard = ({
   onClick,
 }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
-  const displayUrl = img?.thumbnailUrl || img?.url
+  const displayUrl = img?.thumbnailUrl || getOptimizedWebpUrl(img?.url, 400)
   const isTall = globalIndex % 3 === 0
 
   const delay = isNewBatch

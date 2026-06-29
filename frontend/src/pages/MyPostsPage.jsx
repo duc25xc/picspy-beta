@@ -21,6 +21,7 @@ import {
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import { ImageDropZone, SourceHistoryPanel, ModelSlot } from './UploadComponents.jsx'
 import { deduplicateByPublicId, fileToPreview } from './uploadConstants.js'
 
@@ -419,9 +420,13 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   const getPrimaryPreviewUrl = () => {
     if (multiModelMode) {
       const firstSlotImg = modelSlots[0]?.genImages?.[0]
-      return firstSlotImg?.preview || firstSlotImg?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+      if (firstSlotImg?.preview) return firstSlotImg.preview
+      const remoteUrl = firstSlotImg?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+      return getOptimizedWebpUrl(remoteUrl, 600)
     }
-    return genImages[0]?.preview || genImages[0]?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+    if (genImages[0]?.preview) return genImages[0].preview
+    const remoteUrl = genImages[0]?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+    return getOptimizedWebpUrl(remoteUrl, 600)
   }
 
   return (
@@ -899,7 +904,7 @@ const DeleteConfirmModal = ({ post, onClose, onConfirm }) => {
 // ─── Post Card ──────────────────────────────────────────────
 const PostCard = ({ post, onEdit, onDelete, index }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
-  const displayUrl = img?.thumbnailUrl || img?.url
+  const displayUrl = img?.thumbnailUrl || getOptimizedWebpUrl(img?.url, 400)
 
   return (
     <motion.div

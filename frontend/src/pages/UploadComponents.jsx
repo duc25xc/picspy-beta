@@ -9,6 +9,7 @@ import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import { AI_TOOLS } from './uploadConstants.js'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 
 const ACCEPT = { 'image/jpeg': [], 'image/png': [], 'image/webp': [] }
 const MAX_SIZE = 20 * 1024 * 1024 // 20MB
@@ -646,7 +647,7 @@ export function SourceHistoryPanel({ images, selectedIds, onToggle, loading }) {
                   : 'border-white/8 hover:border-white/25'}`}
             >
               <img
-                src={img.thumbnailUrl || img.url}
+                src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
                 alt=""
                 className="w-full h-full object-cover"
                 loading="lazy"

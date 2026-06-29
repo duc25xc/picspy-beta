@@ -28,6 +28,7 @@ import exifr from 'exifr'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useTierAccess from '../hooks/useTierAccess'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import {
   detectDimensions,
   fileToPreview,
@@ -1565,7 +1566,7 @@ function Step2Source({
                 className="relative w-24 h-24 rounded-2xl overflow-hidden border border-white/10 group bg-black/40"
               >
                 <img
-                  src={img.thumbnailUrl || img.url}
+                  src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
                   alt=""
                   className="w-full h-full object-cover"
                 />
@@ -1727,7 +1728,7 @@ function HistoryDrawer({ images, selectedIds, onToggle, loading, onClose }) {
                             }`}
                         >
                           <img
-                            src={img.thumbnailUrl || img.url}
+                            src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
                             alt=""
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"

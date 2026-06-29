@@ -10,6 +10,7 @@ import {
   Camera,
 } from 'lucide-react'
 import { AI_TOOLS } from '../../pages/uploadConstants'
+import { getOptimizedWebpUrl } from '../../utils/imageUrl'
 
 /**
  * ImageGallery — multi-image viewer cho PostDetail.
@@ -199,9 +200,9 @@ export default function ImageGallery({
   const showBlurred = isPremium && !isUnlocked
   const displayUrl = showBlurred
     ? makeBlurredUrl(
-        activeImg?.previewUrl || activeImg?.thumbnailUrl || activeImg?.url
+        activeImg?.previewUrl || getOptimizedWebpUrl(activeImg?.url, 1200) || activeImg?.thumbnailUrl
       )
-    : activeImg?.previewUrl || activeImg?.url || activeImg?.thumbnailUrl
+    : activeImg?.previewUrl || getOptimizedWebpUrl(activeImg?.url, 1200) || activeImg?.thumbnailUrl
 
   const altText = activeIsSource
     ? `Ảnh tham khảo cho "${caption}"`
@@ -465,7 +466,7 @@ export default function ImageGallery({
                       {img.thumbnailUrl || img.url ? (
                         <>
                           <img
-                            src={img.thumbnailUrl || img.url}
+                            src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
                             alt={`Kết quả ${i + 1}`}
                             className="w-full h-full object-cover"
                             loading="lazy"
@@ -535,7 +536,7 @@ export default function ImageGallery({
                     >
                       {img.thumbnailUrl || img.url ? (
                         <img
-                          src={img.thumbnailUrl || img.url}
+                          src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
                           alt={`Ảnh gốc ${i + 1}`}
                           className="w-full h-full object-cover"
                           loading="lazy"
