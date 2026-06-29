@@ -244,16 +244,27 @@ const imageWorker = new Worker(
       // - NSFW rõ ràng (>0.8) → luôn reject
       // - autoApprove BẬT   → approved ngay
       // - autoApprove TẮT   → pending, admin duyệt thủ công
-      let status
+      // Quyết định status:
+      // - Lấy post hiện tại để kiểm tra status cũ
+      const existingPost = await Post.findById(postId).select('status').lean()
+      const currentStatus = existingPost?.status || 'pending'
+
+      // - NSFW rõ ràng (>0.8) → luôn reject
+      // - Nếu bài viết đã được duyệt (approved) → giữ nguyên approved
+      // - autoApprove BẬT   → approved ngay
+      // - autoApprove TẮT   → pending, admin duyệt thủ công
+      let status = currentStatus
       if (nsfwScore > 0.8) {
         status = 'rejected'
-      } else if (sysSettings.autoApprove) {
-        if (sysSettings.autoApproveDelayMs > 0) {
-          await new Promise(r => setTimeout(r, sysSettings.autoApproveDelayMs))
+      } else if (currentStatus !== 'approved') {
+        if (sysSettings.autoApprove) {
+          if (sysSettings.autoApproveDelayMs > 0) {
+            await new Promise(r => setTimeout(r, sysSettings.autoApproveDelayMs))
+          }
+          status = 'approved'
+        } else {
+          status = 'pending'
         }
-        status = 'approved'
-      } else {
-        status = 'pending'
       }
 
       // 8. Cập nhật Post — generatedImages[0] và sourceImages[0] thêm thumbnail/preview

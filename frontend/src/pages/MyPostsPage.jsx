@@ -270,6 +270,44 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     })
   }, [])
 
+  const setGenImageAsPrimary = useCallback((id) => {
+    setGenImages(prev => {
+      const idx = prev.findIndex(img => img.id === id)
+      if (idx <= 0) return prev
+      const next = [...prev]
+      const [target] = next.splice(idx, 1)
+      next.unshift(target)
+      return next
+    })
+  }, [])
+
+  const setPrimarySlot = useCallback((slotIdx) => {
+    if (slotIdx <= 0) return
+    setModelSlots(prev => {
+      const next = [...prev]
+      const [target] = next.splice(slotIdx, 1)
+      next.unshift(target)
+      return next
+    })
+  }, [])
+
+  const setPrimaryImageInSlot = useCallback((slotIdx, imgId) => {
+    setModelSlots(prev => {
+      const next = [...prev]
+      const slot = next[slotIdx]
+      if (!slot) return prev
+      const idx = slot.genImages.findIndex(img => img.id === imgId)
+      if (idx <= 0) return prev
+      
+      const newImages = [...slot.genImages]
+      const [target] = newImages.splice(idx, 1)
+      newImages.unshift(target)
+      
+      next[slotIdx] = { ...slot, genImages: newImages }
+      return next
+    })
+  }, [])
+
   const updateModelSlot = useCallback((i, updated) => setModelSlots(prev => prev.map((s, idx) => idx === i ? updated : s)), [])
   const removeModelSlot = useCallback((i) => setModelSlots(prev => {
     prev[i].genImages?.forEach(img => {
@@ -445,7 +483,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
         className="card w-full max-w-4xl max-h-[92vh] overflow-hidden flex flex-col md:flex-row"
       >
         {/* ── Left: Image preview (sticky on desktop) ── */}
-        <div className="hidden md:flex md:w-[320px] lg:w-[380px] shrink-0 bg-surface-100/50 flex-col border-r border-white/8">
+        <div className="hidden md:flex md:w-[320px] lg:w-[380px] shrink-0 bg-surface-100/50 flex-col border-r border-white/8 group/leftpreview">
           <div className="relative flex-1 flex items-center justify-center p-5 overflow-hidden">
             <img
               src={getPrimaryPreviewUrl()}
@@ -457,6 +495,23 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
               alt={post.caption}
               className="relative z-10 max-h-[70vh] w-auto max-w-full object-contain rounded-xl shadow-2xl"
             />
+
+            {/* Quick edit cover image action overlay */}
+            <div className="absolute inset-0 z-20 bg-black/20 opacity-0 group-hover/leftpreview:opacity-100 transition-all duration-500 flex items-center justify-center pointer-events-none">
+              <button
+                type="button"
+                onClick={() => setTab('images')}
+                className="pointer-events-auto flex items-center gap-2 px-4 py-2.5 rounded-xl text-white/80 hover:text-white font-semibold text-xs border border-white/15 hover:border-white/40 hover:bg-white/10 shadow-lg transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] scale-90 group-hover/leftpreview:scale-100 cursor-pointer"
+                style={{
+                  background: 'rgba(0, 0, 0, 0.3)',
+                  fontFamily: 'Outfit, sans-serif',
+                  letterSpacing: '0.03em',
+                }}
+              >
+                <Pencil size={11} className="text-white/60 group-hover/leftpreview:text-white transition-colors" />
+                Đổi ảnh preview
+              </button>
+            </div>
           </div>
           {/* Image info bar */}
           <div className="p-4 border-t border-white/5 space-y-1.5">
@@ -501,7 +556,11 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
           {/* Mobile-only preview */}
           <div className="md:hidden px-5 pt-4 shrink-0">
-            <div className="relative w-full h-28 rounded-xl overflow-hidden bg-surface-100 border border-white/5">
+            <button
+              type="button"
+              onClick={() => setTab('images')}
+              className="relative w-full h-28 rounded-xl overflow-hidden bg-surface-100 border border-white/5 flex items-center justify-center group text-left cursor-pointer"
+            >
               <img
                 src={getPrimaryPreviewUrl()}
                 alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110"
@@ -510,7 +569,19 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 src={getPrimaryPreviewUrl()}
                 alt={post.caption} className="relative z-10 h-full w-full object-contain"
               />
-            </div>
+              <div className="absolute inset-0 z-20 bg-black/20 flex items-center justify-center">
+                <span
+                  className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white/95 font-semibold text-[10px] border border-white/15 shadow-md"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    fontFamily: 'Outfit, sans-serif',
+                  }}
+                >
+                  <Pencil size={9} className="text-white/60" />
+                  Đổi ảnh preview
+                </span>
+              </div>
+            </button>
           </div>
 
           {/* Tabs */}
@@ -722,6 +793,8 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                               onUpdate={updateModelSlot}
                               onRemove={removeModelSlot}
                               canRemove={modelSlots.length > 2}
+                              onSetPrimarySlot={setPrimarySlot}
+                              onSetPrimaryImage={setPrimaryImageInSlot}
                             />
                           ))}
                         </AnimatePresence>
@@ -744,6 +817,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                       images={genImages}
                       onAdd={addGenImages}
                       onRemove={removeGenImage}
+                      onSetPrimary={setGenImageAsPrimary}
                       max={5}
                       label="Kéo thả ảnh kết quả AI của bạn vào đây"
                       hint="Upload 1–5 ảnh kết quả tốt nhất của bạn"

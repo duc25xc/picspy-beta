@@ -885,10 +885,10 @@ export const updatePost = async (req, res, next) => {
 
     const srcFiles = req.files?.sourceImages || []
     
-    // Gom danh sách ảnh gốc cũ được giữ lại
-    const oldSourceImagesKept = (post.sourceImages || []).filter(img => 
-      img.publicId && keepSourceImagePublicIds.includes(img.publicId)
-    )
+    // Gom danh sách ảnh gốc cũ được giữ lại theo thứ tự client chỉ định
+    const oldSourceImagesKept = keepSourceImagePublicIds
+      .map(pubId => (post.sourceImages || []).find(img => img.publicId === pubId))
+      .filter(Boolean)
 
     // Xác định ảnh gốc cũ cần xóa
     const sourceImagesToDestroy = (post.sourceImages || []).filter(img => 
@@ -921,10 +921,16 @@ export const updatePost = async (req, res, next) => {
       throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh tham khảo', 400)
     }
 
-    // Xóa ảnh gốc cũ khỏi Cloudinary
+    // Xóa ảnh gốc cũ khỏi Cloudinary (bao gồm cả file gốc, preview và thumbnail)
     if (sourceImagesToDestroy.length > 0) {
       await Promise.all(
-        sourceImagesToDestroy.map(img => cloudinary.uploader.destroy(img.publicId).catch(() => {}))
+        sourceImagesToDestroy.map(img => {
+          const promises = [cloudinary.uploader.destroy(img.publicId).catch(() => {})]
+          const baseName = img.publicId.split('/').pop()
+          promises.push(cloudinary.uploader.destroy(`picspy/posts/thumbnails/${baseName}_thumb`).catch(() => {}))
+          promises.push(cloudinary.uploader.destroy(`picspy/posts/previews/${baseName}_preview`).catch(() => {}))
+          return Promise.all(promises)
+        })
       )
     }
 
@@ -959,11 +965,11 @@ export const updatePost = async (req, res, next) => {
       for (let i = 0; i < compMeta.length; i++) {
         const slot = compMeta[i]
         
-        // Lấy ảnh cũ được giữ lại trong slot này
+        // Lấy ảnh cũ được giữ lại trong slot này theo đúng thứ tự
         let slotKeepIds = slot.keepImagePublicIds || []
-        const oldImagesKept = allOldGeneratedImages.filter(img => 
-          img.publicId && slotKeepIds.includes(img.publicId)
-        )
+        const oldImagesKept = slotKeepIds
+          .map(pubId => allOldGeneratedImages.find(img => img.publicId === pubId))
+          .filter(Boolean)
         oldImagesKept.forEach(img => keptImagePublicIds.add(img.publicId))
 
         // Upload ảnh mới cho slot này (compImages_X)
@@ -1000,9 +1006,9 @@ export const updatePost = async (req, res, next) => {
         } catch {}
       }
 
-      const oldImagesKept = allOldGeneratedImages.filter(img =>
-        img.publicId && keepGeneratedImagePublicIds.includes(img.publicId)
-      )
+      const oldImagesKept = keepGeneratedImagePublicIds
+        .map(pubId => allOldGeneratedImages.find(img => img.publicId === pubId))
+        .filter(Boolean)
       oldImagesKept.forEach(img => keptImagePublicIds.add(img.publicId))
 
       const genFiles = req.files?.generatedImages || []
@@ -1083,8 +1089,9 @@ export const updatePost = async (req, res, next) => {
     const hasPrimaryImageChanged = oldPrimaryPublicId !== newPrimaryPublicId
     const hasSourceImageChanged = oldSourcePublicId !== newSourcePublicId
 
-    // Cập nhật trạng thái duyệt về 'pending' khi bài viết sửa ảnh hoặc prompt quan trọng
-    if (hasPrimaryImageChanged || hasSourceImageChanged || promptChanged) {
+    // Cập nhật trạng thái duyệt về 'pending' khi prompt quan trọng thay đổi (và post chưa được duyệt)
+    // Không chuyển sang pending khi thay đổi ảnh chính/thumbnail hoặc ảnh tham khảo.
+    if (promptChanged && post.status !== 'approved') {
       post.status = 'pending'
     }
 
@@ -1143,11 +1150,22 @@ export const deletePost = async (req, res, next) => {
     // Xóa tất cả ảnh trên Cloudinary
     const deletePromises = []
 
-    // Xóa sourceImages
+    // Xóa sourceImages + previews + thumbnails
     for (const img of post.sourceImages || []) {
       if (img.publicId) {
         deletePromises.push(
           cloudinary.uploader.destroy(img.publicId).catch(() => {})
+        )
+        const baseName = img.publicId.split('/').pop()
+        deletePromises.push(
+          cloudinary.uploader
+            .destroy(`picspy/posts/thumbnails/${baseName}_thumb`)
+            .catch(() => {})
+        )
+        deletePromises.push(
+          cloudinary.uploader
+            .destroy(`picspy/posts/previews/${baseName}_preview`)
+            .catch(() => {})
         )
       }
     }

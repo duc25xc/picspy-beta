@@ -4,7 +4,7 @@
  */
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Copy, Check, ChevronDown, Sparkles, Coins, History, HelpCircle, Loader2 } from 'lucide-react'
+import { X, Plus, Copy, Check, ChevronDown, Sparkles, Coins, History, HelpCircle, Loader2, Star, Crown } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -29,6 +29,7 @@ export function ImageDropZone({
   images = [],
   onAdd,
   onRemove,
+  onSetPrimary,
   max = 5,
   label,
   hint,
@@ -62,31 +63,56 @@ export function ImageDropZone({
 
       {/* Thumbnails + Add button */}
       <div className="flex flex-wrap gap-2">
-        {images.map((img) => (
-          <motion.div
-            key={img.id}
-            layout
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.8 }}
-            transition={{ duration: 0.2 }}
-            className="relative w-24 h-24 rounded-xl overflow-hidden border border-white/10 group"
-          >
-            <img
-              src={img.preview}
-              alt=""
-              className="w-full h-full object-cover"
-            />
-            <button
-              type="button"
-              onClick={() => onRemove(img.id)}
-              className="absolute top-1 right-1 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center
-                opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+        {images.map((img, idx) => {
+          const isPrimary = idx === 0 && onSetPrimary
+          return (
+            <motion.div
+              key={img.id}
+              layout
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.8 }}
+              transition={{ duration: 0.2 }}
+              className={`relative w-24 h-24 rounded-xl overflow-hidden border group bg-black/30
+                ${isPrimary ? 'border-brand-500 ring-2 ring-brand-500/20' : 'border-white/10'}`}
             >
-              <X size={12} className="text-white" />
-            </button>
-          </motion.div>
-        ))}
+              <img
+                src={img.preview}
+                alt=""
+                className="w-full h-full object-cover"
+              />
+
+              {/* Cover image label */}
+              {isPrimary && (
+                <div className="absolute bottom-0 left-0 right-0 bg-brand-600/90 py-0.5 text-[9px] font-bold text-white text-center">
+                  Ảnh chính
+                </div>
+              )}
+
+              {/* Set Primary Button */}
+              {!isPrimary && onSetPrimary && (
+                <button
+                  type="button"
+                  onClick={() => onSetPrimary(img.id)}
+                  title="Đặt làm ảnh chính"
+                  className="absolute bottom-1.5 left-1.5 w-6 h-6 rounded bg-black/70 flex items-center justify-center
+                    opacity-0 group-hover:opacity-100 transition-opacity hover:bg-brand-600/90 text-white"
+                >
+                  <Star size={11} className="fill-white/20 hover:fill-white" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => onRemove(img.id)}
+                className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 flex items-center justify-center
+                  opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+              >
+                <X size={12} className="text-white" />
+              </button>
+            </motion.div>
+          )
+        })}
 
         {/* Drop zone / Add button */}
         {images.length < max && (
@@ -667,7 +693,15 @@ export function SourceHistoryPanel({ images, selectedIds, onToggle, loading }) {
 
 // ── ModelSlot ─────────────────────────────────────────────────────
 // Một card cho 1 model trong multi-model comparison
-export function ModelSlot({ slot, index, onUpdate, onRemove, canRemove }) {
+export function ModelSlot({
+  slot,
+  index,
+  onUpdate,
+  onRemove,
+  canRemove,
+  onSetPrimarySlot,
+  onSetPrimaryImage,
+}) {
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     accept: { 'image/jpeg': [], 'image/png': [], 'image/webp': [] },
     maxSize: 20 * 1024 * 1024,
@@ -708,9 +742,25 @@ export function ModelSlot({ slot, index, onUpdate, onRemove, canRemove }) {
     >
       {/* Header */}
       <div className="flex items-center justify-between">
-        <span className="text-xs font-bold text-white/50 uppercase tracking-wider">
-          Model {index + 1}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-white/50 uppercase tracking-wider">
+            Model {index + 1}
+          </span>
+          {index === 0 && onSetPrimarySlot && (
+            <span className="px-1.5 py-0.5 rounded bg-brand-500/20 border border-brand-500/30 text-[9px] font-bold text-brand-300">
+              ★ MAIN MODEL
+            </span>
+          )}
+          {index > 0 && onSetPrimarySlot && (
+            <button
+              type="button"
+              onClick={() => onSetPrimarySlot(index)}
+              className="px-1.5 py-0.5 rounded bg-white/5 border border-white/10 hover:border-brand-500/40 hover:bg-brand-600/20 text-[9px] font-semibold text-white/40 hover:text-brand-300 transition-all cursor-pointer"
+            >
+              Đặt làm chính
+            </button>
+          )}
+        </div>
         {canRemove && (
           <button
             type="button"
@@ -737,19 +787,48 @@ export function ModelSlot({ slot, index, onUpdate, onRemove, canRemove }) {
 
       {/* Image thumbnails + drop zone */}
       <div className="flex flex-wrap gap-2">
-        {(slot.genImages || []).map((img) => (
-          <div key={img.id} className="relative w-16 h-16 rounded-lg overflow-hidden border border-white/10 group">
-            <img src={img.preview} alt="" className="w-full h-full object-cover" />
-            <button
-              type="button"
-              onClick={() => removeImage(img.id)}
-              className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center
-                opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+        {(slot.genImages || []).map((img, j) => {
+          const isImagePrimary = j === 0
+          return (
+            <div
+              key={img.id}
+              className={`relative w-16 h-16 rounded-lg overflow-hidden border group bg-black/30 transition-all duration-150
+                ${isImagePrimary && onSetPrimaryImage ? 'border-brand-500 ring-1 ring-brand-500/30' : 'border-white/10'}`}
             >
-              <X size={10} className="text-white" />
-            </button>
-          </div>
-        ))}
+              <img src={img.preview} alt="" className="w-full h-full object-cover" />
+
+              {/* Cover indicator */}
+              {isImagePrimary && onSetPrimaryImage && (
+                <div
+                  className="absolute top-1 left-1 w-2 h-2 rounded-full bg-brand-500 border border-white/20 shadow"
+                  title="Ảnh đại diện của model này"
+                />
+              )}
+
+              {/* Set Primary image button */}
+              {!isImagePrimary && onSetPrimaryImage && (
+                <button
+                  type="button"
+                  onClick={() => onSetPrimaryImage(index, img.id)}
+                  title="Đặt làm ảnh chính của model này"
+                  className="absolute bottom-0.5 left-0.5 w-5 h-5 rounded bg-black/75 flex items-center justify-center
+                    opacity-0 group-hover:opacity-100 transition-opacity hover:bg-brand-600/90 text-white"
+                >
+                  <Star size={10} className="fill-white/20 hover:fill-white" />
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => removeImage(img.id)}
+                className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/70 flex items-center justify-center
+                  opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500/80"
+              >
+                <X size={10} className="text-white" />
+              </button>
+            </div>
+          )
+        })}
 
         {(slot.genImages?.length || 0) < 5 && (
           <div
