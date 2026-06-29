@@ -493,7 +493,7 @@ export const getSettings = async (req, res, next) => {
 /** PUT /admin/settings — Cập nhật 1 hoặc nhiều setting */
 export const updateSettings = async (req, res, next) => {
   try {
-    const allowed = ['autoApprove', 'autoApproveDelayMs']
+    const allowed = ['autoApprove', 'autoApproveDelayMs', 'primaryColor', 'gradientColor', 'brandOpacity', 'brandBlur']
     const updates = {}
     allowed.forEach(key => {
       if (req.body[key] !== undefined) updates[key] = req.body[key]

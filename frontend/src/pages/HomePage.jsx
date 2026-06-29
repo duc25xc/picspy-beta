@@ -383,7 +383,7 @@ const TrendingCard = ({ item, delay }) => (
       <div className="liquid-glass rounded-xl px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div
-            className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-blue-500
+            className="w-8 h-8 rounded-full bg-gradient-brand
             flex items-center justify-center text-white text-xs font-black pj"
           >
             {item.avatar}
@@ -402,7 +402,7 @@ const TrendingCard = ({ item, delay }) => (
               {(item.likes / 1000).toFixed(1)}k
             </span>
           </button>
-          <button className="hover:text-violet-400 transition-colors">
+          <button className="hover:text-brand-400 transition-colors">
             <Bookmark size={14} />
           </button>
         </div>
@@ -435,8 +435,7 @@ const MasonryCard = ({ item, index }) => (
     {item.badge && (
       <div className="absolute top-3 left-3">
         <span
-          className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider
-          bg-violet-600/80 text-white backdrop-blur-md border border-violet-400/30 pj"
+          className="badge-brand px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md pj"
         >
           {item.badge}
         </span>
@@ -577,8 +576,7 @@ const CommunityPostCard = ({ post, index, onClick }) => {
         )}
         {post.aiTool && (
           <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-bold
-            bg-violet-600/90 text-white backdrop-blur-sm pj"
+            className="badge-brand px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj"
           >
             ✨ AI
           </span>
@@ -609,7 +607,7 @@ const CommunityPostCard = ({ post, index, onClick }) => {
               />
             ) : (
               <div
-                className="w-6 h-6 rounded-full bg-gradient-to-br from-violet-500 to-blue-500
+                className="w-6 h-6 rounded-full bg-gradient-brand
                 flex items-center justify-center text-white text-[10px] font-black pj shrink-0"
               >
                 {author?.username?.[0]?.toUpperCase() || '?'}
@@ -672,14 +670,14 @@ const LeaderRow = ({ c, delay }) => (
       </span>
       <div className="relative">
         <div
-          className="w-12 h-12 rounded-full bg-gradient-to-br from-violet-600 to-blue-500
+          className="w-12 h-12 rounded-full bg-gradient-brand
           flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
         >
           {c.avatar}
         </div>
         {c.pro && (
           <span
-            className="absolute -bottom-1 -right-1 bg-violet-600 text-[8px] font-black
+            className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black
             px-1.5 py-0.5 rounded-sm text-white pj tracking-wide"
           >
             PRO
@@ -695,7 +693,7 @@ const LeaderRow = ({ c, delay }) => (
     </div>
     <button
       className="w-8 h-8 rounded-full liquid-glass flex items-center justify-center
-      text-foreground/30 group-hover:text-brand-600 dark:group-hover:text-violet-400 transition-colors"
+      text-foreground/30 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
     >
       <Plus size={14} />
     </button>
@@ -889,7 +887,10 @@ const CommunityGallerySection = () => {
           <div className="flex flex-col gap-6 mb-10">
             {/* Row 1: Post Type Tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex gap-2 p-1 bg-[#1a172e]/30 dark:bg-[#1a172e]/50 backdrop-blur-md rounded-2xl border border-violet-500/10 overflow-x-auto hide-scrollbar max-w-full">
+              <div 
+                className="flex gap-2 p-1 bg-[#1a172e]/30 dark:bg-[#1a172e]/50 backdrop-blur-md rounded-2xl border overflow-x-auto hide-scrollbar max-w-full"
+                style={{ borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)' }}
+              >
                 {POST_TYPE_TABS.map((tabItem) => {
                   const IconComp = tabItem.icon
                   const isActive = activePostType === tabItem.key
@@ -909,7 +910,7 @@ const CommunityGallerySection = () => {
                       {isActive && (
                         <motion.div
                           layoutId="activePostTypeTab"
-                          className="absolute inset-0 bg-gradient-to-r from-violet-600/90 to-indigo-600/90 shadow-md rounded-xl z-0"
+                          className="absolute inset-0 bg-gradient-brand shadow-md rounded-xl z-0"
                           transition={{ type: 'spring', stiffness: 350, damping: 28 }}
                         />
                       )}
@@ -922,7 +923,7 @@ const CommunityGallerySection = () => {
                       
                       {/* Live Stats Badge */}
                       <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-all
-                        ${isActive ? 'bg-white/20 text-violet-100' : 'bg-foreground/5 text-foreground/40'}
+                        ${isActive ? 'bg-white/20 text-white' : 'bg-foreground/5 text-foreground/40'}
                       `}>
                         {count.toLocaleString()}
                       </span>
@@ -939,7 +940,8 @@ const CommunityGallerySection = () => {
                     animate={{ opacity: 1, x: 0, scale: 1 }}
                     exit={{ opacity: 0, x: 10, scale: 0.95 }}
                     transition={{ duration: 0.25, ease: 'easeOut' }}
-                    className="flex items-center gap-3 bg-[#1a172e]/30 backdrop-blur-md px-4 py-2.5 rounded-xl border border-violet-500/10 self-start sm:self-auto"
+                    className="flex items-center gap-3 bg-[#1a172e]/30 backdrop-blur-md px-4 py-2.5 rounded-xl border self-start sm:self-auto"
+                    style={{ borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)' }}
                   >
                     <span className="text-xs text-foreground/60 font-medium pj">Chỉ hiện ảnh có EXIF chi tiết</span>
                     <button
@@ -967,15 +969,16 @@ const CommunityGallerySection = () => {
                   <button
                     key={cat.key}
                     onClick={() => setActiveCategory(cat.key)}
-                    className={`relative px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 pj cursor-pointer select-none whitespace-nowrap
-                      ${isActive ? 'text-white' : 'bg-[#1a172e]/10 hover:bg-[#1a172e]/20 dark:bg-[#1a172e]/20 dark:hover:bg-[#1a172e]/40 text-foreground/50 border border-violet-500/5 hover:border-violet-500/10'}
+                    className={`relative px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 pj cursor-pointer select-none whitespace-nowrap border
+                      ${isActive ? 'text-white border-transparent' : 'bg-[#1a172e]/10 hover:bg-[#1a172e]/20 dark:bg-[#1a172e]/20 dark:hover:bg-[#1a172e]/40 text-foreground/50'}
                     `}
+                    style={!isActive ? { borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.08)' } : {}}
                   >
                     {/* Spring Active Indicator sliding background */}
                     {isActive && (
                       <motion.div
                         layoutId="activeCategoryPill"
-                        className="absolute inset-0 bg-[#7c3aed] rounded-xl z-0"
+                        className="absolute inset-0 bg-brand-600 rounded-xl z-0"
                         transition={{ type: 'spring', stiffness: 350, damping: 28 }}
                       />
                     )}
@@ -1002,8 +1005,11 @@ const CommunityGallerySection = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center py-20"
             >
-              <div className="w-20 h-20 rounded-3xl bg-violet-600/10 border border-violet-500/20 flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">💜</span>
+              <div 
+                className="w-20 h-20 rounded-3xl border flex items-center justify-center mx-auto mb-4"
+                style={{ background: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)', borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
+              >
+                <span className="text-3xl">✨</span>
               </div>
               <h3 className="text-foreground font-bold text-lg mb-2 pj">
                 Chưa follow ai cả
@@ -1099,7 +1105,7 @@ const CommunityGallerySection = () => {
             <div className="flex justify-end mt-6">
               <Link
                 to="/search"
-                className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-violet-400 dark:hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
+                className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
               >
                 Xem tất cả
                 <ArrowRight
@@ -1161,7 +1167,8 @@ const HomePage = () => {
         {/* Ambient orbs */}
         <Orb
           className="orb-float-1 top-[-10%] left-[-5%] w-[40vw] h-[40vw]
-          bg-violet-600/10 blur-[130px] rounded-full"
+          blur-[130px] rounded-full"
+          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)' }}
         />
         <Orb
           className="orb-float-2 bottom-[0%] right-[-8%] w-[35vw] h-[35vw]
@@ -1232,7 +1239,7 @@ const HomePage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
             className="inline-flex items-center gap-2 px-5 py-2 rounded-full mb-8
-              liquid-glass text-brand-600 dark:text-violet-300 text-[11px] font-bold tracking-[0.2em] uppercase"
+              liquid-glass text-brand-600 dark:text-brand-300 text-[11px] font-bold tracking-[0.2em] uppercase"
           >
             <Sparkles size={11} className="animate-pulse" />
             AI-Powered Visual Curator #1 Việt Nam
@@ -1263,7 +1270,7 @@ const HomePage = () => {
                   animate={{ scaleX: [0, 1] }}
                   transition={{ delay: 0.8, duration: 0.5 }}
                   className="absolute -bottom-1 left-0 right-0 h-0.5
-                    bg-gradient-to-r from-violet-400 to-blue-400 origin-left block"
+                    bg-gradient-brand origin-left block"
                 />
               </span>
             </span>
@@ -1293,10 +1300,9 @@ const HomePage = () => {
                 whileHover={{ scale: 1.06 }}
                 whileTap={{ scale: 0.96 }}
                 className="px-10 py-5 rounded-full font-bold text-white text-base w-full sm:w-auto
-                  bg-gradient-to-r from-violet-600 to-blue-600
-                  shadow-[0_0_50px_rgba(124,58,237,0.3)]
-                  hover:shadow-[0_0_70px_rgba(124,58,237,0.5)]
+                  bg-gradient-brand
                   transition-shadow duration-300 flex items-center gap-2 justify-center"
+                style={{ boxShadow: '0 0 50px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.35)' }}
               >
                 Bắt đầu ngay <ArrowRight size={18} />
               </motion.button>
@@ -1362,7 +1368,7 @@ const HomePage = () => {
             </div>
             <div className="absolute top-6 right-6 z-20">
               <LiquidCard className="px-4 py-2 flex items-center gap-2">
-                <TrendingUp size={14} className="text-violet-400" />
+                <TrendingUp size={14} className="text-brand-400" />
                 <span className="text-sm font-medium text-foreground/80 dark:text-white/80 pj">
                   +340 ảnh hôm nay
                 </span>
@@ -1412,7 +1418,7 @@ const HomePage = () => {
             className="flex flex-col md:flex-row md:items-end justify-between mb-14 gap-6"
           >
             <div>
-              <p className="text-brand-600 dark:text-violet-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
+              <p className="text-brand-600 dark:text-brand-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
                 🎯 Danh mục nổi bật
               </p>
               <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-3 pj">
@@ -1424,7 +1430,7 @@ const HomePage = () => {
             </div>
             <Link
               to="/search"
-              className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-violet-400 dark:hover:text-white
+              className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-white
                 font-bold transition-colors group text-sm shrink-0 pj"
             >
               Xem tất cả danh mục
@@ -1563,7 +1569,8 @@ const HomePage = () => {
       <section className="py-24 px-4 relative overflow-hidden">
         <Orb
           className="top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
-          w-[60vw] h-[60vw] bg-violet-700/12 blur-[150px] orb-float-1"
+          w-[60vw] h-[60vw] blur-[150px] orb-float-1"
+          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12)' }}
         />
 
         <motion.div
@@ -1587,7 +1594,8 @@ const HomePage = () => {
             {/* Subtle violet tint blob */}
             <div
               className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px]
-              bg-violet-600/12 rounded-full blur-[100px] pointer-events-none"
+              rounded-full blur-[100px] pointer-events-none"
+              style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12)' }}
             />
             <div
               className="absolute bottom-0 right-0 w-80 h-80
@@ -1598,14 +1606,14 @@ const HomePage = () => {
               className="absolute inset-0 rounded-[2.5rem] pointer-events-none"
               style={{
                 background:
-                  'linear-gradient(135deg, rgba(124,58,237,0.12) 0%, rgba(59,130,246,0.06) 50%, transparent 100%)',
+                  'linear-gradient(135deg, hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12) 0%, rgba(59,130,246,0.06) 50%, transparent 100%)',
               }}
             />
 
             <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16">
               {/* Left text */}
               <div className="max-w-xl text-center lg:text-left">
-                <p className="text-brand-600 dark:text-violet-400 text-[11px] font-bold tracking-widest uppercase mb-4 pj">
+                <p className="text-brand-600 dark:text-brand-400 text-[11px] font-bold tracking-widest uppercase mb-4 pj">
                   🚀 Creator Program
                 </p>
                 <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tighter mb-6 leading-tight pj">
@@ -1647,8 +1655,8 @@ const HomePage = () => {
               >
                 <div className="text-center mb-7">
                   <div
-                    className="w-14 h-14 rounded-2xl bg-violet-500/15 flex items-center justify-center
-                    mx-auto mb-4 border border-violet-500/20"
+                    className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"
+                    style={{ background: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)', borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
                   >
                     <Star size={26} className="text-amber-300" />
                   </div>
@@ -1667,10 +1675,10 @@ const HomePage = () => {
                       className="flex items-center gap-3 text-sm text-foreground/75 pj"
                     >
                       <div
-                        className="w-5 h-5 rounded-full bg-brand-500/10 dark:bg-violet-500/20 border border-brand-500/20 dark:border-violet-400/30
-                        flex items-center justify-center shrink-0"
+                        className="w-5 h-5 rounded-full border flex items-center justify-center shrink-0"
+                        style={{ background: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)', borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
                       >
-                        <div className="w-2 h-2 rounded-full bg-brand-600 dark:bg-violet-300" />
+                        <div className="w-2 h-2 rounded-full" style={{ background: 'var(--color-brand-500)' }} />
                       </div>
                       {item}
                     </li>
@@ -1681,10 +1689,9 @@ const HomePage = () => {
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
                     className="w-full py-4 font-black rounded-full pj
-                      bg-gradient-to-r from-violet-600 to-blue-600 text-white
-                      shadow-[0_0_30px_rgba(124,58,237,0.3)]
-                      hover:shadow-[0_0_50px_rgba(124,58,237,0.45)]
+                      bg-gradient-brand text-white
                       transition-shadow duration-300"
+                    style={{ boxShadow: '0 0 30px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.35)' }}
                   >
                     Đăng ký ngay
                   </motion.button>
@@ -1758,7 +1765,7 @@ const HomePage = () => {
                     <li key={l}>
                       <a
                         href="#"
-                        className="hover:text-brand-600 dark:hover:text-violet-400 transition-colors pj"
+                        className="hover:text-brand-600 dark:hover:text-brand-400 transition-colors pj"
                       >
                         {l}
                       </a>

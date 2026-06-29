@@ -231,21 +231,24 @@ export default function PricingPage() {
                   aria-checked={cycle === k}
                   disabled={isDisabled}
                   title={isDisabled ? 'Không có gói cho chu kỳ này' : undefined}
-                  className="px-8 min-w-[130px] rounded-xl text-sm font-bold transition-colors duration-200 outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-inset disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="px-8 min-w-[130px] rounded-xl text-sm font-bold transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-inset disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
                   style={{
                     minHeight: '44px',
                     lineHeight: '1',
                     fontWeight: 800,
                     ...(cycle === k
                     ? { 
-                        background: 'oklch(52% 0.28 285)', 
+                        background: 'var(--color-brand-600)', 
                         color: W, 
-                        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.25), inset 0 -1.5px 0 rgba(0,0,0,0.2), 0 4px 16px rgba(109,40,217,0.45)' 
+                        border: '1px solid rgba(255,255,255,calc((1 - var(--color-brand-opacity, 1)) * 0.15))',
+                        backdropFilter: 'var(--color-brand-blur, none)',
+                        WebkitBackdropFilter: 'var(--color-brand-blur, none)',
+                        boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.25), inset 0 -1.5px 0 rgba(0,0,0,0.2), 0 4px 16px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.35)' 
                       }
                     : { 
-                        background: 'transparent', // Hoặc để trống
-                        color: 'oklch(55% 0.01 285)',
-                        // Ghi đè các thuộc tính của F.display nếu cần để làm nút mờ đi khi không chọn
+                        background: 'transparent', 
+                        color: 'rgba(255,255,255,0.5)',
+                        border: '1px solid transparent',
                         opacity: 0.8 
                       }
                   ),
@@ -294,7 +297,7 @@ export default function PricingPage() {
               </p>
               <button
                 onClick={() => { setError(false); setLoading(true); api.get('/subscriptions/plans').then(({data})=>{setPlans(data.plans);setFounderLeft(data.founderSlotsLeft)}).catch(()=>setError(true)).finally(()=>setLoading(false)) }}
-                className="px-6 rounded-2xl text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
+                className="px-6 rounded-2xl text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
                 style={{ ...btnGhost, minHeight: '44px' }}
               >
                 Thử lại
@@ -379,7 +382,7 @@ export default function PricingPage() {
           <section className="mt-20 pb-8">
             <div className="pt-14 border-t relative text-center" style={{ borderColor: 'rgba(255,255,255,0.07)' }}>
               <div className="absolute top-0 left-1/2 -translate-x-1/2 h-px w-32"
-                style={{ background: 'oklch(52% 0.28 285)' }}
+                style={{ background: 'var(--color-brand-600)' }}
                 aria-hidden="true" />
               <h2
                 className="text-2xl font-extrabold mb-6 max-w-md mx-auto"
@@ -391,7 +394,7 @@ export default function PricingPage() {
                 whileHover={{ scale: 1.025 }}
                 whileTap={{ scale: 0.97 }}
                 onClick={() => user ? nav('/') : nav('/register')}
-                className="px-8 rounded-2xl text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-violet-400 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
+                className="px-8 rounded-2xl text-sm font-bold outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 focus-visible:ring-offset-transparent"
                 style={{ ...btnPrimary, minHeight: '52px' }}
               >
                 {user ? 'Khám phá ngay →' : 'Tạo tài khoản miễn phí →'}

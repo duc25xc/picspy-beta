@@ -5,13 +5,13 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import { Navigate } from 'react-router-dom'
-
+import { useSettings } from '../context/SettingsContext'
 // ─── Guard ─────────────────────────────────────────────────────
 const AdminGuard = ({ children }) => {
   const user = useAuthStore((s) => s.user)
@@ -1087,12 +1087,52 @@ const SettingsTab = () => {
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
 
+  const { updateBrandColors } = useSettings()
+  const [primaryColor, setPrimaryColor] = useState('#7c3aed')
+  const [gradientColor, setGradientColor] = useState('#3b82f6')
+  const [brandOpacity, setBrandOpacity] = useState(1)
+  const [brandBlur, setBrandBlur] = useState(0)
+  const [colorSaving, setColorSaving] = useState(false)
+
+  const COLOR_PRESETS = [
+    { name: 'Mặc định (PicSpy)', primary: '#7c3aed', gradient: '#3b82f6', opacity: 1, blur: 0, desc: 'Màu tím PicSpy mặc định' },
+    { name: 'Liquid Glass (Mới)', primary: '#345ceb', gradient: '#00c6ff', opacity: 0.75, blur: 12, desc: 'Xanh lam lỏng & trong suốt' },
+    { name: 'Cyberpunk Neon', primary: '#ec4899', gradient: '#8b5cf6', opacity: 1, blur: 0, desc: 'Hồng sen & Tím neon rực rỡ' },
+    { name: 'Forest Emerald', primary: '#10b981', gradient: '#059669', opacity: 1, blur: 0, desc: 'Xanh lá ngọc lục bảo' },
+    { name: 'Amber Glow', primary: '#f59e0b', gradient: '#d97706', opacity: 1, blur: 0, desc: 'Màu hổ phách hoàng kim' }
+  ]
+
   useEffect(() => {
     api.get('/admin/settings')
-      .then(({ data }) => setSettings(data.settings))
+      .then(({ data }) => {
+        setSettings(data.settings)
+        if (data.settings?.primaryColor) setPrimaryColor(data.settings.primaryColor)
+        if (data.settings?.gradientColor) setGradientColor(data.settings.gradientColor)
+        if (data.settings?.brandOpacity !== undefined) setBrandOpacity(data.settings.brandOpacity)
+        if (data.settings?.brandBlur !== undefined) setBrandBlur(data.settings.brandBlur)
+      })
       .catch(() => toast.error('Không tải được cài đặt'))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleSaveColors = async (pColor = primaryColor, gColor = gradientColor, opacity = brandOpacity, blur = brandBlur) => {
+    setColorSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        primaryColor: pColor,
+        gradientColor: gColor,
+        brandOpacity: opacity,
+        brandBlur: blur
+      })
+      setSettings(data.settings)
+      updateBrandColors(pColor, gColor, opacity, blur)
+      toast.success('🎨 Đã lưu và áp dụng giao diện màu mới!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể lưu cấu hình màu')
+    } finally {
+      setColorSaving(false)
+    }
+  }
 
   const handleToggleAutoApprove = async () => {
     if (!settings) return
@@ -1178,6 +1218,160 @@ const SettingsTab = () => {
           </motion.button>
         </div>
       </motion.div>
+
+      {/* ── Theme Customizer Card ─── */}
+      <div className="card p-6 border border-white/10 space-y-5">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+            <Palette className="text-brand-400" size={22} />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-base mb-1">Tùy biến Giao diện (Website Theme)</h3>
+            <p className="text-sm text-white/50 leading-relaxed">
+              Thay đổi tông màu thương hiệu chính (`primary`) và dải màu gradient trên toàn bộ nút, tag, trạng thái của website.
+            </p>
+          </div>
+        </div>
+
+        {/* Color picker inputs */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/60 block">Màu chính (Primary Color)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="w-10 h-10 rounded-lg overflow-hidden border-0 cursor-pointer bg-transparent"
+              />
+              <input
+                type="text"
+                value={primaryColor}
+                onChange={(e) => setPrimaryColor(e.target.value)}
+                className="input py-2 text-xs flex-1"
+                placeholder="#hex_color"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/60 block">Màu Gradient cuối (Gradient End)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="color"
+                value={gradientColor}
+                onChange={(e) => setGradientColor(e.target.value)}
+                className="w-10 h-10 rounded-lg overflow-hidden border-0 cursor-pointer bg-transparent"
+              />
+              <input
+                type="text"
+                value={gradientColor}
+                onChange={(e) => setGradientColor(e.target.value)}
+                className="input py-2 text-xs flex-1"
+                placeholder="#hex_color"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Transparency & Backdrop Blur Settings */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/5">
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-white/60">Độ trong suốt màu chính (Opacity)</label>
+              <span className="text-xs font-bold text-brand-400">{Math.round(brandOpacity * 100)}%</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0.1"
+                max="1.0"
+                step="0.05"
+                value={brandOpacity}
+                onChange={(e) => {
+                  const val = parseFloat(e.target.value)
+                  setBrandOpacity(val)
+                  updateBrandColors(primaryColor, gradientColor, val, brandBlur)
+                }}
+                className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-brand-500"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-white/60">Độ nhòe nền (Backdrop Blur)</label>
+              <span className="text-xs font-bold text-brand-400">{brandBlur}px</span>
+            </div>
+            <div className="flex items-center gap-4">
+              <input
+                type="range"
+                min="0"
+                max="24"
+                step="2"
+                value={brandBlur}
+                onChange={(e) => {
+                  const val = parseInt(e.target.value)
+                  setBrandBlur(val)
+                  updateBrandColors(primaryColor, gradientColor, brandOpacity, val)
+                }}
+                className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-brand-500"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Presets */}
+        <div className="space-y-2.5 pt-4 border-t border-white/5">
+          <label className="text-xs font-semibold text-white/60 block">Mẫu màu thiết lập sẵn (Theme Presets)</label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+            {COLOR_PRESETS.map((preset) => {
+              const isActive = primaryColor.toLowerCase() === preset.primary.toLowerCase() &&
+                               gradientColor.toLowerCase() === preset.gradient.toLowerCase() &&
+                               brandOpacity === preset.opacity &&
+                               brandBlur === preset.blur
+              return (
+                <button
+                  key={preset.name}
+                  type="button"
+                  onClick={() => {
+                    setPrimaryColor(preset.primary)
+                    setGradientColor(preset.gradient)
+                    setBrandOpacity(preset.opacity)
+                    setBrandBlur(preset.blur)
+                    handleSaveColors(preset.primary, preset.gradient, preset.opacity, preset.blur)
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isActive
+                      ? 'border-brand-500 bg-brand-500/10 shadow-[0_0_12px_rgba(124,58,237,0.15)]'
+                      : 'border-white/5 bg-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ background: preset.primary }} />
+                    <div className="w-3.5 h-3.5 rounded-full border border-white/20 -ml-1.5" style={{ background: preset.gradient }} />
+                    <span className="text-xs font-bold text-white/80 truncate">{preset.name}</span>
+                  </div>
+                  <span className="text-[10px] text-white/35 leading-tight block truncate">{preset.desc}</span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={() => handleSaveColors()}
+            disabled={colorSaving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-900/30"
+          >
+            {colorSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            Lưu cấu hình màu
+          </button>
+        </div>
+      </div>
 
       {/* ── Info card ─── */}
       <div className="card p-5 border-blue-500/20 bg-blue-500/5">

@@ -148,7 +148,7 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
     return (
       <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
         <MessageCircle size={14} className="text-white/30" />
-        <Link to="/login" className="text-sm text-violet-400 hover:text-violet-300 transition-colors">
+        <Link to="/login" className="text-sm text-brand-400 hover:text-brand-300 transition-colors">
           Đăng nhập để bình luận
         </Link>
       </div>
@@ -160,7 +160,7 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
       {replyTo && (
         <div className="flex items-center gap-2 text-xs text-white/40 bg-white/5 rounded-lg px-3 py-1.5">
           <CornerDownRight size={11} />
-          <span>Đang trả lời <span className="text-violet-400 font-medium">@{replyTo.authorId?.username}</span></span>
+          <span>Đang trả lời <span className="text-brand-400 font-medium">@{replyTo.authorId?.username}</span></span>
           <button
             type="button"
             onClick={onCancelReply}
@@ -172,7 +172,7 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
       )}
       <div className="flex gap-2 items-end">
         <Avatar user={currentUser} size={8} />
-        <div className="flex-1 flex items-end gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 focus-within:border-violet-500/50 transition-colors">
+        <div className="flex-1 flex items-end gap-2 bg-white/5 border border-white/10 rounded-xl px-3 py-2 focus-within:border-brand-500/50 transition-colors">
           <textarea
             ref={inputRef}
             value={text}
@@ -197,11 +197,11 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
             type="submit"
             disabled={!text.trim() || submitting}
             whileTap={{ scale: 0.9 }}
-            className="text-violet-400 disabled:text-white/20 transition-colors flex-shrink-0 pb-0.5"
+            className="text-brand-400 disabled:text-white/20 transition-colors flex-shrink-0 pb-0.5"
           >
             {submitting ? (
               <motion.div
-                className="w-4 h-4 border-2 border-violet-400/30 border-t-violet-400 rounded-full"
+                className="w-4 h-4 border-2 border-brand-400/30 border-t-brand-500 rounded-full"
                 animate={{ rotate: 360 }}
                 transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
               />

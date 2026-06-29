@@ -9,6 +9,20 @@
     --toaster-bg: #1a1a24;
     --toaster-color: #e9e9f0;
 
+    /* Brand default colors */
+    --color-brand-50: #f5f3ff;
+    --color-brand-100: #ede9fe;
+    --color-brand-200: #ddd6fe;
+    --color-brand-300: #c4b5fd;
+    --color-brand-400: #a78bfa;
+    --color-brand-500: #8b5cf6;
+    --color-brand-600: #7c3aed;
+    --color-brand-700: #6d28d9;
+    --color-brand-800: #5b21b6;
+    --color-brand-900: #4c1d95;
+    --color-brand-950: #2e1065;
+    --color-brand-gradient-end: #3b82f6;
+
     /* Theme Dark (Mac dinh) */
     --color-surface: #0f0f13;
     --color-surface-50: #1a1a24;
@@ -104,7 +118,15 @@
   }
 
   .btn-primary {
-    @apply btn bg-brand-600 hover:bg-brand-500 active:scale-95 text-white shadow-lg shadow-brand-900/50;
+    @apply btn text-white shadow-lg shadow-black/25 active:scale-95 transition-all duration-200;
+    background-color: var(--color-brand-600);
+    border: 1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15));
+    backdrop-filter: var(--color-brand-blur, none);
+    -webkit-backdrop-filter: var(--color-brand-blur, none);
+  }
+
+  .btn-primary:hover {
+    background-color: var(--color-brand-500);
   }
 
   .btn-secondary {
@@ -154,7 +176,7 @@
   }
 
   .nav-link-primary {
-    @apply inline-flex items-center justify-center px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer select-none bg-brand-600 hover:bg-brand-500 active:scale-95 text-white shadow-lg shadow-brand-900/50;
+    @apply inline-flex items-center justify-center px-4 py-1.5 rounded-full text-sm font-semibold transition-all duration-200 cursor-pointer select-none bg-brand-600 hover:bg-brand-500 active:scale-95 text-white shadow-lg shadow-black/25;
     line-height: 1.5;
   }
 
@@ -201,7 +223,9 @@
   }
 
   .badge-brand {
-    @apply badge bg-brand-900/60 text-brand-300 border border-brand-700/50;
+    @apply badge text-brand-300;
+    background-color: var(--color-brand-950);
+    border: 1px solid var(--color-brand-800);
   }
 
   .badge-success {
@@ -272,7 +296,7 @@
   /* PICSPY Smooth Loader Animations */
   .loader-ring-mask {
     padding: 3px;
-    background: conic-gradient(from 0deg, #7c3aed, #7986eb, transparent 60%);
+    background: conic-gradient(from 0deg, var(--color-brand-600), var(--color-brand-400), transparent 60%);
     -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
     -webkit-mask-composite: xor;
     mask-composite: exclude;

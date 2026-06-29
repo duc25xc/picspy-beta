@@ -18,6 +18,22 @@ const settingsSchema = new mongoose.Schema(
       default: 0,
       // Delay trước khi approve (ms). 0 = instant approve sau khi worker xong
     },
+    primaryColor: {
+      type: String,
+      default: '#7c3aed',
+    },
+    gradientColor: {
+      type: String,
+      default: '#3b82f6',
+    },
+    brandOpacity: {
+      type: Number,
+      default: 1, // 0 to 1
+    },
+    brandBlur: {
+      type: Number,
+      default: 0, // px blur
+    },
   },
   {
     timestamps: true,

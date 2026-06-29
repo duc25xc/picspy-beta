@@ -7,17 +7,17 @@ export default {
       colors: {
         // Brand colors — PicSpy violet/purple palette
         brand: {
-          50: '#f5f3ff',
-          100: '#ede9fe',
-          200: '#ddd6fe',
-          300: '#c4b5fd',
-          400: '#a78bfa',
-          500: '#8b5cf6',
-          600: '#7c3aed',
-          700: '#6d28d9',
-          800: '#5b21b6',
-          900: '#4c1d95',
-          950: '#2e1065',
+          50: 'var(--color-brand-50)',
+          100: 'var(--color-brand-100)',
+          200: 'var(--color-brand-200)',
+          300: 'var(--color-brand-300)',
+          400: 'var(--color-brand-400)',
+          500: 'var(--color-brand-500)',
+          600: 'var(--color-brand-600)',
+          700: 'var(--color-brand-700)',
+          800: 'var(--color-brand-800)',
+          900: 'var(--color-brand-900)',
+          950: 'var(--color-brand-950)',
         },
         // Dynamic UI mapping to CSS variables
         surface: {
@@ -34,7 +34,7 @@ export default {
         display: ['Outfit', 'sans-serif'],
       },
       backgroundImage: {
-        'gradient-brand': 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
+        'gradient-brand': 'linear-gradient(135deg, var(--color-brand-600) 0%, var(--color-brand-gradient-end) 100%)',
         'gradient-dark': 'linear-gradient(180deg, #0f0f13 0%, #1a1a24 100%)',
       },
       animation: {

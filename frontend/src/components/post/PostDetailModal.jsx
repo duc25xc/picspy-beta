@@ -458,8 +458,9 @@ const PostDetailModal = ({
                         ${
                           isFollowing
                             ? 'bg-white/5 border-white/15 text-white/60 hover:border-red-500/40 hover:text-red-400'
-                            : 'bg-violet-600/80 border-violet-500/50 text-white hover:bg-violet-600'
+                            : 'bg-brand-600 hover:bg-brand-500 text-white'
                         }`}
+                      style={isFollowing ? {} : { backdropFilter: 'var(--color-brand-blur, none)', border: '1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15))' }}
                     >
                       {isFollowing ? (
                         <>
@@ -486,9 +487,7 @@ const PostDetailModal = ({
                   {post.tags.map((tag) => (
                     <span
                       key={tag}
-                      className="flex items-center gap-1 px-2 py-0.5 rounded-lg
-                        bg-violet-600/15 border border-violet-500/25
-                        text-violet-400 text-[11px] font-medium"
+                      className="badge-brand flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium"
                     >
                       <Tag size={9} />#{tag}
                     </span>

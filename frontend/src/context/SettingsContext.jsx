@@ -1,5 +1,76 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { translations } from '../utils/translations';
+import api from '../api/api';
+
+// Chuyển HEX sang HSL
+function hexToHsl(hex) {
+  if (!hex) return { h: 0, s: 0, l: 0 };
+  let cleaned = hex.trim().replace('#', '');
+  if (cleaned.length === 3) {
+    cleaned = cleaned[0] + cleaned[0] + cleaned[1] + cleaned[1] + cleaned[2] + cleaned[2];
+  }
+  if (cleaned.length !== 6) {
+    return { h: 0, s: 0, l: 0 };
+  }
+  const r = parseInt(cleaned.slice(0, 2), 16) / 255;
+  const g = parseInt(cleaned.slice(2, 4), 16) / 255;
+  const b = parseInt(cleaned.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) {
+      h = (g - b) / d + (g < b ? 6 : 0);
+    } else if (max === g) {
+      h = (b - r) / d + 2;
+    } else if (max === b) {
+      h = (r - g) / d + 4;
+    }
+    h /= 6;
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+// Cập nhật bảng màu CSS variables cho brand từ HEX
+export function applyThemeBrandColors(primaryHex, gradientEndHex, opacity = 1, blur = 0) {
+  const root = document.documentElement;
+  if (!primaryHex) return;
+
+  const { h, s } = hexToHsl(primaryHex);
+
+  // Set các component màu chính để các class CSS có thể dùng linh hoạt hsla
+  root.style.setProperty('--color-brand-h', h);
+  root.style.setProperty('--color-brand-s', `${s}%`);
+  root.style.setProperty('--color-brand-opacity', opacity);
+  root.style.setProperty('--color-brand-blur', blur > 0 ? `blur(${blur}px)` : 'none');
+
+  // Map độ sáng lý tưởng cho Tailwind shades (50 - 950)
+  const lightnessMap = {
+    50: 97,
+    100: 93,
+    200: 85,
+    300: 75,
+    400: 62,
+    500: 52, // màu gốc
+    600: 44, // màu hover
+    700: 36,
+    800: 28,
+    900: 20,
+    950: 12
+  };
+
+  // Set các shade vào CSS variables sử dụng hsla với opacity tùy biến!
+  Object.entries(lightnessMap).forEach(([shade, l]) => {
+    root.style.setProperty(`--color-brand-${shade}`, `hsla(${h}, ${s}%, ${l}%, ${opacity})`);
+  });
+
+  // Set gradient end
+  if (gradientEndHex) {
+    root.style.setProperty('--color-brand-gradient-end', gradientEndHex);
+  }
+}
 
 const SettingsContext = createContext();
 
@@ -16,6 +87,41 @@ export const SettingsProvider = ({ children }) => {
   });
 
   const [isThemeTransitioning, setIsThemeTransitioning] = useState(false);
+
+  const [brandColors, setBrandColors] = useState({
+    primaryColor: '#7c3aed',
+    gradientColor: '#3b82f6',
+    brandOpacity: 1,
+    brandBlur: 0,
+  });
+
+  const updateBrandColors = (primary, gradient, opacity = 1, blur = 0) => {
+    setBrandColors({
+      primaryColor: primary,
+      gradientColor: gradient,
+      brandOpacity: opacity,
+      brandBlur: blur,
+    });
+    applyThemeBrandColors(primary, gradient, opacity, blur);
+  };
+
+  // Load public settings (colors) on mount
+  useEffect(() => {
+    api.get('/settings')
+      .then(({ data }) => {
+        if (data?.primaryColor) {
+          updateBrandColors(
+            data.primaryColor,
+            data.gradientColor,
+            data.brandOpacity !== undefined ? data.brandOpacity : 1,
+            data.brandBlur !== undefined ? data.brandBlur : 0
+          );
+        }
+      })
+      .catch((err) => {
+        console.error('Không tải được cài đặt màu thương hiệu:', err);
+      });
+  }, []);
 
   // Ham cap nhat theme: overlay fade-in → đổi theme tức thì → overlay fade-out
   const changeTheme = (newTheme) => {
@@ -86,7 +192,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors }}>
       {children}
     </SettingsContext.Provider>
   );

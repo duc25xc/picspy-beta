@@ -26,6 +26,7 @@ import {
   seedCategories,
 } from './controllers/admin.controller.js'
 import { seedSubscriptionPlans } from './models/SubscriptionPlan.model.js'
+import Settings from './models/Settings.model.js'
 
 // Workers (khởi động cùng server)
 import './workers/imageProcessor.worker.js'
@@ -102,6 +103,21 @@ app.use('/v1/ai', aiRoutes)
 app.use('/v1/subscriptions', subscriptionRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
+
+// Public settings (để lấy mã màu chính của website)
+app.get('/v1/settings', async (req, res, next) => {
+  try {
+    const settings = await Settings.getSingleton()
+    res.json({
+      primaryColor: settings.primaryColor || '#7c3aed',
+      gradientColor: settings.gradientColor || '#3b82f6',
+      brandOpacity: settings.brandOpacity !== undefined ? settings.brandOpacity : 1,
+      brandBlur: settings.brandBlur !== undefined ? settings.brandBlur : 0,
+    })
+  } catch (err) {
+    next(err)
+  }
+})
 
 // Health check
 app.get('/health', (req, res) =>

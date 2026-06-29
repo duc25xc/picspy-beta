@@ -338,9 +338,10 @@ const DownloadButton = ({
               ? 'bg-green-600/20 border border-green-500/30 text-green-400'
               : isPremium
                 ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:bg-amber-500/30'
-                : 'bg-violet-600 hover:bg-violet-500 text-white shadow-[0_0_24px_rgba(124,58,237,0.3)]'
+                : 'bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-black/25'
           }
           disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
+        style={done || isPremium ? {} : { backdropFilter: 'var(--color-brand-blur, none)', border: '1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15))' }}
       >
         {loading ? (
           <Loader2 size={16} className="animate-spin" />

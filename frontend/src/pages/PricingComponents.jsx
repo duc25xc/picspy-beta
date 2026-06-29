@@ -38,20 +38,22 @@ export const glassCard = {
 }
 
 const glassCardPro = {
-  background: 'rgba(109,40,217,0.13)',
-  backdropFilter: 'blur(24px)',
-  WebkitBackdropFilter: 'blur(24px)',
-  border: '1px solid rgba(167,139,250,0.42)',
-  boxShadow: 'inset 0 1.5px 0 rgba(208,188,255,0.22), 0 0 90px rgba(109,40,217,0.22), 0 32px 64px rgba(0,0,0,0.5)',
+  background: 'hsla(var(--color-brand-h), var(--color-brand-s), 40%, calc(var(--color-brand-opacity, 1) * 0.13))',
+  backdropFilter: 'var(--color-brand-blur, blur(24px))',
+  WebkitBackdropFilter: 'var(--color-brand-blur, blur(24px))',
+  border: '1px solid hsla(var(--color-brand-h), var(--color-brand-s), 70%, calc(var(--color-brand-opacity, 1) * 0.42))',
+  boxShadow: 'inset 0 1.5px 0 hsla(var(--color-brand-h), var(--color-brand-s), 80%, calc(var(--color-brand-opacity, 1) * 0.22)), 0 0 90px hsla(var(--color-brand-h), var(--color-brand-s), 50%, calc(var(--color-brand-opacity, 1) * 0.22)), 0 32px 64px rgba(0,0,0,0.5)',
 }
 
 // Tactile CTA: solid brand violet with inset gloss + depth + glow
 export const btnPrimary = {
   ...F.body,
-  background: 'oklch(52% 0.28 285)',
-  boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px rgba(109,40,217,0.5)',
+  background: 'var(--color-brand-600)',
+  boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.45)',
   color: W,
   border: '1px solid rgba(255,255,255,0.15)',
+  backdropFilter: 'var(--color-brand-blur, none)',
+  WebkitBackdropFilter: 'var(--color-brand-blur, none)',
 }
 
 // Ghost button: inset gloss but muted
@@ -60,7 +62,7 @@ export const btnGhost = {
   background: 'rgba(255,255,255,0.07)',
   boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.14), inset 0 -1px 0 rgba(0,0,0,0.1)',
   border: '1px solid rgba(255,255,255,0.11)',
-  color: 'oklch(88% 0.005 285)',
+  color: 'rgba(255,255,255,0.85)',
 }
 
 // Plan-specific color config (avoids identical card grid)
@@ -76,9 +78,9 @@ const PLAN = {
     label: { background:'rgba(245,158,11,0.12)', color:'oklch(82% 0.16 65)', border:'1px solid rgba(245,158,11,0.25)' },
   },
   pro: {
-    orb:   'rgba(109,40,217,0.75)',
-    badge: 'oklch(73% 0.22 285)',
-    label: { background:'rgba(139,92,246,0.15)', color:'oklch(75% 0.22 285)', border:'1px solid rgba(139,92,246,0.3)' },
+    orb:   'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.75)',
+    badge: 'hsl(var(--color-brand-h), var(--color-brand-s), 70%)',
+    label: { background:'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)', color:'hsl(var(--color-brand-h), var(--color-brand-s), 70%)', border:'1px solid hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.3)' },
   },
   ultimate: {
     orb:   'rgba(6,182,212,0.55)',
@@ -129,7 +131,7 @@ export function PlanCard({ plan, cycle, founderLeft, currentTier, onSub, busy })
         {isPro && (
           <div className="absolute top-0 inset-x-0 flex justify-center">
             <span className="px-5 py-1.5 text-[10px] font-bold uppercase tracking-[0.18em] rounded-b-2xl"
-              style={{ background:'oklch(52% 0.28 285)', color:W, boxShadow:'inset 0 -1px 0 rgba(0,0,0,0.2), 0 4px 20px rgba(109,40,217,0.5)' }}>
+              style={{ background:'var(--color-brand-600)', color:W, boxShadow:'inset 0 -1px 0 rgba(0,0,0,0.2), 0 4px 20px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.45)' }}>
               Phổ biến nhất
             </span>
           </div>
@@ -141,7 +143,7 @@ export function PlanCard({ plan, cycle, founderLeft, currentTier, onSub, busy })
           </div>
         )}
         <div className="absolute inset-x-0 bottom-0 h-12"
-          style={{ background: 'linear-gradient(to top, oklch(9% 0.01 285 / 0.7), transparent)' }} />
+          style={{ background: 'linear-gradient(to top, hsla(var(--color-brand-h), var(--color-brand-s), 9%, 0.7), transparent)' }} />
       </div>
 
       <div className="p-5 flex flex-col flex-1 gap-3">
@@ -316,14 +318,14 @@ export function PayModal({ order, onClose }) {
       >
         <div className="text-center mb-5">
           <div className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center text-xl font-bold"
-            style={{ background:'rgba(109,40,217,0.18)', border:'1px solid rgba(139,92,246,0.3)', color:'oklch(73% 0.22 285)' }}
+            style={{ background:'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.18)', border:'1px solid hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.3)', color:'hsl(var(--color-brand-h), var(--color-brand-s), 70%)' }}
             aria-hidden="true">
             ₫
           </div>
           <h3 className="text-lg font-extrabold" style={{ ...F.display, color: W }}>
             Thanh toán thủ công
           </h3>
-          <p className="text-sm mt-1" style={{ ...F.body, color:'oklch(60% 0.01 285)' }}>
+          <p className="text-sm mt-1" style={{ ...F.body, color:'rgba(255,255,255,0.6)' }}>
             Chuyển khoản, chụp màn hình, báo admin kích hoạt
           </p>
         </div>
@@ -341,8 +343,8 @@ export function PayModal({ order, onClose }) {
         </div>
 
         <div className="rounded-2xl p-4 mb-3 space-y-2 text-sm"
-          style={{ background:'rgba(109,40,217,0.09)', border:'1px solid rgba(139,92,246,0.22)' }}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color:'oklch(73% 0.22 285)' }}>
+          style={{ background:'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.09)', border:'1px solid hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.22)' }}>
+          <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color:'hsl(var(--color-brand-h), var(--color-brand-s), 70%)' }}>
             Thông tin chuyển khoản
           </p>
           {[['Ngân hàng', order.bankInfo.bank], ['Số TK', order.bankInfo.accountNumber], ['Chủ TK', order.bankInfo.accountName]].map(([k, v]) => (

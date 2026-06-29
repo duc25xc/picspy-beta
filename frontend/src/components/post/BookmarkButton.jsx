@@ -72,8 +72,8 @@ const BookmarkButton = ({
           size={iconSize}
           className={`transition-all duration-200 ${
             bookmarked
-              ? 'fill-violet-400 text-violet-400'
-              : 'text-white/50 group-hover:text-violet-300'
+              ? 'fill-brand-500 text-brand-500'
+              : 'text-white/50 group-hover:text-brand-400'
           }`}
         />
       </motion.div>
@@ -81,7 +81,7 @@ const BookmarkButton = ({
       {showCount && count > 0 && (
         <span
           className={`text-xs font-semibold transition-colors ${
-            bookmarked ? 'text-violet-400' : 'text-white/50'
+            bookmarked ? 'text-brand-400' : 'text-white/50'
           }`}
         >
           {count.toLocaleString()}
