@@ -114,6 +114,12 @@ export const SettingsProvider = ({ children }) => {
     shadowStyle: 'soft',
   });
 
+  const [announcement, setAnnouncement] = useState({
+    text: '',
+    link: '',
+    enabled: false,
+  });
+
   const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
       primaryColor: primary,
@@ -139,6 +145,13 @@ export const SettingsProvider = ({ children }) => {
             data.enableGradient !== undefined ? data.enableGradient : true,
             data.shadowStyle || 'soft'
           );
+        }
+        if (data?.announcementText !== undefined) {
+          setAnnouncement({
+            text: data.announcementText,
+            link: data.announcementLink || '',
+            enabled: data.announcementEnabled || false,
+          });
         }
       })
       .catch((err) => {
@@ -215,7 +228,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement }}>
       {children}
     </SettingsContext.Provider>
   );

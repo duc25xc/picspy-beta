@@ -5,7 +5,7 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight, Megaphone,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -281,6 +281,22 @@ const PostsTab = () => {
     finally { setBulkLoading(false) }
   }
 
+  const handleDeletePost = async (postId) => {
+    const confirm = window.confirm('Bạn có chắc chắn muốn xóa bài đăng này vĩnh viễn? Hành động này không thể hoàn tác.')
+    if (!confirm) return
+
+    setActionLoading(postId)
+    try {
+      await api.delete(`/posts/${postId}`)
+      setPosts(prev => prev.filter(p => p._id !== postId))
+      toast.success('🗑 Đã xóa bài đăng vĩnh viễn!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể xóa bài đăng')
+    } finally {
+      setActionLoading(null)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Status tabs */}
@@ -399,10 +415,18 @@ const PostsTab = () => {
                       )}
                       {post.status !== 'hidden' && (
                         <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStatus(post._id, 'hidden')} disabled={isActing}
-                          className="flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white/60 transition-all text-xs disabled:opacity-50">
+                          className="flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white/60 transition-all text-xs disabled:opacity-50"
+                          title="Ẩn bài đăng"
+                        >
                           <EyeOff size={13} />
                         </motion.button>
                       )}
+                      <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleDeletePost(post._id)} disabled={isActing}
+                        className="flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600/20 transition-all text-xs disabled:opacity-50"
+                        title="Xóa vĩnh viễn"
+                      >
+                        <Trash2 size={13} />
+                      </motion.button>
                     </div>
                   </div>
                 </motion.div>
@@ -1117,7 +1141,7 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
 
-  const { updateBrandColors } = useSettings()
+  const { updateBrandColors, setAnnouncement } = useSettings()
   const [primaryColor, setPrimaryColor] = useState('#7c3aed')
   const [gradientColor, setGradientColor] = useState('#3b82f6')
   const [brandOpacity, setBrandOpacity] = useState(1)
@@ -1125,6 +1149,12 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [enableGradient, setEnableGradient] = useState(true)
   const [shadowStyle, setShadowStyle] = useState('soft')
   const [colorSaving, setColorSaving] = useState(false)
+
+  // Announcement state
+  const [announcementText, setAnnouncementText] = useState('')
+  const [announcementLink, setAnnouncementLink] = useState('')
+  const [announcementEnabled, setAnnouncementEnabled] = useState(false)
+  const [announcementSaving, setAnnouncementSaving] = useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -1169,6 +1199,11 @@ const SettingsTab = ({ onDirtyChange }) => {
         setBrandBlur(blur)
         setEnableGradient(gradientEnabled)
         setShadowStyle(sStyle)
+
+        // Announcement settings load
+        setAnnouncementText(data.settings?.announcementText || '')
+        setAnnouncementLink(data.settings?.announcementLink || '')
+        setAnnouncementEnabled(data.settings?.announcementEnabled || false)
 
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
@@ -1313,6 +1348,28 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.success(next ? '⚡ Đã BẬT tự động duyệt ảnh' : '🔒 Đã TẮT — ảnh sẽ chờ duyệt thủ công')
     } catch (err) { toast.error(err.response?.data?.message || 'Lỗi cập nhật') }
     finally { setSaving(false) }
+  }
+
+  const handleSaveAnnouncement = async () => {
+    setAnnouncementSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        announcementText,
+        announcementLink,
+        announcementEnabled
+      })
+      setSettings(data.settings)
+      setAnnouncement({
+        text: announcementText,
+        link: announcementLink,
+        enabled: announcementEnabled
+      })
+      toast.success('📢 Đã cập nhật thông báo hệ thống!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể lưu thông báo')
+    } finally {
+      setAnnouncementSaving(false)
+    }
   }
 
   const localPreviewCSSVariables = (() => {
@@ -1701,6 +1758,81 @@ const SettingsTab = ({ onDirtyChange }) => {
         </div>
       </div>
 
+      {/* ── Announcement Banner Card ─── */}
+      <div className="card p-6 border border-white/10 space-y-5">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+            <Megaphone className="text-brand-400" size={22} />
+          </div>
+          <div>
+            <h3 className="font-bold text-white text-base mb-1">Thông báo hệ thống (Announcement Banner)</h3>
+            <p className="text-sm text-white/50 leading-relaxed">
+              Hiển thị một thanh thông báo toàn trang ở đầu website cho toàn bộ người dùng.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4 pt-2">
+          {/* Enable/Disable Toggle */}
+          <div className="flex items-center justify-between p-3 rounded-xl bg-white/5 border border-white/5">
+            <div>
+              <span className="text-xs font-semibold text-white block">Trạng thái thông báo</span>
+              <span className="text-[10px] text-white/40 block">Bật để hiển thị banner thông báo trên toàn trang</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setAnnouncementEnabled(!announcementEnabled)}
+              className={`relative w-12 h-6 rounded-full border transition-all duration-300 flex-shrink-0 focus:outline-none ${
+                announcementEnabled
+                  ? 'bg-brand-500 border-brand-400 shadow-[0_0_12px_rgba(124,58,237,0.3)]'
+                  : 'bg-white/10 border-white/20'
+              }`}
+            >
+              <div
+                className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300"
+                style={{ left: announcementEnabled ? '26px' : '2px' }}
+              />
+            </button>
+          </div>
+
+          {/* Text Input */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/60 block">Nội dung thông báo</label>
+            <textarea
+              value={announcementText}
+              onChange={(e) => setAnnouncementText(e.target.value)}
+              className="input text-xs w-full py-2 px-3 resize-none h-16"
+              placeholder="Nhập nội dung hiển thị trên banner (ví dụ: Bảo trì hệ thống từ 2h - 4h sáng mai)..."
+            />
+          </div>
+
+          {/* Link Input */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/60 block">Đường dẫn liên kết (Link URL - Tùy chọn)</label>
+            <input
+              type="text"
+              value={announcementLink}
+              onChange={(e) => setAnnouncementLink(e.target.value)}
+              className="input text-xs w-full py-2 px-3"
+              placeholder="https://picspy.com/news/maintenance-update (hoặc bỏ trống nếu không cần click)"
+            />
+          </div>
+        </div>
+
+        {/* Save button */}
+        <div className="flex justify-end pt-2">
+          <button
+            type="button"
+            onClick={handleSaveAnnouncement}
+            disabled={announcementSaving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-900/30"
+          >
+            {announcementSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+            Lưu và áp dụng thông báo
+          </button>
+        </div>
+      </div>
+
       {/* ── Info card ─── */}
       <div className="card p-5 border-blue-500/20 bg-blue-500/5">
         <div className="flex gap-3">
@@ -1720,6 +1852,159 @@ const SettingsTab = ({ onDirtyChange }) => {
 }
 
 // ══════════════════════════════════════════════════════════════════
+// TAB: AUDIT LOGS
+// ══════════════════════════════════════════════════════════════════
+const ACTION_MAPPING = {
+  POST_APPROVED: { label: 'Duyệt bài đăng', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+  POST_REJECTED: { label: 'Từ chối bài đăng', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
+  POST_HIDDEN: { label: 'Ẩn bài đăng', color: 'bg-white/5 text-white/50 border-white/10' },
+  POST_DELETE: { label: 'Xóa bài đăng', color: 'bg-red-500/20 text-red-300 border-red-500/30' },
+  USER_TOKENS_ADJUST: { label: 'Điều chỉnh Token', color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20' },
+  USER_BAN: { label: 'Khóa tài khoản', color: 'bg-red-600/10 text-red-400 border-red-600/20' },
+  USER_UNBAN: { label: 'Mở khóa tài khoản', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+  USER_TIER_CHANGE: { label: 'Thay đổi Tier', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
+  USER_ROLE_CHANGE: { label: 'Thay đổi vai trò', color: 'bg-pink-500/10 text-pink-400 border-pink-500/20' },
+  SYSTEM_SETTINGS_UPDATE: { label: 'Cập nhật hệ thống', color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' }
+}
+
+const LogsTab = () => {
+  const [logs, setLogs] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [cursor, setCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(false)
+
+  const fetchLogs = useCallback(async (reset = false) => {
+    if (reset) {
+      setLoading(true)
+      setCursor(null)
+    }
+    try {
+      const params = { limit: 20 }
+      if (!reset && cursor) params.cursor = cursor
+      const { data } = await api.get('/admin/audit-logs', { params })
+      setLogs(reset ? data.logs : prev => [...prev, ...data.logs])
+      setHasMore(data.pagination.hasMore)
+      setCursor(data.pagination.nextCursor)
+    } catch (err) {
+      toast.error('Không thể tải nhật ký hoạt động')
+    } finally {
+      setLoading(false)
+    }
+  }, [cursor])
+
+  useEffect(() => {
+    fetchLogs(true)
+  }, []) // eslint-disable-line
+
+  const formatDetails = (log) => {
+    const { action, details } = log
+    if (!details) return ''
+
+    switch (action) {
+      case 'POST_APPROVED':
+        return `Bài đăng: "${details.caption || 'Không tiêu đề'}"`
+      case 'POST_REJECTED':
+        return `Bài đăng: "${details.caption || 'Không tiêu đề'}" ${details.rejectionReason ? `(Lý do: ${details.rejectionReason})` : ''}`
+      case 'POST_HIDDEN':
+        return `Bài đăng: "${details.caption || 'Không tiêu đề'}"`
+      case 'POST_DELETE':
+        return `Bài đăng: "${details.caption || 'Không tiêu đề'}" (Tác giả ID: ${details.authorId || 'unknown'})`
+      case 'USER_TOKENS_ADJUST':
+        return `Người dùng: @${details.username || 'unknown'} (${details.amount > 0 ? '+' : ''}${details.amount} tokens) - ${details.reason || 'không lý do'}`
+      case 'USER_BAN':
+        return `Người dùng: @${details.username || 'unknown'} ${details.durationDays ? `trong ${details.durationDays} ngày` : 'vĩnh viễn'} - Lý do: ${details.reason || 'không lý do'}`
+      case 'USER_UNBAN':
+        return `Người dùng: @${details.username || 'unknown'}`
+      case 'USER_TIER_CHANGE':
+        return `Người dùng: @${details.username || 'unknown'} (${details.previousTier} → ${details.newTier})`
+      case 'USER_ROLE_CHANGE':
+        return `Người dùng: @${details.username || 'unknown'} (${details.previousRole} → ${details.newRole})`
+      case 'SYSTEM_SETTINGS_UPDATE':
+        return `Cập nhật: ${Object.keys(details).join(', ')}`
+      default:
+        return JSON.stringify(details)
+    }
+  }
+
+  const formatTime = (dateStr) => {
+    const d = new Date(dateStr)
+    const time = d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+    const date = d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    return `${time} - ${date}`
+  }
+
+  return (
+    <div className="space-y-4 max-w-4xl">
+      <div>
+        <h2 className="font-bold text-xl text-white mb-1 font-display">Nhật ký hoạt động Admin</h2>
+        <p className="text-sm text-white/40">Ghi lại toàn bộ thao tác quản lý hệ thống của Admin.</p>
+      </div>
+
+      {loading && logs.length === 0 ? (
+        <div className="space-y-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="card p-5 animate-pulse flex items-center justify-between gap-4">
+              <div className="h-4 bg-white/10 rounded w-1/4"></div>
+              <div className="h-4 bg-white/10 rounded w-1/2"></div>
+              <div className="h-4 bg-white/10 rounded w-16"></div>
+            </div>
+          ))}
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="card p-12 text-center text-white/35">
+          <Clock size={40} className="mx-auto mb-3 opacity-25" />
+          Nhật ký hoạt động hiện tại chưa có dữ liệu
+        </div>
+      ) : (
+        <div className="card overflow-hidden border border-white/10 divide-y divide-white/5">
+          {logs.map((log) => {
+            const mapped = ACTION_MAPPING[log.action] || { label: log.action, color: 'bg-white/5 text-white border-white/10' }
+            return (
+              <div key={log._id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors">
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${mapped.color}`}>
+                      {mapped.label}
+                    </span>
+                    <span className="text-[10px] text-white/35 font-medium">{formatTime(log.createdAt)}</span>
+                  </div>
+                  <p className="text-xs text-white/70 leading-relaxed font-medium">
+                    {formatDetails(log)}
+                  </p>
+                </div>
+
+                {/* Admin user info */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-right">
+                    <span className="text-xs font-semibold text-white/80 block">@{log.adminId?.username || 'unknown'}</span>
+                    <span className="text-[10px] text-white/35 block leading-none">{log.adminId?.email || ''}</span>
+                  </div>
+                  {log.adminId?.avatar ? (
+                    <img src={log.adminId.avatar} className="w-8 h-8 rounded-full border border-white/10 object-cover" alt="" />
+                  ) : (
+                    <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-md shadow-black/25">
+                      {log.adminId?.username?.[0]?.toUpperCase() || '?'}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+
+      {hasMore && (
+        <div className="flex justify-center pt-2">
+          <button onClick={() => fetchLogs(false)} className="btn-secondary text-xs flex items-center gap-2 font-bold px-5 py-2">
+            <ChevronDown size={14} /> Tải thêm nhật ký
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
 // MAIN AdminPage
 // ══════════════════════════════════════════════════════════════════
 const TABS = [
@@ -1728,6 +2013,7 @@ const TABS = [
   { key: 'users',      label: 'Users',       Icon: Users },
   { key: 'categories', label: 'Danh mục',   Icon: Tag },
   { key: 'settings',   label: 'Cài đặt',    Icon: Settings },
+  { key: 'logs',       label: 'Nhật ký Admin', Icon: Clock },
 ]
 
 const AdminPage = () => {
@@ -1775,6 +2061,7 @@ const AdminPage = () => {
               {activeTab === 'users'      && <UsersTab />}
               {activeTab === 'categories' && <CategoriesTab />}
               {activeTab === 'settings'   && <SettingsTab onDirtyChange={setHasUnsavedColors} />}
+              {activeTab === 'logs'       && <LogsTab />}
             </motion.div>
           </AnimatePresence>
         </div>

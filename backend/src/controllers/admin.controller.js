@@ -2,7 +2,9 @@ import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import Category from '../models/Category.model.js'
 import Settings from '../models/Settings.model.js'
+import AuditLog from '../models/AuditLog.model.js'
 import AppError from '../utils/AppError.js'
+import { logAdminAction } from '../utils/auditLogger.js'
 
 // ─── DEFAULT CATEGORIES SEED ──────────────────────────────────
 const DEFAULT_CATEGORIES = [
@@ -97,6 +99,13 @@ export const updatePostStatus = async (req, res, next) => {
     else if (prev === 'approved' && status !== 'approved')
       await User.findByIdAndUpdate(post.authorId, { $inc: { 'stats.postsCount': -1 } })
 
+    // Log admin action
+    await logAdminAction(req.user._id, `POST_${status.toUpperCase()}`, post._id, 'Post', {
+      caption: post.caption,
+      rejectionReason,
+      previousStatus: prev
+    })
+
     res.json({ message: `Đã cập nhật trạng thái thành "${status}"`, post })
   } catch (err) { next(err) }
 }
@@ -135,6 +144,13 @@ export const bulkUpdatePosts = async (req, res, next) => {
           User.findByIdAndUpdate(authorId, { $inc: { 'stats.postsCount': delta } })
         )
     )
+
+    // Log admin action
+    await logAdminAction(req.user._id, `POST_BULK_${status.toUpperCase()}`, null, 'Post', {
+      count: postIds.length,
+      postIds,
+      rejectionReason
+    })
 
     res.json({ message: `Đã ${status} ${postIds.length} bài đăng`, updated: postIds.length })
   } catch (err) { next(err) }
@@ -189,6 +205,14 @@ export const adjustUserTokens = async (req, res, next) => {
     user.tokenBalance = Math.max(0, user.tokenBalance + parsed)
     await user.save()
 
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_TOKENS_ADJUST', user._id, 'User', {
+      username: user.username,
+      amount: parsed,
+      reason,
+      newBalance: user.tokenBalance
+    })
+
     res.json({
       message: `Đã ${parsed > 0 ? 'nạp' : 'trừ'} ${Math.abs(parsed)} token cho @${user.username}`,
       username: user.username,
@@ -221,6 +245,14 @@ export const toggleBanUser = async (req, res, next) => {
 
     await user.save()
 
+    // Log admin action
+    await logAdminAction(req.user._id, ban ? 'USER_BAN' : 'USER_UNBAN', user._id, 'User', {
+      username: user.username,
+      reason,
+      durationDays: banDurationDays,
+      expiry: user.banExpiry
+    })
+
     res.json({
       message: ban ? `Đã ban @${user.username}` : `Đã unban @${user.username}`,
       isBanned: user.isBanned,
@@ -249,6 +281,13 @@ export const setUserRole = async (req, res, next) => {
     const prevRole = user.role
     user.role = role
     await user.save()
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_ROLE_CHANGE', user._id, 'User', {
+      username: user.username,
+      previousRole: prevRole,
+      newRole: role
+    })
 
     res.json({
       message: `Đã đổi role @${user.username}: ${prevRole} → ${role}`,
@@ -289,6 +328,14 @@ export const changeUserTier = async (req, res, next) => {
     else if (prevTier === 'founder' && tier !== 'founder') user.founderSlot = false
 
     await user.save()
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_TIER_CHANGE', user._id, 'User', {
+      username: user.username,
+      previousTier: prevTier,
+      newTier: tier,
+      expireInDays
+    })
 
     res.json({
       message: `Đã đổi tier @${user.username}: ${prevTier} → ${tier}`,
@@ -493,7 +540,11 @@ export const getSettings = async (req, res, next) => {
 /** PUT /admin/settings — Cập nhật 1 hoặc nhiều setting */
 export const updateSettings = async (req, res, next) => {
   try {
-    const allowed = ['autoApprove', 'autoApproveDelayMs', 'primaryColor', 'gradientColor', 'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle']
+    const allowed = [
+      'autoApprove', 'autoApproveDelayMs', 'primaryColor', 'gradientColor', 
+      'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
+      'announcementText', 'announcementLink', 'announcementEnabled'
+    ]
     const updates = {}
     allowed.forEach(key => {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
@@ -504,6 +555,39 @@ export const updateSettings = async (req, res, next) => {
     }
 
     const settings = await Settings.updateSettings(updates)
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'SYSTEM_SETTINGS_UPDATE', settings._id, 'Settings', updates)
+
     res.json({ message: 'Đã cập nhật cài đặt', settings })
   } catch (err) { next(err) }
 }
+
+/** GET /admin/audit-logs */
+export const getAuditLogs = async (req, res, next) => {
+  try {
+    const { cursor, limit = 20 } = req.query
+    const query = {}
+    if (cursor) {
+      query._id = { $lt: cursor }
+    }
+
+    const logs = await AuditLog.find(query)
+      .populate('adminId', 'username avatar email')
+      .sort({ _id: -1 })
+      .limit(Number(limit) + 1)
+
+    const hasMore = logs.length > Number(limit)
+    const data = hasMore ? logs.slice(0, -1) : logs
+
+    res.json({
+      logs: data,
+      pagination: {
+        hasMore,
+        nextCursor: hasMore ? data[data.length - 1]._id : null,
+        count: data.length,
+      },
+    })
+  } catch (err) { next(err) }
+}
+

@@ -42,6 +42,19 @@ const settingsSchema = new mongoose.Schema(
       type: String,
       default: 'soft', // 'none', 'soft', 'glow'
     },
+    // ── Announcement Banner ──────────────────────────────────────
+    announcementText: {
+      type: String,
+      default: '',
+    },
+    announcementLink: {
+      type: String,
+      default: '',
+    },
+    announcementEnabled: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,

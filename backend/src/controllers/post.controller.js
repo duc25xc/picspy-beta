@@ -6,6 +6,7 @@ import { uploadBuffer } from '../config/cloudinary.js'
 import { imageQueue } from '../config/bullmq.js'
 import { v2 as cloudinary } from 'cloudinary'
 import sharp from 'sharp'
+import { logAdminAction } from '../utils/auditLogger.js'
 
 // === ZOD SCHEMAS ===
 
@@ -1139,7 +1140,7 @@ export const deletePost = async (req, res, next) => {
     const post = await Post.findById(req.params.id)
     if (!post) throw new AppError('NOT_FOUND', 'Không tìm thấy bài đăng', 404)
 
-    if (post.authorId.toString() !== req.user._id.toString()) {
+    if (post.authorId.toString() !== req.user._id.toString() && req.user.role !== 'admin') {
       throw new AppError(
         'FORBIDDEN',
         'Bạn không có quyền xóa bài đăng này',
@@ -1193,11 +1194,19 @@ export const deletePost = async (req, res, next) => {
     await Promise.allSettled(deletePromises)
     await post.deleteOne()
 
-    // Giảm postsCount
+    // Giảm postsCount của tác giả
     const User = (await import('../models/User.model.js')).default
-    await User.findByIdAndUpdate(req.user._id, {
+    await User.findByIdAndUpdate(post.authorId, {
       $inc: { 'stats.postsCount': -1 },
     })
+
+    // Log admin action if deleted by admin
+    if (req.user.role === 'admin') {
+      await logAdminAction(req.user._id, 'POST_DELETE', post._id, 'Post', {
+        caption: post.caption,
+        authorId: post.authorId
+      })
+    }
 
     res.json({ message: 'Đã xóa bài đăng thành công', postId: req.params.id })
   } catch (err) {

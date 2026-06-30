@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
+import AnnouncementBanner from './components/layout/AnnouncementBanner'
 import ProtectedRoute from './components/auth/ProtectedRoute'
 import useAuthStore from './store/auth.store'
 import { useSettings } from './context/SettingsContext'
@@ -133,6 +134,7 @@ const PageTransition = ({ children }) => (
 // Layout chính (có header + bottom nav)
 const MainLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
+    <AnnouncementBanner />
     <Header />
     <main className="flex-1 pb-20 md:pb-0">{children}</main>
     <BottomNav />

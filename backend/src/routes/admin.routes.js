@@ -5,7 +5,7 @@ import {
   getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
-  getSettings, updateSettings,
+  getSettings, updateSettings, getAuditLogs,
 } from '../controllers/admin.controller.js'
 
 const router = Router()
@@ -13,9 +13,10 @@ const router = Router()
 // Tất cả admin routes đều cần authenticate + requireAdmin
 router.use(authenticate, requireAdmin)
 
-// ── Dashboard ─────────────────────────────────────────────────
+// ── Dashboard & Logs ──────────────────────────────────────────
 router.get('/dashboard', getDashboardStats)
 router.get('/dashboard/analytics', getAnalytics)
+router.get('/audit-logs', getAuditLogs)
 
 // ── Posts management ──────────────────────────────────────────
 router.get('/posts', getAllPosts)

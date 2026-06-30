@@ -115,6 +115,9 @@ app.get('/v1/settings', async (req, res, next) => {
       brandBlur: settings.brandBlur !== undefined ? settings.brandBlur : 0,
       enableGradient: settings.enableGradient !== undefined ? settings.enableGradient : true,
       shadowStyle: settings.shadowStyle || 'soft',
+      announcementText: settings.announcementText || '',
+      announcementLink: settings.announcementLink || '',
+      announcementEnabled: settings.announcementEnabled !== undefined ? settings.announcementEnabled : false,
     })
   } catch (err) {
     next(err)
