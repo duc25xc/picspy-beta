@@ -119,6 +119,29 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
   const [localColor, setLocalColor] = useState('')
   const inputRef = useRef(null)
 
+  // Lưu trữ và khôi phục lịch sử màu gần đây từ localStorage
+  const [recentColors, setRecentColors] = useState(() => {
+    try {
+      const saved = localStorage.getItem('picspy_recent_colors')
+      return saved ? JSON.parse(saved) : []
+    } catch {
+      return []
+    }
+  })
+
+  // Hàm tính toán độ tương phản để hiển thị text màu đen hoặc trắng cho phù hợp
+  const getContrastColor = (hex) => {
+    let clean = hex.replace('#', '')
+    if (clean.length === 3) {
+      clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2]
+    }
+    const r = parseInt(clean.slice(0, 2), 16) || 0
+    const g = parseInt(clean.slice(2, 4), 16) || 0
+    const b = parseInt(clean.slice(4, 6), 16) || 0
+    const yiq = (r * 299 + g * 587 + b * 114) / 1000
+    return yiq >= 128 ? 'rgba(0, 0, 0, 0.8)' : 'rgba(255, 255, 255, 0.95)'
+  }
+
   useEffect(() => {
     if (!activeColor) {
       setLocalColor('')
@@ -129,11 +152,22 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
     }
   }, [activeColor, isCustomColorActive])
 
+  // Hàm cập nhật và lưu mã màu vào lịch sử màu gần đây
+  const saveRecentColor = (hex) => {
+    const cleanHex = hex.replace('#', '').toLowerCase()
+    setRecentColors((prev) => {
+      const filtered = prev.filter(c => c !== cleanHex)
+      const next = [cleanHex, ...filtered].slice(0, 5) // Giới hạn lưu tối đa 5 màu gần nhất
+      localStorage.setItem('picspy_recent_colors', JSON.stringify(next))
+      return next
+    })
+  }
+
   const displayColor = localColor || (activeColor && isCustomColorActive ? `#${activeColor}` : '')
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 mt-3">
-      <div className="flex items-center gap-3">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 mt-3">
+      <div className="flex items-center gap-3 flex-wrap">
         <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Màu tự chọn:</span>
         
         <div className="relative flex items-center gap-3">
@@ -179,6 +213,38 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
             />
           </div>
         </div>
+
+        {/* Danh sách màu gần đây (Recent Colors) */}
+        {recentColors.length > 0 && (
+          <div className="flex items-center gap-2.5 pl-3 border-l border-white/5 flex-wrap">
+            <span className="text-[10px] text-white/30 uppercase tracking-widest font-semibold">Gần đây:</span>
+            <div className="flex items-center gap-3">
+              {recentColors.map((hex) => {
+                const isActive = activeColor === hex
+                return (
+                  <button
+                    key={hex}
+                    type="button"
+                    onClick={() => {
+                      setLocalColor(`#${hex}`)
+                      onApply(hex)
+                      toast.success(`Đã áp dụng màu gần đây: #${hex}`)
+                    }}
+                    className={`w-16 h-7 rounded-xl border flex items-center justify-center font-mono text-[9px] font-bold tracking-wider uppercase transition-all duration-200 hover:scale-105 hover:shadow-lg cursor-pointer
+                      ${isActive ? 'border-white scale-105 ring-2 ring-white/20 shadow-[0_0_10px_rgba(255,255,255,0.1)]' : 'border-white/10 hover:border-white/30'}`}
+                    style={{ 
+                      backgroundColor: `#${hex}`,
+                      color: getContrastColor(hex)
+                    }}
+                    title={`Tìm lại theo màu #${hex}`}
+                  >
+                    {hex}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Hiệu ứng chuyển động trượt mượt mà (Framer Motion Slide-in) */}
@@ -196,6 +262,7 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
               // Validate hex length (3 or 6)
               if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hexClean)) {
                 onApply(hexClean)
+                saveRecentColor(hexClean)
                 toast.success(`Đã áp dụng màu: ${localColor}`)
               } else {
                 toast.error('Mã màu không hợp lệ! Định dạng HEX 3 hoặc 6 ký tự (Ví dụ: #ff0000 hoặc #f00).')
@@ -1000,8 +1067,8 @@ const SearchPage = () => {
                         className={`flex flex-col items-center gap-1.5 flex-shrink-0 group transition-all`}
                       >
                         <div
-                          className={`w-9 h-9 rounded-xl border-2 transition-all duration-200 group-hover:scale-110
-                            ${activeColor === color.search ? 'border-white scale-110 shadow-lg' : 'border-white/20'}`}
+                          className={`w-9 h-9 rounded-xl border-2 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] group-hover:w-24
+                            ${activeColor === color.search ? 'border-white shadow-md' : 'border-white/20'}`}
                           style={{ backgroundColor: color.hex }}
                         />
                         <span
