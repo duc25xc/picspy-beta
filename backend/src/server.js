@@ -13,6 +13,7 @@ dotenv.config()
 import connectDB from './config/db.js'
 import { initSocket } from './socket/index.js'
 import errorHandler from './middlewares/errorHandler.js'
+import { logger } from './utils/logger.js'
 
 // Routes
 import authRoutes from './routes/auth.routes.js'
@@ -40,6 +41,16 @@ const httpServer = http.createServer(app)
 app.use(helmet())
 app.use(compression())
 app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
+
+// Request logger middleware (writes to logs/server.log)
+app.use((req, res, next) => {
+  const start = Date.now()
+  res.on('finish', () => {
+    const duration = Date.now() - start
+    logger.info(`HTTP ${req.method} ${req.originalUrl} | Status: ${res.statusCode} | Duration: ${duration}ms | IP: ${req.ip}`)
+  })
+  next()
+})
 app.use(
   cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -160,9 +171,9 @@ const startServer = async () => {
   initSocket(httpServer)
 
   httpServer.listen(PORT, () => {
-    console.log(`🚀 PicSpy server running on http://localhost:${PORT}`)
-    console.log(`📡 Socket.io listening on ws://localhost:${PORT}`)
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
+    logger.info(`🚀 PicSpy server running on http://localhost:${PORT}`)
+    logger.info(`📡 Socket.io listening on ws://localhost:${PORT}`)
+    logger.info(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`)
   })
 }
 

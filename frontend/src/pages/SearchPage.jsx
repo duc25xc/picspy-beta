@@ -10,7 +10,9 @@ import {
   ImageOff,
   Palette,
   ChevronDown,
+  Camera,
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 import api from '../api/api'
 import PostDetailModal from '../components/post/PostDetailModal'
 import useModalUrl from '../hooks/useModalUrl'
@@ -201,6 +203,11 @@ const PostCard = ({
             ✨ {post.aiTool}
           </span>
         )}
+        {post.similarityScore !== undefined && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-600/90 text-white backdrop-blur-sm">
+            🎯 {post.similarityScore}%
+          </span>
+        )}
       </div>
 
       <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
@@ -244,6 +251,13 @@ const SearchPage = () => {
   // Track các post được load lần 2+ (load more) → dùng Golden Ratio delay
   const [batchStarts, setBatchStarts] = useState(new Set()) // global index đầu mỗi batch
 
+  // Image search states
+  const fileInputRef = useRef(null)
+  const [searchImageFile, setSearchImageFile] = useState(null)
+  const [searchImagePreview, setSearchImagePreview] = useState(null)
+  const [searchImageLoading, setSearchImageLoading] = useState(false)
+  const [targetPalette, setTargetPalette] = useState([])
+
   // Dynamic categories từ API
   const [categories, setCategories] = useState([
     { key: 'all', label: 'Tất cả' },
@@ -281,6 +295,42 @@ const SearchPage = () => {
     return () => clearTimeout(searchTimer.current)
   }, [query])
 
+  const handleImageChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate size (max 10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Kích thước ảnh không được vượt quá 10MB')
+      return
+    }
+
+    setQuery('') // clear text query
+    setSearchImageFile(file)
+    setSearchImagePreview(URL.createObjectURL(file))
+  }
+
+  const clearImageSearch = () => {
+    if (searchImagePreview) {
+      URL.revokeObjectURL(searchImagePreview)
+    }
+    setSearchImageFile(null)
+    setSearchImagePreview(null)
+    setTargetPalette([])
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
+  }
+
+  // Cleanup blob URL on unmount
+  useEffect(() => {
+    return () => {
+      if (searchImagePreview) {
+        URL.revokeObjectURL(searchImagePreview)
+      }
+    }
+  }, [searchImagePreview])
+
   const fetchPosts = useCallback(
     async ({ reset = false } = {}) => {
       if (reset) {
@@ -292,36 +342,65 @@ const SearchPage = () => {
       }
 
       try {
-        const params = { limit: 16, sort: activeSort }
-        if (!reset && cursor) params.cursor = cursor
-        if (activeCategory !== 'all') params.category = activeCategory
-        if (isAIOnly) params.isAI = 'true'
-        if (debouncedQuery.trim()) params.q = debouncedQuery.trim()
-        if (activeColor) params.color = activeColor // hex search (server-side optional, fallback client)
+        let results = []
+        let hasMoreVal = false
+        let nextCursorVal = null
+        let countVal = 0
 
-        const { data } = await api.get('/posts', { params })
-        let results = data.posts || []
+        if (searchImageFile) {
+          // Call POST /posts/search-by-image (Multipart FormData)
+          setSearchImageLoading(true)
+          const formData = new FormData()
+          formData.append('image', searchImageFile)
 
-        // Client-side color filter dùng HSL-weighted distance
-        // Threshold 30 (chặt hơn 45 cũ) — chỉ match màu cùng họ thực sự
-        if (activeColor && results.length > 0) {
-          const targetHex = '#' + activeColor
-          results = results.filter((post) => {
-            if (!post.colorPalette?.length) return false
-            // Lấy distance nhỏ nhất trong tất cả màu palette
-            const minDist = Math.min(
-              ...post.colorPalette
-                .filter((hex) => hex && hex.replace('#', '').length === 6)
-                .map((hex) => colorDistance(hex, targetHex))
-            )
-            return minDist < 30 // Chặt hơn: 30 thay vì 45
+          const params = { limit: 16 }
+          if (!reset && cursor) params.cursor = cursor
+
+          const { data } = await api.post('/posts/search-by-image', formData, {
+            params,
+            headers: { 'Content-Type': 'multipart/form-data' }
           })
+          results = data.posts || []
+          hasMoreVal = data.pagination?.hasMore || false
+          nextCursorVal = data.pagination?.nextCursor || null
+          countVal = data.pagination?.count || results.length
+          if (reset) {
+            setTargetPalette(data.colorPalette || [])
+          }
+        } else {
+          // Standard GET /posts call
+          const params = { limit: 16, sort: activeSort }
+          if (!reset && cursor) params.cursor = cursor
+          if (activeCategory !== 'all') params.category = activeCategory
+          if (isAIOnly) params.isAI = 'true'
+          if (debouncedQuery.trim()) params.q = debouncedQuery.trim()
+          if (activeColor) params.color = activeColor
+
+          const { data } = await api.get('/posts', { params })
+          results = data.posts || []
+
+          // Client-side color filter dùng HSL-weighted distance
+          if (activeColor && results.length > 0) {
+            const targetHex = '#' + activeColor
+            results = results.filter((post) => {
+              if (!post.colorPalette?.length) return false
+              const minDist = Math.min(
+                ...post.colorPalette
+                  .filter((hex) => hex && hex.replace('#', '').length === 6)
+                  .map((hex) => colorDistance(hex, targetHex))
+              )
+              return minDist < 30
+            })
+          }
+          hasMoreVal = data.pagination?.hasMore || false
+          nextCursorVal = data.pagination?.nextCursor || null
+          countVal = data.pagination?.count || results.length
         }
 
         if (reset) {
           setPosts(results)
           setBatchStarts(new Set([0]))
-          setTotal(data.pagination?.count || results.length)
+          setTotal(countVal)
         } else {
           setPosts((prev) => {
             const newStart = prev.length
@@ -331,18 +410,20 @@ const SearchPage = () => {
           setTotal((prev) => prev + results.length)
         }
 
-        setHasMore(data.pagination?.hasMore || false)
-        setCursor(data.pagination?.nextCursor || null)
-      } catch {
-        /* giữ state cũ */
+        setHasMore(hasMoreVal)
+        setCursor(nextCursorVal)
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Không thể tải kết quả tìm kiếm')
       } finally {
         setLoading(false)
         setIsFiltering(false)
         setLoadingMore(false)
         setInitialLoaded(true)
+        setSearchImageLoading(false)
       }
     },
     [
+      searchImageFile,
       activeCategory,
       activeSort,
       isAIOnly,
@@ -356,7 +437,7 @@ const SearchPage = () => {
   useEffect(() => {
     fetchPosts({ reset: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory, activeSort, isAIOnly, activeColor, debouncedQuery])
+  }, [activeCategory, activeSort, isAIOnly, activeColor, debouncedQuery, searchImageFile])
 
   // 3-column JS split: biết chính xác cột/hàng → cascade animation chính xác
   const columns = useMemo(() => {
@@ -447,22 +528,135 @@ const SearchPage = () => {
               <input
                 type="text"
                 id="search-input"
-                className="input pl-12 pr-12 text-base"
-                placeholder="Tìm wallpaper, tag, danh mục..."
+                className={`input pl-12 pr-28 text-base ${searchImagePreview ? 'border-brand-500 bg-brand-500/5' : ''}`}
+                placeholder={searchImagePreview ? "Đang tìm kiếm bằng hình ảnh..." : "Tìm wallpaper, tag, danh mục..."}
                 value={query}
-                onChange={(e) => setQuery(e.target.value)}
+                onChange={(e) => {
+                  if (searchImagePreview) {
+                    clearImageSearch()
+                  }
+                  setQuery(e.target.value)
+                }}
+                disabled={searchImageLoading}
                 autoFocus
               />
-              {query && (
-                <button
-                  onClick={() => setQuery('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
-                >
-                  <X size={18} />
-                </button>
-              )}
+              
+              {/* Camera upload button + Clear button container */}
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
+                {searchImagePreview && (
+                  <div className="relative group/thumb w-8 h-8 rounded-lg overflow-hidden border border-brand-400/50">
+                    <img src={searchImagePreview} className="w-full h-full object-cover" alt="Search target" />
+                    <button
+                      type="button"
+                      onClick={clearImageSearch}
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover/thumb:opacity-100 transition-opacity flex items-center justify-center text-white"
+                      title="Xóa ảnh"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                )}
+
+                {searchImageLoading ? (
+                  <motion.div
+                    className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full flex-shrink-0"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                  />
+                ) : (
+                  !searchImagePreview ? (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                      title="Tìm bằng hình ảnh"
+                    >
+                      <Camera size={18} />
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={clearImageSearch}
+                      className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                      title="Xóa ảnh tìm kiếm"
+                    >
+                      <X size={18} />
+                    </button>
+                  )
+                )}
+                
+                {query && !searchImagePreview && (
+                  <button
+                    type="button"
+                    onClick={() => setQuery('')}
+                    className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
+                  >
+                    <X size={18} />
+                  </button>
+                )}
+              </div>
+
+              {/* Hidden File Input */}
+              <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleImageChange}
+                accept="image/png, image/jpeg, image/webp"
+                className="hidden"
+              />
             </div>
           </motion.div>
+
+          {/* Image Search Preview and Main Colors */}
+          <AnimatePresence>
+            {searchImagePreview && (
+              <motion.div
+                initial={{ opacity: 0, height: 0, y: -10 }}
+                animate={{ opacity: 1, height: 'auto', y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -10 }}
+                className="mb-5 overflow-hidden"
+              >
+                <div className="card p-4 border border-brand-500/20 bg-brand-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-4">
+                    {/* Search target image preview */}
+                    <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-brand-400/30 flex-shrink-0 shadow-lg">
+                      <img src={searchImagePreview} className="w-full h-full object-cover" alt="Ảnh mẫu tìm kiếm" />
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[10px] font-bold text-brand-300 uppercase tracking-widest">Tìm kiếm hình ảnh</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-xs font-bold text-white/80 mr-1.5">Màu chủ đạo:</span>
+                        {targetPalette && targetPalette.length > 0 ? (
+                          targetPalette.map((hex, i) => (
+                            <div
+                              key={i}
+                              className="w-5 h-5 rounded-lg border border-white/20 shadow-sm flex-shrink-0 cursor-help transition-transform hover:scale-110"
+                              style={{ backgroundColor: hex }}
+                              title={hex}
+                            />
+                          ))
+                        ) : (
+                          <div className="flex items-center gap-1.5">
+                            <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
+                            <span className="text-[11px] text-white/40">Đang phân tích màu sắc...</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={clearImageSearch}
+                    className="btn-secondary text-xs px-4 py-2 border border-white/10 hover:border-red-500/30 hover:text-red-400 transition-all font-semibold flex items-center gap-1.5 self-end sm:self-auto cursor-pointer"
+                  >
+                    <X size={13} /> Xóa ảnh mẫu
+                  </button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Category chips */}
           <div
@@ -651,25 +845,38 @@ const SearchPage = () => {
                   </div>
                   <p className="text-white/40 mb-2">Không tìm thấy kết quả</p>
                   <p className="text-white/20 text-sm">
-                    {activeColor
-                      ? 'Không có ảnh nào khớp màu này. Thử màu khác hoặc tắt lọc màu.'
-                      : debouncedQuery
-                        ? `Không có wallpaper nào cho "${debouncedQuery}"`
-                        : 'Danh mục này chưa có ảnh nào được duyệt'}
+                    {searchImagePreview
+                      ? 'Không có ảnh nào tương tự màu sắc với ảnh của bạn. Thử ảnh mẫu khác hoặc xóa ảnh tìm kiếm.'
+                      : activeColor
+                        ? 'Không có ảnh nào khớp màu này. Thử màu khác hoặc tắt lọc màu.'
+                        : debouncedQuery
+                          ? `Không có wallpaper nào cho "${debouncedQuery}"`
+                          : 'Danh mục này chưa có ảnh nào được duyệt'}
                   </p>
                   <div className="flex gap-3 justify-center mt-4">
+                    {searchImagePreview && (
+                      <button
+                        type="button"
+                        onClick={clearImageSearch}
+                        className="btn-secondary text-sm cursor-pointer"
+                      >
+                        Xóa ảnh tìm kiếm
+                      </button>
+                    )}
                     {activeColor && (
                       <button
+                        type="button"
                         onClick={() => setActiveColor(null)}
-                        className="btn-secondary text-sm"
+                        className="btn-secondary text-sm cursor-pointer"
                       >
                         Bỏ lọc màu
                       </button>
                     )}
                     {debouncedQuery && (
                       <button
+                        type="button"
                         onClick={() => setQuery('')}
-                        className="btn-secondary text-sm"
+                        className="btn-secondary text-sm cursor-pointer"
                       >
                         Xóa tìm kiếm
                       </button>

@@ -7,6 +7,8 @@ import { imageQueue } from '../config/bullmq.js'
 import { v2 as cloudinary } from 'cloudinary'
 import sharp from 'sharp'
 import { logAdminAction } from '../utils/auditLogger.js'
+import { Vibrant } from 'node-vibrant/node'
+import { logger } from '../utils/logger.js'
 
 // === ZOD SCHEMAS ===
 
@@ -1255,6 +1257,123 @@ export const getFollowingFeed = async (req, res, next) => {
         nextCursor: hasMore ? posts[posts.length - 1]._id : null,
         count: posts.length,
       },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /posts/search-by-image
+ * Tìm kiếm hình ảnh tương đồng dựa trên RGB 64-bin Histogram
+ */
+export const searchByImage = async (req, res, next) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: 'Vui lòng cung cấp hình ảnh để tìm kiếm.' })
+    }
+
+    logger.info(`Starting image search: File size = ${req.file.size} bytes, Mimetype = ${req.file.mimetype}`)
+
+    const { limit = 12, cursor } = req.query
+    const limitNum = parseInt(limit)
+
+    // 1. Trích xuất RGB 64-bin histogram của ảnh mẫu sử dụng sharp
+    const { data: rawPixels } = await sharp(req.file.buffer)
+      .resize(200, null, { withoutEnlargement: true })
+      .removeAlpha()
+      .raw()
+      .toBuffer({ resolveWithObject: true })
+
+    const bins = 64
+    const rBins = new Uint32Array(bins)
+    const gBins = new Uint32Array(bins)
+    const bBins = new Uint32Array(bins)
+
+    for (let i = 0; i < rawPixels.length; i += 3) {
+      rBins[Math.floor(rawPixels[i] / 4)]++
+      gBins[Math.floor(rawPixels[i + 1] / 4)]++
+      bBins[Math.floor(rawPixels[i + 2] / 4)]++
+    }
+
+    // Chuẩn hóa về phạm vi 0-100
+    const maxVal = Math.max(...rBins, ...gBins, ...bBins) || 1
+    const targetHist = {
+      r: Array.from(rBins, v => Math.round(v / maxVal * 100)),
+      g: Array.from(gBins, v => Math.round(v / maxVal * 100)),
+      b: Array.from(bBins, v => Math.round(v / maxVal * 100)),
+    }
+
+    // 2. Query all approved posts that have histogram computed
+    const postsWithHist = await Post.find({
+      status: 'approved',
+      'histogram.r': { $exists: true, $not: { $size: 0 } }
+    })
+      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram')
+      .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
+      .lean()
+
+    // 3. Tính Euclidean Distance (khoảng cách Euclid)
+    // Càng nhỏ -> càng tương đồng. Ta quy đổi về % Similarity.
+    // Khoảng cách tối đa trên 3 kênh 64-bin chuẩn hóa 100 là: Math.sqrt(3 * 64 * (100)^2) = 1385.64
+    const MAX_DIST = 1385.64
+
+    const scoredPosts = postsWithHist.map(post => {
+      let rDistSum = 0
+      let gDistSum = 0
+      let bDistSum = 0
+
+      const h = post.histogram
+      for (let i = 0; i < bins; i++) {
+        rDistSum += Math.pow((targetHist.r[i] - (h.r[i] || 0)), 2)
+        gDistSum += Math.pow((targetHist.g[i] - (h.g[i] || 0)), 2)
+        bDistSum += Math.pow((targetHist.b[i] - (h.b[i] || 0)), 2)
+      }
+
+      const distance = Math.sqrt(rDistSum + gDistSum + bDistSum)
+      // Tỷ lệ phần trăm khớp (0% - 100%)
+      const score = Math.max(0, Math.min(100, Math.round((1 - distance / MAX_DIST) * 100)))
+
+      return {
+        ...post,
+        similarityScore: score
+      }
+    })
+
+    // 4. Sắp xếp theo độ tương đồng giảm dần
+    scoredPosts.sort((a, b) => b.similarityScore - a.similarityScore || b.createdAt - a.createdAt)
+
+    // Extract color palette of uploaded image using node-vibrant
+    let colorPalette = []
+    try {
+      const jpegBuffer = await sharp(req.file.buffer).jpeg().toBuffer()
+      const palette = await Vibrant.from(jpegBuffer).getPalette()
+      colorPalette = Object.values(palette)
+        .filter(c => c !== null)
+        .map(c => c.hex)
+    } catch (vibrateErr) {
+      logger.error('Vibrant palette extraction failed during image search', vibrateErr)
+    }
+
+    // 5. Phân trang thủ công (Client pagination)
+    let startIndex = 0
+    if (cursor) {
+      const idx = scoredPosts.findIndex(p => p._id.toString() === cursor)
+      if (idx !== -1) startIndex = idx + 1
+    }
+
+    const paginatedPosts = scoredPosts.slice(startIndex, startIndex + limitNum + 1)
+    const hasMore = paginatedPosts.length > limitNum
+    if (hasMore) paginatedPosts.pop()
+
+    const nextCursor = hasMore ? paginatedPosts[paginatedPosts.length - 1]._id.toString() : null
+
+    logger.info(`Image search completed: Found ${scoredPosts.length} matches, Paginated count = ${paginatedPosts.length}, Extracted colors = ${colorPalette.join(', ')}`)
+
+    res.json({
+      posts: paginatedPosts,
+      pagination: { hasMore, nextCursor, count: paginatedPosts.length },
+      colorPalette
     })
   } catch (err) {
     next(err)

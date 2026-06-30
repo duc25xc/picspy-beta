@@ -1,8 +1,12 @@
+import { logger } from '../utils/logger.js'
+
 /**
  * Global error handling middleware
  * Phân biệt operational errors (AppError) vs programming bugs
  */
 const errorHandler = (err, req, res, next) => {
+  // Log the error to log file
+  logger.error(`API Exception on ${req.method} ${req.originalUrl}`, err)
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     const details = Object.values(err.errors).map((e) => ({

@@ -10,6 +10,7 @@ import {
   updatePost,
   deletePost,
   getFollowingFeed,
+  searchByImage,
 } from '../controllers/post.controller.js'
 import {
   getPostDetail,
@@ -43,6 +44,9 @@ const router = Router()
 
 /** GET /posts — Feed gallery công khai (chỉ approved) */
 router.get('/', getApprovedPosts)
+
+/** POST /posts/search-by-image — Tìm kiếm bằng hình ảnh (RGB Histogram) */
+router.post('/search-by-image', upload.single('image'), handleMulterError, searchByImage)
 
 // =====================
 // PROTECTED ROUTES (phải đặt TRƯỚC /:id)
