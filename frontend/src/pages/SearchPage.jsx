@@ -11,6 +11,7 @@ import {
   Palette,
   ChevronDown,
   Camera,
+  Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -47,6 +48,176 @@ const COLOR_PRESETS = [
   { label: 'Xám', hex: '#64748b', search: '78909c' },
   { label: 'Mint', hex: '#10b981', search: '00bfa5' },
 ]
+
+// Helper chuyển đổi các hệ màu (RGB, HSL, Hex, Color Name) sang mã Hex chuẩn 6 ký tự để tìm kiếm
+const parseToHex = (str) => {
+  const clean = str.trim().toLowerCase()
+
+  // 1. Định dạng Hex: #ffffff, #fff, ffffff, fff
+  const hexMatch = clean.match(/^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/)
+  if (hexMatch) {
+    let hex = hexMatch[1]
+    if (hex.length === 3) {
+      hex = hex.split('').map(c => c + c).join('')
+    }
+    return hex
+  }
+
+  // 2. Định dạng RGB/RGBA: rgb(255, 0, 0)
+  const rgbMatch = clean.match(/rgba?\(?\s*(\d+)\s*[\s,]\s*(\d+)\s*[\s,]\s*(\d+)/)
+  if (rgbMatch) {
+    const r = Math.min(255, parseInt(rgbMatch[1], 10))
+    const g = Math.min(255, parseInt(rgbMatch[2], 10))
+    const b = Math.min(255, parseInt(rgbMatch[3], 10))
+    return [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')
+  }
+
+  // 3. Định dạng HSL/HSLA: hsl(120, 100%, 50%)
+  const hslMatch = clean.match(/hsla?\(?\s*(\d+)\s*[\s,]\s*(\d+)%?\s*[\s,]\s*(\d+)%?/)
+  if (hslMatch) {
+    const h = parseInt(hslMatch[1], 10) % 360
+    const s = Math.min(100, parseInt(hslMatch[2], 10)) / 100
+    const l = Math.min(100, parseInt(hslMatch[3], 10)) / 100
+
+    const c = (1 - Math.abs(2 * l - 1)) * s
+    const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
+    const m = l - c / 2
+    let r = 0, g = 0, b = 0
+
+    if (0 <= h && h < 60) { r = c; g = x; b = 0; }
+    else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
+    else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
+    else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
+    else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
+    else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+
+    const rgb = [
+      Math.round((r + m) * 255),
+      Math.round((g + m) * 255),
+      Math.round((b + m) * 255)
+    ]
+    return rgb.map(val => val.toString(16).padStart(2, '0')).join('')
+  }
+
+  // 4. Định nghĩa tên màu CSS cơ bản
+  const COLOR_NAMES = {
+    red: 'ff0000', green: '00ff00', blue: '0000ff',
+    black: '000000', white: 'ffffff', yellow: 'ffff00',
+    cyan: '00ffff', magenta: 'ff00ff', orange: 'ffa500',
+    purple: '800080', pink: 'ffc0cb', brown: 'a52a2a',
+    gray: '808080', grey: '808080', silver: 'c0c0c0',
+    gold: 'ffd700', violet: 'ee82ee', indigo: '4b0082'
+  }
+  if (COLOR_NAMES[clean]) {
+    return COLOR_NAMES[clean]
+  }
+
+}
+
+// Component bộ chọn màu sắc tự do cô lập (Tối ưu hóa tránh Re-render toàn bộ trang SearchPage khi kéo chuột)
+const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) => {
+  const [localColor, setLocalColor] = useState('')
+  const inputRef = useRef(null)
+
+  useEffect(() => {
+    if (!activeColor) {
+      setLocalColor('')
+    } else if (isCustomColorActive) {
+      setLocalColor(`#${activeColor}`)
+    } else {
+      setLocalColor('')
+    }
+  }, [activeColor, isCustomColorActive])
+
+  const displayColor = localColor || (activeColor && isCustomColorActive ? `#${activeColor}` : '')
+
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 mt-3">
+      <div className="flex items-center gap-3">
+        <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Màu tự chọn:</span>
+        
+        <div className="relative flex items-center gap-3">
+          {/* Vòng tròn hiển thị màu và input color ẩn */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              className={`w-9 h-9 rounded-xl border-2 transition-all duration-200 hover:scale-105 flex items-center justify-center relative overflow-hidden cursor-pointer shadow-md
+                ${isCustomColorActive ? 'border-white scale-105 shadow-lg' : 'border-white/10 bg-gradient-to-tr from-red-500 via-green-500 to-blue-500'}`}
+              title="Nhấp để mở bảng chọn màu"
+              style={displayColor ? { backgroundColor: displayColor } : {}}
+            >
+              {!isCustomColorActive && !localColor && (
+                <span className="text-[14px] font-bold text-white drop-shadow-md">+</span>
+              )}
+              <input
+                type="color"
+                ref={inputRef}
+                value={localColor || '#ffffff'}
+                onChange={(e) => {
+                  setLocalColor(e.target.value)
+                }}
+                className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
+              />
+            </button>
+          </div>
+
+          {/* Ô nhập mã HEX trực tiếp bằng bàn phím */}
+          <div className="relative">
+            <input
+              type="text"
+              value={localColor}
+              placeholder="#Mã màu..."
+              onChange={(e) => {
+                setLocalColor(e.target.value)
+              }}
+              className="bg-surface-50 border border-white/10 rounded-xl px-3 py-2 text-xs text-white placeholder-white/20 font-mono w-28 focus:border-white/30 focus:outline-none transition-colors shadow-sm"
+              style={{
+                fontFamily: 'Outfit, monospace',
+                letterSpacing: '0.02em',
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Hiệu ứng chuyển động trượt mượt mà (Framer Motion Slide-in) */}
+      <AnimatePresence>
+        {localColor && localColor.replace('#', '').toLowerCase() !== activeColor && (
+          <motion.button
+            key="apply-color-btn"
+            initial={{ opacity: 0, scale: 0.9, y: 5 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.9, y: 5 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+            type="button"
+            onClick={() => {
+              const hexClean = localColor.replace('#', '').toLowerCase()
+              // Validate hex length (3 or 6)
+              if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hexClean)) {
+                onApply(hexClean)
+                toast.success(`Đã áp dụng màu: ${localColor}`)
+              } else {
+                toast.error('Mã màu không hợp lệ! Định dạng HEX 3 hoặc 6 ký tự (Ví dụ: #ff0000 hoặc #f00).')
+              }
+            }}
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white/80 hover:text-white font-semibold text-xs border border-white/10 hover:border-white/35 shadow-lg transition-all duration-300 cursor-pointer flex-shrink-0"
+            style={{
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(8px)',
+              fontFamily: 'Outfit, sans-serif',
+              letterSpacing: '0.03em',
+            }}
+          >
+            <Check size={11} className="text-white/60" />
+            <span>Áp dụng màu sắc</span>
+          </motion.button>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 
 // ── HSL-weighted fuzzy color matching ───────────────────────────
 // Dùng HSL thay RGB → "Đỏ" match đỏ nâu, đỏ máu, đỏ nhạt...
@@ -295,6 +466,31 @@ const SearchPage = () => {
     return () => clearTimeout(searchTimer.current)
   }, [query])
 
+  // Tự động nhận diện các định dạng màu sắc (HEX, RGB, HSL) từ thanh tìm kiếm
+  useEffect(() => {
+    const cleanQuery = query.trim().toLowerCase()
+    
+    const isHex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(cleanQuery)
+    const isRgb = /^rgba?\(/.test(cleanQuery)
+    const isHsl = /^hsla?\(/.test(cleanQuery)
+
+    if (isHex || isRgb || isHsl) {
+      const hex = parseToHex(cleanQuery)
+      if (hex) {
+        setActiveColor(hex)
+        setQuery('')
+        if (!showColorPanel) {
+          setShowColorPanel(true)
+        }
+        toast.success(`Tìm kiếm theo mã màu: #${hex}`)
+      }
+    }
+  }, [query, showColorPanel])
+
+
+
+
+
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -361,6 +557,21 @@ const SearchPage = () => {
             headers: { 'Content-Type': 'multipart/form-data' }
           })
           results = data.posts || []
+
+          // Client-side HSL color distance filtering for image search results
+          if (activeColor && results.length > 0) {
+            const targetHex = '#' + activeColor
+            results = results.filter((post) => {
+              if (!post.colorPalette?.length) return false
+              const minDist = Math.min(
+                ...post.colorPalette
+                  .filter((hex) => hex && hex.replace('#', '').length === 6)
+                  .map((hex) => colorDistance(hex, targetHex))
+              )
+              return minDist < 30
+            })
+          }
+
           hasMoreVal = data.pagination?.hasMore || false
           nextCursorVal = data.pagination?.nextCursor || null
           countVal = data.pagination?.count || results.length
@@ -509,6 +720,8 @@ const SearchPage = () => {
     if (!showColorPanel) setShowColorPanel(true)
   }
 
+  const isCustomColorActive = activeColor && !COLOR_PRESETS.some((c) => c.search === activeColor)
+
   return (
     <>
       <div className="min-h-screen pb-24 md:pb-8 p-4 md:p-8">
@@ -628,14 +841,27 @@ const SearchPage = () => {
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-xs font-bold text-white/80 mr-1.5">Màu chủ đạo:</span>
                         {targetPalette && targetPalette.length > 0 ? (
-                          targetPalette.map((hex, i) => (
-                            <div
-                              key={i}
-                              className="w-5 h-5 rounded-lg border border-white/20 shadow-sm flex-shrink-0 cursor-help transition-transform hover:scale-110"
-                              style={{ backgroundColor: hex }}
-                              title={hex}
-                            />
-                          ))
+                          targetPalette.map((hex, i) => {
+                            const hexClean = hex.replace('#', '').toLowerCase()
+                            const isActive = activeColor === hexClean
+                            return (
+                              <button
+                                key={i}
+                                type="button"
+                                onClick={() => {
+                                  setActiveColor(hexClean)
+                                  if (!showColorPanel) {
+                                    setShowColorPanel(true)
+                                  }
+                                  toast.success(`Lọc ảnh theo tông màu: ${hex}`)
+                                }}
+                                className={`w-5 h-5 rounded-lg border shadow-sm flex-shrink-0 cursor-pointer transition-all hover:scale-115 hover:rotate-6
+                                  ${isActive ? 'border-white scale-115 ring-2 ring-brand-500/50 shadow-md' : 'border-white/20'}`}
+                                style={{ backgroundColor: hex }}
+                                title={`Lọc theo màu ${hex}`}
+                              />
+                            )
+                          })
                         ) : (
                           <div className="flex items-center gap-1.5">
                             <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
@@ -786,6 +1012,13 @@ const SearchPage = () => {
                       </button>
                     ))}
                   </div>
+
+                  {/* Custom Color Picker Button - Tách biệt ở dưới dòng presets để tránh bị cắt layout */}
+                  <CustomColorPickerButton
+                    activeColor={activeColor}
+                    isCustomColorActive={isCustomColorActive}
+                    onApply={(hex) => setActiveColor(hex)}
+                  />
                   {activeColor && (
                     <p className="text-[11px] text-white/30 mt-2">
                       💡 Lọc ảnh có màu palette tương tự. Kết quả phụ thuộc vào

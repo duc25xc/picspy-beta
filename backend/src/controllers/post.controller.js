@@ -548,6 +548,62 @@ export const createPost = async (req, res, next) => {
   }
 }
 
+const rgbToHsl = (r, g, b) => {
+  r /= 255
+  g /= 255
+  b /= 255
+  const max = Math.max(r, g, b),
+    min = Math.min(r, g, b)
+  let h = 0,
+    s = 0,
+    l = (max + min) / 2
+  if (max !== min) {
+    const d = max - min
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min)
+    if (max === r) h = ((g - b) / d + (g < b ? 6 : 0)) / 6
+    else if (max === g) h = ((b - r) / d + 2) / 6
+    else h = ((r - g) / d + 4) / 6
+  }
+  return [h * 360, s * 100, l * 100]
+}
+
+const parseHex = (hex) => {
+  let c = hex.replace('#', '')
+  if (c.length === 3) {
+    c = c.split('').map((char) => char + char).join('')
+  }
+  return [
+    parseInt(c.slice(0, 2), 16),
+    parseInt(c.slice(2, 4), 16),
+    parseInt(c.slice(4, 6), 16),
+  ]
+}
+
+const colorDistance = (hex1, hex2) => {
+  try {
+    const [r1, g1, b1] = parseHex(hex1)
+    const [r2, g2, b2] = parseHex(hex2)
+    const [h1, s1, l1] = rgbToHsl(r1, g1, b1)
+    const [h2, s2, l2] = rgbToHsl(r2, g2, b2)
+
+    const lowSat1 = s1 < 15,
+      lowSat2 = s2 < 15
+    if (lowSat1 || lowSat2) {
+      const dL = Math.abs(l1 - l2)
+      const dS = Math.abs(s1 - s2)
+      return Math.sqrt((dL * 1.5) ** 2 + (dS * 0.5) ** 2)
+    }
+
+    const dH = Math.min(Math.abs(h1 - h2), 360 - Math.abs(h1 - h2))
+    const dS = Math.abs(s1 - s2)
+    const dL = Math.abs(l1 - l2)
+
+    return Math.sqrt((dH * 1.5) ** 2 + (dS * 0.4) ** 2 + (dL * 0.9) ** 2)
+  } catch {
+    return 999
+  }
+}
+
 /**
  * GET /posts — Feed công khai, chỉ approved posts
  * Filters: category, aiTool, contentType, orientation, resolution
@@ -568,6 +624,7 @@ export const getApprovedPosts = async (req, res, next) => {
       q, // free-text search: caption, prompt, tags
       postType,
       hasExif,
+      color,
     } = req.query
 
     const baseMatch = { status: 'approved' }
@@ -694,6 +751,74 @@ export const getApprovedPosts = async (req, res, next) => {
       ai: countsFacet[0]?.ai[0]?.count || 0,
       raw: countsFacet[0]?.raw[0]?.count || 0,
       cameraExif: countsFacet[0]?.cameraExif[0]?.count || 0,
+    }
+
+    // =====================
+    // Lọc theo màu sắc HSL chuyên sâu (In-memory scanner)
+    // =====================
+    if (color) {
+      // 1. Chỉ lấy ID, colorPalette, createdAt và stats để tối ưu dung lượng RAM quét
+      const postsWithColor = await Post.find(baseMatch)
+        .select('_id colorPalette createdAt stats')
+        .lean()
+
+      const targetHex = '#' + color.replace('#', '')
+
+      // 2. Tính khoảng cách HSL
+      const matchedPosts = postsWithColor
+        .map(post => {
+          if (!post.colorPalette?.length) return null
+          const minDist = Math.min(
+            ...post.colorPalette
+              .filter(hex => hex && hex.replace('#', '').length === 6)
+              .map(hex => colorDistance(hex, targetHex))
+          )
+          return {
+            post,
+            colorDistance: minDist
+          }
+        })
+        .filter(p => p !== null && p.colorDistance < 30)
+
+      // 3. Sắp xếp theo sort yêu cầu kết hợp độ khớp màu sắc
+      if (sort === 'top') {
+        matchedPosts.sort((a, b) => (b.post.stats?.likesCount || 0) - (a.post.stats?.likesCount || 0) || a.colorDistance - b.colorDistance || b.post.createdAt - a.post.createdAt)
+      } else if (sort === 'hot') {
+        const getHotScore = (p) => (p.stats?.viewsCount || 0) * 1 + (p.stats?.likesCount || 0) * 3 + (p.stats?.downloadsCount || 0) * 5
+        matchedPosts.sort((a, b) => getHotScore(b.post) - getHotScore(a.post) || a.colorDistance - b.colorDistance || b.post.createdAt - a.post.createdAt)
+      } else { // 'new'
+        matchedPosts.sort((a, b) => b.post.createdAt - a.post.createdAt || a.colorDistance - b.colorDistance)
+      }
+
+      // 4. Phân trang
+      let startIndex = 0
+      if (cursor) {
+        const idx = matchedPosts.findIndex(p => p.post._id.toString() === cursor)
+        if (idx !== -1) startIndex = idx + 1
+      }
+
+      const slicedPosts = matchedPosts.slice(startIndex, startIndex + parseInt(limit) + 1)
+      const hasMore = slicedPosts.length > parseInt(limit)
+      if (hasMore) slicedPosts.pop()
+
+      const nextCursor = hasMore ? slicedPosts[slicedPosts.length - 1].post._id.toString() : null
+      const targetIds = slicedPosts.map(p => p.post._id)
+
+      // 5. Populate chi tiết các posts hiển thị ở trang hiện tại
+      const populatedPosts = await Post.find({ _id: { $in: targetIds } })
+        .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
+        .lean()
+
+      const orderedPosts = targetIds
+        .map(id => populatedPosts.find(p => p._id.toString() === id.toString()))
+        .filter(Boolean)
+
+      return res.json({
+        posts: orderedPosts,
+        pagination: { hasMore, nextCursor, count: orderedPosts.length },
+        sortMode: sort,
+        stats
+      })
     }
 
     // ─── HOT: Aggregation pipeline tính điểm real-time ──────
