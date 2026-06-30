@@ -5,7 +5,7 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -1082,7 +1082,37 @@ const CategoriesTab = () => {
 // ══════════════════════════════════════════════════════════════════
 // TAB: SETTINGS
 // ══════════════════════════════════════════════════════════════════
-const SettingsTab = () => {
+function hexToHsl(hex) {
+  if (!hex) return { h: 0, s: 0, l: 0 };
+  let cleaned = hex.trim().replace('#', '');
+  if (cleaned.length === 3) {
+    cleaned = cleaned[0] + cleaned[0] + cleaned[1] + cleaned[1] + cleaned[2] + cleaned[2];
+  }
+  if (cleaned.length !== 6) {
+    return { h: 0, s: 0, l: 0 };
+  }
+  const r = parseInt(cleaned.slice(0, 2), 16) / 255;
+  const g = parseInt(cleaned.slice(2, 4), 16) / 255;
+  const b = parseInt(cleaned.slice(4, 6), 16) / 255;
+
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0, l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    if (max === r) {
+      h = (g - b) / d + (g < b ? 6 : 0);
+    } else if (max === g) {
+      h = (b - r) / d + 2;
+    } else if (max === b) {
+      h = (r - g) / d + 4;
+    }
+    h /= 6;
+  }
+  return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
+
+const SettingsTab = ({ onDirtyChange }) => {
   const [settings, setSettings] = useState(null)
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
@@ -1092,7 +1122,27 @@ const SettingsTab = () => {
   const [gradientColor, setGradientColor] = useState('#3b82f6')
   const [brandOpacity, setBrandOpacity] = useState(1)
   const [brandBlur, setBrandBlur] = useState(0)
+  const [enableGradient, setEnableGradient] = useState(true)
+  const [shadowStyle, setShadowStyle] = useState('soft')
   const [colorSaving, setColorSaving] = useState(false)
+
+  const [savedColors, setSavedColors] = useState({
+    primary: '#7c3aed',
+    gradient: '#3b82f6',
+    opacity: 1,
+    blur: 0,
+    enableGradient: true,
+    shadowStyle: 'soft'
+  })
+
+  const [customColors, setCustomColors] = useState({
+    primary: '#7c3aed',
+    gradient: '#3b82f6',
+    opacity: 1,
+    blur: 0,
+    enableGradient: true,
+    shadowStyle: 'soft'
+  })
 
   const COLOR_PRESETS = [
     { name: 'Mặc định (PicSpy)', primary: '#7c3aed', gradient: '#3b82f6', opacity: 1, blur: 0, desc: 'Màu tím PicSpy mặc định' },
@@ -1106,26 +1156,145 @@ const SettingsTab = () => {
     api.get('/admin/settings')
       .then(({ data }) => {
         setSettings(data.settings)
-        if (data.settings?.primaryColor) setPrimaryColor(data.settings.primaryColor)
-        if (data.settings?.gradientColor) setGradientColor(data.settings.gradientColor)
-        if (data.settings?.brandOpacity !== undefined) setBrandOpacity(data.settings.brandOpacity)
-        if (data.settings?.brandBlur !== undefined) setBrandBlur(data.settings.brandBlur)
+        const primary = data.settings?.primaryColor || '#7c3aed'
+        const gradient = data.settings?.gradientColor || '#3b82f6'
+        const opacity = data.settings?.brandOpacity !== undefined ? data.settings.brandOpacity : 1
+        const blur = data.settings?.brandBlur !== undefined ? data.settings.brandBlur : 0
+        const gradientEnabled = data.settings?.enableGradient !== undefined ? data.settings.enableGradient : true
+        const sStyle = data.settings?.shadowStyle || 'soft'
+
+        setPrimaryColor(primary)
+        setGradientColor(gradient)
+        setBrandOpacity(opacity)
+        setBrandBlur(blur)
+        setEnableGradient(gradientEnabled)
+        setShadowStyle(sStyle)
+
+        setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
+
+        // Check if saved colors match any preset
+        const matchesPreset = COLOR_PRESETS.some(p => 
+          p.primary.toLowerCase() === primary.toLowerCase() &&
+          p.gradient.toLowerCase() === gradient.toLowerCase() &&
+          p.opacity === opacity &&
+          p.blur === blur &&
+          gradientEnabled === true &&
+          sStyle === 'soft'
+        )
+        if (!matchesPreset) {
+          setCustomColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
+        }
       })
       .catch(() => toast.error('Không tải được cài đặt'))
       .finally(() => setLoading(false))
   }, [])
 
-  const handleSaveColors = async (pColor = primaryColor, gColor = gradientColor, opacity = brandOpacity, blur = brandBlur) => {
+  const hasUnsavedChanges = 
+    (primaryColor || '').toLowerCase() !== (savedColors.primary || '').toLowerCase() ||
+    (gradientColor || '').toLowerCase() !== (savedColors.gradient || '').toLowerCase() ||
+    brandOpacity !== savedColors.opacity ||
+    brandBlur !== savedColors.blur ||
+    enableGradient !== savedColors.enableGradient ||
+    shadowStyle !== savedColors.shadowStyle;
+
+  useEffect(() => {
+    onDirtyChange?.(hasUnsavedChanges)
+  }, [hasUnsavedChanges, onDirtyChange])
+
+  // Sync customColors state when user edits custom colors (when they don't match any preset)
+  useEffect(() => {
+    const isPresetActive = COLOR_PRESETS.some(p => 
+      p.primary.toLowerCase() === primaryColor.toLowerCase() &&
+      p.gradient.toLowerCase() === gradientColor.toLowerCase() &&
+      p.opacity === brandOpacity &&
+      p.blur === brandBlur &&
+      enableGradient === true &&
+      shadowStyle === 'soft'
+    )
+    if (!isPresetActive) {
+      setCustomColors({
+        primary: primaryColor,
+        gradient: gradientColor,
+        opacity: brandOpacity,
+        blur: brandBlur,
+        enableGradient,
+        shadowStyle
+      })
+    }
+  }, [primaryColor, gradientColor, brandOpacity, brandBlur, enableGradient, shadowStyle])
+
+  useEffect(() => {
+    if (!hasUnsavedChanges) return
+    
+    const handleBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = 'Cấu hình màu của bạn chưa được lưu. Bạn có chắc chắn muốn rời đi?'
+      return e.returnValue
+    }
+
+    const handleCaptureClick = (e) => {
+      const link = e.target.closest('a')
+      if (!link) return
+      if (link.target === '_blank') return
+
+      const href = link.getAttribute('href')
+      if (href) {
+        let isInternal = false
+        try {
+          const url = new URL(href, window.location.href)
+          isInternal = url.origin === window.location.origin
+        } catch (err) {
+          isInternal =
+            !href.startsWith('http://') &&
+            !href.startsWith('https://') &&
+            !href.startsWith('javascript:')
+        }
+
+        if (isInternal) {
+          if (
+            !window.confirm(
+              'Cấu hình màu của bạn chưa được lưu. Bạn có chắc chắn muốn rời đi?'
+            )
+          ) {
+            e.preventDefault()
+            e.stopPropagation()
+          } else {
+            onDirtyChange?.(false)
+          }
+        }
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    window.addEventListener('click', handleCaptureClick, true)
+    
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      window.removeEventListener('click', handleCaptureClick, true)
+    }
+  }, [hasUnsavedChanges, onDirtyChange])
+
+  const handleSaveColors = async (
+    pColor = primaryColor,
+    gColor = gradientColor,
+    opacity = brandOpacity,
+    blur = brandBlur,
+    gradientEnabled = enableGradient,
+    sStyle = shadowStyle
+  ) => {
     setColorSaving(true)
     try {
       const { data } = await api.put('/admin/settings', {
         primaryColor: pColor,
         gradientColor: gColor,
         brandOpacity: opacity,
-        brandBlur: blur
+        brandBlur: blur,
+        enableGradient: gradientEnabled,
+        shadowStyle: sStyle
       })
       setSettings(data.settings)
-      updateBrandColors(pColor, gColor, opacity, blur)
+      updateBrandColors(pColor, gColor, opacity, blur, gradientEnabled, sStyle)
+      setSavedColors({ primary: pColor, gradient: gColor, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
       toast.success('🎨 Đã lưu và áp dụng giao diện màu mới!')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Không thể lưu cấu hình màu')
@@ -1145,6 +1314,30 @@ const SettingsTab = () => {
     } catch (err) { toast.error(err.response?.data?.message || 'Lỗi cập nhật') }
     finally { setSaving(false) }
   }
+
+  const localPreviewCSSVariables = (() => {
+    const { h, s } = hexToHsl(primaryColor);
+    const startVal = `hsla(${h}, ${s}%, 44%, ${brandOpacity})`;
+    const endVal = enableGradient ? gradientColor : startVal;
+    
+    const vars = {
+      '--local-brand-opacity': brandOpacity,
+      '--local-brand-blur': brandBlur > 0 ? `blur(${brandBlur}px)` : 'none',
+      '--local-brand-600': startVal,
+      '--local-brand-500': `hsla(${h}, ${s}%, 52%, ${brandOpacity})`,
+      '--local-brand-gradient-end': endVal,
+      '--local-glass-bg': `rgba(15, 15, 19, ${Math.max(0.15, brandOpacity * 0.45)})`,
+      '--local-glass-border': `rgba(255, 255, 255, ${0.08 + (1 - brandOpacity) * 0.07})`,
+    };
+
+    if (shadowStyle === 'glow') {
+      vars['--local-box-shadow-neon-glow'] = `0 0 20px hsla(${h}, ${s}%, 55%, 0.45)`;
+    } else {
+      vars['--local-box-shadow-neon-glow'] = 'none';
+    }
+
+    return vars;
+  })();
 
   if (loading) return (
     <div className="space-y-4">
@@ -1291,7 +1484,6 @@ const SettingsTab = () => {
                 onChange={(e) => {
                   const val = parseFloat(e.target.value)
                   setBrandOpacity(val)
-                  updateBrandColors(primaryColor, gradientColor, val, brandBlur)
                 }}
                 className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-brand-500"
               />
@@ -1313,11 +1505,107 @@ const SettingsTab = () => {
                 onChange={(e) => {
                   const val = parseInt(e.target.value)
                   setBrandBlur(val)
-                  updateBrandColors(primaryColor, gradientColor, brandOpacity, val)
                 }}
                 className="w-full h-1.5 rounded-lg appearance-none cursor-pointer bg-white/10 accent-brand-500"
               />
             </div>
+          </div>
+        </div>
+
+        {/* Advanced Options */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-white/5">
+          {/* Gradient Toggle */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <label className="text-xs font-semibold text-white/60">Sử dụng dải màu (Gradient Color)</label>
+              <span className="text-xs font-bold text-brand-400">{enableGradient ? 'BẬT' : 'TẮT'}</span>
+            </div>
+            <div className="flex items-center gap-3 pt-1">
+              <button
+                type="button"
+                onClick={() => setEnableGradient(!enableGradient)}
+                className={`relative w-12 h-6 rounded-full border transition-all duration-300 flex-shrink-0 focus:outline-none ${
+                  enableGradient
+                    ? 'bg-brand-500 border-brand-400 shadow-[0_0_12px_rgba(124,58,237,0.3)]'
+                    : 'bg-white/10 border-white/20'
+                }`}
+              >
+                <div
+                  className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300"
+                  style={{ left: enableGradient ? '26px' : '2px' }}
+                />
+              </button>
+              <span className="text-[10px] text-white/40 leading-snug">
+                {enableGradient ? 'Bật hiển thị gradient chuyển màu mượt mà' : 'Chỉ sử dụng duy nhất màu chính (Solid)'}
+              </span>
+            </div>
+          </div>
+
+          {/* Shadow Style Selector */}
+          <div className="space-y-2">
+            <label className="text-xs font-semibold text-white/60 block">Hiệu ứng bóng đổ / Tỏa sáng (Shadow Style)</label>
+            <div className="grid grid-cols-3 gap-1.5">
+              {[
+                { key: 'none', label: 'Không bóng' },
+                { key: 'soft', label: 'Mặc định' },
+                { key: 'glow', label: 'Sáng Neon' },
+              ].map((style) => (
+                <button
+                  key={style.key}
+                  type="button"
+                  onClick={() => setShadowStyle(style.key)}
+                  className={`px-3 py-2 rounded-lg border text-xs font-bold transition-all text-center cursor-pointer ${
+                    shadowStyle === style.key
+                      ? 'border-brand-500 bg-brand-500/10 text-white shadow-[0_0_10px_rgba(124,58,237,0.15)]'
+                      : 'border-white/5 bg-white/5 hover:border-white/10 text-white/60'
+                  }`}
+                >
+                  {style.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Live Preview buttons sample */}
+        <div 
+          className="p-4 rounded-2xl bg-white/5 border border-white/10 flex flex-col gap-3 pt-4 border-t border-white/5"
+          style={localPreviewCSSVariables}
+        >
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-white/50 block">Bản xem trước nút nhấn (Live Preview)</span>
+            <span className="text-[10px] text-yellow-500 font-bold bg-yellow-500/10 px-2 py-0.5 rounded-full animate-pulse">Nháp chưa áp dụng</span>
+          </div>
+          <div className="flex flex-wrap items-center gap-4 py-3 justify-center">
+            {/* Preview Primary Button */}
+            <button
+              type="button"
+              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white transition-all duration-300"
+              style={{
+                background: 'linear-gradient(135deg, var(--local-brand-600) 0%, var(--local-brand-gradient-end) 100%)',
+                backdropFilter: 'var(--local-brand-blur, none)',
+                WebkitBackdropFilter: 'var(--local-brand-blur, none)',
+                boxShadow: '0 4px 14px rgba(0, 0, 0, 0.25), var(--local-box-shadow-neon-glow, 0 0 0 transparent)',
+                border: '1px solid rgba(255, 255, 255, calc((1 - var(--local-brand-opacity, 1)) * 0.15))'
+              }}
+            >
+              Nút Chính mẫu <ArrowRight size={13} className="inline ml-1" />
+            </button>
+            
+            {/* Preview Glass Button */}
+            <button
+              type="button"
+              className="px-6 py-2.5 rounded-xl text-xs font-bold text-white/80 transition-all duration-300 border"
+              style={{
+                background: 'var(--local-glass-bg)',
+                backdropFilter: 'blur(28px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(28px) saturate(180%)',
+                borderColor: 'var(--local-glass-border)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.25), var(--local-box-shadow-neon-glow, 0 0 0 transparent)',
+              }}
+            >
+              Nút Kính mẫu
+            </button>
           </div>
         </div>
 
@@ -1329,7 +1617,9 @@ const SettingsTab = () => {
               const isActive = primaryColor.toLowerCase() === preset.primary.toLowerCase() &&
                                gradientColor.toLowerCase() === preset.gradient.toLowerCase() &&
                                brandOpacity === preset.opacity &&
-                               brandBlur === preset.blur
+                               brandBlur === preset.blur &&
+                               enableGradient === true &&
+                               shadowStyle === 'soft'
               return (
                 <button
                   key={preset.name}
@@ -1339,7 +1629,8 @@ const SettingsTab = () => {
                     setGradientColor(preset.gradient)
                     setBrandOpacity(preset.opacity)
                     setBrandBlur(preset.blur)
-                    handleSaveColors(preset.primary, preset.gradient, preset.opacity, preset.blur)
+                    setEnableGradient(true)
+                    setShadowStyle('soft')
                   }}
                   className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
                     isActive
@@ -1356,6 +1647,43 @@ const SettingsTab = () => {
                 </button>
               )
             })}
+
+            {/* Custom Option */}
+            {(() => {
+              const isCustomActive = !COLOR_PRESETS.some(p => 
+                p.primary.toLowerCase() === primaryColor.toLowerCase() &&
+                p.gradient.toLowerCase() === gradientColor.toLowerCase() &&
+                p.opacity === brandOpacity &&
+                p.blur === brandBlur &&
+                enableGradient === true &&
+                shadowStyle === 'soft'
+              )
+              return (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPrimaryColor(customColors.primary)
+                    setGradientColor(customColors.gradient)
+                    setBrandOpacity(customColors.opacity)
+                    setBrandBlur(customColors.blur)
+                    setEnableGradient(customColors.enableGradient)
+                    setShadowStyle(customColors.shadowStyle)
+                  }}
+                  className={`p-2.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    isCustomActive
+                      ? 'border-brand-500 bg-brand-500/10 shadow-[0_0_12px_rgba(124,58,237,0.15)]'
+                      : 'border-white/5 bg-white/5 hover:border-white/10'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <div className="w-3.5 h-3.5 rounded-full border border-white/20" style={{ background: customColors.primary }} />
+                    <div className="w-3.5 h-3.5 rounded-full border border-white/20 -ml-1.5" style={{ background: customColors.gradient }} />
+                    <span className="text-xs font-bold text-white/80 truncate">Custom</span>
+                  </div>
+                  <span className="text-[10px] text-white/35 leading-tight block truncate">Màu tùy chọn của riêng bạn</span>
+                </button>
+              )
+            })()}
           </div>
         </div>
 
@@ -1404,6 +1732,7 @@ const TABS = [
 
 const AdminPage = () => {
   const [activeTab, setActiveTab] = useState('dashboard')
+  const [hasUnsavedColors, setHasUnsavedColors] = useState(false)
 
   return (
     <AdminGuard>
@@ -1422,7 +1751,15 @@ const AdminPage = () => {
           {/* Tabs */}
           <div className="flex gap-1 mb-6 bg-surface-50 p-1 rounded-2xl border border-white/10 w-fit flex-wrap">
             {TABS.map(({ key, label, Icon }) => (
-              <button key={key} onClick={() => setActiveTab(key)}
+              <button key={key} onClick={() => {
+                if (activeTab === 'settings' && key !== 'settings' && hasUnsavedColors) {
+                  if (!window.confirm('Cấu hình màu của bạn chưa được lưu. Bạn có chắc chắn muốn rời đi?')) {
+                    return
+                  }
+                  setHasUnsavedColors(false)
+                }
+                setActiveTab(key)
+              }}
                 className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
                   ${activeTab === key ? 'bg-brand-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)]' : 'text-white/50 hover:text-white/80'}`}>
                 <Icon size={16} />{label}
@@ -1437,7 +1774,7 @@ const AdminPage = () => {
               {activeTab === 'posts'      && <PostsTab />}
               {activeTab === 'users'      && <UsersTab />}
               {activeTab === 'categories' && <CategoriesTab />}
-              {activeTab === 'settings'   && <SettingsTab />}
+              {activeTab === 'settings'   && <SettingsTab onDirtyChange={setHasUnsavedColors} />}
             </motion.div>
           </AnimatePresence>
         </div>

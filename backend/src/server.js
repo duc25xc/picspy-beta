@@ -113,6 +113,8 @@ app.get('/v1/settings', async (req, res, next) => {
       gradientColor: settings.gradientColor || '#3b82f6',
       brandOpacity: settings.brandOpacity !== undefined ? settings.brandOpacity : 1,
       brandBlur: settings.brandBlur !== undefined ? settings.brandBlur : 0,
+      enableGradient: settings.enableGradient !== undefined ? settings.enableGradient : true,
+      shadowStyle: settings.shadowStyle || 'soft',
     })
   } catch (err) {
     next(err)

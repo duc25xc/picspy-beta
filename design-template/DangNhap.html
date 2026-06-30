@@ -1,285 +1,384 @@
-<!DOCTYPE html>
+<!doctype html>
 
 <html class="dark" lang="en">
-
-<head>
+  <head>
     <meta charset="utf-8" />
     <meta content="width=device-width, initial-scale=1.0" name="viewport" />
     <title>PICSPY - Login</title>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link
-        href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;family=Outfit:wght@300;400;600;700&amp;display=swap"
-        rel="stylesheet" />
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&amp;family=Outfit:wght@300;400;600;700&amp;display=swap"
+      rel="stylesheet"
+    />
     <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
     <link
-        href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
-        rel="stylesheet" />
+      href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap"
+      rel="stylesheet"
+    />
     <script id="tailwind-config">
-        tailwind.config = {
-            darkMode: "class",
-            theme: {
-                extend: {
-                    colors: {
-                        "on-error": "#690005",
-                        "surface-container-highest": "#353439",
-                        "surface-dim": "#131317",
-                        "on-error-container": "#ffdad6",
-                        "primary-fixed-dim": "#d2bbff",
-                        "on-tertiary": "#4f2500",
-                        "on-primary-container": "#ede0ff",
-                        "on-secondary": "#002e6a",
-                        "on-primary-fixed-variant": "#5a00c6",
-                        "on-tertiary-fixed": "#301400",
-                        "primary": "#d2bbff",
-                        "surface-variant": "#353439",
-                        "background": "#131317",
-                        "surface-container-low": "#1b1b1f",
-                        "error-container": "#93000a",
-                        "surface-container": "#1f1f23",
-                        "secondary-fixed-dim": "#adc6ff",
-                        "secondary-container": "#0566d9",
-                        "tertiary-fixed-dim": "#ffb784",
-                        "on-secondary-fixed-variant": "#004395",
-                        "surface-container-lowest": "#0e0e12",
-                        "surface": "#131317",
-                        "on-primary": "#3f008e",
-                        "secondary-fixed": "#d8e2ff",
-                        "inverse-primary": "#732ee4",
-                        "inverse-surface": "#e4e1e7",
-                        "tertiary-fixed": "#ffdcc6",
-                        "surface-container-high": "#2a292e",
-                        "surface-tint": "#d2bbff",
-                        "on-secondary-container": "#e6ecff",
-                        "tertiary": "#ffb784",
-                        "on-tertiary-container": "#ffe0cd",
-                        "on-primary-fixed": "#25005a",
-                        "inverse-on-surface": "#303034",
-                        "on-tertiary-fixed-variant": "#713700",
-                        "outline": "#958da1",
-                        "surface-bright": "#39393d",
-                        "on-background": "#e4e1e7",
-                        "error": "#ffb4ab",
-                        "on-secondary-fixed": "#001a42",
-                        "tertiary-container": "#a15100",
-                        "primary-fixed": "#eaddff",
-                        "primary-container": "#7c3aed",
-                        "on-surface-variant": "#ccc3d8",
-                        "on-surface": "#e4e1e7",
-                        "outline-variant": "#4a4455",
-                        "secondary": "#adc6ff"
-                    },
-                    fontFamily: {
-                        "headline": ["Plus Jakarta Sans"],
-                        "body": ["Plus Jakarta Sans"],
-                        "label": ["Plus Jakarta Sans"],
-                        "outfit": ["Outfit"]
-                    },
-                    borderRadius: { "DEFAULT": "1rem", "lg": "2rem", "xl": "3rem", "full": "9999px" },
-                },
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          extend: {
+            colors: {
+              'on-error': '#690005',
+              'surface-container-highest': '#353439',
+              'surface-dim': '#131317',
+              'on-error-container': '#ffdad6',
+              'primary-fixed-dim': '#d2bbff',
+              'on-tertiary': '#4f2500',
+              'on-primary-container': '#ede0ff',
+              'on-secondary': '#002e6a',
+              'on-primary-fixed-variant': '#5a00c6',
+              'on-tertiary-fixed': '#301400',
+              primary: '#d2bbff',
+              'surface-variant': '#353439',
+              background: '#131317',
+              'surface-container-low': '#1b1b1f',
+              'error-container': '#93000a',
+              'surface-container': '#1f1f23',
+              'secondary-fixed-dim': '#adc6ff',
+              'secondary-container': '#0566d9',
+              'tertiary-fixed-dim': '#ffb784',
+              'on-secondary-fixed-variant': '#004395',
+              'surface-container-lowest': '#0e0e12',
+              surface: '#131317',
+              'on-primary': '#3f008e',
+              'secondary-fixed': '#d8e2ff',
+              'inverse-primary': '#732ee4',
+              'inverse-surface': '#e4e1e7',
+              'tertiary-fixed': '#ffdcc6',
+              'surface-container-high': '#2a292e',
+              'surface-tint': '#d2bbff',
+              'on-secondary-container': '#e6ecff',
+              tertiary: '#ffb784',
+              'on-tertiary-container': '#ffe0cd',
+              'on-primary-fixed': '#25005a',
+              'inverse-on-surface': '#303034',
+              'on-tertiary-fixed-variant': '#713700',
+              outline: '#958da1',
+              'surface-bright': '#39393d',
+              'on-background': '#e4e1e7',
+              error: '#ffb4ab',
+              'on-secondary-fixed': '#001a42',
+              'tertiary-container': '#a15100',
+              'primary-fixed': '#eaddff',
+              'primary-container': '#7c3aed',
+              'on-surface-variant': '#ccc3d8',
+              'on-surface': '#e4e1e7',
+              'outline-variant': '#4a4455',
+              secondary: '#adc6ff',
             },
-        }
+            fontFamily: {
+              headline: ['Plus Jakarta Sans'],
+              body: ['Plus Jakarta Sans'],
+              label: ['Plus Jakarta Sans'],
+              outfit: ['Outfit'],
+            },
+            borderRadius: {
+              DEFAULT: '1rem',
+              lg: '2rem',
+              xl: '3rem',
+              full: '9999px',
+            },
+          },
+        },
+      }
     </script>
     <style>
-        .material-symbols-outlined {
-            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-        }
+      .material-symbols-outlined {
+        font-variation-settings:
+          'FILL' 0,
+          'wght' 400,
+          'GRAD' 0,
+          'opsz' 24;
+      }
 
-        .glass-edge {
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
-        }
+      .glass-edge {
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        background: linear-gradient(
+          135deg,
+          rgba(255, 255, 255, 0.05) 0%,
+          rgba(255, 255, 255, 0) 100%
+        );
+      }
 
-        .liquid-gradient {
-            background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
-        }
+      .liquid-gradient {
+        background: linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%);
+      }
 
-        .floating-card {
-            transition: transform 0.3s ease-out;
-        }
+      .floating-card {
+        transition: transform 0.3s ease-out;
+      }
 
-        .floating-card:hover {
-            transform: translateY(-10px) rotate(1deg);
-        }
+      .floating-card:hover {
+        transform: translateY(-10px) rotate(1deg);
+      }
     </style>
-</head>
+  </head>
 
-<body class="bg-background text-on-background font-body selection:bg-primary/30 min-h-screen overflow-x-hidden">
+  <body
+    class="bg-background text-on-background font-body selection:bg-primary/30 min-h-screen overflow-x-hidden"
+  >
     <main class="flex min-h-screen w-full relative">
-        <!-- Left Panel: Visual Showcase -->
-        <section
-            class="hidden lg:flex flex-1 relative items-center justify-center overflow-hidden bg-surface-container-lowest">
-            <!-- Decorative Gradient Blobs -->
+      <!-- Left Panel: Visual Showcase -->
+      <section
+        class="hidden lg:flex flex-1 relative items-center justify-center overflow-hidden bg-surface-container-lowest"
+      >
+        <!-- Decorative Gradient Blobs -->
+        <div
+          class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary-container/20 blur-[120px] rounded-full"
+        ></div>
+        <div
+          class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-container/10 blur-[100px] rounded-full"
+        ></div>
+        <div class="z-10 w-full max-w-2xl px-12 grid grid-cols-2 gap-8">
+          <div class="space-y-8 pt-20">
+            <!-- AI Art Card -->
             <div
-                class="absolute top-[-10%] left-[-10%] w-[60%] h-[60%] bg-primary-container/20 blur-[120px] rounded-full">
+              class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl"
+            >
+              <div class="aspect-[4/5] rounded-md overflow-hidden mb-4">
+                <img
+                  class="w-full h-full object-cover"
+                  data-alt="Abstract fluid 3D render with vibrant violet and cyan silk-like textures flowing in a dark ethereal space"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwmJh6pU8FulsqlyRr8lqjGbVN7qvyfLp5wDBjzqnw_NgX70BBfHgdCxg_edlqPtw0_OjCWObdpRi_aJc327kYsQdKNVU8a3LmTHswyfqiNSCDW1RSG6Bk8mJXXVf4LnoJR2dPNKoXm-vCwXCxf0ljSH3yInwrvoQFynn9Wq8gd3_EYDkeE_pK68ZenMYl8hlJxRRWGXSrOxml0cXxaQtxRaw6CkgaERfZpVjkX2es8ExfYS3YVkrKs3vhhreG-_Atf2JkqJQPv1Do"
+                />
+              </div>
+              <div class="space-y-1">
+                <span
+                  class="text-[10px] uppercase tracking-widest text-primary/60 font-bold"
+                  >Featured Art</span
+                >
+                <h3 class="font-outfit text-lg font-semibold text-on-surface">
+                  Digital Dreams
+                </h3>
+              </div>
             </div>
+            <!-- City Card -->
             <div
-                class="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-secondary-container/10 blur-[100px] rounded-full">
+              class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl translate-x-4"
+            >
+              <div class="aspect-square rounded-md overflow-hidden mb-4">
+                <img
+                  class="w-full h-full object-cover"
+                  data-alt="Futuristic neon city at night with long exposure light trails and deep blue atmospheric haze"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1CHiVCsPGB3NTrGdS2urI1NBqyHVwZ1rV-pxioF-OcBRjMOpIEFtBqcJPav6U_LFY3sfBkrahzeIHFTqejWPDa1z9hbpEPHdQv2YFDbQX0Qxe72dCfDd8iRwWlZpeXATcUMvr56-LQ6fE8qIFH6AOInj86fyALQbP4Hi6NiImIAZjLK-p-lCmdbkukqDXDiHxYVHTWcLNRdLxZqActxOlVRsy-fuxmNa5Vi-RdF3RPQrWuT0rVO_sHmD_d4HT_m00PwDX1POMvY-r"
+                />
+              </div>
+              <h3 class="font-outfit text-lg font-semibold text-on-surface">
+                Neo Tokyo
+              </h3>
             </div>
-            <div class="z-10 w-full max-w-2xl px-12 grid grid-cols-2 gap-8">
-                <div class="space-y-8 pt-20">
-                    <!-- AI Art Card -->
-                    <div class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl">
-                        <div class="aspect-[4/5] rounded-md overflow-hidden mb-4">
-                            <img class="w-full h-full object-cover"
-                                data-alt="Abstract fluid 3D render with vibrant violet and cyan silk-like textures flowing in a dark ethereal space"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDwmJh6pU8FulsqlyRr8lqjGbVN7qvyfLp5wDBjzqnw_NgX70BBfHgdCxg_edlqPtw0_OjCWObdpRi_aJc327kYsQdKNVU8a3LmTHswyfqiNSCDW1RSG6Bk8mJXXVf4LnoJR2dPNKoXm-vCwXCxf0ljSH3yInwrvoQFynn9Wq8gd3_EYDkeE_pK68ZenMYl8hlJxRRWGXSrOxml0cXxaQtxRaw6CkgaERfZpVjkX2es8ExfYS3YVkrKs3vhhreG-_Atf2JkqJQPv1Do" />
-                        </div>
-                        <div class="space-y-1">
-                            <span class="text-[10px] uppercase tracking-widest text-primary/60 font-bold">Featured
-                                Art</span>
-                            <h3 class="font-outfit text-lg font-semibold text-on-surface">Digital Dreams</h3>
-                        </div>
-                    </div>
-                    <!-- City Card -->
-                    <div class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl translate-x-4">
-                        <div class="aspect-square rounded-md overflow-hidden mb-4">
-                            <img class="w-full h-full object-cover"
-                                data-alt="Futuristic neon city at night with long exposure light trails and deep blue atmospheric haze"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuB1CHiVCsPGB3NTrGdS2urI1NBqyHVwZ1rV-pxioF-OcBRjMOpIEFtBqcJPav6U_LFY3sfBkrahzeIHFTqejWPDa1z9hbpEPHdQv2YFDbQX0Qxe72dCfDd8iRwWlZpeXATcUMvr56-LQ6fE8qIFH6AOInj86fyALQbP4Hi6NiImIAZjLK-p-lCmdbkukqDXDiHxYVHTWcLNRdLxZqActxOlVRsy-fuxmNa5Vi-RdF3RPQrWuT0rVO_sHmD_d4HT_m00PwDX1POMvY-r" />
-                        </div>
-                        <h3 class="font-outfit text-lg font-semibold text-on-surface">Neo Tokyo</h3>
-                    </div>
-                </div>
-                <div class="space-y-8 pb-20">
-                    <!-- Nature Card -->
-                    <div class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl -translate-x-4">
-                        <div class="aspect-square rounded-md overflow-hidden mb-4">
-                            <img class="w-full h-full object-cover"
-                                data-alt="Aerial view of mist-covered pine forest mountains at dawn with soft violet sky and high contrast lighting"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnBW9gzhWnAA_vgH0weCS3RRCP8ZzpddZFHIinnyMNpw0xQ2ndyddj9Q6gFoFF_POurSTcaVosZ26m1jvL0Eu5rAjMxpyCcrSY1CMqZ4J_d71eqGMOmwYcOSHMTIr1oBXhv26nLS-9dXSJ9uTe0_VEhuoo80SAYCMtyHNBXKTqWC-1MTbdnSBnEbHsicRI7bq1A4k5gIXv4TzREwBxH9rZZfsIDOOCtnWrmZB1b-Fw3tarNPsFEgmaxCdAi2noLVhCRA-xbgScAFvj" />
-                        </div>
-                        <h3 class="font-outfit text-lg font-semibold text-on-surface">Silent Peaks</h3>
-                    </div>
-                    <!-- Minimal Card -->
-                    <div class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl">
-                        <div class="aspect-[4/5] rounded-md overflow-hidden mb-4">
-                            <img class="w-full h-full object-cover"
-                                data-alt="Minimalist architectural detail with sharp shadows and soft gray concrete surfaces against a clear blue sky"
-                                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSBV5J-dxWHaTFHta4f7yik8-p9wC4t1Qh9QeaABFcgOBqzaRX8-0Cti03S4d96D2aBpjQd2V14XSsfjtNHXJvhO91KReiJiaE1Yx7J7ocpcbxl8RfdLNQrrg6D2UEhFQ1PzuvZGTpsd-c54PpmYGlIAt61DWAOaHS1ljG7zT88d1hK6dhWmJqTq8ShgTCJqiU8AOIdjun5a2GrBJ_l9t4yQ7BYHj_ghk5XIDht7u_GgXPp1IxV7vgqIBp8CDyyoFrFqEPXGSMXwaz" />
-                        </div>
-                        <div class="space-y-1">
-                            <span
-                                class="text-[10px] uppercase tracking-widest text-primary/60 font-bold">Minimalism</span>
-                            <h3 class="font-outfit text-lg font-semibold text-on-surface">Pure Forms</h3>
-                        </div>
-                    </div>
-                </div>
+          </div>
+          <div class="space-y-8 pb-20">
+            <!-- Nature Card -->
+            <div
+              class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl -translate-x-4"
+            >
+              <div class="aspect-square rounded-md overflow-hidden mb-4">
+                <img
+                  class="w-full h-full object-cover"
+                  data-alt="Aerial view of mist-covered pine forest mountains at dawn with soft violet sky and high contrast lighting"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuDnBW9gzhWnAA_vgH0weCS3RRCP8ZzpddZFHIinnyMNpw0xQ2ndyddj9Q6gFoFF_POurSTcaVosZ26m1jvL0Eu5rAjMxpyCcrSY1CMqZ4J_d71eqGMOmwYcOSHMTIr1oBXhv26nLS-9dXSJ9uTe0_VEhuoo80SAYCMtyHNBXKTqWC-1MTbdnSBnEbHsicRI7bq1A4k5gIXv4TzREwBxH9rZZfsIDOOCtnWrmZB1b-Fw3tarNPsFEgmaxCdAi2noLVhCRA-xbgScAFvj"
+                />
+              </div>
+              <h3 class="font-outfit text-lg font-semibold text-on-surface">
+                Silent Peaks
+              </h3>
             </div>
-            <!-- Branding Overlay -->
-            <div class="absolute bottom-12 left-12">
-                <h1
-                    class="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-blue-400 font-outfit">
-                    PICSPY</h1>
-                <p class="text-outline text-sm mt-2 max-w-xs font-medium">Curate your visual universe with high-fidelity
-                    precision.</p>
+            <!-- Minimal Card -->
+            <div
+              class="floating-card glass-edge backdrop-blur-xl p-4 rounded-lg shadow-2xl"
+            >
+              <div class="aspect-[4/5] rounded-md overflow-hidden mb-4">
+                <img
+                  class="w-full h-full object-cover"
+                  data-alt="Minimalist architectural detail with sharp shadows and soft gray concrete surfaces against a clear blue sky"
+                  src="https://lh3.googleusercontent.com/aida-public/AB6AXuCSBV5J-dxWHaTFHta4f7yik8-p9wC4t1Qh9QeaABFcgOBqzaRX8-0Cti03S4d96D2aBpjQd2V14XSsfjtNHXJvhO91KReiJiaE1Yx7J7ocpcbxl8RfdLNQrrg6D2UEhFQ1PzuvZGTpsd-c54PpmYGlIAt61DWAOaHS1ljG7zT88d1hK6dhWmJqTq8ShgTCJqiU8AOIdjun5a2GrBJ_l9t4yQ7BYHj_ghk5XIDht7u_GgXPp1IxV7vgqIBp8CDyyoFrFqEPXGSMXwaz"
+                />
+              </div>
+              <div class="space-y-1">
+                <span
+                  class="text-[10px] uppercase tracking-widest text-primary/60 font-bold"
+                  >Minimalism</span
+                >
+                <h3 class="font-outfit text-lg font-semibold text-on-surface">
+                  Pure Forms
+                </h3>
+              </div>
             </div>
-        </section>
-        <!-- Right Panel: Login Container -->
-        <section class="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-surface">
-            <!-- Mobile Logo -->
-            <div class="lg:hidden mb-12">
-                <h1
-                    class="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-blue-400 font-outfit">
-                    PICSPY</h1>
-            </div>
-            <div class="w-full max-w-md space-y-8">
-                <div class="text-center lg:text-left">
-                    <h2 class="text-4xl font-bold font-outfit tracking-tight text-on-surface">Welcome Back</h2>
-                    <p class="text-outline mt-2 font-medium">Please enter your details to sign in.</p>
+          </div>
+        </div>
+        <!-- Branding Overlay -->
+        <div class="absolute bottom-12 left-12">
+          <h1
+            class="text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-blue-400 font-outfit"
+          >
+            PICSPY
+          </h1>
+          <p class="text-outline text-sm mt-2 max-w-xs font-medium">
+            Curate your visual universe with high-fidelity precision.
+          </p>
+        </div>
+      </section>
+      <!-- Right Panel: Login Container -->
+      <section
+        class="flex-1 flex flex-col items-center justify-center p-6 sm:p-12 bg-surface"
+      >
+        <!-- Mobile Logo -->
+        <div class="lg:hidden mb-12">
+          <h1
+            class="text-3xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-violet-500 to-blue-400 font-outfit"
+          >
+            PICSPY
+          </h1>
+        </div>
+        <div class="w-full max-w-md space-y-8">
+          <div class="text-center lg:text-left">
+            <h2
+              class="text-4xl font-bold font-outfit tracking-tight text-on-surface"
+            >
+              Welcome Back
+            </h2>
+            <p class="text-outline mt-2 font-medium">
+              Please enter your details to sign in.
+            </p>
+          </div>
+          <!-- Login Card -->
+          <div
+            class="glass-edge backdrop-blur-2xl bg-white/5 p-8 rounded-lg shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] border border-white/10"
+          >
+            <form class="space-y-6">
+              <!-- Google Login -->
+              <button
+                class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md transition-all duration-300 group"
+                type="button"
+              >
+                <svg
+                  class="w-5 h-5 group-hover:scale-110 transition-transform"
+                  viewbox="0 0 24 24"
+                >
+                  <path
+                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                    fill="#4285F4"
+                  ></path>
+                  <path
+                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                    fill="#34A853"
+                  ></path>
+                  <path
+                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
+                    fill="#FBBC05"
+                  ></path>
+                  <path
+                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                    fill="#EA4335"
+                  ></path>
+                </svg>
+                <span class="text-sm font-semibold">Continue with Google</span>
+              </button>
+              <div class="relative flex items-center py-2">
+                <div class="flex-grow border-t border-white/5"></div>
+                <span
+                  class="flex-shrink mx-4 text-outline text-[10px] font-bold uppercase tracking-widest"
+                  >or email</span
+                >
+                <div class="flex-grow border-t border-white/5"></div>
+              </div>
+              <!-- Inputs -->
+              <div class="space-y-4">
+                <div class="space-y-2">
+                  <label
+                    class="text-xs font-bold uppercase tracking-widest text-primary/80 ml-1"
+                    for="email"
+                    >Email Address</label
+                  >
+                  <div class="relative group">
+                    <span
+                      class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors"
+                      >mail</span
+                    >
+                    <input
+                      class="w-full bg-white/5 border-0 border-b border-white/10 focus:ring-0 focus:border-primary py-3 pl-12 pr-4 text-on-surface placeholder:text-outline/50 transition-all"
+                      id="email"
+                      placeholder="name@example.com"
+                      type="email"
+                    />
+                  </div>
                 </div>
-                <!-- Login Card -->
-                <div
-                    class="glass-edge backdrop-blur-2xl bg-white/5 p-8 rounded-lg shadow-[0_32px_64px_-15px_rgba(0,0,0,0.5)] border border-white/10">
-                    <form class="space-y-6">
-                        <!-- Google Login -->
-                        <button
-                            class="w-full flex items-center justify-center gap-3 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-md transition-all duration-300 group"
-                            type="button">
-                            <svg class="w-5 h-5 group-hover:scale-110 transition-transform" viewbox="0 0 24 24">
-                                <path
-                                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                                    fill="#4285F4"></path>
-                                <path
-                                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                                    fill="#34A853"></path>
-                                <path
-                                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"
-                                    fill="#FBBC05"></path>
-                                <path
-                                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                                    fill="#EA4335"></path>
-                            </svg>
-                            <span class="text-sm font-semibold">Continue with Google</span>
-                        </button>
-                        <div class="relative flex items-center py-2">
-                            <div class="flex-grow border-t border-white/5"></div>
-                            <span
-                                class="flex-shrink mx-4 text-outline text-[10px] font-bold uppercase tracking-widest">or
-                                email</span>
-                            <div class="flex-grow border-t border-white/5"></div>
-                        </div>
-                        <!-- Inputs -->
-                        <div class="space-y-4">
-                            <div class="space-y-2">
-                                <label class="text-xs font-bold uppercase tracking-widest text-primary/80 ml-1"
-                                    for="email">Email Address</label>
-                                <div class="relative group">
-                                    <span
-                                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">mail</span>
-                                    <input
-                                        class="w-full bg-white/5 border-0 border-b border-white/10 focus:ring-0 focus:border-primary py-3 pl-12 pr-4 text-on-surface placeholder:text-outline/50 transition-all"
-                                        id="email" placeholder="name@example.com" type="email" />
-                                </div>
-                            </div>
-                            <div class="space-y-2">
-                                <div class="flex justify-between items-end px-1">
-                                    <label class="text-xs font-bold uppercase tracking-widest text-primary/80"
-                                        for="password">Password</label>
-                                    <a class="text-[10px] font-bold text-outline hover:text-primary transition-colors"
-                                        href="#">Forgot?</a>
-                                </div>
-                                <div class="relative group">
-                                    <span
-                                        class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">lock</span>
-                                    <input
-                                        class="w-full bg-white/5 border-0 border-b border-white/10 focus:ring-0 focus:border-primary py-3 pl-12 pr-4 text-on-surface placeholder:text-outline/50 transition-all"
-                                        id="password" placeholder="••••••••" type="password" />
-                                </div>
-                            </div>
-                        </div>
-                        <!-- CTA -->
-                        <button
-                            class="w-full liquid-gradient text-white py-4 rounded-md font-bold text-sm tracking-wide shadow-[0_10px_20px_-5px_rgba(124,58,237,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(124,58,237,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
-                            type="submit">
-                            SIGN IN
-                        </button>
-                    </form>
+                <div class="space-y-2">
+                  <div class="flex justify-between items-end px-1">
+                    <label
+                      class="text-xs font-bold uppercase tracking-widest text-primary/80"
+                      for="password"
+                      >Password</label
+                    >
+                    <a
+                      class="text-[10px] font-bold text-outline hover:text-primary transition-colors"
+                      href="#"
+                      >Forgot?</a
+                    >
+                  </div>
+                  <div class="relative group">
+                    <span
+                      class="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors"
+                      >lock</span
+                    >
+                    <input
+                      class="w-full bg-white/5 border-0 border-b border-white/10 focus:ring-0 focus:border-primary py-3 pl-12 pr-4 text-on-surface placeholder:text-outline/50 transition-all"
+                      id="password"
+                      placeholder="••••••••"
+                      type="password"
+                    />
+                  </div>
                 </div>
-                <div class="text-center">
-                    <p class="text-outline text-sm">
-                        Don't have an account?
-                        <a class="text-primary font-bold hover:underline underline-offset-4 ml-1" href="#">Create
-                            Account</a>
-                    </p>
-                </div>
-            </div>
-            <!-- Footer Links -->
-            <footer class="mt-auto pt-12 flex gap-6 text-[10px] font-bold uppercase tracking-widest text-outline/40">
-                <a class="hover:text-primary transition-colors" href="#">Terms of Service</a>
-                <a class="hover:text-primary transition-colors" href="#">Privacy Policy</a>
-                <a class="hover:text-primary transition-colors" href="#">Support</a>
-            </footer>
-        </section>
+              </div>
+              <!-- CTA -->
+              <button
+                class="w-full liquid-gradient text-white py-4 rounded-md font-bold text-sm tracking-wide shadow-[0_10px_20px_-5px_rgba(124,58,237,0.4)] hover:shadow-[0_15px_30px_-5px_rgba(124,58,237,0.6)] hover:scale-[1.02] active:scale-[0.98] transition-all duration-300"
+                type="submit"
+              >
+                SIGN IN
+              </button>
+            </form>
+          </div>
+          <div class="text-center">
+            <p class="text-outline text-sm">
+              Don't have an account?
+              <a
+                class="text-primary font-bold hover:underline underline-offset-4 ml-1"
+                href="#"
+                >Create Account</a
+              >
+            </p>
+          </div>
+        </div>
+        <!-- Footer Links -->
+        <footer
+          class="mt-auto pt-12 flex gap-6 text-[10px] font-bold uppercase tracking-widest text-outline/40"
+        >
+          <a class="hover:text-primary transition-colors" href="#"
+            >Terms of Service</a
+          >
+          <a class="hover:text-primary transition-colors" href="#"
+            >Privacy Policy</a
+          >
+          <a class="hover:text-primary transition-colors" href="#">Support</a>
+        </footer>
+      </section>
     </main>
     <!-- Global Background Elements -->
     <div class="fixed inset-0 -z-50 pointer-events-none opacity-40">
-        <div class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-container/10 rounded-full blur-[100px]"></div>
-        <div
-            class="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-secondary-container/10 rounded-full blur-[120px]">
-        </div>
+      <div
+        class="absolute top-1/4 left-1/4 w-96 h-96 bg-primary-container/10 rounded-full blur-[100px]"
+      ></div>
+      <div
+        class="absolute bottom-1/4 right-1/4 w-[500px] h-[500px] bg-secondary-container/10 rounded-full blur-[120px]"
+      ></div>
     </div>
-</body>
-
+  </body>
 </html>

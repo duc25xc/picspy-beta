@@ -118,15 +118,17 @@
   }
 
   .btn-primary {
-    @apply btn text-white shadow-lg shadow-black/25 active:scale-95 transition-all duration-200;
+    @apply btn text-white shadow-lg active:scale-95 transition-all duration-200;
     background-color: var(--color-brand-600);
     border: 1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15));
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25), var(--box-shadow-neon-glow, 0 0 0 transparent);
     backdrop-filter: var(--color-brand-blur, none);
     -webkit-backdrop-filter: var(--color-brand-blur, none);
   }
 
   .btn-primary:hover {
     background-color: var(--color-brand-500);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3), var(--box-shadow-neon-glow, 0 0 0 transparent);
   }
 
   .btn-secondary {
@@ -257,7 +259,7 @@
     backdrop-filter: blur(32px) saturate(180%);
     -webkit-backdrop-filter: blur(32px) saturate(180%);
     border-bottom: 1px solid var(--color-glass-border);
-    box-shadow: 0 8px 32px var(--color-glass-shadow);
+    box-shadow: 0 8px 32px var(--color-glass-shadow), var(--box-shadow-neon-glow, 0 0 0 transparent);
     transition:
       background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),
       border-color 0.5s cubic-bezier(0.4, 0, 0.2, 1),

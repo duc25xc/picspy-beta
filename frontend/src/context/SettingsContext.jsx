@@ -34,7 +34,8 @@ function hexToHsl(hex) {
 }
 
 // Cập nhật bảng màu CSS variables cho brand từ HEX
-export function applyThemeBrandColors(primaryHex, gradientEndHex, opacity = 1, blur = 0) {
+// Cập nhật bảng màu CSS variables cho brand từ HEX
+export function applyThemeBrandColors(primaryHex, gradientEndHex, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') {
   const root = document.documentElement;
   if (!primaryHex) return;
 
@@ -67,8 +68,24 @@ export function applyThemeBrandColors(primaryHex, gradientEndHex, opacity = 1, b
   });
 
   // Set gradient end
-  if (gradientEndHex) {
+  if (enableGradient && gradientEndHex) {
     root.style.setProperty('--color-brand-gradient-end', gradientEndHex);
+  } else {
+    // If gradient is disabled, make gradient end color match the primary brand color shade (600) so it's a flat solid color with the same opacity!
+    root.style.setProperty('--color-brand-gradient-end', `hsla(${h}, ${s}%, 44%, ${opacity})`);
+  }
+
+  // Apply shadowStyle CSS variables
+  if (shadowStyle === 'glow') {
+    root.style.setProperty('--box-shadow-neon-glow', `0 0 20px hsla(${h}, ${s}%, 55%, 0.35)`);
+    root.style.setProperty('--color-glass-hover-glow', `hsla(${h}, ${s}%, 55%, 0.25)`);
+  } else if (shadowStyle === 'none') {
+    root.style.setProperty('--box-shadow-neon-glow', 'none');
+    root.style.setProperty('--color-glass-hover-glow', 'transparent');
+  } else {
+    // soft
+    root.style.setProperty('--box-shadow-neon-glow', 'none');
+    root.style.setProperty('--color-glass-hover-glow', `hsla(${h}, ${s}%, 52%, 0.08)`);
   }
 }
 
@@ -93,16 +110,20 @@ export const SettingsProvider = ({ children }) => {
     gradientColor: '#3b82f6',
     brandOpacity: 1,
     brandBlur: 0,
+    enableGradient: true,
+    shadowStyle: 'soft',
   });
 
-  const updateBrandColors = (primary, gradient, opacity = 1, blur = 0) => {
+  const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
       primaryColor: primary,
       gradientColor: gradient,
       brandOpacity: opacity,
       brandBlur: blur,
+      enableGradient,
+      shadowStyle,
     });
-    applyThemeBrandColors(primary, gradient, opacity, blur);
+    applyThemeBrandColors(primary, gradient, opacity, blur, enableGradient, shadowStyle);
   };
 
   // Load public settings (colors) on mount
@@ -114,7 +135,9 @@ export const SettingsProvider = ({ children }) => {
             data.primaryColor,
             data.gradientColor,
             data.brandOpacity !== undefined ? data.brandOpacity : 1,
-            data.brandBlur !== undefined ? data.brandBlur : 0
+            data.brandBlur !== undefined ? data.brandBlur : 0,
+            data.enableGradient !== undefined ? data.enableGradient : true,
+            data.shadowStyle || 'soft'
           );
         }
       })

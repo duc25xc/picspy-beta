@@ -34,6 +34,14 @@ const settingsSchema = new mongoose.Schema(
       type: Number,
       default: 0, // px blur
     },
+    enableGradient: {
+      type: Boolean,
+      default: true,
+    },
+    shadowStyle: {
+      type: String,
+      default: 'soft', // 'none', 'soft', 'glow'
+    },
   },
   {
     timestamps: true,

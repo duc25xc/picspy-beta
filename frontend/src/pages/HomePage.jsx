@@ -51,7 +51,8 @@ const FontLoader = () => (
       border: 1px solid var(--color-glass-border);
       box-shadow: 
         inset 0 1px 0 var(--color-glass-inset-glow),
-        0 8px 32px var(--color-glass-shadow);
+        0 8px 32px var(--color-glass-shadow),
+        var(--box-shadow-neon-glow, 0 0 0 transparent);
       transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -62,7 +63,8 @@ const FontLoader = () => (
       border: 1px solid var(--color-glass-strong-border);
       box-shadow:
         inset 0 1px 0 var(--color-glass-strong-inset),
-        0 20px 60px var(--color-glass-shadow);
+        0 20px 60px var(--color-glass-shadow),
+        var(--box-shadow-neon-glow, 0 0 0 transparent);
       transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
@@ -75,7 +77,7 @@ const FontLoader = () => (
       box-shadow:
         inset 0 1px 0 var(--color-glass-hover-inset),
         0 12px 40px var(--color-glass-shadow),
-        0 0 40px var(--color-glass-hover-glow);
+        var(--box-shadow-neon-glow, 0 0 40px var(--color-glass-hover-glow));
     }
 
     /* ── Gradient text — giống HomePage cũ, tương thích Light/Dark ── */
