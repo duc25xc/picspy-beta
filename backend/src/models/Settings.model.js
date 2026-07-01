@@ -42,6 +42,11 @@ const settingsSchema = new mongoose.Schema(
       type: String,
       default: 'soft', // 'none', 'soft', 'glow'
     },
+    categoryStyle: {
+      type: String,
+      enum: ['style-1', 'style-2', 'style-3', 'style-4'],
+      default: 'style-1',
+    },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,

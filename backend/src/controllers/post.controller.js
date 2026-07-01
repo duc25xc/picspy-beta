@@ -1568,3 +1568,159 @@ export const searchByImage = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * GET /posts/homepage-data — Trích xuất thống kê và dữ liệu thời gian thực cho trang chủ
+ */
+export const getHomepageData = async (req, res, next) => {
+  try {
+    const User = (await import('../models/User.model.js')).default
+    const Settings = (await import('../models/Settings.model.js')).default
+
+    // 1. Settings (categoryStyle)
+    const settings = await Settings.getSingleton()
+    const categoryStyle = settings.categoryStyle || 'style-1'
+
+    // 2. Stats
+    const totalPosts = await Post.countDocuments({ status: 'approved' })
+    
+    // Sum total downloads
+    const downloadsAgg = await Post.aggregate([
+      { $match: { status: 'approved' } },
+      { $group: { _id: null, total: { $sum: '$stats.downloadsCount' } } }
+    ])
+    const totalDownloads = downloadsAgg[0]?.total || 0
+
+    // Count creators (users who have postsCount > 0 or have role creator/admin)
+    const creatorsCount = await User.countDocuments({
+      $or: [
+        { role: 'creator' },
+        { 'stats.postsCount': { $gt: 0 } }
+      ]
+    })
+
+    // Sum total coins paid (totalEarned from all users)
+    const coinsAgg = await User.aggregate([
+      { $group: { _id: null, total: { $sum: '$totalEarned' } } }
+    ])
+    const totalCoinsPaid = coinsAgg[0]?.total || 0
+
+    // 3. Featured Categories
+    const categoriesList = ['nature', 'cyberpunk', 'minimal', 'street', 'studio', 'anime']
+    const categoriesData = await Promise.all(categoriesList.map(async (cat) => {
+      const count = await Post.countDocuments({ status: 'approved', category: cat })
+      // Lấy tối đa 6 ảnh để hiển thị dạng Grid (Style 2), Carousel (Style 3) hoặc Split (Style 4)
+      const topPosts = await Post.find({ status: 'approved', category: cat })
+        .sort({ 'stats.viewsCount': -1, 'stats.likesCount': -1, _id: -1 })
+        .limit(6)
+        .select('_id generatedImages images caption prompt tags')
+        .lean()
+      
+      return {
+        key: cat,
+        count,
+        posts: topPosts
+      }
+    }))
+
+    // 4. Hero Background Collage (8 ảnh mới nhất từ database)
+    const collagePosts = await Post.find({ status: 'approved' })
+      .sort({ _id: -1 })
+      .limit(8)
+      .select('generatedImages images')
+      .lean()
+
+    // 5. Weekly Trending (top 3 posts sorted by hotScore in last 30 days)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+    const trendingPosts = await Post.aggregate([
+      { $match: { status: 'approved', createdAt: { $gte: thirtyDaysAgo } } },
+      {
+        $addFields: {
+          hotScore: {
+            $add: [
+              { $multiply: ['$stats.viewsCount', 1] },
+              { $multiply: ['$stats.likesCount', 3] },
+              { $multiply: ['$stats.downloadsCount', 5] },
+            ],
+          },
+        },
+      },
+      { $sort: { hotScore: -1, _id: -1 } },
+      { $limit: 3 },
+      {
+        $lookup: {
+          from: 'users',
+          localField: 'authorId',
+          foreignField: '_id',
+          pipeline: [
+            {
+              $project: {
+                username: 1,
+                displayName: 1,
+                avatar: 1,
+                isVerified: 1,
+              },
+            },
+          ],
+          as: 'authorId',
+        },
+      },
+      { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } }
+    ])
+
+    // 6. New Collections (8 newest approved posts)
+    const newCollections = await Post.find({ status: 'approved' })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .populate('authorId', 'username displayName avatar isVerified')
+      .lean()
+
+    // 7. Leaderboard (top 4 creators with followersCount desc)
+    const leaderboardCreators = await User.find({
+      $or: [
+        { role: 'creator' },
+        { 'stats.postsCount': { $gt: 0 } }
+      ]
+    })
+      .sort({ 'stats.followersCount': -1, _id: -1 })
+      .limit(4)
+      .select('username displayName avatar stats isVerified')
+      .lean()
+
+    // Nếu người dùng đã đăng nhập, kiểm tra xem họ đã follow creator này chưa
+    let followMap = {}
+    if (req.user) {
+      const Follow = (await import('../models/Follow.model.js')).default
+      const creatorIds = leaderboardCreators.map(c => c._id)
+      const follows = await Follow.find({
+        followerId: req.user._id,
+        followingId: { $in: creatorIds }
+      }).lean()
+      follows.forEach(f => {
+        followMap[f.followingId.toString()] = true
+      })
+    }
+
+    const leaderboard = leaderboardCreators.map(c => ({
+      ...c,
+      isFollowing: !!followMap[c._id.toString()]
+    }))
+
+    res.json({
+      categoryStyle,
+      stats: {
+        totalPosts,
+        totalDownloads,
+        totalCreators: creatorsCount,
+        totalCoinsPaid
+      },
+      categories: categoriesData,
+      collage: collagePosts,
+      trending: trendingPosts,
+      newCollections,
+      leaderboard
+    })
+  } catch (err) {
+    next(err)
+  }
+}

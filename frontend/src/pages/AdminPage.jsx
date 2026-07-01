@@ -1156,6 +1156,11 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [announcementEnabled, setAnnouncementEnabled] = useState(false)
   const [announcementSaving, setAnnouncementSaving] = useState(false)
 
+  // Category Style state
+  const [categoryStyle, setCategoryStyle] = useState('style-1')
+  const [categorySaving, setCategorySaving] = useState(false)
+  const [activeSubTab, setActiveSubTab] = useState('general')
+
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
     gradient: '#3b82f6',
@@ -1204,6 +1209,9 @@ const SettingsTab = ({ onDirtyChange }) => {
         setAnnouncementText(data.settings?.announcementText || '')
         setAnnouncementLink(data.settings?.announcementLink || '')
         setAnnouncementEnabled(data.settings?.announcementEnabled || false)
+
+        // Category style load
+        setCategoryStyle(data.settings?.categoryStyle || 'style-1')
 
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
@@ -1372,6 +1380,20 @@ const SettingsTab = ({ onDirtyChange }) => {
     }
   }
 
+  const handleSaveCategoryStyle = async (newStyle) => {
+    setCategorySaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { categoryStyle: newStyle })
+      setSettings(data.settings)
+      setCategoryStyle(data.settings?.categoryStyle || 'style-1')
+      toast.success('🎨 Đã cập nhật giao diện danh mục nổi bật!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu giao diện danh mục')
+    } finally {
+      setCategorySaving(false)
+    }
+  }
+
   const localPreviewCSSVariables = (() => {
     const { h, s } = hexToHsl(primaryColor);
     const startVal = `hsla(${h}, ${s}%, 44%, ${brandOpacity})`;
@@ -1409,8 +1431,30 @@ const SettingsTab = ({ onDirtyChange }) => {
         <p className="text-sm text-white/40">Quản lý các tính năng và hành vi tự động của PicSpy.</p>
       </div>
 
-      {/* ── Auto Approve Toggle ─── */}
-      <motion.div
+      {/* Sub-tabs Navigation */}
+      <div className="flex gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 max-w-md">
+        {[
+          { key: 'general', label: '📁 Cấu hình Chung' },
+          { key: 'branding', label: '🎨 Giao diện & Màu sắc' },
+          { key: 'homepage', label: '🏠 Trang chủ' }
+        ].map((subTab) => (
+          <button
+            key={subTab.key}
+            type="button"
+            onClick={() => setActiveSubTab(subTab.key)}
+            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer text-center
+              ${activeSubTab === subTab.key
+                ? 'bg-brand-600 text-white shadow-md font-display'
+                : 'text-white/60 hover:text-white hover:bg-white/5'}`}
+          >
+            {subTab.label}
+          </button>
+        ))}
+      </div>
+
+      {activeSubTab === 'general' && (
+        // ── Auto Approve Toggle ───
+          <motion.div
         className={`card p-6 border transition-all duration-300 ${
           settings?.autoApprove
             ? 'border-green-500/40 bg-green-500/5'
@@ -1467,10 +1511,11 @@ const SettingsTab = ({ onDirtyChange }) => {
             {saving && <Loader2 size={10} className="absolute inset-0 m-auto text-white animate-spin" />}
           </motion.button>
         </div>
-      </motion.div>
+      </motion.div>)}
 
       {/* ── Theme Customizer Card ─── */}
-      <div className="card p-6 border border-white/10 space-y-5">
+      {activeSubTab === 'branding' && (
+        <div className="card p-6 border border-white/10 space-y-5">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
             <Palette className="text-brand-400" size={22} />
@@ -1756,10 +1801,11 @@ const SettingsTab = ({ onDirtyChange }) => {
             Lưu cấu hình màu
           </button>
         </div>
-      </div>
+      </div>)}
 
       {/* ── Announcement Banner Card ─── */}
-      <div className="card p-6 border border-white/10 space-y-5">
+      {activeSubTab === 'general' && (
+        <div className="card p-6 border border-white/10 space-y-5">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
             <Megaphone className="text-brand-400" size={22} />
@@ -1831,7 +1877,69 @@ const SettingsTab = ({ onDirtyChange }) => {
             Lưu và áp dụng thông báo
           </button>
         </div>
-      </div>
+      </div>)}
+
+      {/* ── Featured Categories Style Settings ─── */}
+      {activeSubTab === 'homepage' && (
+        <div className="card p-6 border-white/5 space-y-5 bg-white/[0.01]">
+        <div className="flex items-center justify-between border-b border-white/5 pb-4">
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              <Palette size={16} className="text-brand-400" /> Cấu hình Giao diện Danh mục nổi bật
+            </h3>
+            <p className="text-[11px] text-white/40">Chọn kiểu hiển thị của hàng danh mục nổi bật ngoài trang chủ</p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            {
+              key: 'style-1',
+              title: 'Style 1: Ảnh bìa Đơn (Cổ điển)',
+              desc: 'Tự động lấy 1 ảnh nổi bật nhất có lượt xem cao nhất của danh mục làm ảnh bìa.'
+            },
+            {
+              key: 'style-2',
+              title: 'Style 2: Lưới 4 ảnh nghệ thuật',
+              desc: 'Lấy top 4 ảnh nhiều views nhất sắp xếp dạng lưới Asymmetrical Staggered nghệ thuật.'
+            },
+            {
+              key: 'style-3',
+              title: 'Style 3: Slideshow tự xoay vòng',
+              desc: 'Tự động xoay vòng 5-6 ảnh nổi bật nhất sau mỗi 2 giây bằng hiệu ứng mờ dần (Fade).'
+            },
+            {
+              key: 'style-4',
+              title: 'Style 4: Lát cắt dọc tương tác',
+              desc: 'Chia card làm 3 cột dọc. Hover cột nào cột đó mở rộng (flex-grow) và hiển thị chi tiết prompt.'
+            }
+          ].map((styleOpt) => (
+            <div
+              key={styleOpt.key}
+              onClick={() => !categorySaving && handleSaveCategoryStyle(styleOpt.key)}
+              className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer text-left flex flex-col justify-between group min-h-[160px]
+                ${categoryStyle === styleOpt.key
+                  ? 'border-brand-500 bg-brand-500/5 shadow-md shadow-brand-500/5'
+                  : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'}`}
+            >
+              <div>
+                <p className={`text-xs font-bold transition-colors ${categoryStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
+                  {styleOpt.title}
+                </p>
+                <p className="text-[10px] text-white/50 mt-2 leading-relaxed">{styleOpt.desc}</p>
+              </div>
+              <div className="flex justify-end mt-4">
+                <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border
+                  ${categoryStyle === styleOpt.key
+                    ? 'border-brand-500/30 bg-brand-500/10 text-brand-300'
+                    : 'border-white/10 text-white/30'}`}>
+                  {categoryStyle === styleOpt.key ? 'Đang hoạt động' : 'Kích hoạt'}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>)}
 
       {/* ── Info card ─── */}
       <div className="card p-5 border-blue-500/20 bg-blue-500/5">

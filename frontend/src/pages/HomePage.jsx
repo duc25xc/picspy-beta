@@ -1,5 +1,6 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import api from '../api/api'
+import toast from 'react-hot-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import PostDetailModal from '../components/post/PostDetailModal'
 import ContentLoader from '../components/ui/ContentLoader'
@@ -29,6 +30,8 @@ import {
   Bookmark,
   Search,
   Bell,
+  Copy,
+  Check,
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
 
@@ -306,6 +309,59 @@ const LiquidCard = ({ children, className = '', strong = false, ...props }) => (
   </div>
 )
 
+/* Animated Counter Component */
+const AnimatedCounter = ({ targetValue, format = '', color }) => {
+  const [count, setCount] = useState(0)
+  const ref = useRef(null)
+  const hasAnimated = useRef(false)
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting && !hasAnimated.current) {
+          hasAnimated.current = true
+          const duration = 1200 // ms
+          const startTime = performance.now()
+
+          const animate = (now) => {
+            const elapsed = now - startTime
+            const progress = Math.min(elapsed / duration, 1)
+            // Ease-out expo curve
+            const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
+            const current = Math.floor(easeProgress * targetValue)
+            setCount(current)
+
+            if (progress < 1) {
+              requestAnimationFrame(animate)
+            }
+          }
+          requestAnimationFrame(animate)
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    if (ref.current) observer.observe(ref.current)
+    return () => observer.disconnect()
+  }, [targetValue])
+
+  const formatNumber = (num) => {
+    if (num >= 1000000) {
+      return (num / 1000000).toFixed(1).replace('.0', '') + 'M'
+    }
+    if (num >= 1000) {
+      return (num / 1000).toFixed(1).replace('.0', '') + 'K'
+    }
+    return num.toString()
+  }
+
+  return (
+    <span ref={ref} style={{ color, textShadow: `0 0 20px ${color}50` }}>
+      {formatNumber(count)}{format}
+    </span>
+  )
+}
+
 /* Stat counter card */
 const StatCard = ({ value, label, color, delay }) => (
   <motion.div
@@ -326,7 +382,7 @@ const StatCard = ({ value, label, color, delay }) => (
         className="text-4xl font-black pj mb-1.5 relative z-10"
         style={{ color, textShadow: `0 0 30px ${color}60` }}
       >
-        {value}
+        <AnimatedCounter targetValue={parseInt(value) || 0} format={value.toString().includes('+') ? '+' : ''} color={color} />
       </p>
       <p className="text-foreground/45 dark:text-white/45 text-[10px] font-bold tracking-widest uppercase pj relative z-10">
         {label}
@@ -335,129 +391,286 @@ const StatCard = ({ value, label, color, delay }) => (
   </motion.div>
 )
 
-/* Category card */
-const CategoryCard = ({ label, count, emoji, img, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, scale: 0.93 }}
-    whileInView={{ opacity: 1, scale: 1 }}
-    viewport={{ once: true }}
-    transition={{ delay, duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
-    className="group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer img-card-glow transition-all duration-500"
-  >
-    <img
-      src={img}
-      alt={label}
-      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
-      loading="lazy"
-    />
-    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-    {/* Floating label */}
-    <div className="absolute bottom-5 left-4 right-4 translate-y-1 group-hover:translate-y-0 transition-transform duration-400">
-      <LiquidCard className="px-4 py-3">
-        <span className="text-sm font-bold text-foreground dark:text-white pj flex items-center gap-2">
-          <span>{emoji}</span> {label}
-        </span>
-        <p className="text-[10px] text-foreground/60 dark:text-white/60 font-bold uppercase tracking-wider pj mt-0.5">
-          {count} tác phẩm
-        </p>
-      </LiquidCard>
-    </div>
-  </motion.div>
-)
+/* Category card with 4 dynamic layout styles configured by Admin */
+const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', delay, onClick }) => {
+  const cardRef = useRef(null)
+  const [activeIndex, setActiveIndex] = useState(0)
 
-/* Trending image card */
-const TrendingCard = ({ item, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 24 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ delay, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
-    className="group relative rounded-2xl overflow-hidden cursor-pointer img-card-glow transition-all duration-500"
-  >
-    <img
-      src={item.img}
-      alt={item.title}
-      className="w-full aspect-[16/10] object-cover group-hover:opacity-70 transition-all duration-500"
-      loading="lazy"
-    />
-    {/* Hover overlay */}
-    <div className="absolute inset-0 flex flex-col justify-end p-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-      <div className="liquid-glass rounded-xl px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div
-            className="w-8 h-8 rounded-full bg-gradient-brand
-            flex items-center justify-center text-white text-xs font-black pj"
-          >
-            {item.avatar}
-          </div>
-          <div>
-            <p className="font-bold text-sm text-foreground pj">
-              {item.author}
-            </p>
-            <p className="text-[11px] text-foreground/60 pj">{item.title}</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 text-sm text-foreground/80">
-          <button className="flex items-center gap-1 hover:text-red-400 transition-colors">
-            <Heart size={14} className="fill-red-400 text-red-400" />
-            <span className="font-bold pj">
-              {(item.likes / 1000).toFixed(1)}k
-            </span>
-          </button>
-          <button className="hover:text-brand-400 transition-colors">
-            <Bookmark size={14} />
-          </button>
-        </div>
-      </div>
-    </div>
-  </motion.div>
-)
+  // Auto transition for Style 3 slideshow (Intersection Observer optimized)
+  useEffect(() => {
+    if (style !== 'style-3' || posts.length <= 1) return
 
-/* Masonry drop card */
-const MasonryCard = ({ item, index }) => (
-  <motion.div
-    initial={{ opacity: 0, y: 20 }}
-    whileInView={{ opacity: 1, y: 0 }}
-    viewport={{ once: true }}
-    transition={{ delay: index * 0.07, duration: 0.5 }}
-    className={`group relative overflow-hidden rounded-2xl cursor-pointer break-inside-avoid
-      img-card-glow transition-all duration-500 mb-5
-      ${item.h === 'tall' ? 'aspect-[3/4]' : 'aspect-square'}`}
-  >
-    <img
-      src={item.img}
-      alt=""
-      className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
-      loading="lazy"
-    />
-    <div
-      className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent
-      to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-    />
-    {item.badge && (
-      <div className="absolute top-3 left-3">
-        <span
-          className="badge-brand px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider backdrop-blur-md pj"
-        >
-          {item.badge}
-        </span>
-      </div>
-    )}
-    <div
-      className="absolute bottom-0 left-0 right-0 p-3
-      translate-y-full group-hover:translate-y-0 transition-transform duration-300"
+    let observer
+    let intervalId
+
+    const startCarousel = () => {
+      intervalId = setInterval(() => {
+        setActiveIndex((prev) => (prev + 1) % Math.min(posts.length, 5))
+      }, 2000)
+    }
+
+    const stopCarousel = () => {
+      if (intervalId) clearInterval(intervalId)
+    }
+
+    if (cardRef.current) {
+      observer = new IntersectionObserver(([entry]) => {
+        if (entry.isIntersecting) {
+          startCarousel()
+        } else {
+          stopCarousel()
+        }
+      }, { threshold: 0.05 })
+      observer.observe(cardRef.current)
+    }
+
+    return () => {
+      stopCarousel()
+      if (observer) observer.disconnect()
+    }
+  }, [style, posts])
+
+  const fallbackImg = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+  const getPostImg = (p) => p?.generatedImages?.[0]?.thumbnailUrl || p?.images?.[0]?.thumbnailUrl || p?.generatedImages?.[0]?.url || p?.images?.[0]?.url || fallbackImg
+
+  return (
+    <motion.div
+      ref={cardRef}
+      initial={{ opacity: 0, scale: 0.93 }}
+      whileInView={{ opacity: 1, scale: 1 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 0.55, ease: [0.23, 1, 0.32, 1] }}
+      onClick={onClick}
+      className="group relative aspect-[4/5] rounded-2xl overflow-hidden cursor-pointer img-card-glow transition-all duration-500"
     >
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5 text-white/70 text-xs pj">
-          <Eye size={11} /> {(Math.random() * 5 + 1).toFixed(1)}k views
+      {/* STYLE 1: Single Card Cover */}
+      {style === 'style-1' && (
+        <img
+          src={posts.length > 0 ? getPostImg(posts[0]) : fallbackImg}
+          alt={label}
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+          loading="lazy"
+        />
+      )}
+
+      {/* STYLE 2: Asymmetrical Staggered Grid */}
+      {style === 'style-2' && (
+        <div className="absolute inset-0 grid grid-cols-2 gap-1 p-1 bg-[#121214]/50 dark:bg-black/40">
+          <div className="flex flex-col gap-1 h-full">
+            <div className="flex-[3] rounded-lg overflow-hidden border border-white/5 bg-white/5">
+              <img src={posts[0] ? getPostImg(posts[0]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div className="flex-[2] rounded-lg overflow-hidden border border-white/5 bg-white/5">
+              <img src={posts[1] ? getPostImg(posts[1]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+          </div>
+          <div className="flex flex-col gap-1 h-full">
+            <div className="flex-[2] rounded-lg overflow-hidden border border-white/5 bg-white/5">
+              <img src={posts[2] ? getPostImg(posts[2]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+            <div className="flex-[3] rounded-lg overflow-hidden border border-white/5 bg-white/5">
+              <img src={posts[3] ? getPostImg(posts[3]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+            </div>
+          </div>
         </div>
-        <button className="flex items-center gap-1 text-white/70 text-xs hover:text-red-400 transition-colors">
-          <Heart size={11} />
-        </button>
+      )}
+
+      {/* STYLE 3: Slideshow Carousel */}
+      {style === 'style-3' && (
+        <div className="absolute inset-0 bg-[#121214]/50 dark:bg-black/40">
+          {(posts.length > 0 ? posts.slice(0, 5) : [null]).map((post, idx) => (
+            <img
+              key={post?._id || idx}
+              src={post ? getPostImg(post) : fallbackImg}
+              alt={label}
+              className={`absolute inset-0 w-full h-full object-cover transition-all duration-1000
+                ${idx === activeIndex ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}
+              loading="lazy"
+            />
+          ))}
+        </div>
+      )}
+
+      {/* STYLE 4: Interactive Split Slices */}
+      {style === 'style-4' && (
+        <div className="absolute inset-0 flex overflow-hidden bg-[#121214]/50 dark:bg-black/40">
+          {(posts.length > 0 ? posts.slice(0, 3) : [null, null, null]).map((post, idx) => (
+            <div
+              key={post?._id || idx}
+              className="h-full relative flex-1 hover:flex-[3.5] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group/slice overflow-hidden border-r border-white/5 last:border-r-0"
+            >
+              <img
+                src={post ? getPostImg(post) : fallbackImg}
+                className="absolute inset-0 w-full h-full object-cover scale-105 group-hover/slice:scale-100 transition-transform duration-750"
+              />
+              <div className="absolute inset-0 bg-black/40 group-hover/slice:bg-black/10 transition-colors duration-300" />
+              {post && (
+                <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover/slice:opacity-100 transition-opacity duration-300 pointer-events-none delay-100 z-30">
+                  <p className="text-[9px] text-white/90 line-clamp-2 font-medium bg-black/75 backdrop-blur-md px-2 py-1 border border-white/10 leading-normal">
+                    {post.prompt || post.caption || "Art"}
+                  </p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/15 to-transparent pointer-events-none z-10" />
+
+      {/* Floating label */}
+      <div className="absolute bottom-5 left-4 right-4 translate-y-1 group-hover:translate-y-0 transition-transform duration-400 z-20 pointer-events-none">
+        <LiquidCard className="px-4 py-3">
+          <span className="text-sm font-bold text-foreground dark:text-white pj flex items-center gap-2">
+            <span>{emoji}</span> {label}
+          </span>
+          <p className="text-[10px] text-foreground/60 dark:text-white/60 font-bold uppercase tracking-wider pj mt-0.5">
+            {count} tác phẩm
+          </p>
+        </LiquidCard>
       </div>
-    </div>
-  </motion.div>
-)
+    </motion.div>
+  )
+}
+
+/* Trending image card with spotlight glow and copy prompt quick icon */
+const TrendingCard = ({ post, index, delay, onClick }) => {
+  const img = post.generatedImages?.[0] || post.images?.[0]
+  const displayUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
+  const author = post.authorId
+  const glowColor = post.colors?.[0]?.hex || '#7c3aed'
+  const isCenter = index === 1
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 24 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+      onClick={onClick}
+      className={`group relative rounded-2xl overflow-hidden cursor-pointer border transition-all duration-500 min-h-[220px] md:min-h-[260px]
+        ${isCenter 
+          ? 'scale-105 border-brand-500/30 z-15 shadow-2xl' 
+          : 'scale-95 opacity-80 border-white/5 hover:opacity-100 hover:scale-[0.98]'}`}
+      style={isCenter ? { boxShadow: `0 15px 45px -10px ${glowColor}50` } : {}}
+    >
+      <img
+        src={displayUrl}
+        alt={post.caption || "Trending Art"}
+        className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-700"
+        loading="lazy"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+
+      {/* Prompt copy button on top-right */}
+      {post.prompt && (
+        <div className="absolute top-4 right-4 z-20 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              navigator.clipboard.writeText(post.prompt)
+              toast.success('📋 Đã sao chép prompt!')
+            }}
+            className="w-8 h-8 rounded-lg bg-black/60 hover:bg-black/80 flex items-center justify-center text-white/70 hover:text-white transition-all cursor-pointer border border-white/10 backdrop-blur-md"
+            title="Sao chép prompt"
+          >
+            <Copy size={13} />
+          </button>
+        </div>
+      )}
+
+      {/* Hover info overlay at the bottom */}
+      <div className="absolute inset-x-0 bottom-0 p-4 z-10">
+        <div className="liquid-glass rounded-xl px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {author?.avatar ? (
+              <img src={author.avatar} alt={author.displayName} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-black pj">
+                {(author?.displayName || author?.username || 'U').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <p className="font-bold text-xs text-foreground pj">
+                {author?.displayName || author?.username || "Nghệ sĩ"}
+              </p>
+              <p className="text-[9px] text-foreground/60 pj line-clamp-1 w-28 md:w-36">
+                {post.caption || post.prompt || "Tác phẩm"}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 text-xs text-foreground/80">
+            <Heart size={12} className="fill-red-400 text-red-400" />
+            <span className="font-bold pj">{post.stats?.likesCount || 0}</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+
+/* Masonry drop card for New Collections */
+const MasonryCard = ({ post, index, onClick }) => {
+  const img = post.generatedImages?.[0] || post.images?.[0]
+  const displayUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
+  const isTall = index % 2 === 1
+  const views = post.stats?.viewsCount || 0
+  const formatViews = views >= 1000 ? (views / 1000).toFixed(1) + 'k' : views
+
+  // Badge text
+  let badge = null
+  if (post.postType === 'ai') badge = 'AI'
+  else if (post.postType === 'digital-raw') badge = 'RAW'
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay: index * 0.07, duration: 0.5 }}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl cursor-pointer break-inside-avoid
+        img-card-glow transition-all duration-500 mb-5 border border-white/5 bg-white/[0.02]
+        ${isTall ? 'aspect-[3/4]' : 'aspect-square'}`}
+    >
+      <img
+        src={displayUrl}
+        alt={post.caption || "Collection Image"}
+        className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
+        loading="lazy"
+      />
+      <div
+        className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent
+        to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+      />
+      {badge && (
+        <div className="absolute top-3 left-3">
+          <span
+            className="badge-brand px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider backdrop-blur-md pj"
+          >
+            {badge}
+          </span>
+        </div>
+      )}
+      <div
+        className="absolute bottom-0 left-0 right-0 p-4
+        translate-y-full group-hover:translate-y-0 transition-transform duration-300 z-10"
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-1.5 text-white/70 text-xs pj font-semibold">
+            <Eye size={12} /> {formatViews} views
+          </div>
+          <div className="flex items-center gap-1 text-white/70 text-xs hover:text-red-400 transition-colors">
+            <Heart size={12} className="fill-red-400 text-red-400" />
+            <span className="font-bold pj">{post.stats?.likesCount || 0}</span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
 
 // ── Magazine grid pattern: lặp mỗi 6 item ───────────────────
 const CARD_PATTERN = [
@@ -657,50 +870,64 @@ const GallerySkeleton = () => (
   </div>
 )
 
-/* Leaderboard row */
-const LeaderRow = ({ c, delay }) => (
-  <motion.div
-    initial={{ opacity: 0, x: 16 }}
-    whileInView={{ opacity: 1, x: 0 }}
-    viewport={{ once: true }}
-    transition={{ delay, duration: 0.4 }}
-    className="flex items-center justify-between group cursor-pointer py-2"
-  >
-    <div className="flex items-center gap-4">
-      <span className="text-foreground/30 font-black italic text-xl w-7 pj">
-        {c.rank}
-      </span>
-      <div className="relative">
-        <div
-          className="w-12 h-12 rounded-full bg-gradient-brand
-          flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
-        >
-          {c.avatar}
-        </div>
-        {c.pro && (
-          <span
-            className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black
-            px-1.5 py-0.5 rounded-sm text-white pj tracking-wide"
-          >
-            PRO
-          </span>
-        )}
-      </div>
-      <div>
-        <div className="font-bold text-sm text-foreground pj">{c.name}</div>
-        <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider pj">
-          {c.followers} followers
-        </div>
-      </div>
-    </div>
-    <button
-      className="w-8 h-8 rounded-full liquid-glass flex items-center justify-center
-      text-foreground/30 group-hover:text-brand-600 dark:group-hover:text-brand-400 transition-colors"
+/* Leaderboard row with dynamic details and follow toggler */
+const LeaderRow = ({ c, rank, delay, onFollow }) => {
+  const rankColors = ['text-yellow-500', 'text-slate-400', 'text-amber-700', 'text-slate-500']
+  const rankText = rank < 10 ? `0${rank}` : `${rank}`
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: 16 }}
+      whileInView={{ opacity: 1, x: 0 }}
+      viewport={{ once: true }}
+      transition={{ delay, duration: 0.4 }}
+      className="flex items-center justify-between group py-2"
     >
-      <Plus size={14} />
-    </button>
-  </motion.div>
-)
+      <div className="flex items-center gap-4">
+        <span className={`font-black italic text-xl w-7 pj ${rankColors[rank - 1] || 'text-foreground/30'}`}>
+          {rankText}
+        </span>
+        <div className="relative">
+          {c.avatar ? (
+            <img src={c.avatar} alt={c.displayName || c.username} className="w-12 h-12 rounded-full object-cover border border-[var(--color-border)]" />
+          ) : (
+            <div
+              className="w-12 h-12 rounded-full bg-gradient-brand
+              flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
+            >
+              {(c.displayName || c.username || 'U').slice(0, 2).toUpperCase()}
+            </div>
+          )}
+          {c.isVerified && (
+            <span
+              className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black
+              px-1.5 py-0.5 rounded-sm text-white pj tracking-wide"
+            >
+              PRO
+            </span>
+          )}
+        </div>
+        <div>
+          <div className="font-bold text-sm text-foreground pj">{c.displayName || c.username}</div>
+          <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider pj">
+            {c.stats?.followersCount || 0} followers
+          </div>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={() => onFollow?.(c._id)}
+        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border
+          ${c.isFollowing 
+            ? 'bg-green-500/10 border-green-500/30 text-green-500' 
+            : 'liquid-glass border-white/10 text-foreground/30 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/20'}`}
+        title={c.isFollowing ? "Đang theo dõi" : "Theo dõi"}
+      >
+        {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
+      </button>
+    </motion.div>
+  )
+}
 
 /* ─── Community Gallery Section với Feed Tabs ────────────── */
 const FEED_TABS = [
@@ -1141,7 +1368,98 @@ const CommunityGallerySection = () => {
 /* ─── Main Page ──────────────────────────────────────────── */
 const HomePage = () => {
   const heroRef = useRef(null)
+  const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState(0)
+  
+  const [homepageData, setHomepageData] = useState(null)
+  const [homepageLoading, setHomepageLoading] = useState(true)
+  const [likesInput, setLikesInput] = useState(1000)
+  const [selectedPostId, setSelectedPostId] = useState(null)
+
+  useEffect(() => {
+    api.get('/posts/homepage-data')
+      .then(({ data }) => {
+        setHomepageData(data)
+        setHomepageLoading(false)
+      })
+      .catch((err) => {
+        console.error('Error fetching homepage data:', err)
+        setHomepageLoading(false)
+      })
+  }, [])
+
+  const handleFollowCreator = async (creatorId) => {
+    try {
+      const { data } = await api.post(`/users/${creatorId}/follow`)
+      toast.success(data.message)
+      setHomepageData(prev => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          leaderboard: prev.leaderboard.map(c => 
+            c._id === creatorId 
+              ? { 
+                  ...c, 
+                  isFollowing: data.following, 
+                  stats: { ...c.stats, followersCount: c.stats.followersCount + (data.following ? 1 : -1) } 
+                } 
+              : c
+          )
+        }
+      })
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể theo dõi nghệ sĩ')
+    }
+  }
+
+  const collageImages = useMemo(() => {
+    const defaultCollage = [
+      'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=500&q=70',
+      'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=500&q=70',
+      'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=500&q=70',
+      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=70',
+      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=500&q=70',
+      'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=500&q=70',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=500&q=70',
+      'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?w=500&q=70',
+    ]
+    if (!homepageData?.collage || homepageData.collage.length < 8) return defaultCollage
+    return homepageData.collage.map(post => {
+      const img = post.generatedImages?.[0] || post.images?.[0]
+      return img?.previewUrl || img?.thumbnailUrl || img?.url || defaultCollage[0]
+    })
+  }, [homepageData])
+
+  const statsList = useMemo(() => {
+    return [
+      { value: homepageData?.stats?.totalPosts || 0, label: 'Wallpapers', color: '#a78bfa', format: '+' },
+      { value: homepageData?.stats?.totalDownloads || 0, label: 'Downloads', color: '#60a5fa', format: '' },
+      { value: homepageData?.stats?.totalCreators || 0, label: 'Creators', color: '#f59e0b', format: '' },
+      { value: homepageData?.stats?.totalCoinsPaid || 0, label: 'Xu đã trả', color: '#34d399', format: '+' }
+    ]
+  }, [homepageData])
+
+  const categoriesToRender = useMemo(() => {
+    const style = homepageData?.categoryStyle || 'style-1'
+    if (!homepageData?.categories) {
+      return CATEGORIES.map(c => ({
+        ...c,
+        posts: [],
+        style
+      }))
+    }
+    return GALLERY_CATEGORIES.filter(c => c.key !== 'all' && c.key !== 'other').map(c => {
+      const dbData = homepageData.categories.find(d => d.key === c.key)
+      return {
+        label: c.label,
+        emoji: c.emoji,
+        key: c.key,
+        count: dbData?.count || 0,
+        posts: dbData?.posts || [],
+        style
+      }
+    })
+  }, [homepageData])
 
   const { scrollYProgress } = useScroll({
     target: heroRef,
@@ -1186,12 +1504,7 @@ const HomePage = () => {
           <div className="flex flex-col gap-4 rotate-[10deg] scale-[1.35] -translate-y-8 w-full">
             {/* Hàng 1 */}
             <div className="flex gap-4">
-              {[
-                'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=500&q=70',
-                'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=500&q=70',
-                'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=500&q=70',
-                'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=70',
-              ].map((src, i) => (
+              {collageImages.slice(0, 4).map((src, i) => (
                 <div
                   key={i}
                   className={`flex-1 rounded-2xl overflow-hidden border border-white/5
@@ -1208,12 +1521,7 @@ const HomePage = () => {
             </div>
             {/* Hàng 2 — dịch ngang */}
             <div className="flex gap-4 -translate-x-16">
-              {[
-                'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=500&q=70',
-                'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=500&q=70',
-                'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=500&q=70',
-                'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?w=500&q=70',
-              ].map((src, i) => (
+              {collageImages.slice(4, 8).map((src, i) => (
                 <div
                   key={i}
                   className={`flex-1 rounded-2xl overflow-hidden border border-white/5
@@ -1386,7 +1694,7 @@ const HomePage = () => {
       <section className="max-w-7xl mx-auto px-4 -mt-16 relative z-20">
         <LiquidCard strong className="p-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-0 divide-x divide-[var(--color-border)]">
-            {STATS.map(({ value, label, color }, i) => (
+            {statsList.map(({ value, label, color, format }) => (
               <div
                 key={label}
                 className="text-center px-6 py-2 group cursor-default"
@@ -1394,9 +1702,8 @@ const HomePage = () => {
                 <p
                   className="text-3xl md:text-4xl font-black pj mb-1.5 transition-transform
                   duration-300 group-hover:scale-110"
-                  style={{ color, textShadow: `0 0 20px ${color}50` }}
                 >
-                  {value}
+                  <AnimatedCounter targetValue={value} format={format} color={color} />
                 </p>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-[#6D6255] dark:text-white/45 pj">
                   {label}
@@ -1445,8 +1752,17 @@ const HomePage = () => {
 
           {/* Category Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-            {CATEGORIES.map((cat, i) => (
-              <CategoryCard key={cat.label} {...cat} delay={i * 0.07} />
+            {categoriesToRender.map((cat, i) => (
+              <CategoryCard
+                key={cat.key}
+                label={cat.label}
+                count={cat.count}
+                emoji={cat.emoji}
+                posts={cat.posts}
+                style={cat.style}
+                delay={i * 0.07}
+                onClick={() => navigate(`/search?category=${cat.key}`)}
+              />
             ))}
           </div>
         </div>
@@ -1485,9 +1801,17 @@ const HomePage = () => {
 
           {/* 3-col grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TRENDING_COMMUNITY.map((item, i) => (
-              <TrendingCard key={item.title} item={item} delay={i * 0.1} />
-            ))}
+            {homepageData?.trending?.map((post, i) => (
+              <TrendingCard
+                key={post._id}
+                post={post}
+                index={i}
+                delay={i * 0.1}
+                onClick={() => setSelectedPostId(post._id)}
+              />
+            )) || (
+              <div className="col-span-3 text-center text-white/40 py-10">Đang tải xu hướng...</div>
+            )}
           </div>
         </div>
       </section>
@@ -1518,15 +1842,22 @@ const HomePage = () => {
                   Bộ sưu tập mới
                 </h2>
               </div>
-              <span className="text-foreground/45 dark:text-white/30 text-sm font-bold pj">
-                Cập nhật 5 phút trước
+              <span className="text-foreground/45 dark:text-white/30 text-sm font-bold pj flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" /> Live Feed
               </span>
             </motion.div>
 
             <div className="columns-2 gap-5">
-              {MASONRY_DROPS.map((item, i) => (
-                <MasonryCard key={i} item={item} index={i} />
-              ))}
+              {homepageData?.newCollections?.map((post, i) => (
+                <MasonryCard
+                  key={post._id}
+                  post={post}
+                  index={i}
+                  onClick={() => setSelectedPostId(post._id)}
+                />
+              )) || (
+                <div className="text-center text-white/40 py-10">Đang tải bộ sưu tập mới...</div>
+              )}
             </div>
           </div>
 
@@ -1543,11 +1874,18 @@ const HomePage = () => {
                   Bảng xếp hạng
                 </h2>
                 <div className="space-y-4 divide-y divide-[var(--color-border)]">
-                  {LEADERBOARD.map((c, i) => (
-                    <div key={c.rank} className={i > 0 ? 'pt-4' : ''}>
-                      <LeaderRow c={c} delay={i * 0.08} />
+                  {homepageData?.leaderboard?.map((c, i) => (
+                    <div key={c._id} className={i > 0 ? 'pt-4 border-[var(--color-border)]' : ''}>
+                      <LeaderRow
+                        c={c}
+                        rank={i + 1}
+                        delay={i * 0.08}
+                        onFollow={handleFollowCreator}
+                      />
                     </div>
-                  ))}
+                  )) || (
+                    <div className="text-center text-white/40 py-6">Đang tải xếp hạng...</div>
+                  )}
                 </div>
                 <Link to="/creators">
                   <motion.button
@@ -1626,25 +1964,43 @@ const HomePage = () => {
                   giúp bạn nhận lại giá trị xứng đáng từ mỗi lượt yêu thích.
                 </p>
 
-                {/* Coin equation */}
-                <div className="flex items-center justify-center lg:justify-start gap-5 mb-8">
-                  <div className="liquid-glass rounded-2xl p-4 text-center">
-                    <div className="text-2xl font-black text-foreground pj">
-                      1,000
-                    </div>
-                    <div className="text-[10px] font-bold uppercase text-foreground/50 pj">
-                      Lượt thích
-                    </div>
+                {/* Coin Reward Calculator Slider */}
+                <div className="space-y-4 mb-8">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black uppercase text-foreground/50 tracking-widest pj">Ước tính thu nhập của bạn</span>
                   </div>
-                  <div className="text-foreground/60 text-2xl font-black pj">
-                    =
-                  </div>
-                  <div className="liquid-glass rounded-2xl p-4 text-center">
-                    <div className="text-2xl font-black hero-gradient-text pj">
-                      5 Xu
+                  
+                  {/* Slider input */}
+                  <div className="bg-white/5 border border-white/5 rounded-2xl p-6 space-y-4 text-left">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <p className="text-2xl font-black text-foreground pj">
+                          {likesInput.toLocaleString()}
+                        </p>
+                        <p className="text-[9px] font-bold uppercase text-foreground/45 pj">Lượt thích</p>
+                      </div>
+                      <div className="text-foreground/40 text-xl font-bold">=</div>
+                      <div className="text-right">
+                        <p className="text-2xl font-black hero-gradient-text pj">
+                          {((likesInput / 1000) * 5).toFixed(1)} Xu
+                        </p>
+                        <p className="text-[9px] font-bold uppercase text-foreground/45 pj">Coin tích lũy</p>
+                      </div>
                     </div>
-                    <div className="text-[10px] font-bold uppercase text-foreground/50 pj">
-                      Coin
+
+                    <div className="pt-2">
+                      <input
+                        type="range"
+                        min="100"
+                        max="10000"
+                        step="100"
+                        value={likesInput}
+                        onChange={(e) => setLikesInput(parseInt(e.target.value))}
+                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                        style={{
+                          background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${(likesInput - 100) / 99}%, rgba(255,255,255,0.1) ${(likesInput - 100) / 99}%, rgba(255,255,255,0.1) 100%)`
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
@@ -1793,6 +2149,16 @@ const HomePage = () => {
           </div>
         </div>
       </footer>
+
+      {/* Post Detail Modal cho Trending và New Collections */}
+      <AnimatePresence>
+        {selectedPostId && (
+          <PostDetailModal
+            postId={selectedPostId}
+            onClose={() => setSelectedPostId(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   )
 }

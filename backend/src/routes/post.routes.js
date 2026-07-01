@@ -11,6 +11,7 @@ import {
   deletePost,
   getFollowingFeed,
   searchByImage,
+  getHomepageData,
 } from '../controllers/post.controller.js'
 import {
   getPostDetail,
@@ -44,6 +45,9 @@ const router = Router()
 
 /** GET /posts — Feed gallery công khai (chỉ approved) */
 router.get('/', getApprovedPosts)
+
+/** GET /posts/homepage-data — Trích xuất thống kê và dữ liệu thời gian thực cho trang chủ */
+router.get('/homepage-data', optionalAuth, getHomepageData)
 
 /** POST /posts/search-by-image — Tìm kiếm bằng hình ảnh (RGB Histogram) */
 router.post('/search-by-image', upload.single('image'), handleMulterError, searchByImage)
