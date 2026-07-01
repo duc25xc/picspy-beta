@@ -1581,6 +1581,17 @@ export const getHomepageData = async (req, res, next) => {
     const settings = await Settings.getSingleton()
     const categoryStyle = settings.categoryStyle || 'style-1'
 
+    let heroBannerImage = settings.heroBannerImage
+    if (settings.heroBannerMode === 'auto') {
+      const topPost = await Post.findOne({ status: 'approved' })
+        .sort({ 'stats.viewsCount': -1, _id: -1 })
+        .select('generatedImages images')
+        .lean()
+      if (topPost) {
+        heroBannerImage = topPost.generatedImages?.[0]?.url || topPost.images?.[0]?.url
+      }
+    }
+
     // 2. Stats
     const totalPosts = await Post.countDocuments({ status: 'approved' })
     
@@ -1623,12 +1634,36 @@ export const getHomepageData = async (req, res, next) => {
       }
     }))
 
-    // 4. Hero Background Collage (8 ảnh mới nhất từ database)
-    const collagePosts = await Post.find({ status: 'approved' })
-      .sort({ _id: -1 })
-      .limit(8)
-      .select('generatedImages images')
-      .lean()
+    // 4. Hero Background Collage (8 ảnh từ database hoặc manual settings)
+    let collageImages = []
+    if (settings.heroCollageMode === 'manual' && settings.heroCollageImages?.length >= 8) {
+      collageImages = settings.heroCollageImages.slice(0, 8)
+    } else {
+      const collagePosts = await Post.find({ status: 'approved' })
+        .sort({ _id: -1 })
+        .limit(8)
+        .select('generatedImages images')
+        .lean()
+      
+      collageImages = collagePosts.map(post => {
+        const img = post.generatedImages?.[0] || post.images?.[0]
+        return img?.previewUrl || img?.thumbnailUrl || img?.url || 'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?auto=format&fit=crop&w=500&q=70&fm=webp'
+      })
+      
+      const defaultCollage = [
+        'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?auto=format&fit=crop&w=500&q=70&fm=webp',
+      ]
+      while (collageImages.length < 8) {
+        collageImages.push(defaultCollage[collageImages.length] || defaultCollage[0])
+      }
+    }
 
     // 5. Weekly Trending (top 3 posts sorted by hotScore in last 30 days)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -1708,6 +1743,9 @@ export const getHomepageData = async (req, res, next) => {
 
     res.json({
       categoryStyle,
+      heroBannerMode: settings.heroBannerMode || 'auto',
+      heroBannerImage: heroBannerImage || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85',
+      heroCollageMode: settings.heroCollageMode || 'auto',
       stats: {
         totalPosts,
         totalDownloads,
@@ -1715,7 +1753,7 @@ export const getHomepageData = async (req, res, next) => {
         totalCoinsPaid
       },
       categories: categoriesData,
-      collage: collagePosts,
+      collage: collageImages,
       trending: trendingPosts,
       newCollections,
       leaderboard

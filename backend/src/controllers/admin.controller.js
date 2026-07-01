@@ -544,7 +544,8 @@ export const updateSettings = async (req, res, next) => {
       'autoApprove', 'autoApproveDelayMs', 'primaryColor', 'gradientColor', 
       'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
       'announcementText', 'announcementLink', 'announcementEnabled',
-      'categoryStyle'
+      'categoryStyle', 'heroBannerMode', 'heroBannerImage',
+      'heroCollageMode', 'heroCollageImages'
     ]
     const updates = {}
     allowed.forEach(key => {

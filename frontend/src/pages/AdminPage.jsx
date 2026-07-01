@@ -1161,6 +1161,12 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [categorySaving, setCategorySaving] = useState(false)
   const [activeSubTab, setActiveSubTab] = useState('general')
   const [selectedConfigPage, setSelectedConfigPage] = useState('home')
+  const [heroBannerMode, setHeroBannerMode] = useState('auto')
+  const [heroBannerImage, setHeroBannerImage] = useState('')
+  const [heroBannerSaving, setHeroBannerSaving] = useState(false)
+  const [heroCollageMode, setHeroCollageMode] = useState('auto')
+  const [heroCollageImages, setHeroCollageImages] = useState(Array(8).fill(''))
+  const [heroCollageSaving, setHeroCollageSaving] = useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -1213,6 +1219,13 @@ const SettingsTab = ({ onDirtyChange }) => {
 
         // Category style load
         setCategoryStyle(data.settings?.categoryStyle || 'style-1')
+        setHeroBannerMode(data.settings?.heroBannerMode || 'auto')
+        setHeroBannerImage(data.settings?.heroBannerImage || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85')
+        setHeroCollageMode(data.settings?.heroCollageMode || 'auto')
+        setHeroCollageImages(data.settings?.heroCollageImages?.length >= 8 
+          ? data.settings.heroCollageImages 
+          : Array(8).fill('')
+        )
 
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
@@ -1392,6 +1405,45 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi khi lưu giao diện danh mục')
     } finally {
       setCategorySaving(false)
+    }
+  }
+
+  const handleSaveHeroBanner = async () => {
+    setHeroBannerSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        heroBannerMode,
+        heroBannerImage
+      })
+      setSettings(data.settings)
+      setHeroBannerMode(data.settings?.heroBannerMode || 'auto')
+      setHeroBannerImage(data.settings?.heroBannerImage || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85')
+      toast.success('🏞️ Đã lưu cấu hình ảnh bìa số liệu!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu cấu hình ảnh bìa')
+    } finally {
+      setHeroBannerSaving(false)
+    }
+  }
+
+  const handleSaveHeroCollage = async () => {
+    setHeroCollageSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        heroCollageMode,
+        heroCollageImages
+      })
+      setSettings(data.settings)
+      setHeroCollageMode(data.settings?.heroCollageMode || 'auto')
+      setHeroCollageImages(data.settings?.heroCollageImages?.length >= 8 
+        ? data.settings.heroCollageImages 
+        : Array(8).fill('')
+      )
+      toast.success('🖼️ Đã lưu cấu hình ảnh nền Hero!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu cấu hình ảnh nền')
+    } finally {
+      setHeroCollageSaving(false)
     }
   }
 
@@ -1908,70 +1960,233 @@ const SettingsTab = ({ onDirtyChange }) => {
 
           {/* Render Home Page Config */}
           {selectedConfigPage === 'home' && (
-            <div className="card p-6 border-white/5 space-y-5 bg-white/[0.01]">
-              <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                <div>
-                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Palette size={16} className="text-brand-400" /> Cấu hình Giao diện Danh mục nổi bật
-                  </h3>
-                  <p className="text-[11px] text-white/40">Chọn kiểu hiển thị của hàng danh mục nổi bật ngoài trang chủ</p>
+            <>
+              <div className="card p-6 border-white/5 space-y-5 bg-white/[0.01]">
+                <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Palette size={16} className="text-brand-400" /> Cấu hình Giao diện Danh mục nổi bật
+                    </h3>
+                    <p className="text-[11px] text-white/40">Chọn kiểu hiển thị của hàng danh mục nổi bật ngoài trang chủ</p>
+                  </div>
+                  {categorySaving && (
+                    <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold">
+                      <Loader2 size={12} className="animate-spin" /> Đang cập nhật...
+                    </span>
+                  )}
                 </div>
-                {categorySaving && (
-                  <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold">
-                    <Loader2 size={12} className="animate-spin" /> Đang cập nhật...
-                  </span>
-                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  {[
+                    {
+                      key: 'style-1',
+                      title: 'Style 1: Ảnh bìa Đơn (Cổ điển)',
+                      desc: 'Tự động lấy 1 ảnh nổi bật nhất có lượt xem cao nhất của danh mục làm ảnh bìa.'
+                    },
+                    {
+                      key: 'style-2',
+                      title: 'Style 2: Lưới 4 ảnh nghệ thuật',
+                      desc: 'Lấy top 4 ảnh nhiều views nhất sắp xếp dạng lưới Asymmetrical Staggered nghệ thuật.'
+                    },
+                    {
+                      key: 'style-3',
+                      title: 'Style 3: Slideshow tự xoay vòng',
+                      desc: 'Tự động xoay vòng 5-6 ảnh nổi bật nhất sau mỗi 2 giây bằng hiệu ứng mờ dần (Fade).'
+                    },
+                    {
+                      key: 'style-4',
+                      title: 'Style 4: Lát cắt dọc tương tác',
+                      desc: 'Chia card làm 3 cột dọc. Hover cột nào cột đó mở rộng (flex-grow) và hiển thị chi tiết prompt.'
+                    }
+                  ].map((styleOpt) => (
+                    <div
+                      key={styleOpt.key}
+                      onClick={() => !categorySaving && handleSaveCategoryStyle(styleOpt.key)}
+                      className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer text-left flex flex-col justify-between group min-h-[160px]
+                        ${categoryStyle === styleOpt.key
+                          ? 'border-brand-500 bg-brand-500/5 shadow-md shadow-brand-500/5'
+                          : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'}`}
+                    >
+                      <div>
+                        <p className={`text-xs font-bold transition-colors ${categoryStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
+                          {styleOpt.title}
+                        </p>
+                        <p className="text-[10px] text-white/50 mt-2 leading-relaxed">{styleOpt.desc}</p>
+                      </div>
+                      <div className="flex justify-end mt-4">
+                        <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border
+                          ${categoryStyle === styleOpt.key
+                            ? 'border-brand-500/30 bg-brand-500/10 text-brand-300'
+                            : 'border-white/10 text-white/30'}`}>
+                          {categoryStyle === styleOpt.key ? 'Đang hoạt động' : 'Kích hoạt'}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {[
-                  {
-                    key: 'style-1',
-                    title: 'Style 1: Ảnh bìa Đơn (Cổ điển)',
-                    desc: 'Tự động lấy 1 ảnh nổi bật nhất có lượt xem cao nhất của danh mục làm ảnh bìa.'
-                  },
-                  {
-                    key: 'style-2',
-                    title: 'Style 2: Lưới 4 ảnh nghệ thuật',
-                    desc: 'Lấy top 4 ảnh nhiều views nhất sắp xếp dạng lưới Asymmetrical Staggered nghệ thuật.'
-                  },
-                  {
-                    key: 'style-3',
-                    title: 'Style 3: Slideshow tự xoay vòng',
-                    desc: 'Tự động xoay vòng 5-6 ảnh nổi bật nhất sau mỗi 2 giây bằng hiệu ứng mờ dần (Fade).'
-                  },
-                  {
-                    key: 'style-4',
-                    title: 'Style 4: Lát cắt dọc tương tác',
-                    desc: 'Chia card làm 3 cột dọc. Hover cột nào cột đó mở rộng (flex-grow) và hiển thị chi tiết prompt.'
-                  }
-                ].map((styleOpt) => (
-                  <div
-                    key={styleOpt.key}
-                    onClick={() => !categorySaving && handleSaveCategoryStyle(styleOpt.key)}
-                    className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer text-left flex flex-col justify-between group min-h-[160px]
-                      ${categoryStyle === styleOpt.key
-                        ? 'border-brand-500 bg-brand-500/5 shadow-md shadow-brand-500/5'
-                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'}`}
+              {/* ── Hero Banner Landscape Image Config ─── */}
+              <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                    <Images className="text-brand-400" size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base mb-1 font-display">Ảnh bìa Số liệu trang chủ (Hero Banner Image)</h3>
+                    <p className="text-sm text-white/50 leading-relaxed">
+                      Cài đặt hiển thị cho bức ảnh phong cảnh nằm phía sau thanh số liệu thống kê (Stats bar).
+                    </p>
+                  </div>
+                </div>
+
+                {/* Banner Mode selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setHeroBannerMode('auto')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      heroBannerMode === 'auto'
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-white/5 bg-white/5 hover:border-white/10'
+                    }`}
                   >
-                    <div>
-                      <p className={`text-xs font-bold transition-colors ${categoryStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
-                        {styleOpt.title}
-                      </p>
-                      <p className="text-[10px] text-white/50 mt-2 leading-relaxed">{styleOpt.desc}</p>
-                    </div>
-                    <div className="flex justify-end mt-4">
-                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border
-                        ${categoryStyle === styleOpt.key
-                          ? 'border-brand-500/30 bg-brand-500/10 text-brand-300'
-                          : 'border-white/10 text-white/30'}`}>
-                        {categoryStyle === styleOpt.key ? 'Đang hoạt động' : 'Kích hoạt'}
-                      </span>
+                    <p className="text-xs font-bold text-white mb-1">🤖 Tự động (Auto)</p>
+                    <span className="text-[10px] text-white/40 leading-relaxed block">
+                      Tự động chọn hình nền có lượt xem cao nhất trong hệ thống.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHeroBannerMode('manual')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      heroBannerMode === 'manual'
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-white/5 bg-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-white mb-1">✍️ Thủ công (Manual)</p>
+                    <span className="text-[10px] text-white/40 leading-relaxed block">
+                      Tự nhập liên kết (URL) ảnh tùy ý của bạn làm hình nền.
+                    </span>
+                  </button>
+                </div>
+
+                {/* Manual URL input if manual mode selected */}
+                {heroBannerMode === 'manual' && (
+                  <div className="space-y-2 pt-2">
+                    <label className="text-xs font-semibold text-white/60 block">Đường dẫn hình ảnh (Image URL)</label>
+                    <input
+                      type="text"
+                      value={heroBannerImage}
+                      onChange={(e) => setHeroBannerImage(e.target.value)}
+                      className="input text-xs w-full py-2.5 px-3"
+                      placeholder="https://example.com/your-custom-landscape.jpg"
+                    />
+                  </div>
+                )}
+
+                {/* Save button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveHeroBanner}
+                    disabled={heroBannerSaving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-900/30 font-display"
+                  >
+                    {heroBannerSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                    Lưu cấu hình ảnh bìa
+                  </button>
+                </div>
+              </div>
+
+              {/* ── Hero Collage Images Config ─── */}
+              <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                    <Palette className="text-brand-400" size={22} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base mb-1 font-display">Ảnh nền ghép Hero (Hero Collage Background)</h3>
+                    <p className="text-sm text-white/50 leading-relaxed">
+                      Cài đặt hiển thị cho 8 bức ảnh ghép đan xen làm hình nền mờ phía sau tiêu đề chính trang chủ.
+                    </p>
+                  </div>
+                </div>
+
+                {/* Collage Mode selector */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setHeroCollageMode('auto')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      heroCollageMode === 'auto'
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-white/5 bg-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-white mb-1">🤖 Tự động (Auto)</p>
+                    <span className="text-[10px] text-white/40 leading-relaxed block">
+                      Tự động lấy 8 hình ảnh mới được duyệt gần nhất trong hệ thống.
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setHeroCollageMode('manual')}
+                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                      heroCollageMode === 'manual'
+                        ? 'border-brand-500 bg-brand-500/10'
+                        : 'border-white/5 bg-white/5 hover:border-white/10'
+                    }`}
+                  >
+                    <p className="text-xs font-bold text-white mb-1">✍️ Thủ công (Manual)</p>
+                    <span className="text-[10px] text-white/40 leading-relaxed block">
+                      Tự nhập danh sách 8 liên kết ảnh tĩnh tùy chọn làm hình nền.
+                    </span>
+                  </button>
+                </div>
+
+                {/* Manual 8 URLs input grid */}
+                {heroCollageMode === 'manual' && (
+                  <div className="space-y-4 pt-2">
+                    <label className="text-xs font-semibold text-white/60 block">Danh sách 8 liên kết ảnh (URLs - WebP khuyên dùng)</label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {Array.from({ length: 8 }).map((_, idx) => (
+                        <div key={idx} className="space-y-1">
+                          <span className="text-[10px] text-white/40 font-semibold">Ảnh #{idx + 1}</span>
+                          <input
+                            type="text"
+                            value={heroCollageImages[idx] || ''}
+                            onChange={(e) => {
+                              const newImgs = [...heroCollageImages]
+                              newImgs[idx] = e.target.value
+                              setHeroCollageImages(newImgs)
+                            }}
+                            className="input text-[11px] w-full py-2 px-2.5"
+                            placeholder={`URL cho hình nền thứ ${idx + 1}`}
+                          />
+                        </div>
+                      ))}
                     </div>
                   </div>
-                ))}
+                )}
+
+                {/* Save button */}
+                <div className="flex justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={handleSaveHeroCollage}
+                    disabled={heroCollageSaving}
+                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-900/30 font-display"
+                  >
+                    {heroCollageSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                    Lưu cấu hình ảnh nền
+                  </button>
+                </div>
               </div>
-            </div>
+            </>
           )}
 
           {/* Render other pages placeholder */}

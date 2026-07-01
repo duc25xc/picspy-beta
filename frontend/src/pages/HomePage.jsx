@@ -1414,20 +1414,17 @@ const HomePage = () => {
 
   const collageImages = useMemo(() => {
     const defaultCollage = [
-      'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?w=500&q=70',
-      'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?w=500&q=70',
-      'https://images.unsplash.com/photo-1519681393784-d120267933ba?w=500&q=70',
-      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=500&q=70',
-      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=500&q=70',
-      'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?w=500&q=70',
-      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=500&q=70',
-      'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?w=500&q=70',
+      'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=500&q=70&fm=webp',
+      'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?auto=format&fit=crop&w=500&q=70&fm=webp',
     ]
     if (!homepageData?.collage || homepageData.collage.length < 8) return defaultCollage
-    return homepageData.collage.map(post => {
-      const img = post.generatedImages?.[0] || post.images?.[0]
-      return img?.previewUrl || img?.thumbnailUrl || img?.url || defaultCollage[0]
-    })
+    return homepageData.collage
   }, [homepageData])
 
   const statsList = useMemo(() => {
@@ -1468,6 +1465,19 @@ const HomePage = () => {
   const heroY = useTransform(scrollYProgress, [0, 1], [0, 140])
   const heroOpacity = useTransform(scrollYProgress, [0, 0.65], [1, 0])
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.96])
+
+  if (homepageLoading) {
+    return (
+      <div className="fixed inset-0 z-[9999] bg-[#0c0c0e] flex flex-col items-center justify-center gap-4">
+        {/* Subtle glowing radial blob */}
+        <div
+          className="absolute w-[300px] h-[300px] rounded-full blur-[120px] pointer-events-none"
+          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)' }}
+        />
+        <ContentLoader size="lg" className="relative z-10 scale-125" />
+      </div>
+    )
+  }
 
   return (
     <div
@@ -1661,7 +1671,7 @@ const HomePage = () => {
                 alt="" className="flex-1 object-cover object-center opacity-60" loading="eager"
               /> */}
               <img
-                src="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85"
+                src={homepageData?.heroBannerImage || "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85"}
                 alt="PICSPY hero"
                 className="w-full h-[400px] md:h-[520px] object-cover object-center opacity-50"
                 loading="eager"

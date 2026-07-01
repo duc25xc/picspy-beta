@@ -47,6 +47,33 @@ const settingsSchema = new mongoose.Schema(
       enum: ['style-1', 'style-2', 'style-3', 'style-4'],
       default: 'style-1',
     },
+    heroBannerMode: {
+      type: String,
+      enum: ['auto', 'manual'],
+      default: 'auto',
+    },
+    heroBannerImage: {
+      type: String,
+      default: 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85',
+    },
+    heroCollageMode: {
+      type: String,
+      enum: ['auto', 'manual'],
+      default: 'auto',
+    },
+    heroCollageImages: {
+      type: [String],
+      default: [
+        'https://images.unsplash.com/photo-1557682224-5b8590cd9ec5?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1518020382113-a7e8fc38eac9?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1519681393784-d120267933ba?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1534796636912-3b95b3ab5986?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=500&q=70&fm=webp',
+        'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?auto=format&fit=crop&w=500&q=70&fm=webp',
+      ],
+    },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,
