@@ -345,7 +345,7 @@ const colorDistance = (hex1, hex2) => {
 
 const SORT_OPTIONS = [
   { key: 'new', label: 'Mới nhất' },
-  { key: 'hot', label: '🔥 Hot' },
+  { key: 'hot', label: '🔥 Trending' },
   { key: 'top', label: '⭐ Top' },
 ]
 
@@ -629,6 +629,7 @@ const SearchPage = () => {
 
           const params = { limit: 16 }
           if (!reset && cursor) params.cursor = cursor
+          if (isAIOnly) params.postType = 'ai'
           if (activeColor) {
             params.color = activeColor
             params.colorThreshold = colorThreshold
@@ -651,7 +652,7 @@ const SearchPage = () => {
           const params = { limit: 16, sort: activeSort }
           if (!reset && cursor) params.cursor = cursor
           if (activeCategory !== 'all') params.category = activeCategory
-          if (isAIOnly) params.isAI = 'true'
+          if (isAIOnly) params.postType = 'ai'
           if (debouncedQuery.trim()) params.q = debouncedQuery.trim()
           if (activeColor) {
             params.color = activeColor
@@ -1018,7 +1019,7 @@ const SearchPage = () => {
             </div>
 
             {!loading && (
-              <span className="text-sm text-white/30 ml-1 hidden md:block">
+              <span className="text-sm text-white/30 ml-1 hidden md:inline-block min-w-[85px] text-right">
                 {total} kết quả
               </span>
             )}

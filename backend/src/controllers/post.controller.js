@@ -825,10 +825,10 @@ export const getApprovedPosts = async (req, res, next) => {
 
     // ─── HOT: Aggregation pipeline tính điểm real-time ──────
     if (sort === 'hot') {
-      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
 
       const pipeline = [
-        { $match: { ...baseMatch, createdAt: { $gte: sevenDaysAgo } } },
+        { $match: { ...baseMatch, createdAt: { $gte: thirtyDaysAgo } } },
         {
           $addFields: {
             hotScore: {
@@ -840,6 +840,27 @@ export const getApprovedPosts = async (req, res, next) => {
             },
           },
         },
+      ]
+
+      // Lọc cursor phân trang cho HOT dựa trên điểm score động
+      if (cursor) {
+        const cursorPost = await Post.findById(cursor)
+        if (cursorPost) {
+          const cursorScore = ((cursorPost.stats?.viewsCount || 0) * 1) +
+                              ((cursorPost.stats?.likesCount || 0) * 3) +
+                              ((cursorPost.stats?.downloadsCount || 0) * 5)
+          pipeline.push({
+            $match: {
+              $or: [
+                { hotScore: { $lt: cursorScore } },
+                { hotScore: cursorScore, _id: { $lt: cursorPost._id } }
+              ]
+            }
+          })
+        }
+      }
+
+      pipeline.push(
         { $sort: { hotScore: -1, _id: -1 } },
         { $limit: parseInt(limit) + 1 },
         {
@@ -860,16 +881,18 @@ export const getApprovedPosts = async (req, res, next) => {
             as: 'authorId',
           },
         },
-        { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } },
-      ]
+        { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } }
+      )
 
       const posts = await Post.aggregate(pipeline)
       const hasMore = posts.length > parseInt(limit)
       if (hasMore) posts.pop()
 
+      const nextCursor = hasMore ? posts[posts.length - 1]._id.toString() : null
+
       return res.json({
         posts,
-        pagination: { hasMore, nextCursor: null, count: posts.length },
+        pagination: { hasMore, nextCursor, count: posts.length },
         sortMode: 'hot',
         stats,
       })
@@ -878,7 +901,18 @@ export const getApprovedPosts = async (req, res, next) => {
     // ─── NEW & TOP: Cursor-based pagination ─────────────────
     const query = { ...baseMatch }
     if (cursor) {
-      query._id = { $lt: cursor }
+      if (sort === 'top') {
+        const cursorPost = await Post.findById(cursor)
+        if (cursorPost) {
+          const cursorLikes = cursorPost.stats?.likesCount || 0
+          query.$or = [
+            { 'stats.likesCount': { $lt: cursorLikes } },
+            { 'stats.likesCount': cursorLikes, _id: { $lt: cursorPost._id } }
+          ]
+        }
+      } else {
+        query._id = { $lt: cursor }
+      }
     }
 
     const sortObj =
@@ -1402,7 +1436,7 @@ export const searchByImage = async (req, res, next) => {
 
     logger.info(`Starting image search: File size = ${req.file.size} bytes, Mimetype = ${req.file.mimetype}`)
 
-    const { limit = 12, cursor, color, colorThreshold } = req.query
+    const { limit = 12, cursor, color, colorThreshold, postType } = req.query
     const limitNum = parseInt(limit)
 
     // 1. Trích xuất RGB 64-bin histogram của ảnh mẫu sử dụng sharp
@@ -1431,11 +1465,20 @@ export const searchByImage = async (req, res, next) => {
       b: Array.from(bBins, v => Math.round(v / maxVal * 100)),
     }
 
-    // 2. Query all approved posts that have histogram computed
-    const postsWithHist = await Post.find({
+    // 2. Query approved posts with histograms, filtering by postType if specified
+    const queryConditions = {
       status: 'approved',
       'histogram.r': { $exists: true, $not: { $size: 0 } }
-    })
+    }
+    if (postType && postType !== 'all') {
+      if (postType === 'digital') {
+        queryConditions.postType = { $in: ['digital-raw', 'digital-normal'] }
+      } else {
+        queryConditions.postType = postType
+      }
+    }
+
+    const postsWithHist = await Post.find(queryConditions)
       .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram colorPalette')
       .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
       .lean()
