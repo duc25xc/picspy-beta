@@ -43,8 +43,10 @@ const COLOR_PRESETS = [
   { label: 'Tím', hex: '#8b5cf6', search: '7b1fa2' },
   { label: 'Hồng', hex: '#ec4899', search: 'e91e63' },
   { label: 'Nâu', hex: '#92400e', search: '6d4c41' },
-  { label: 'Trắng', hex: '#f1f5f9', search: 'fafafa' },
-  { label: 'Đen', hex: '#1e293b', search: '212121' },
+  { label: 'Trắng', hex: '#ffffff', search: 'ffffff' },
+  { label: 'Trắng ngà', hex: '#f1f5f9', search: 'fafafa' },
+  { label: 'Đen', hex: '#000000', search: '000000' },
+  { label: 'Đen mờ', hex: '#1e293b', search: '212121' },
   { label: 'Xám', hex: '#64748b', search: '78909c' },
   { label: 'Mint', hex: '#10b981', search: '00bfa5' },
 ]
@@ -145,12 +147,10 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
   useEffect(() => {
     if (!activeColor) {
       setLocalColor('')
-    } else if (isCustomColorActive) {
-      setLocalColor(`#${activeColor}`)
     } else {
-      setLocalColor('')
+      setLocalColor(`#${activeColor}`)
     }
-  }, [activeColor, isCustomColorActive])
+  }, [activeColor])
 
   // Hàm cập nhật và lưu mã màu vào lịch sử màu gần đây
   const saveRecentColor = (hex) => {
@@ -163,7 +163,7 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
     })
   }
 
-  const displayColor = localColor || (activeColor && isCustomColorActive ? `#${activeColor}` : '')
+  const displayColor = localColor || (activeColor ? `#${activeColor}` : '')
 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 mt-3">
@@ -177,11 +177,11 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
               type="button"
               onClick={() => inputRef.current?.click()}
               className={`w-9 h-9 rounded-xl border-2 transition-all duration-200 hover:scale-105 flex items-center justify-center relative overflow-hidden cursor-pointer shadow-md
-                ${isCustomColorActive ? 'border-white scale-105 shadow-lg' : 'border-white/10 bg-gradient-to-tr from-red-500 via-green-500 to-blue-500'}`}
+                ${displayColor ? 'border-white scale-105 shadow-lg' : 'border-white/10 bg-gradient-to-tr from-red-500 via-green-500 to-blue-500'}`}
               title="Nhấp để mở bảng chọn màu"
               style={displayColor ? { backgroundColor: displayColor } : {}}
             >
-              {!isCustomColorActive && !localColor && (
+              {!displayColor && (
                 <span className="text-[14px] font-bold text-white drop-shadow-md">+</span>
               )}
               <input
@@ -385,7 +385,12 @@ const PostCard = ({
 }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
   const displayUrl = img?.thumbnailUrl || getOptimizedWebpUrl(img?.url, 400)
-  const isTall = globalIndex % 3 === 0
+  const isTall = useMemo(() => {
+    if (!post._id) return false
+    const idStr = post._id.toString()
+    const lastChar = idStr.charCodeAt(idStr.length - 1) || 0
+    return lastChar % 3 === 0 // ~33% ảnh cao, phân phối ngẫu nhiên đều mọi cột
+  }, [post._id])
 
   const delay = isNewBatch
     ? ((globalIndex * PHI) % 1) * 0.3 // Phân bố Golden Ratio cho load more
@@ -476,7 +481,13 @@ const SearchPage = () => {
   const [activeSort, setActiveSort] = useState('new')
   const [isAIOnly, setIsAIOnly] = useState(false)
   const [activeColor, setActiveColor] = useState(null) // hex string
+  const [colorThreshold, setColorThreshold] = useState(12) // strict match = 12, fuzzy match = 30
   const [showColorPanel, setShowColorPanel] = useState(false)
+
+  // Reset ngưỡng màu sắc về chính xác (12) bất cứ khi nào đổi màu chọn
+  useEffect(() => {
+    setColorThreshold(12)
+  }, [activeColor])
 
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -618,26 +629,16 @@ const SearchPage = () => {
 
           const params = { limit: 16 }
           if (!reset && cursor) params.cursor = cursor
+          if (activeColor) {
+            params.color = activeColor
+            params.colorThreshold = colorThreshold
+          }
 
           const { data } = await api.post('/posts/search-by-image', formData, {
             params,
             headers: { 'Content-Type': 'multipart/form-data' }
           })
           results = data.posts || []
-
-          // Client-side HSL color distance filtering for image search results
-          if (activeColor && results.length > 0) {
-            const targetHex = '#' + activeColor
-            results = results.filter((post) => {
-              if (!post.colorPalette?.length) return false
-              const minDist = Math.min(
-                ...post.colorPalette
-                  .filter((hex) => hex && hex.replace('#', '').length === 6)
-                  .map((hex) => colorDistance(hex, targetHex))
-              )
-              return minDist < 30
-            })
-          }
 
           hasMoreVal = data.pagination?.hasMore || false
           nextCursorVal = data.pagination?.nextCursor || null
@@ -652,24 +653,14 @@ const SearchPage = () => {
           if (activeCategory !== 'all') params.category = activeCategory
           if (isAIOnly) params.isAI = 'true'
           if (debouncedQuery.trim()) params.q = debouncedQuery.trim()
-          if (activeColor) params.color = activeColor
+          if (activeColor) {
+            params.color = activeColor
+            params.colorThreshold = colorThreshold
+          }
 
           const { data } = await api.get('/posts', { params })
           results = data.posts || []
 
-          // Client-side color filter dùng HSL-weighted distance
-          if (activeColor && results.length > 0) {
-            const targetHex = '#' + activeColor
-            results = results.filter((post) => {
-              if (!post.colorPalette?.length) return false
-              const minDist = Math.min(
-                ...post.colorPalette
-                  .filter((hex) => hex && hex.replace('#', '').length === 6)
-                  .map((hex) => colorDistance(hex, targetHex))
-              )
-              return minDist < 30
-            })
-          }
           hasMoreVal = data.pagination?.hasMore || false
           nextCursorVal = data.pagination?.nextCursor || null
           countVal = data.pagination?.count || results.length
@@ -706,6 +697,7 @@ const SearchPage = () => {
       activeSort,
       isAIOnly,
       activeColor,
+      colorThreshold,
       debouncedQuery,
       cursor,
       initialLoaded,
@@ -715,7 +707,7 @@ const SearchPage = () => {
   useEffect(() => {
     fetchPosts({ reset: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory, activeSort, isAIOnly, activeColor, debouncedQuery, searchImageFile])
+  }, [activeCategory, activeSort, isAIOnly, activeColor, colorThreshold, debouncedQuery, searchImageFile])
 
   // 3-column JS split: biết chính xác cột/hàng → cascade animation chính xác
   const columns = useMemo(() => {
@@ -736,12 +728,12 @@ const SearchPage = () => {
     return cols
   }, [posts, batchStarts])
 
-  // Skeleton columns
+  // Skeleton columns - xen kẽ tall/square đều mọi cột để cân bằng chiều cao loading
   const skeletonCols = useMemo(
     () => [
-      [0, 3, 6, 9].map((i) => ({ idx: i, tall: i % 3 === 0 })),
-      [1, 4, 7, 10].map((i) => ({ idx: i, tall: i % 3 === 0 })),
-      [2, 5, 8, 11].map((i) => ({ idx: i, tall: i % 3 === 0 })),
+      [0, 3, 6, 9].map((i) => ({ idx: i, tall: i % 2 === 0 })),
+      [1, 4, 7, 10].map((i) => ({ idx: i, tall: i % 2 === 1 })),
+      [2, 5, 8, 11].map((i) => ({ idx: i, tall: i % 2 === 0 })),
     ],
     []
   )
@@ -1144,16 +1136,32 @@ const SearchPage = () => {
                     )}
                   </div>
                   <p className="text-white/40 mb-2">Không tìm thấy kết quả</p>
-                  <p className="text-white/20 text-sm">
-                    {searchImagePreview
-                      ? 'Không có ảnh nào tương tự màu sắc với ảnh của bạn. Thử ảnh mẫu khác hoặc xóa ảnh tìm kiếm.'
-                      : activeColor
-                        ? 'Không có ảnh nào khớp màu này. Thử màu khác hoặc tắt lọc màu.'
-                        : debouncedQuery
-                          ? `Không có wallpaper nào cho "${debouncedQuery}"`
-                          : 'Danh mục này chưa có ảnh nào được duyệt'}
+                  <p className="text-white/20 text-sm max-w-md mx-auto mb-4">
+                    {activeColor && colorThreshold === 12
+                      ? 'Không tìm thấy hình ảnh nào chứa mã màu chính xác 100% với màu sắc bạn đã chọn.'
+                      : searchImagePreview
+                        ? 'Không có ảnh nào tương tự màu sắc với ảnh của bạn. Thử ảnh mẫu khác hoặc xóa ảnh tìm kiếm.'
+                        : activeColor
+                          ? 'Không có ảnh nào khớp màu này. Thử màu khác hoặc tắt lọc màu.'
+                          : debouncedQuery
+                            ? `Không có wallpaper nào cho "${debouncedQuery}"`
+                            : 'Danh mục này chưa có ảnh nào được duyệt'}
                   </p>
-                  <div className="flex gap-3 justify-center mt-4">
+                  <div className="flex flex-col sm:flex-row gap-3 justify-center items-center mt-4">
+                    {activeColor && colorThreshold === 12 && (
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        type="button"
+                        onClick={() => setColorThreshold(30)}
+                        className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-brand-300 hover:text-white font-semibold text-xs border border-brand-500/30 hover:border-brand-500/60 shadow-lg transition-all duration-300 cursor-pointer bg-brand-500/10 hover:bg-brand-500/20"
+                        style={{
+                          fontFamily: 'Outfit, sans-serif',
+                          letterSpacing: '0.03em',
+                        }}
+                      >
+                        💡 Xem các hình ảnh có màu gần giống
+                      </motion.button>
+                    )}
                     {searchImagePreview && (
                       <button
                         type="button"

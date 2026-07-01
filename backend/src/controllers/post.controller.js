@@ -625,6 +625,7 @@ export const getApprovedPosts = async (req, res, next) => {
       postType,
       hasExif,
       color,
+      colorThreshold,
     } = req.query
 
     const baseMatch = { status: 'approved' }
@@ -763,6 +764,7 @@ export const getApprovedPosts = async (req, res, next) => {
         .lean()
 
       const targetHex = '#' + color.replace('#', '')
+      const threshold = colorThreshold ? parseInt(colorThreshold) : 12
 
       // 2. Tính khoảng cách HSL
       const matchedPosts = postsWithColor
@@ -778,7 +780,7 @@ export const getApprovedPosts = async (req, res, next) => {
             colorDistance: minDist
           }
         })
-        .filter(p => p !== null && p.colorDistance < 30)
+        .filter(p => p !== null && p.colorDistance < threshold)
 
       // 3. Sắp xếp theo sort yêu cầu kết hợp độ khớp màu sắc
       if (sort === 'top') {
@@ -1400,7 +1402,7 @@ export const searchByImage = async (req, res, next) => {
 
     logger.info(`Starting image search: File size = ${req.file.size} bytes, Mimetype = ${req.file.mimetype}`)
 
-    const { limit = 12, cursor } = req.query
+    const { limit = 12, cursor, color, colorThreshold } = req.query
     const limitNum = parseInt(limit)
 
     // 1. Trích xuất RGB 64-bin histogram của ảnh mẫu sử dụng sharp
@@ -1434,16 +1436,32 @@ export const searchByImage = async (req, res, next) => {
       status: 'approved',
       'histogram.r': { $exists: true, $not: { $size: 0 } }
     })
-      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram')
+      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram colorPalette')
       .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
       .lean()
+
+    // Lọc HSL màu sắc trước nếu có tham số color được truyền lên
+    let candidates = postsWithHist
+    if (color) {
+      const targetHex = '#' + color.replace('#', '')
+      const threshold = colorThreshold ? parseInt(colorThreshold) : 12
+      candidates = postsWithHist.filter(post => {
+        if (!post.colorPalette?.length) return false
+        const minDist = Math.min(
+          ...post.colorPalette
+            .filter(hex => hex && hex.replace('#', '').length === 6)
+            .map(hex => colorDistance(hex, targetHex))
+        )
+        return minDist < threshold
+      })
+    }
 
     // 3. Tính Euclidean Distance (khoảng cách Euclid)
     // Càng nhỏ -> càng tương đồng. Ta quy đổi về % Similarity.
     // Khoảng cách tối đa trên 3 kênh 64-bin chuẩn hóa 100 là: Math.sqrt(3 * 64 * (100)^2) = 1385.64
     const MAX_DIST = 1385.64
 
-    const scoredPosts = postsWithHist.map(post => {
+    let scoredPosts = candidates.map(post => {
       let rDistSum = 0
       let gDistSum = 0
       let bDistSum = 0
@@ -1464,6 +1482,9 @@ export const searchByImage = async (req, res, next) => {
         similarityScore: score
       }
     })
+
+    // Lọc theo ngưỡng độ tương đồng tối thiểu (similarityScore >= 60%) để loại bỏ kết quả không liên quan
+    scoredPosts = scoredPosts.filter(p => p.similarityScore >= 60)
 
     // 4. Sắp xếp theo độ tương đồng giảm dần
     scoredPosts.sort((a, b) => b.similarityScore - a.similarityScore || b.createdAt - a.createdAt)
