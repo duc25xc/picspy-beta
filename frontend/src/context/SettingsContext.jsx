@@ -120,6 +120,9 @@ export const SettingsProvider = ({ children }) => {
     enabled: false,
   });
 
+  const [globalLoaderType, setGlobalLoaderType] = useState('wave');
+  const [splashExtraMs, setSplashExtraMs] = useState(0);
+
   const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
       primaryColor: primary,
@@ -153,29 +156,33 @@ export const SettingsProvider = ({ children }) => {
             enabled: data.announcementEnabled || false,
           });
         }
+        if (data?.globalLoaderType) {
+          setGlobalLoaderType(data.globalLoaderType);
+        }
+        if (data?.splashExtraMs !== undefined) {
+          setSplashExtraMs(data.splashExtraMs ?? 0);
+        }
       })
       .catch((err) => {
         console.error('Không tải được cài đặt màu thương hiệu:', err);
       });
   }, []);
 
-  // Ham cap nhat theme: overlay fade-in → đổi theme tức thì → overlay fade-out
+  // Ham cap nhat theme: overlay fade-in → đổi theme tức thì phía sau → overlay fade-out
   const changeTheme = (newTheme) => {
     if (newTheme === theme) return;
     setIsThemeTransitioning(true);
     
-    // Chờ overlay fade-in xong (300ms) rồi đổi theme ngay lập tức phía sau
+    // Chờ overlay fade-in xong (150ms) rồi đổi theme ngay lập tức phía sau
     setTimeout(() => {
       setThemeState(newTheme);
       localStorage.setItem('picspy_theme', newTheme);
       
-      // Chờ 1 frame để DOM repaint xong, rồi fade-out overlay
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          setIsThemeTransitioning(false);
-        });
-      });
-    }, 300);
+      // Chờ thêm 150ms để browser repaint đủ theme mới, rồi fade-out overlay
+      setTimeout(() => {
+        setIsThemeTransitioning(false);
+      }, 150);
+    }, 150);
   };
 
   // Ham cap nhat ngon ngu va luu vao localStorage
@@ -228,7 +235,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs }}>
       {children}
     </SettingsContext.Provider>
   );

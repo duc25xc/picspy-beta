@@ -1141,7 +1141,7 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
 
-  const { updateBrandColors, setAnnouncement } = useSettings()
+  const { updateBrandColors, setAnnouncement, setGlobalLoaderType: setGlobalLoaderTypeContext, setSplashExtraMs: setSplashExtraMsContext } = useSettings()
   const [primaryColor, setPrimaryColor] = useState('#7c3aed')
   const [gradientColor, setGradientColor] = useState('#3b82f6')
   const [brandOpacity, setBrandOpacity] = useState(1)
@@ -1167,6 +1167,10 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [heroCollageMode, setHeroCollageMode] = useState('auto')
   const [heroCollageImages, setHeroCollageImages] = useState(Array(8).fill(''))
   const [heroCollageSaving, setHeroCollageSaving] = useState(false)
+  const [globalLoaderType, setGlobalLoaderType] = useState('wave')
+  const [loaderSaving, setLoaderSaving] = useState(false)
+  const [splashExtraMs, setSplashExtraMs] = useState(0)
+  const [splashSaving, setSplashSaving] = useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -1226,6 +1230,8 @@ const SettingsTab = ({ onDirtyChange }) => {
           ? data.settings.heroCollageImages 
           : Array(8).fill('')
         )
+        setGlobalLoaderType(data.settings?.globalLoaderType || 'wave')
+        setSplashExtraMs(data.settings?.splashExtraMs ?? 0)
 
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
@@ -1444,6 +1450,38 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi khi lưu cấu hình ảnh nền')
     } finally {
       setHeroCollageSaving(false)
+    }
+  }
+
+  const handleSaveGlobalLoader = async (newType) => {
+    setLoaderSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        globalLoaderType: newType
+      })
+      setSettings(data.settings)
+      setGlobalLoaderType(data.settings?.globalLoaderType || 'wave')
+      setGlobalLoaderTypeContext(data.settings?.globalLoaderType || 'wave')
+      toast.success('⚙️ Đã lưu cấu hình hiệu ứng tải toàn hệ thống!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu cấu hình hiệu ứng tải')
+    } finally {
+      setLoaderSaving(false)
+    }
+  }
+
+  const handleSaveSplashMs = async (val) => {
+    setSplashSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { splashExtraMs: val })
+      setSettings(data.settings)
+      setSplashExtraMs(data.settings?.splashExtraMs ?? 0)
+      setSplashExtraMsContext(data.settings?.splashExtraMs ?? 0)
+      toast.success(`⏱️ Thời gian loading đã cập nhật: ${val >= 1000 ? (val / 1000).toFixed(1) + 's' : val + 'ms'}`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu thời gian loading')
+    } finally {
+      setSplashSaving(false)
     }
   }
 
@@ -1931,6 +1969,196 @@ const SettingsTab = ({ onDirtyChange }) => {
           </button>
         </div>
       </div>)}
+
+      {/* ── Global Loading Style Card ─── */}
+      {activeSubTab === 'general' && (
+        <div className="card p-6 border border-white/10 space-y-5">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+              <RefreshCw className="text-brand-400" size={22} />
+            </div>
+            <div>
+              <h3 className="font-bold text-white text-base mb-1">Hiệu ứng tải trang (Global Loading Style)</h3>
+              <p className="text-sm text-white/50 leading-relaxed">
+                Chọn hiệu ứng hiển thị khi người dùng tải trang, đổi chủ đề hoặc tải dữ liệu trên toàn hệ thống.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
+            {[
+              {
+                key: 'wave',
+                title: '🌊 Sóng chữ nhiều màu (Liquid Wave)',
+                desc: 'Từng chữ PICSPY lần lượt đầy nước từ dưới lên, màu sắc đồng bộ với chủ đề website.',
+                preview: (
+                  <div className="h-28 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden p-4">
+                    <div className="liquid-loader scale-75 select-none" aria-label="PICSPY">
+                      <div className="letter"><span className="bg">P</span><span className="fg p1">P</span></div>
+                      <div className="letter"><span className="bg">I</span><span className="fg i">I</span></div>
+                      <div className="letter"><span className="bg">C</span><span className="fg c">C</span></div>
+                      <div className="letter"><span className="bg">S</span><span className="fg s">S</span></div>
+                      <div className="letter"><span className="bg">P</span><span className="fg p2">P</span></div>
+                      <div className="letter"><span className="bg">Y</span><span className="fg y">Y</span></div>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'text-wave',
+                title: '💧 Sóng nước đơn sắc (Text Wave)',
+                desc: 'Chữ PICSPY hiệu ứng nước sóng dạng clip-path đồng nhất, glow nhẹ theo màu chủ đề.',
+                preview: (
+                  <div className="h-28 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden">
+                    <div className="text-wave-loader size-md select-none">
+                      <span>PICSPY</span>
+                      <span>PICSPY</span>
+                    </div>
+                  </div>
+                )
+              },
+              {
+                key: 'banter',
+                title: '🇻🇳 Lưới ảnh ngôi sao (Banter Star Grid)',
+                desc: 'Hiển thị lưới 9 ô vuông di chuyển theo thuật toán xếp hình với lá cờ Việt Nam mix-blend độc đáo.',
+                preview: (
+                  <div className="h-28 rounded-xl bg-black/40 border border-white/5 flex items-center justify-center overflow-hidden p-4">
+                    <div className="banter-loader-container scale-75 select-none" style={{ backgroundColor: '#0b0f19' }}>
+                      <div className="banter-loader">
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                        <div className="banter-loader__box"></div>
+                      </div>
+                      <div className="photo-overlay"></div>
+                    </div>
+                  </div>
+                )
+              }
+            ].map((loaderOpt) => (
+              <div
+                key={loaderOpt.key}
+                onClick={() => !loaderSaving && handleSaveGlobalLoader(loaderOpt.key)}
+                className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer text-left flex flex-col justify-between group min-h-[220px]
+                  ${globalLoaderType === loaderOpt.key
+                    ? 'border-brand-500 bg-brand-500/5 shadow-md shadow-brand-500/5'
+                    : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'}`}
+              >
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <p className={`text-xs font-bold transition-colors ${globalLoaderType === loaderOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
+                      {loaderOpt.title}
+                    </p>
+                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border
+                      ${globalLoaderType === loaderOpt.key
+                        ? 'border-brand-500/30 bg-brand-500/10 text-brand-300'
+                        : 'border-white/10 text-white/30'}`}>
+                      {globalLoaderType === loaderOpt.key ? 'Đang hoạt động' : 'Kích hoạt'}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-white/50 leading-relaxed">{loaderOpt.desc}</p>
+                </div>
+                {loaderOpt.preview}
+              </div>
+            ))}
+          </div>
+
+          {/* ── Splash Duration Slider ───────────────────────── */}
+          <div className="mt-6 p-5 rounded-xl border border-white/10 bg-white/[0.02] space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                  <span className="text-lg">⏱️</span> Thời gian hiệu ứng Loading
+                </h4>
+                <p className="text-[11px] text-white/40 mt-0.5">
+                  Thời gian cộng thêm vào sau khi hệ thống tải xong dữ liệu để kéo dài hiệu ứng tải trang
+                </p>
+              </div>
+              {splashSaving && (
+                <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold animate-pulse">
+                  Đang lưu...
+                </span>
+              )}
+            </div>
+
+            {/* Value Display */}
+            <div className="flex items-baseline gap-2">
+              <span className="text-3xl font-black tabular-nums tracking-tight" style={{ color: 'hsla(var(--color-brand-h), var(--color-brand-s), 65%, 1)' }}>
+                {splashExtraMs >= 1000 ? (splashExtraMs / 1000).toFixed(1) : splashExtraMs}
+              </span>
+              <span className="text-sm font-bold text-white/40">
+                {splashExtraMs >= 1000 ? 'giây' : 'ms'}
+              </span>
+              {splashExtraMs === 0 && (
+                <span className="ml-2 text-[10px] font-semibold text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                  Tắt
+                </span>
+              )}
+            </div>
+
+            {/* Slider */}
+            <div className="relative pt-1 pb-2">
+              <input
+                type="range"
+                min={0}
+                max={10000}
+                step={100}
+                value={splashExtraMs}
+                onChange={(e) => setSplashExtraMs(Number(e.target.value))}
+                onMouseUp={(e) => handleSaveSplashMs(Number(e.target.value))}
+                onTouchEnd={(e) => handleSaveSplashMs(Number(e.target.value))}
+                className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) 0%, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) ${(splashExtraMs / 10000) * 100}%, rgba(255,255,255,0.08) ${(splashExtraMs / 10000) * 100}%, rgba(255,255,255,0.08) 100%)`,
+                }}
+              />
+              {/* Tick marks */}
+              <div className="flex justify-between mt-2 px-0.5">
+                {[0, 1000, 2000, 3000, 5000, 7000, 10000].map(v => (
+                  <button
+                    key={v}
+                    onClick={() => { setSplashExtraMs(v); handleSaveSplashMs(v) }}
+                    className={`text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
+                      splashExtraMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
+                    }`}
+                  >
+                    {v === 0 ? '0' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Preset buttons row */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'Tắt (0ms)', value: 0 },
+                { label: 'Nhanh (500ms)', value: 500 },
+                { label: 'Vừa (1.5s)', value: 1500 },
+                { label: 'Lâu (3s)', value: 3000 },
+                { label: 'Rất lâu (5s)', value: 5000 },
+                { label: 'Siêu lâu (10s)', value: 10000 },
+              ].map(p => (
+                <button
+                  key={p.value}
+                  onClick={() => { setSplashExtraMs(p.value); handleSaveSplashMs(p.value) }}
+                  className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                    splashExtraMs === p.value
+                      ? 'border-brand-500/40 bg-brand-500/10 text-brand-300'
+                      : 'border-white/8 bg-white/[0.03] text-white/40 hover:border-white/15 hover:text-white/60'
+                  }`}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Page Specific Settings ─── */}
       {activeSubTab === 'pages' && (

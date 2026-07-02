@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { Suspense, lazy, useEffect, useState } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Header from './components/layout/Header'
 import BottomNav from './components/layout/BottomNav'
@@ -11,8 +11,8 @@ import ContentLoader from './components/ui/ContentLoader'
 
 /**
  * Overlay che phủ toàn màn hình khi chuyển theme.
+ * Luôn dùng nền tối cố định bất kể theme sáng/tối.
  * Fade-in nhanh → theme đổi tức thì phía sau → fade-out mượt mà.
- * User không bao giờ thấy trạng thái trung gian lẫn lộn màu.
  */
 const ThemeTransitionOverlay = () => {
   const { isThemeTransitioning } = useSettings()
@@ -25,22 +25,22 @@ const ThemeTransitionOverlay = () => {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{
-            duration: 0.2,
-            ease: 'easeOut',
-          }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-none"
-          style={{
-            backgroundColor: 'var(--color-surface)',
-          }}
+          transition={{ duration: 0.15, ease: 'easeOut' }}
+          className="fixed inset-0 z-[99998] flex items-center justify-center pointer-events-none"
+          style={{ backgroundColor: '#0c0c0e' }}
         >
-          {/* Logo chữ nước phát sáng cỡ lớn khi chuyển theme */}
+          {/* Radial glow */}
+          <div
+            className="absolute w-[280px] h-[280px] rounded-full blur-[110px] pointer-events-none"
+            style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
+          />
+          {/* Logo — đồng bộ với globalLoaderType do admin cài đặt */}
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
+            initial={{ scale: 0.92, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 1.05, opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="flex items-center justify-center"
+            transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+            className="relative z-10 flex items-center justify-center"
           >
             <ContentLoader size="lg" />
           </motion.div>
@@ -66,58 +66,6 @@ const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
 // PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
 
-// Skeleton page loading
-const PageLoader = () => {
-  return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#0b0f19] select-none">
-      <div className="flex flex-col items-center gap-14 md:gap-20">
-        {/* Banter Photo Overlay Loader */}
-        <div className="banter-loader-container">
-          <div className="banter-loader">
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-            <div className="banter-loader__box"></div>
-          </div>
-          <div className="photo-overlay"></div>
-        </div>
-
-        {/* Pro Liquid Text Loader (PICSPY - To và sắc nét) */}
-        <div className="liquid-loader" aria-label="PICSPY">
-          <div className="letter">
-            <span className="bg">P</span>
-            <span className="fg p1">P</span>
-          </div>
-          <div className="letter">
-            <span className="bg">I</span>
-            <span className="fg i">I</span>
-          </div>
-          <div className="letter">
-            <span className="bg">C</span>
-            <span className="fg c">C</span>
-          </div>
-          <div className="letter">
-            <span className="bg">S</span>
-            <span className="fg s">S</span>
-          </div>
-          <div className="letter">
-            <span className="bg">P</span>
-            <span className="fg p2">P</span>
-          </div>
-          <div className="letter">
-            <span className="bg">Y</span>
-            <span className="fg y">Y</span>
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // Animation wrapper cho page transitions
 const PageTransition = ({ children }) => (
@@ -151,35 +99,21 @@ export default function App() {
   const refreshMe = useAuthStore((s) => s.refreshMe)
   const isAuth = useAuthStore((s) => !!s.user && !!s.accessToken)
 
-  // === DEBUG LOADER ===
-  const [debugLoading, setDebugLoading] = useState(true)
-  useEffect(() => {
-    const timer = setTimeout(() => setDebugLoading(false), 100)
-    return () => clearTimeout(timer)
-  }, [])
-  // ====================
-
   // Sync user data (coin, stats) mỗi khi user quay lại tab
   useEffect(() => {
     if (!isAuth) return
     const onFocus = () => refreshMe()
     window.addEventListener('focus', onFocus)
-    // Cũng refresh ngay khi mount
     refreshMe()
     return () => window.removeEventListener('focus', onFocus)
   }, [isAuth]) // eslint-disable-line
-
-  // === DEBUG LOADER ===
-  if (debugLoading) {
-    return <PageLoader />
-  }
-  // ====================
 
   return (
     <>
       <ThemeTransitionOverlay />
       <AnimatePresence mode="wait">
-        <Suspense fallback={<PageLoader />}>
+        {/* Suspense fallback = null: HomePage tự quản lý splash loader qua createPortal */}
+        <Suspense fallback={null}>
           <Routes location={location} key={location.pathname}>
             {/* ===== AUTH ROUTES ===== */}
             <Route

@@ -18,7 +18,7 @@ import {
 import useAuthStore from '../../store/auth.store'
 import { useSettings } from '../../context/SettingsContext'
 import toast from 'react-hot-toast'
-import ContentLoader from '../ui/ContentLoader'
+import { BrandLogo } from '../ui/ContentLoader'
 
 /**
  * Header chỉ hiển thị trên desktop (md+)
@@ -91,7 +91,7 @@ const Header = () => {
         {/* Left: Logo */}
         <div className="flex-1 flex items-center select-none">
           <Link to="/" className="flex items-center group">
-            <ContentLoader size="sm" />
+            <BrandLogo size="sm" />
           </Link>
         </div>
 

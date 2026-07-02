@@ -545,7 +545,7 @@ export const updateSettings = async (req, res, next) => {
       'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
       'announcementText', 'announcementLink', 'announcementEnabled',
       'categoryStyle', 'heroBannerMode', 'heroBannerImage',
-      'heroCollageMode', 'heroCollageImages'
+      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs'
     ]
     const updates = {}
     allowed.forEach(key => {

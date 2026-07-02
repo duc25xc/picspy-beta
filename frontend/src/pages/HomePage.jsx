@@ -3,7 +3,9 @@ import api from '../api/api'
 import toast from 'react-hot-toast'
 import { Link, useNavigate } from 'react-router-dom'
 import PostDetailModal from '../components/post/PostDetailModal'
-import ContentLoader from '../components/ui/ContentLoader'
+import ContentLoader, { BrandLogo } from '../components/ui/ContentLoader'
+import { createPortal } from 'react-dom'
+import { useSettings } from '../context/SettingsContext'
 import useModalUrl from '../hooks/useModalUrl'
 import {
   motion,
@@ -1376,17 +1378,24 @@ const HomePage = () => {
   const [likesInput, setLikesInput] = useState(1000)
   const [selectedPostId, setSelectedPostId] = useState(null)
 
+  const { splashExtraMs } = useSettings()
+
   useEffect(() => {
     api.get('/posts/homepage-data')
       .then(({ data }) => {
-        setHomepageData(data)
+        // Lấy thời gian cộng thêm từ API response, fallback về context settings
+        const extra = data.splashExtraMs ?? splashExtraMs ?? 0
+        
+        // Chờ thêm khoảng thời gian setting sau khi dữ liệu đã được tải xong
+        setTimeout(() => {
+          setHomepageData(data)
+          setHomepageLoading(false)
+        }, extra)
+      })
+      .catch(() => {
         setHomepageLoading(false)
       })
-      .catch((err) => {
-        console.error('Error fetching homepage data:', err)
-        setHomepageLoading(false)
-      })
-  }, [])
+  }, []) // eslint-disable-line
 
   const handleFollowCreator = async (creatorId) => {
     try {
@@ -1467,15 +1476,26 @@ const HomePage = () => {
   const heroScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.96])
 
   if (homepageLoading) {
-    return (
-      <div className="fixed inset-0 z-[9999] bg-[#0c0c0e] flex flex-col items-center justify-center gap-4">
+    return createPortal(
+      <div
+        className="fixed inset-0 z-[99999] flex flex-col items-center justify-center"
+        style={{ backgroundColor: '#0c0c0e' }}
+      >
         {/* Subtle glowing radial blob */}
         <div
-          className="absolute w-[300px] h-[300px] rounded-full blur-[120px] pointer-events-none"
-          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)' }}
+          className="absolute w-[320px] h-[320px] rounded-full blur-[130px] pointer-events-none"
+          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.18)' }}
         />
-        <ContentLoader size="lg" className="relative z-10 scale-125" />
-      </div>
+        {/* Loader */}
+        <div className="relative z-10">
+          <ContentLoader size="lg" />
+        </div>
+        {/* Debug label */}
+        <p className="absolute bottom-8 text-[10px] font-mono text-white/20 tracking-widest uppercase">
+          Loading&hellip;
+        </p>
+      </div>,
+      document.body
     )
   }
 
@@ -2079,7 +2099,7 @@ const HomePage = () => {
             {/* Brand */}
             <div className="col-span-2">
               <div className="mb-5 flex items-center">
-                <ContentLoader size="sm" />
+                <BrandLogo size="sm" />
               </div>
               <p className="text-foreground/60 max-w-xs mb-7 leading-relaxed text-sm pj">
                 Nền tảng curator nghệ thuật số lớn nhất Việt Nam, kết nối hàng

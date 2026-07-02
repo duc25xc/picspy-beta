@@ -295,6 +295,37 @@
     scrollbar-width: none;
   }
 
+  /* ── Admin Range Slider Thumb ──────────────────────────── */
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    background: hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 60%, 1);
+    box-shadow: 0 0 0 3px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 60%, 0.2),
+                0 2px 6px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+  }
+  input[type="range"]::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    box-shadow: 0 0 0 5px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 60%, 0.25),
+                0 2px 8px rgba(0, 0, 0, 0.4);
+  }
+  input[type="range"]::-webkit-slider-thumb:active {
+    transform: scale(1.1);
+  }
+  input[type="range"]::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: none;
+    border-radius: 50%;
+    background: hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 60%, 1);
+    box-shadow: 0 0 0 3px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 60%, 0.2);
+    cursor: pointer;
+  }
+
   /* PICSPY Smooth Loader Animations */
   .loader-ring-mask {
     padding: 3px;
@@ -598,24 +629,18 @@
   .letter {
     position: relative;
     font-family: 'Arial Black', -apple-system, sans-serif;
-    font-size: 36px; /* Sửa chữ PICSPY nhỏ lại trên di động */
+    /* font-size is set via inline style in ContentLoader.jsx based on size prop */
+    font-size: 36px; /* fallback for direct CSS usage */
     font-weight: 900;
     line-height: 1;
     user-select: none;
-    /* Đổ bóng phát sáng ôm sát đường cong chữ nhỏ */
-    filter: drop-shadow(0 0 6px rgba(128, 198, 255, 0.65));
-  }
-
-  @media (min-width: 768px) {
-    .letter {
-      font-size: 48px; /* Sửa chữ PICSPY nhỏ lại trên máy tính */
-    }
+    filter: drop-shadow(0 0 6px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 0.65));
   }
 
   /* Lớp chữ viền rỗng phía sau */
   .letter .bg {
     color: transparent;
-    -webkit-text-stroke: 1.5px rgba(128, 198, 255, 0.25);
+    -webkit-text-stroke: 1.5px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 0.25);
     display: block;
   }
 
@@ -626,8 +651,8 @@
     left: 0;
     width: 100%;
     height: 100%;
-    color: rgb(128, 198, 255);
-    -webkit-text-stroke: 1.5px rgb(128, 198, 255);
+    color: hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 1);
+    -webkit-text-stroke: 1.5px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 1);
     display: block;
     animation-duration: 6s;
     animation-timing-function: ease-in-out;
@@ -733,29 +758,29 @@
   .text-wave-loader.size-md span {
     font-size: 26px;
     letter-spacing: 3px;
-    filter: drop-shadow(0 0 8px rgba(128, 198, 255, 0.65));
+    filter: drop-shadow(0 0 8px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 0.65));
   }
   .text-wave-loader.size-lg span {
     font-size: 48px;
     letter-spacing: 5px;
-    filter: drop-shadow(0 0 12px rgba(128, 198, 255, 0.75));
+    filter: drop-shadow(0 0 12px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 0.75));
   }
 
   /* Chữ viền rỗng nằm dưới - giữ luồng static để cha tự co giãn kích thước */
   .text-wave-loader span:nth-child(1) {
     color: transparent;
-    -webkit-text-stroke: 1px rgba(128, 198, 255, 0.3);
+    -webkit-text-stroke: 1px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 0.3);
   }
 
-  /* Chữ chứa nước màu xanh chuyển động nằm đè khít lên trên */
+  /* Chữ chứa nước màu chuyển động nằm đè khít lên trên */
   .text-wave-loader span:nth-child(2) {
     position: absolute;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    color: rgb(128, 198, 255);
-    -webkit-text-stroke: 1px rgb(128, 198, 255);
+    color: hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 1);
+    -webkit-text-stroke: 1px hsla(var(--color-brand-h, 262), var(--color-brand-s, 80%), 65%, 1);
     animation: uiverse723 3s ease-in-out infinite;
   }
 

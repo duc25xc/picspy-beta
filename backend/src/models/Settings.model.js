@@ -74,6 +74,17 @@ const settingsSchema = new mongoose.Schema(
         'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?auto=format&fit=crop&w=500&q=70&fm=webp',
       ],
     },
+    globalLoaderType: {
+      type: String,
+      enum: ['wave', 'text-wave', 'banter'],
+      default: 'wave',
+    },
+    splashExtraMs: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 10000,
+    },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,

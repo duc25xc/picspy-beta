@@ -129,6 +129,8 @@ app.get('/v1/settings', async (req, res, next) => {
       announcementText: settings.announcementText || '',
       announcementLink: settings.announcementLink || '',
       announcementEnabled: settings.announcementEnabled !== undefined ? settings.announcementEnabled : false,
+      globalLoaderType: settings.globalLoaderType || 'wave',
+      splashExtraMs: settings.splashExtraMs ?? 0,
     })
   } catch (err) {
     next(err)
