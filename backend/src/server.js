@@ -22,6 +22,7 @@ import postRoutes from './routes/post.routes.js'
 import adminRoutes from './routes/admin.routes.js'
 import aiRoutes from './routes/ai.routes.js'
 import subscriptionRoutes from './routes/subscription.routes.js'
+import studioRoutes from './routes/studio.routes.js'
 import {
   getPublicCategories,
   seedCategories,
@@ -29,8 +30,9 @@ import {
 import { seedSubscriptionPlans } from './models/SubscriptionPlan.model.js'
 import Settings from './models/Settings.model.js'
 
-// Workers (khởi động cùng server)
+// Workers & Jobs (khởi động cùng server)
 import './workers/imageProcessor.worker.js'
+import './jobs/settlement.js'
 
 const app = express()
 const httpServer = http.createServer(app)
@@ -112,6 +114,7 @@ app.use('/v1/posts', postRoutes)
 app.use('/v1/admin', adminRoutes)
 app.use('/v1/ai', aiRoutes)
 app.use('/v1/subscriptions', subscriptionRoutes)
+app.use('/v1/studio', studioRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
 

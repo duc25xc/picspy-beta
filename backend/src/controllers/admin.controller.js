@@ -545,7 +545,8 @@ export const updateSettings = async (req, res, next) => {
       'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
       'announcementText', 'announcementLink', 'announcementEnabled',
       'categoryStyle', 'heroBannerMode', 'heroBannerImage',
-      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs'
+      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs',
+      'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee'
     ]
     const updates = {}
     allowed.forEach(key => {
@@ -590,6 +591,15 @@ export const getAuditLogs = async (req, res, next) => {
         count: data.length,
       },
     })
+  } catch (err) { next(err) }
+}
+
+/** POST /admin/settlement/trigger — Chạy quyết toán thủ công */
+export const triggerSettlement = async (req, res, next) => {
+  try {
+    const { runDailySettlement } = await import('../jobs/settlement.js')
+    const result = await runDailySettlement()
+    res.json({ message: 'Quyết toán hoàn thành', result })
   } catch (err) { next(err) }
 }
 

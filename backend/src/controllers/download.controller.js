@@ -44,36 +44,73 @@ export const downloadPost = async (req, res, next) => {
     }
 
     // ─── Premium: kiểm tra và trừ token ─────────────────────────
+    // ─── Premium: kiểm tra và thanh toán bằng VNĐ ────────────────
     if (post.isPremium) {
       const User = (await import('../models/User.model.js')).default
+      const Settings = (await import('../models/Settings.model.js')).default
+      const VndTransaction = (await import('../models/VndTransaction.model.js')).default
       const user = await User.findById(userId)
 
       if (!user) throw new AppError('UNAUTHORIZED', 'Người dùng không tồn tại', 401)
 
-      // Ultimate tier không tốn token khi tải
+      // Ultimate tier không tốn VNĐ khi tải
       const isUnlimited = user.subscriptionTier === 'ultimate'
-      const price = post.priceInTokens || 10
+      const price = post.priceInVnd || 20000
 
-      if (!isUnlimited && user.tokenBalance < price) {
+      if (!isUnlimited && user.vndBalance < price) {
         return res.status(402).json({
-          error: 'INSUFFICIENT_TOKENS',
-          message: `Bạn cần ${price} token để tải ảnh này. Số dư hiện tại: ${user.tokenBalance} token.`,
+          error: 'INSUFFICIENT_FUNDS',
+          message: `Bạn cần ${price.toLocaleString('vi-VN')} VNĐ để tải ảnh này. Số dư ví hiện tại: ${user.vndBalance.toLocaleString('vi-VN')} VNĐ.`,
           required: price,
-          balance: user.tokenBalance,
-          shortfall: price - user.tokenBalance,
+          balance: user.vndBalance,
+          shortfall: price - user.vndBalance,
         })
       }
 
       if (!isUnlimited) {
-        // Trừ token atomic
-        await User.findByIdAndUpdate(userId, { $inc: { tokenBalance: -price } })
+        // Trừ số dư ví VNĐ của người tải
+        const balanceBefore = user.vndBalance || 0
+        const balanceAfter = Math.max(0, balanceBefore - price)
+        await User.findByIdAndUpdate(userId, { vndBalance: balanceAfter })
 
-        // Tăng totalEarned cho author (creator nhận 70%)
+        // Ghi nhận giao dịch của người mua
+        await VndTransaction.create({
+          userId,
+          type: 'purchase_post',
+          amount: -price,
+          balanceBefore,
+          balanceAfter,
+          description: `Mua ảnh Premium: ${post.caption || 'Chất lượng cao'}`,
+          relatedPostId: postId,
+        }).catch(err => console.error('Failed to log purchase_post transaction:', err))
+
+        // Cộng tiền và hoa hồng cho tác giả (Creator nhận creatorSharePercent%)
         if (post.authorId.toString() !== userId.toString()) {
-          const authorShare = Math.floor(price * 0.7)
-          await User.findByIdAndUpdate(post.authorId, {
-            $inc: { totalEarned: authorShare },
-          })
+          const settings = await Settings.getSingleton()
+          const sharePercent = settings.creatorSharePercent || 70
+          const authorShare = Math.floor(price * (sharePercent / 100))
+
+          const author = await User.findById(post.authorId)
+          if (author) {
+            const authBefore = author.vndBalance || 0
+            const authAfter = authBefore + authorShare
+            await User.findByIdAndUpdate(post.authorId, {
+              vndBalance: authAfter,
+              $inc: { totalEarned: authorShare }
+            })
+
+            // Ghi nhận giao dịch của tác giả
+            await VndTransaction.create({
+              userId: post.authorId,
+              type: 'earn_purchase',
+              amount: authorShare,
+              balanceBefore: authBefore,
+              balanceAfter: authAfter,
+              description: `Nhận ${sharePercent}% hoa hồng từ lượt tải ảnh Premium`,
+              relatedPostId: postId,
+              relatedUserId: userId,
+            }).catch(err => console.error('Failed to log earn_purchase transaction:', err))
+          }
         }
       }
     }
@@ -187,8 +224,8 @@ export const downloadPost = async (req, res, next) => {
       filename: finalFilename,
       expiresAt: new Date(expiresAt * 1000).toISOString(),
       expiresInMinutes: EXPIRES_IN / 60,
-      tokensSpent: post.isPremium ? (post.priceInTokens || 10) : 0,
-      message: post.isPremium ? `Đã trừ ${post.priceInTokens || 10} token` : 'Tải ảnh miễn phí',
+      vndSpent: post.isPremium ? (post.priceInVnd || 20000) : 0,
+      message: post.isPremium ? `Đã trừ ${(post.priceInVnd || 20000).toLocaleString('vi-VN')} VNĐ` : 'Tải ảnh miễn phí',
     })
   } catch (err) {
     next(err)

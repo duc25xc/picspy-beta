@@ -85,6 +85,23 @@ const settingsSchema = new mongoose.Schema(
       min: 0,
       max: 10000,
     },
+    // ── Creator Monetization Settings ──
+    payoutRatePerView: {
+      type: Number,
+      default: 10, // 10 VNĐ / view
+    },
+    creatorSharePercent: {
+      type: Number,
+      default: 70, // 70% share to creator
+    },
+    withdrawalFlatFee: {
+      type: Number,
+      default: 10000, // 10,000 VNĐ flat bank processing fee
+    },
+    withdrawalPercentFee: {
+      type: Number,
+      default: 2, // 2% processing fee
+    },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,

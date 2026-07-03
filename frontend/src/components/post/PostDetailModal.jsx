@@ -611,7 +611,7 @@ const PostDetailModal = ({
                     post={post}
                     postId={post._id}
                     isPremium={post.isPremium}
-                    priceInTokens={post.priceInTokens}
+                    priceInVnd={post.priceInVnd}
                   />
                 </div>
               </div>

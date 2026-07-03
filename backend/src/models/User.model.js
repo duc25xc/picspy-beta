@@ -71,8 +71,14 @@ const userSchema = new mongoose.Schema(
     tokenBalance: { type: Number, default: 0, min: 0 },
     // freeTokenGranted: true = user free đã nhận 100 token 1 lần (không reset hàng tháng)
     freeTokenGranted: { type: Boolean, default: false },
+    vndBalance: { type: Number, default: 0, min: 0 }, // Số dư ví VNĐ
     totalEarned: { type: Number, default: 0 },
     totalWithdrawn: { type: Number, default: 0 },
+    bankAccount: {
+      bankName: { type: String, default: '' },
+      accountNumber: { type: String, default: '' },
+      accountHolder: { type: String, default: '' },
+    },
 
     // === STATS (denormalized để tránh query nặng) ===
     stats: {

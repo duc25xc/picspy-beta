@@ -131,6 +131,7 @@ export const changePassword = async (req, res, next) => {
 
 /**
  * GET /users/:username
+ * optionalAuth: nếu đã login → trả thêm isFollowing
  */
 export const getPublicProfile = async (req, res, next) => {
   try {
@@ -142,7 +143,18 @@ export const getPublicProfile = async (req, res, next) => {
       throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
     }
 
-    res.json({ user })
+    // Kiểm tra trạng thái follow nếu đã đăng nhập
+    let isFollowing = false
+    if (req.user && req.user._id.toString() !== user._id.toString()) {
+      const Follow = (await import('../models/Follow.model.js')).default
+      const followDoc = await Follow.findOne({
+        followerId: req.user._id,
+        followingId: user._id,
+      }).lean()
+      isFollowing = !!followDoc
+    }
+
+    res.json({ user, isFollowing })
   } catch (err) {
     next(err)
   }
@@ -239,6 +251,156 @@ export const getFollowing = async (req, res, next) => {
       .limit(parseInt(limit))
 
     res.json({ following: follows.map((f) => f.followingId) })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /users/me/bank
+ * Cập nhật thông tin tài khoản ngân hàng của Creator
+ */
+export const saveBankAccount = async (req, res, next) => {
+  try {
+    const { bankName, accountNumber, accountHolder } = req.body
+    if (!bankName || !accountNumber || !accountHolder) {
+      throw new AppError('VALIDATION_ERROR', 'Vui lòng điền đầy đủ thông tin tài khoản', 400)
+    }
+    const user = await User.findByIdAndUpdate(
+      req.user._id,
+      {
+        'bankAccount.bankName': bankName.trim(),
+        'bankAccount.accountNumber': accountNumber.trim(),
+        'bankAccount.accountHolder': accountHolder.trim(),
+      },
+      { new: true }
+    )
+    res.json({ message: 'Đã cập nhật thông tin ngân hàng', bankAccount: user.bankAccount })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /users/me/topup
+ * Nạp tiền mô phỏng (VNĐ) vào tài khoản để mua ảnh Premium
+ */
+export const topupVnd = async (req, res, next) => {
+  try {
+    const amount = Number(req.body.amount)
+    if (isNaN(amount) || amount < 10000) {
+      throw new AppError('VALIDATION_ERROR', 'Số tiền nạp tối thiểu là 10.000đ', 400)
+    }
+
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    const user = await User.findById(req.user._id)
+    if (!user) throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
+
+    const balanceBefore = user.vndBalance || 0
+    const balanceAfter = balanceBefore + amount
+
+    await User.findByIdAndUpdate(req.user._id, { vndBalance: balanceAfter })
+
+    // Ghi log giao dịch nạp tiền
+    const txn = await VndTransaction.create({
+      userId: req.user._id,
+      type: 'topup',
+      amount,
+      balanceBefore,
+      balanceAfter,
+      description: `Nạp tiền thành công qua cổng thanh toán liên kết`,
+    })
+
+    res.json({
+      message: `Đã nạp thành công ${amount.toLocaleString('vi-VN')} VNĐ vào tài khoản`,
+      vndBalance: balanceAfter,
+      transaction: txn
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /users/me/withdraw
+ * Tạo yêu cầu rút tiền mặt VNĐ về ngân hàng
+ */
+export const requestWithdrawal = async (req, res, next) => {
+  try {
+    const amount = Number(req.body.amount)
+    const user = await User.findById(req.user._id)
+    if (!user) throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
+
+    if (!user.bankAccount || !user.bankAccount.accountNumber) {
+      throw new AppError('VALIDATION_ERROR', 'Vui lòng thiết lập tài khoản ngân hàng trước khi rút tiền', 400)
+    }
+
+    if (isNaN(amount) || amount < 50000) {
+      throw new AppError('VALIDATION_ERROR', 'Số tiền rút tối thiểu là 50.000 VNĐ', 400)
+    }
+
+    if ((user.vndBalance || 0) < amount) {
+      throw new AppError('INSUFFICIENT_FUNDS', 'Số dư tài khoản không đủ để thực hiện yêu cầu này', 400)
+    }
+
+    const Settings = (await import('../models/Settings.model.js')).default
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+
+    const settings = await Settings.getSingleton()
+    const flatFee = settings.withdrawalFlatFee || 10000
+    const percentRate = settings.withdrawalPercentFee || 2
+    const percentFee = Math.floor(amount * (percentRate / 100))
+    const totalFee = flatFee + percentFee
+
+    if (amount <= totalFee) {
+      throw new AppError('VALIDATION_ERROR', `Số tiền rút phải lớn hơn tổng phí giao dịch (${totalFee.toLocaleString('vi-VN')} VNĐ)`, 400)
+    }
+
+    const netPayout = amount - totalFee
+    const balanceBefore = user.vndBalance || 0
+    const balanceAfter = balanceBefore - amount
+
+    // Khấu trừ số dư ví khả dụng
+    await User.findByIdAndUpdate(req.user._id, {
+      vndBalance: balanceAfter,
+      $inc: { totalWithdrawn: amount }
+    })
+
+    // Ghi log giao dịch rút tiền
+    const txn = await VndTransaction.create({
+      userId: req.user._id,
+      type: 'withdraw_request',
+      amount: -amount,
+      balanceBefore,
+      balanceAfter,
+      description: `Rút tiền về ${user.bankAccount.bankName} (STK: ${user.bankAccount.accountNumber}). Phí giao dịch: ${totalFee.toLocaleString('vi-VN')}đ (2% + 10k). Thực nhận: ${netPayout.toLocaleString('vi-VN')}đ`,
+      meta: {
+        bankDetails: user.bankAccount
+      }
+    })
+
+    res.json({
+      message: 'Yêu cầu rút tiền của bạn đang được kiểm duyệt và xử lý chuyển khoản trong vòng 24h.',
+      vndBalance: balanceAfter,
+      transaction: txn
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /users/me/transactions
+ * Lấy lịch sử giao dịch ví VNĐ
+ */
+export const getVndTransactions = async (req, res, next) => {
+  try {
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    const txns = await VndTransaction.find({ userId: req.user._id })
+      .sort({ createdAt: -1 })
+      .limit(50)
+      .lean()
+    res.json({ transactions: txns })
   } catch (err) {
     next(err)
   }

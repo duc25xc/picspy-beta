@@ -1375,7 +1375,8 @@ const HomePage = () => {
   
   const [homepageData, setHomepageData] = useState(null)
   const [homepageLoading, setHomepageLoading] = useState(true)
-  const [likesInput, setLikesInput] = useState(1000)
+  const [viewsInput, setViewsInput] = useState(5000)
+  const [downloadsInput, setDownloadsInput] = useState(100)
   const [selectedPostId, setSelectedPostId] = useState(null)
 
   const { splashExtraMs } = useSettings()
@@ -1982,108 +1983,159 @@ const HomePage = () => {
 
             <div className="relative z-10 flex flex-col lg:flex-row items-center justify-between gap-16">
               {/* Left text */}
-              <div className="max-w-xl text-center lg:text-left">
+              <div className="max-w-xl text-center lg:text-left flex-1">
                 <p className="text-brand-600 dark:text-brand-400 text-[11px] font-bold tracking-widest uppercase mb-4 pj">
                   🚀 Creator Program
                 </p>
                 <h2 className="text-4xl md:text-5xl font-black text-foreground tracking-tighter mb-6 leading-tight pj">
-                  Bạn là nhà sáng tạo nghệ thuật AI?
+                  Bạn là nhà sáng tạo nghệ thuật?
                 </h2>
                 <p className="text-foreground/70 text-base mb-8 leading-relaxed pj">
-                  Gia nhập đội ngũ PICSPY Creators ngay. Hệ thống Coin minh bạch
-                  giúp bạn nhận lại giá trị xứng đáng từ mỗi lượt yêu thích.
+                  Gia nhập đội ngũ PICSPY Creators ngay. Hệ thống phân phối và chia sẻ
+                  doanh thu bằng tiền mặt VNĐ minh bạch, trả lại giá trị thực xứng đáng với tài năng của bạn.
                 </p>
 
-                {/* Coin Reward Calculator Slider */}
-                <div className="space-y-4 mb-8">
+                {/* Revenue Payout Calculator */}
+                <div className="space-y-4 mb-8 w-full max-w-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-foreground/50 tracking-widest pj">Ước tính thu nhập của bạn</span>
+                    <span className="text-[10px] font-black uppercase text-foreground/50 tracking-widest pj">Ước tính doanh thu của bạn</span>
                   </div>
                   
-                  {/* Slider input */}
-                  <div className="bg-white/5 border border-white/5 rounded-2xl p-6 space-y-4 text-left">
-                    <div className="flex justify-between items-center">
+                  <div className="bg-white/5 border border-white/5 rounded-[2rem] p-6 space-y-6 text-left relative overflow-hidden">
+                    <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/[0.05]">
                       <div>
-                        <p className="text-2xl font-black text-foreground pj">
-                          {likesInput.toLocaleString()}
-                        </p>
-                        <p className="text-[9px] font-bold uppercase text-foreground/45 pj">Lượt thích</p>
+                        <p className="text-[10px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">Lượt xem ước tính</p>
+                        <p className="text-xl font-black text-foreground tabular-nums leading-none pj">{viewsInput.toLocaleString()}</p>
                       </div>
-                      <div className="text-foreground/40 text-xl font-bold">=</div>
-                      <div className="text-right">
-                        <p className="text-2xl font-black hero-gradient-text pj">
-                          {((likesInput / 1000) * 5).toFixed(1)} Xu
-                        </p>
-                        <p className="text-[9px] font-bold uppercase text-foreground/45 pj">Coin tích lũy</p>
+                      <div>
+                        <p className="text-[10px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">Lượt tải Premium (Ảnh bán)</p>
+                        <p className="text-xl font-black text-foreground tabular-nums leading-none pj">{downloadsInput.toLocaleString()}</p>
                       </div>
                     </div>
 
-                    <div className="pt-2">
-                      <input
-                        type="range"
-                        min="100"
-                        max="10000"
-                        step="100"
-                        value={likesInput}
-                        onChange={(e) => setLikesInput(parseInt(e.target.value))}
-                        className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
-                        style={{
-                          background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${(likesInput - 100) / 99}%, rgba(255,255,255,0.1) ${(likesInput - 100) / 99}%, rgba(255,255,255,0.1) 100%)`
-                        }}
-                      />
+                    <div className="space-y-4">
+                      {/* Views Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
+                          <span>Lượt xem</span>
+                          <span className="text-brand-400 font-bold">{(viewsInput * (homepageData?.rates?.payoutRatePerView || 10)).toLocaleString()}đ</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100000"
+                          step="500"
+                          value={viewsInput}
+                          onChange={(e) => setViewsInput(parseInt(e.target.value))}
+                          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                          style={{
+                            background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${(viewsInput) / 1000}%, rgba(255,255,255,0.1) ${(viewsInput) / 1000}%, rgba(255,255,255,0.1) 100%)`
+                          }}
+                        />
+                      </div>
+
+                      {/* Downloads Slider */}
+                      <div className="space-y-1">
+                        <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
+                          <span>Lượt tải Premium (Ví dụ bán 20k/ảnh)</span>
+                          <span className="text-brand-400 font-bold">{(downloadsInput * 20000 * ((homepageData?.rates?.creatorSharePercent || 70) / 100)).toLocaleString()}đ</span>
+                        </div>
+                        <input
+                          type="range"
+                          min="0"
+                          max="1000"
+                          step="5"
+                          value={downloadsInput}
+                          onChange={(e) => setDownloadsInput(parseInt(e.target.value))}
+                          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                          style={{
+                            background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${(downloadsInput) / 10}%, rgba(255,255,255,0.1) ${(downloadsInput) / 10}%, rgba(255,255,255,0.1) 100%)`
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="pt-2 flex items-center justify-between">
+                      <span className="text-xs font-bold text-foreground/50 pj">Doanh thu nhận về (70% Share)</span>
+                      <p className="text-3xl font-black text-emerald-400 tabular-nums pj">
+                        {(
+                          viewsInput * (homepageData?.rates?.payoutRatePerView || 10) +
+                          downloadsInput * 20000 * ((homepageData?.rates?.creatorSharePercent || 70) / 100)
+                        ).toLocaleString('vi-VN')} đ
+                      </p>
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Right: PRO card */}
+              {/* Right: Creator Payout Ticker */}
               <div
-                className="liquid-glass rounded-2xl p-8 max-w-sm w-full"
-                style={{ borderColor: 'var(--cta-border)' }}
+                className="liquid-glass rounded-[2rem] p-8 max-w-sm w-full border border-white/10 shadow-2xl relative overflow-hidden"
+                style={{
+                  background: 'rgba(10, 10, 25, 0.4)',
+                  backdropFilter: 'blur(20px)',
+                }}
               >
-                <div className="text-center mb-7">
-                  <div
-                    className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4 border"
-                    style={{ background: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)', borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
-                  >
-                    <Star size={26} className="text-amber-300" />
+                {/* Neon glow effect behind */}
+                <div className="absolute -top-10 -right-10 w-24 h-24 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+                <div className="absolute -bottom-10 -left-10 w-24 h-24 bg-brand-500/10 rounded-full blur-2xl pointer-events-none" />
+
+                <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/[0.06]">
+                  <div>
+                    <h3 className="text-sm font-black text-white tracking-tight flex items-center gap-1.5 uppercase">
+                      <TrendingUp size={15} className="text-emerald-400 animate-pulse" /> Tỷ giá Creator
+                    </h3>
+                    <p className="text-[10px] text-white/45 font-bold uppercase tracking-wider mt-0.5">Cập nhật hôm nay</p>
                   </div>
-                  <h3 className="text-xl font-bold text-foreground pj">
-                    Trở thành Creator PRO
-                  </h3>
+                  <span className="flex h-2 w-2 relative">
+                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                  </span>
                 </div>
-                <ul className="space-y-4 mb-8">
+
+                <div className="space-y-4">
                   {[
-                    'Tỷ lệ chuyển đổi Xu cao hơn',
-                    'Huy hiệu PRO xác minh',
-                    'Ưu tiên hiển thị Trending',
-                  ].map((item) => (
-                    <li
-                      key={item}
-                      className="flex items-center gap-3 text-sm text-foreground/75 pj"
-                    >
-                      <div
-                        className="w-5 h-5 rounded-full border flex items-center justify-center shrink-0"
-                        style={{ background: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)', borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
-                      >
-                        <div className="w-2 h-2 rounded-full" style={{ background: 'var(--color-brand-500)' }} />
+                    {
+                      label: 'Tỷ giá Lượt xem (View)',
+                      value: `${(homepageData?.rates?.payoutRatePerView || 10)}đ / view`,
+                      desc: 'Tính trên mỗi view hợp lệ (Quyết toán đêm 00:00)',
+                      indicator: '📈 +3.2%',
+                      indicatorColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                    },
+                    {
+                      label: 'Doanh thu bán ảnh Premium',
+                      value: `${(homepageData?.rates?.creatorSharePercent || 70)}%`,
+                      desc: 'Tỷ lệ chia sẻ doanh thu trực tiếp cho tác giả',
+                      indicator: '🛡️ Ổn định',
+                      indicatorColor: 'text-brand-400 bg-brand-500/10 border-brand-500/20'
+                    },
+                    {
+                      label: 'Hạn mức rút tối thiểu',
+                      value: `${(50000).toLocaleString('vi-VN')}đ`,
+                      desc: 'Chuyển khoản trực tiếp về ngân hàng của bạn',
+                      indicator: '💳 Instant',
+                      indicatorColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                    },
+                    {
+                      label: 'Phí giao dịch rút ví',
+                      value: '2% + 10.000đ',
+                      desc: 'Chi trả phí liên ngân hàng & kiểm duyệt viên',
+                      indicator: '🏦 Sàn thu',
+                      indicatorColor: 'text-white/40 bg-white/5 border-white/10'
+                    }
+                  ].map((rate, idx) => (
+                    <div key={idx} className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 hover:bg-white/[0.04] transition-colors">
+                      <div className="flex justify-between items-start mb-1">
+                        <span className="text-[10px] font-bold text-white/55">{rate.label}</span>
+                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${rate.indicatorColor} tracking-wide`}>
+                          {rate.indicator}
+                        </span>
                       </div>
-                      {item}
-                    </li>
+                      <p className="text-xl font-black text-white leading-none tracking-tight mb-1">{rate.value}</p>
+                      <p className="text-[9px] text-white/30 leading-normal">{rate.desc}</p>
+                    </div>
                   ))}
-                </ul>
-                <Link to="/register">
-                  <motion.button
-                    whileHover={{ scale: 1.03 }}
-                    whileTap={{ scale: 0.97 }}
-                    className="w-full py-4 font-black rounded-full pj
-                      bg-gradient-brand text-white
-                      transition-shadow duration-300"
-                    style={{ boxShadow: '0 0 30px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.35)' }}
-                  >
-                    Đăng ký ngay
-                  </motion.button>
-                </Link>
+                </div>
               </div>
             </div>
           </div>

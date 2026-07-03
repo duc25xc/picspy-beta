@@ -64,6 +64,7 @@ const PostDeepLinkPage = lazy(() => import('./pages/PostDeepLinkPage'))
 const AdminPage = lazy(() => import('./pages/AdminPage'))
 const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
+const StudioPage = lazy(() => import('./pages/StudioPage'))
 // PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
 
 
@@ -232,6 +233,19 @@ export default function App() {
                   <MainLayout>
                     <PageTransition>
                       <AdminPage />
+                    </PageTransition>
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/studio"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PageTransition>
+                      <StudioPage />
                     </PageTransition>
                   </MainLayout>
                 </ProtectedRoute>

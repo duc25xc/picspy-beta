@@ -14,6 +14,7 @@ import {
   Monitor,
   Globe,
   ChevronDown,
+  Film,
 } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
 import { useSettings } from '../../context/SettingsContext'
@@ -159,13 +160,13 @@ const Header = () => {
                 <span>{t.nav.upload}</span>
               </Link>
 
-              {/* Notifications */}
-              <Link
-                to="/notifications"
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-border)] transition-colors text-[var(--color-text-muted)] hover:text-foreground flex-shrink-0"
+              {/* Notifications — coming soon dropdown */}
+              <button
+                title="Thông báo (sắp ra mắt)"
+                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-border)] transition-colors text-[var(--color-text-muted)] hover:text-foreground flex-shrink-0 relative cursor-default"
               >
                 <Bell size={18} />
-              </Link>
+              </button>
 
               {/* Avatar Dropdown Container */}
               <div className="relative inline-block" ref={dropdownRef}>
@@ -254,6 +255,16 @@ const Header = () => {
                           className="text-[var(--color-text-muted)]"
                         />
                         <span>{t.dropdown.myPosts}</span>
+                      </Link>
+
+                      <Link
+                        to="/studio"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-[var(--color-border)] transition-colors"
+                      >
+                        <Film size={14} className="text-brand-400" />
+                        <span>Creator Studio</span>
+                        <span className="ml-auto text-[9px] font-bold text-brand-400 bg-brand-500/10 border border-brand-500/20 px-1.5 py-0.5 rounded-md">NEW</span>
                       </Link>
 
                       {/* Divider */}

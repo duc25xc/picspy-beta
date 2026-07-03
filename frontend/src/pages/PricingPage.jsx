@@ -6,7 +6,7 @@ import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import { PlanCard, PayModal, PricingBg, F, glassCard, btnPrimary, btnGhost } from './PricingComponents'
-import ContentLoader from '../components/ui/ContentLoader'
+import ContentLoader, { BrandLogo } from '../components/ui/ContentLoader'
 
 const CYCLES = { weekly: 'Tuần', monthly: 'Tháng', yearly: 'Năm' }
 
@@ -411,7 +411,7 @@ export default function PricingPage() {
             {/* Brand */}
             <div className="col-span-2">
               <div className="mb-5 flex items-center">
-                <ContentLoader size="sm" />
+                <BrandLogo size="sm" />
               </div>
               <p className="text-white/35 max-w-xs mb-7 leading-relaxed text-sm" style={F.body}>
                 Nền tảng curator nghệ thuật số lớn nhất Việt Nam, kết nối hàng triệu trái tim yêu cái đẹp thông qua công nghệ AI.

@@ -22,6 +22,7 @@ export const AI_TOOLS = [
   'stable-diffusion',
   'flux',
   'gemini-nano-banana-pro',
+  'gemini-nano-banana-2',
   'chatgpt',
   'seedream',
   'grok',
@@ -210,8 +211,9 @@ const postSchema = new mongoose.Schema(
 
     // === MONETIZATION ===
     isPremium: { type: Boolean, default: false },
-    priceInTokens: { type: Number, default: 10, min: 1, max: 500 },
-    totalTokensEarned: { type: Number, default: 0 },
+    priceInVnd: { type: Number, default: 20000, min: 1000 },
+    totalTokensEarned: { type: Number, default: 0 }, // Giữ để tương thích
+    totalVndEarned: { type: Number, default: 0 },
     accessTier: {
       type: String,
       enum: ['free', 'pro', 'ultimate'],

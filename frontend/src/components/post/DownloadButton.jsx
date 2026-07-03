@@ -28,7 +28,7 @@ const DownloadButton = ({
 
   const postId = post?._id || propPostId
   const isPremium = post ? post.isPremium : propIsPremium
-  const priceInTokens = post ? (post.priceInTokens || 10) : propPriceInTokens
+  const priceInVnd = post ? (post.priceInVnd || 20000) : 20000
 
   const [loading, setLoading] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -130,9 +130,9 @@ const DownloadButton = ({
     setSelectedFileType(fileType)
 
     if (isPremium) {
-      const balance = user?.tokenBalance || 0
-      if (balance < priceInTokens) {
-        toast.error(`Không đủ token! Cần ${priceInTokens} token, bạn có ${balance} token.`)
+      const balance = user?.vndBalance || 0
+      if (balance < priceInVnd) {
+        toast.error(`Không đủ số dư ví! Cần ${priceInVnd.toLocaleString('vi-VN')}đ, số dư hiện tại của bạn là ${balance.toLocaleString('vi-VN')}đ.`)
         return
       }
       setShowConfirm(true)
@@ -237,7 +237,7 @@ const DownloadButton = ({
           whileTap={{ scale: 0.9 }}
           disabled={loading}
           className={`flex items-center gap-1.5 text-white/50 hover:text-white transition-colors ${className}`}
-          title={isPremium ? `Premium: ${priceInTokens} token` : 'Tải miễn phí'}
+          title={isPremium ? `Premium: ${priceInVnd.toLocaleString('vi-VN')}đ` : 'Tải miễn phí'}
         >
           {loading ? (
             <Loader2 size={16} className="animate-spin" />
@@ -254,8 +254,8 @@ const DownloadButton = ({
 
         <ConfirmModal
           open={showConfirm}
-          price={priceInTokens}
-          balance={user?.tokenBalance || 0}
+          price={priceInVnd}
+          balance={user?.vndBalance || 0}
           onConfirm={() => doDownload(selectedFileType)}
           onCancel={() => setShowConfirm(false)}
         />
@@ -308,7 +308,7 @@ const DownloadButton = ({
               : hasAttachments
                 ? 'Tải xuống...'
                 : isPremium
-                  ? `Tải Premium · ${priceInTokens} token`
+                  ? `Tải Premium · ${priceInVnd.toLocaleString('vi-VN')}đ`
                   : 'Tải miễn phí'}
         </motion.button>
 
@@ -316,8 +316,8 @@ const DownloadButton = ({
 
         <ConfirmModal
           open={showConfirm}
-          price={priceInTokens}
-          balance={user?.tokenBalance || 0}
+          price={priceInVnd}
+          balance={user?.vndBalance || 0}
           onConfirm={() => doDownload(selectedFileType)}
           onCancel={() => setShowConfirm(false)}
         />
@@ -357,7 +357,7 @@ const DownloadButton = ({
           : hasAttachments
             ? 'Tải xuống'
             : isPremium
-              ? `${priceInTokens} token`
+              ? `${priceInVnd.toLocaleString('vi-VN')}đ`
               : 'Tải miễn phí'}
       </motion.button>
 
@@ -365,8 +365,8 @@ const DownloadButton = ({
 
       <ConfirmModal
         open={showConfirm}
-        price={priceInTokens}
-        balance={user?.tokenBalance || 0}
+        price={priceInVnd}
+        balance={user?.vndBalance || 0}
         onConfirm={() => doDownload(selectedFileType)}
         onCancel={() => setShowConfirm(false)}
       />
@@ -392,8 +392,8 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
           className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl"
         >
           <div className="text-center mb-5">
-            <div className="w-16 h-16 rounded-2xl bg-amber-500/15 flex items-center justify-center mx-auto mb-4">
-              <Coins size={28} className="text-amber-400" />
+            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">💳</span>
             </div>
             <h3 className="text-lg font-bold text-white mb-1">Xác nhận mua</h3>
             <p className="text-white/50 text-sm">Tải tệp chất lượng gốc</p>
@@ -401,17 +401,17 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
 
           <div className="space-y-2 mb-5">
             <div className="flex justify-between items-center py-2 border-b border-white/8">
-              <span className="text-white/50 text-sm">Giá tải</span>
-              <span className="text-amber-400 font-bold">{price} token</span>
+              <span className="text-white/50 text-sm">Giá tải ảnh</span>
+              <span className="text-emerald-400 font-bold">{price.toLocaleString('vi-VN')}đ</span>
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-white/50 text-sm">Số dư của bạn</span>
-              <span className="text-white font-semibold">{balance} token</span>
+              <span className="text-white/50 text-sm">Số dư khả dụng</span>
+              <span className="text-white font-semibold">{balance.toLocaleString('vi-VN')}đ</span>
             </div>
             <div className="flex justify-between items-center py-2 border-t border-white/8">
               <span className="text-white/50 text-sm">Số dư còn lại</span>
               <span className={`font-bold ${balance - price < 0 ? 'text-red-400' : 'text-green-400'}`}>
-                {balance - price} token
+                {(balance - price).toLocaleString('vi-VN')}đ
               </span>
             </div>
           </div>
@@ -426,7 +426,7 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={onConfirm}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm shadow-[0_0_20px_rgba(245,158,11,0.3)] hover:from-amber-400 hover:to-orange-400 transition-all"
+              className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:from-emerald-400 hover:to-teal-400 transition-all"
             >
               Mua & Tải xuống
             </motion.button>

@@ -5,7 +5,7 @@ import {
   getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
-  getSettings, updateSettings, getAuditLogs,
+  getSettings, updateSettings, getAuditLogs, triggerSettlement,
 } from '../controllers/admin.controller.js'
 
 const router = Router()
@@ -40,5 +40,6 @@ router.delete('/categories/:id', deleteCategory)
 // ── System Settings ───────────────────────────────────────────
 router.get('/settings', getSettings)
 router.put('/settings', updateSettings)
+router.post('/settlement/trigger', triggerSettlement)
 
 export default router

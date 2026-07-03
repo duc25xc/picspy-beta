@@ -120,8 +120,8 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     aiModel:        post.aiModel        || '',
     parameters:     post.parameters     || '',
     // Pricing tab
-    isPremium:      post.isPremium      || false,
-    priceInTokens:  post.priceInTokens  || 10,
+    isPremium:       post.isPremium       || false,
+    priceInVnd:      post.priceInVnd      || 20000,
   })
   const [tag, setTag]       = useState('')
   const [saving, setSaving] = useState(false)
@@ -387,7 +387,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
       if (!multiModelMode && form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
       if (form.parameters.trim()) fd.append('parameters', form.parameters.trim())
       fd.append('isPremium', String(form.isPremium))
-      fd.append('priceInTokens', String(Number(form.priceInTokens)))
+      fd.append('priceInVnd', String(Number(form.priceInVnd)))
 
       // ── Xử lý ảnh gốc (Source Images) ──
       // Cũ được giữ lại
@@ -852,19 +852,19 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
               {form.isPremium && (
                 <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                  <label className="input-label">Giá (tokens)</label>
+                  <label className="input-label">Giá bán (VNĐ)</label>
                   <div className="flex items-center gap-3 mt-2">
-                    <input type="range" min={1} max={500} step={1}
-                      value={form.priceInTokens} onChange={e => set('priceInTokens', Number(e.target.value))}
+                    <input type="range" min={1000} max={200000} step={5000}
+                      value={form.priceInVnd} onChange={e => set('priceInVnd', Number(e.target.value))}
                       className="flex-1 accent-brand-500"
                     />
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-100 border border-white/10 min-w-[80px] justify-center">
-                      <span className="text-yellow-400 text-sm">🪙</span>
-                      <span className="font-bold text-sm">{form.priceInTokens}</span>
+                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-100 border border-white/10 min-w-[100px] justify-center">
+                      <span className="text-emerald-400 text-sm">đ</span>
+                      <span className="font-bold text-sm">{form.priceInVnd?.toLocaleString()}</span>
                     </div>
                   </div>
                   <div className="flex justify-between text-xs text-white/25 mt-1 px-1">
-                    <span>1</span><span>250</span><span>500</span>
+                    <span>1.000đ</span><span>100.000đ</span><span>200.000đ</span>
                   </div>
                 </motion.div>
               )}
@@ -879,7 +879,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 {form.isPremium && (
                   <div className="flex justify-between">
                     <span className="text-white/40">Giá niêm yết</span>
-                    <span className="font-bold">🪙 {form.priceInTokens} tokens</span>
+                    <span className="font-bold">{form.priceInVnd?.toLocaleString()} VNĐ</span>
                   </div>
                 )}
               </div>

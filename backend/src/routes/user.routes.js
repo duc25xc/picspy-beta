@@ -10,6 +10,10 @@ import {
   toggleFollow,
   getFollowers,
   getFollowing,
+  saveBankAccount,
+  topupVnd,
+  requestWithdrawal,
+  getVndTransactions,
 } from '../controllers/user.controller.js'
 import { getMyBookmarks } from '../controllers/post.interaction.controller.js'
 
@@ -21,6 +25,10 @@ router.put('/me', authenticate, updateMe)
 router.put('/me/avatar', authenticate, upload.single('avatar'), handleMulterError, uploadAvatar)
 router.put('/me/password', authenticate, changePassword)
 router.get('/me/bookmarks', authenticate, getMyBookmarks)
+router.post('/me/bank', authenticate, saveBankAccount)
+router.post('/me/topup', authenticate, topupVnd)
+router.post('/me/withdraw', authenticate, requestWithdrawal)
+router.get('/me/transactions', authenticate, getVndTransactions)
 
 // Public
 router.get('/:username', optionalAuth, getPublicProfile)

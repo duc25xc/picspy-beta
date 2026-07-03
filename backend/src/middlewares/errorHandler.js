@@ -13,9 +13,10 @@ const errorHandler = (err, req, res, next) => {
       field: e.path,
       message: e.message,
     }))
+    const errMsg = 'Dữ liệu không hợp lệ: ' + details.map(d => `${d.field} (${d.message})`).join(', ')
     return res.status(422).json({
       error: 'VALIDATION_ERROR',
-      message: 'Dữ liệu không hợp lệ',
+      message: errMsg,
       details,
     })
   }

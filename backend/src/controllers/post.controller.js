@@ -46,7 +46,7 @@ const createPostSchema = z.object({
 
   // Monetization
   isPremium: z.boolean().optional().default(false),
-  priceInTokens: z.number().min(1).max(500).optional().default(10),
+  priceInVnd: z.number().min(1000).optional().default(20000),
 
   // Compat (legacy)
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
@@ -80,7 +80,7 @@ const updatePostSchema = z.object({
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional(),
   category: z.string().min(1).toLowerCase().trim().optional(),
   isPremium: z.boolean().optional(),
-  priceInTokens: z.number().min(1).max(500).optional(),
+  priceInVnd: z.number().min(1000).optional(),
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
   orientation: z.enum(['portrait', 'landscape', 'square']).optional(),
   aspectRatio: z.string().optional(),
@@ -313,7 +313,7 @@ export const createPost = async (req, res, next) => {
       catch { body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean) }
     }
     if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
-    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
+    if (body.priceInVnd) body.priceInVnd = parseInt(body.priceInVnd)
 
     // ── Multi-model mode detection ──────────────────────────────
     // modelComparisons JSON: [{aiTool, aiModel, slotIndex}]
@@ -501,7 +501,7 @@ export const createPost = async (req, res, next) => {
       tags: data.tags,
       category: data.category,
       isPremium: data.isPremium,
-      priceInTokens: data.priceInTokens,
+      priceInVnd: data.priceInVnd,
       resolution: data.resolution,
       orientation: data.orientation,
       aspectRatio: data.aspectRatio,
@@ -542,7 +542,8 @@ export const createPost = async (req, res, next) => {
   } catch (err) {
     if (err instanceof z.ZodError) {
       console.error('❌ ZOD VALIDATION ERROR:', JSON.stringify(err.errors, null, 2))
-      return next(new AppError('VALIDATION_ERROR', 'Dữ liệu không hợp lệ', 422, err.errors))
+      const errMsg = 'Dữ liệu không hợp lệ: ' + err.errors.map(e => `${e.path.join('.') || 'post'} (${e.message})`).join(', ')
+      return next(new AppError('VALIDATION_ERROR', errMsg, 422, err.errors))
     }
     next(err)
   }
@@ -1027,7 +1028,7 @@ export const updatePost = async (req, res, next) => {
       }
     }
     if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
-    if (body.priceInTokens) body.priceInTokens = parseInt(body.priceInTokens)
+    if (body.priceInVnd) body.priceInVnd = parseInt(body.priceInVnd)
 
     // Validate textual data qua Zod
     const data = updatePostSchema.parse(body)
@@ -1231,7 +1232,7 @@ export const updatePost = async (req, res, next) => {
     post.tags = data.tags !== undefined ? data.tags : post.tags
     post.category = data.category !== undefined ? data.category : post.category
     post.isPremium = data.isPremium !== undefined ? data.isPremium : post.isPremium
-    post.priceInTokens = data.priceInTokens !== undefined ? data.priceInTokens : post.priceInTokens
+    post.priceInVnd = data.priceInVnd !== undefined ? data.priceInVnd : post.priceInVnd
     
     // Resolution, orientation, aspectRatio
     if (data.resolution) post.resolution = data.resolution
@@ -1281,14 +1282,8 @@ export const updatePost = async (req, res, next) => {
     res.json({ message: 'Cập nhật thành công', post })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      return next(
-        new AppError(
-          'VALIDATION_ERROR',
-          'Dữ liệu không hợp lệ',
-          422,
-          err.errors
-        )
-      )
+      const errMsg = 'Dữ liệu không hợp lệ: ' + err.errors.map(e => `${e.path.join('.') || 'post'} (${e.message})`).join(', ')
+      return next(new AppError('VALIDATION_ERROR', errMsg, 422, err.errors))
     }
     next(err)
   }
@@ -1748,11 +1743,18 @@ export const getHomepageData = async (req, res, next) => {
       heroCollageMode: settings.heroCollageMode || 'auto',
       globalLoaderType: settings.globalLoaderType || 'wave',
       splashExtraMs: settings.splashExtraMs ?? 0,
+      rates: {
+        payoutRatePerView: settings.payoutRatePerView || 10,
+        creatorSharePercent: settings.creatorSharePercent || 70,
+        withdrawalFlatFee: settings.withdrawalFlatFee || 10000,
+        withdrawalPercentFee: settings.withdrawalPercentFee || 2,
+      },
       stats: {
         totalPosts,
         totalDownloads,
         totalCreators: creatorsCount,
-        totalCoinsPaid
+        totalCoinsPaid,
+        totalVndPaid: totalCoinsPaid
       },
       categories: categoriesData,
       collage: collageImages,

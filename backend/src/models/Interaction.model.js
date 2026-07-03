@@ -19,8 +19,13 @@ const interactionSchema = new mongoose.Schema(
     },
     type: {
       type: String,
-      enum: ['like', 'bookmark', 'view'],
+      enum: ['like', 'bookmark', 'view', 'download'],
       required: true,
+    },
+    settled: {
+      type: Boolean,
+      default: false,
+      index: true,
     },
   },
   {

@@ -61,7 +61,7 @@ const defaultForm = () => ({
   tags: '',
   category: '',
   isPremium: false,
-  priceInTokens: 10,
+  priceInVnd: 20000,
 })
 
 // ── Main component ───────────────────────────────────────────────
@@ -630,7 +630,7 @@ export default function UploadPage() {
     )
     fd.append('category', form.category)
     fd.append('isPremium', String(form.isPremium))
-    fd.append('priceInTokens', String(Number(form.priceInTokens)))
+    fd.append('priceInVnd', String(Number(form.priceInVnd)))
 
     if (dims.resolution) fd.append('resolution', dims.resolution)
     if (dims.orientation) fd.append('orientation', dims.orientation)
@@ -1968,23 +1968,23 @@ function Step4Meta({
         </button>
       </div>
 
-      {/* Price in tokens */}
+      {/* Price in VNĐ */}
       {form.isPremium && (
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
           exit={{ opacity: 0, height: 0 }}
         >
-          <label className="input-label">Giá (token)</label>
+          <label className="input-label">Giá bán (VNĐ)</label>
           <input
             type="number"
-            min={1}
-            max={500}
-            value={form.priceInTokens}
+            min={1000}
+            step={1000}
+            value={form.priceInVnd}
             onChange={(e) =>
-              set('priceInTokens')(parseInt(e.target.value) || 10)
+              set('priceInVnd')(parseInt(e.target.value) || 20000)
             }
-            className="input w-32"
+            className="input w-48"
           />
         </motion.div>
       )}

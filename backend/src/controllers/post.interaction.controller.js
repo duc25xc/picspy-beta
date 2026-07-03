@@ -165,19 +165,30 @@ export const toggleBookmark = async (req, res, next) => {
   }
 }
 
+
+// Module-level Set để dedup guest views (IP + postId, cleared mỗi 24h)
+const guestViewCache = new Set()
+setInterval(() => guestViewCache.clear(), 24 * 60 * 60 * 1000)
+
 /**
  * POST /posts/:id/view — Track view
- * Mỗi user chỉ count 1 view / post (dùng unique index)
- * Không cần auth — dùng IP fallback cho guest
+ * Auth users: dedup via Interaction model (unique index)
+ * Guest users: dedup via IP+postId cache (reset mỗi 24h)
  */
 export const trackView = async (req, res, next) => {
   try {
     const { id: postId } = req.params
 
-    // Guest thì dùng IP hash làm userId giả
-    // Để đơn giản, chỉ track cho authenticated users
     if (!req.user) {
-      // Vẫn tăng viewsCount nhưng không tạo interaction
+      // Guest: dedup bằng IP
+      const ip = req.ip || req.headers['x-forwarded-for'] || 'unknown'
+      const guestKey = `${ip}:${postId}`
+
+      if (guestViewCache.has(guestKey)) {
+        return res.json({ viewed: false, reason: 'already_viewed' })
+      }
+      guestViewCache.add(guestKey)
+
       await Post.findByIdAndUpdate(postId, {
         $inc: { 'stats.viewsCount': 1 },
       })
@@ -186,16 +197,18 @@ export const trackView = async (req, res, next) => {
 
     const userId = req.user._id
 
-    // Thử tạo interaction — nếu đã tồn tại thì bỏ qua (duplicate key)
+    // Auth users: dedup qua Interaction model (unique index)
     try {
       await Interaction.create({ userId, postId, type: 'view' })
-      // Chỉ tăng count khi view mới thực sự
-      await Post.findByIdAndUpdate(postId, {
-        $inc: { 'stats.viewsCount': 1 },
-      })
 
-      // Tăng totalViews cho author
-      const post = await Post.findById(postId).select('authorId').lean()
+      // Chỉ tăng count khi view mới thực sự
+      const post = await Post.findByIdAndUpdate(
+        postId,
+        { $inc: { 'stats.viewsCount': 1 } },
+        { new: true, select: 'authorId' }
+      ).lean()
+
+      // Tăng totalViews cho author (chỉ khi viewer không phải chính chủ)
       if (post && post.authorId.toString() !== userId.toString()) {
         const User = (await import('../models/User.model.js')).default
         await User.findByIdAndUpdate(post.authorId, {
@@ -212,6 +225,7 @@ export const trackView = async (req, res, next) => {
     next(err)
   }
 }
+
 
 /**
  * GET /users/me/bookmarks — Danh sách bookmark của user
