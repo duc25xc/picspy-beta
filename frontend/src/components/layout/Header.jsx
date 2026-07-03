@@ -15,6 +15,7 @@ import {
   Globe,
   ChevronDown,
   Film,
+  Wallet,
 } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
 import { useSettings } from '../../context/SettingsContext'
@@ -122,34 +123,53 @@ const Header = () => {
         <div className="flex-1 flex items-center justify-end">
           {user ? (
             <div className="flex items-center gap-3">
-              {/* Token balance + tier badge */}
-              <Link
-                to="/pricing"
-                className="flex items-center gap-2 px-3 h-8 rounded-full bg-surface-50/50 border hover:bg-[var(--color-border)] transition-all text-foreground hover:scale-102 flex-shrink-0"
-              >
-                <Coins size={15} className="text-yellow-500" />
-                <span className="text-xs font-bold font-sans">
-                  {(user.tokenBalance || 0).toLocaleString()}
-                </span>
-                {user.subscriptionTier && user.subscriptionTier !== 'free' && (
-                  <span
-                    className={`text-[9px] font-black tracking-wider px-2 py-0.5 rounded-full uppercase flex items-center gap-0.5 ${
-                      user.subscriptionTier === 'founder'
-                        ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
-                        : user.subscriptionTier === 'ultimate'
-                          ? 'bg-cyan-500/10 text-cyan-500 border border-cyan-500/20'
-                          : 'bg-brand-500/10 text-brand-500 border border-brand-500/20'
-                    }`}
-                  >
-                    {user.subscriptionTier === 'founder'
-                      ? '🎖️'
-                      : user.subscriptionTier === 'ultimate'
-                        ? '💎'
-                        : '⭐'}
-                    {user.subscriptionTier}
+              {/* Balances: Wallet (VNĐ) & Tokens */}
+              <div className="group/balance-pill flex items-center h-8 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 hover:border-white/15 px-1 select-none shadow-sm flex-shrink-0 transition-all duration-300">
+                {/* Wallet Balance (VNĐ) */}
+                <div className="flex items-center gap-1.5 px-2.5 h-full">
+                  <Wallet size={13.5} className="text-emerald-400 flex-shrink-0 transition-transform group-hover/balance-pill:scale-105 duration-300" />
+                  <span className="text-xs font-semibold text-emerald-400 tabular-nums">
+                    {(user.vndBalance || 0).toLocaleString('vi-VN')}đ
                   </span>
-                )}
-              </Link>
+                </div>
+                
+                {/* Center elegant short divider */}
+                <div className="w-[1px] h-3 bg-white/15" />
+                
+                {/* Tokens Link */}
+                <Link
+                  to="/pricing"
+                  className="flex items-center gap-1.5 px-2.5 h-full hover:text-brand-300 transition-colors group/token relative overflow-hidden"
+                  title="Mua thêm Token"
+                >
+                  <Coins size={13.5} className="text-yellow-500 flex-shrink-0 group-hover/token:scale-110 transition-transform duration-300" />
+                  <span className="text-xs font-semibold text-white/95 tabular-nums">
+                    {(user.tokenBalance || 0).toLocaleString()}
+                  </span>
+                  
+                  {user.subscriptionTier && (
+                    <span
+                      className={`h-[18px] px-2.5 rounded-[4px] flex items-center justify-center text-[8px] uppercase transition-all duration-500 select-none ${
+                        user.subscriptionTier === 'free'
+                          ? 'bg-white/[0.03] text-white/35 border border-white/10 text-[7px] font-sans font-medium'
+                          : user.subscriptionTier === 'founder' || user.subscriptionTier === 'pro'
+                            ? 'bg-[linear-gradient(110deg,#94a3b8,35%,#ffffff,50%,#cbd5e1,65%,#94a3b8)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_12px_rgba(255,255,255,0.3)] border border-white/20'
+                            : user.subscriptionTier === 'ultimate'
+                              ? 'bg-[linear-gradient(110deg,#bf953f,35%,#fcf6ba,50%,#aa771c,65%,#bf953f)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_14px_rgba(191,149,63,0.4)] border border-amber-500/35'
+                              : 'bg-[linear-gradient(110deg,#a855f7,35%,#f3e8ff,50%,#7c3aed,65%,#a855f7)] bg-[length:200%_100%] animate-shimmer text-purple-950 font-serif font-bold shadow-[0_0_12px_rgba(168,85,247,0.3)]'
+                      }`}
+                      style={{ letterSpacing: '0.12em' }}
+                    >
+                      <span style={{ marginRight: '-0.12em' }} className="flex items-center gap-1.2">
+                        {user.subscriptionTier === 'ultimate' && <span className="text-[9px] leading-none">✦</span>}
+                        {(user.subscriptionTier === 'founder' || user.subscriptionTier === 'pro') && <span className="text-[8px] leading-none">★</span>}
+                        <span>{user.subscriptionTier === 'founder' ? 'Founder' : user.subscriptionTier}</span>
+                        {user.subscriptionTier === 'ultimate' && <span className="text-[9px] leading-none">✦</span>}
+                      </span>
+                    </span>
+                  )}
+                </Link>
+              </div>
 
               {/* Upload Button */}
               <Link

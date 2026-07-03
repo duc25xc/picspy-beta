@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { NavLink, useLocation, useNavigate, Link } from 'react-router-dom'
 import { 
   Home, Search, Upload, Bell, User, LayoutGrid, 
-  LogOut, Sun, Moon, Monitor, Globe, ChevronRight, X, Coins 
+  LogOut, Sun, Moon, Monitor, Globe, ChevronRight, X, Coins, Wallet 
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import useAuthStore from '../../store/auth.store'
@@ -181,30 +181,59 @@ const BottomNav = () => {
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <p className="text-sm font-bold truncate text-foreground">{user.username}</p>
-                    {user.subscriptionTier && user.subscriptionTier !== 'free' && (
-                      <span className={`text-[8px] font-black tracking-wider px-1.5 py-0.5 rounded-full uppercase ${
-                        user.subscriptionTier === 'founder' ? 'bg-amber-500/15 text-amber-500 border border-amber-500/20' :
-                        user.subscriptionTier === 'ultimate' ? 'bg-cyan-500/15 text-cyan-500 border border-cyan-500/20' :
-                        'bg-brand-500/15 text-brand-500 border border-brand-500/20'
-                      }`}>
-                        {user.subscriptionTier}
-                      </span>
-                    )}
+                      {user.subscriptionTier && (
+                        <span
+                          className={`h-[18px] px-2.5 rounded-[4px] flex items-center justify-center text-[8px] uppercase transition-all duration-500 select-none ${
+                            user.subscriptionTier === 'free'
+                              ? 'bg-white/[0.03] text-white/35 border border-white/10 text-[7px] font-sans font-medium'
+                              : user.subscriptionTier === 'founder' || user.subscriptionTier === 'pro'
+                                ? 'bg-[linear-gradient(110deg,#94a3b8,35%,#ffffff,50%,#cbd5e1,65%,#94a3b8)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_8px_rgba(255,255,255,0.3)] border border-white/20'
+                                : user.subscriptionTier === 'ultimate'
+                                  ? 'bg-[linear-gradient(110deg,#bf953f,35%,#fcf6ba,50%,#aa771c,65%,#bf953f)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_10px_rgba(191,149,63,0.4)] border border-amber-500/35'
+                                  : 'bg-[linear-gradient(110deg,#a855f7,35%,#f3e8ff,50%,#7c3aed,65%,#a855f7)] bg-[length:200%_100%] animate-shimmer text-purple-950 font-serif font-bold shadow-[0_0_8px_rgba(168,85,247,0.3)]'
+                          }`}
+                          style={{ letterSpacing: '0.12em' }}
+                        >
+                          <span style={{ marginRight: '-0.12em' }} className="flex items-center gap-1.2">
+                            {user.subscriptionTier === 'ultimate' && <span className="text-[9px] leading-none">✦</span>}
+                            {(user.subscriptionTier === 'founder' || user.subscriptionTier === 'pro') && <span className="text-[8px] leading-none">★</span>}
+                            <span>{user.subscriptionTier === 'founder' ? 'Founder' : user.subscriptionTier}</span>
+                            {user.subscriptionTier === 'ultimate' && <span className="text-[9px] leading-none">✦</span>}
+                          </span>
+                        </span>
+                      )}
                   </div>
                   <p className="text-[11px] text-foreground/50 truncate mt-0.5">{user.email}</p>
                 </div>
               </div>
 
-              {/* Coins Balance */}
-              <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-100 border">
-                <div className="flex items-center gap-2 text-foreground/80 font-bold text-xs">
-                  <Coins size={16} className="text-yellow-500" />
-                  <span>{t.dropdown.tokens}</span>
+              {/* Balances Grid */}
+              <div className="grid grid-cols-2 gap-2">
+                {/* Wallet Balance (VNĐ) */}
+                <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-100 border">
+                  <div className="flex items-center gap-1.5 text-foreground/80 font-bold text-[11px] truncate">
+                    <Wallet size={14} className="text-emerald-400 flex-shrink-0" />
+                    <span>Ví số dư</span>
+                  </div>
+                  <span className="text-xs font-black text-emerald-400 tabular-nums">
+                    {(user.vndBalance || 0).toLocaleString('vi-VN')}đ
+                  </span>
                 </div>
-                <span className="text-sm font-black text-foreground">
-                  {(user.tokenBalance || 0).toLocaleString()}
-                </span>
+
+                {/* Coins Balance */}
+                <Link
+                  to="/pricing"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-surface-100 border hover:bg-foreground/5 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5 text-foreground/80 font-bold text-[11px] truncate">
+                    <Coins size={14} className="text-yellow-500 flex-shrink-0" />
+                    <span>{t.dropdown.tokens}</span>
+                  </div>
+                  <span className="text-xs font-black text-foreground tabular-nums">
+                    {(user.tokenBalance || 0).toLocaleString()}
+                  </span>
+                </Link>
               </div>
 
               {/* Navigation Items (Touch Target >= 44px) */}

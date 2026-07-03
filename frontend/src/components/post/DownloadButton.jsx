@@ -100,8 +100,12 @@ const DownloadButton = ({
         // Call unlock callback
         onUnlock?.()
 
+        // Sync balance in navbar for both token and VNĐ deductions
         if (data.tokensSpent > 0) {
           toast.success(`Đã trừ ${data.tokensSpent} token. Đang tải xuống...`, { duration: 4000 })
+          await refreshMe()
+        } else if (data.vndSpent > 0) {
+          toast.success(`Đã trừ ${data.vndSpent.toLocaleString('vi-VN')}đ. Đang tải xuống...`, { duration: 4000 })
           await refreshMe()
         } else {
           toast.success('Đang tải xuống...')

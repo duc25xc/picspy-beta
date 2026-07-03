@@ -1629,10 +1629,23 @@ export const getHomepageData = async (req, res, next) => {
 
     let heroBannerImage = settings.heroBannerImage
     if (settings.heroBannerMode === 'auto') {
-      const topPost = await Post.findOne({ status: 'approved' })
-        .sort({ 'stats.viewsCount': -1, _id: -1 })
-        .select('generatedImages images')
-        .lean()
+      const topPostAgg = await Post.aggregate([
+        { $match: { status: 'approved' } },
+        {
+          $addFields: {
+            popularityScore: {
+              $add: [
+                { $ifNull: ['$stats.viewsCount', 0] },
+                { $multiply: [{ $ifNull: ['$stats.likesCount', 0] }, 3] },
+                { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 5] },
+              ],
+            },
+          },
+        },
+        { $sort: { popularityScore: -1, _id: -1 } },
+        { $limit: 1 },
+      ])
+      const topPost = topPostAgg[0]
       if (topPost) {
         heroBannerImage = topPost.generatedImages?.[0]?.url || topPost.images?.[0]?.url
       }
@@ -1667,11 +1680,33 @@ export const getHomepageData = async (req, res, next) => {
     const categoriesData = await Promise.all(categoriesList.map(async (cat) => {
       const count = await Post.countDocuments({ status: 'approved', category: cat })
       // Lấy tối đa 6 ảnh để hiển thị dạng Grid (Style 2), Carousel (Style 3) hoặc Split (Style 4)
-      const topPosts = await Post.find({ status: 'approved', category: cat })
-        .sort({ 'stats.viewsCount': -1, 'stats.likesCount': -1, _id: -1 })
-        .limit(6)
-        .select('_id generatedImages images caption prompt tags')
-        .lean()
+      const topPosts = await Post.aggregate([
+        { $match: { status: 'approved', category: cat } },
+        {
+          $addFields: {
+            popularityScore: {
+              $add: [
+                { $ifNull: ['$stats.viewsCount', 0] },
+                { $multiply: [{ $ifNull: ['$stats.likesCount', 0] }, 3] },
+                { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 5] },
+              ],
+            },
+          },
+        },
+        { $sort: { popularityScore: -1, _id: -1 } },
+        { $limit: 6 },
+        {
+          $project: {
+            _id: 1,
+            generatedImages: 1,
+            images: 1,
+            caption: 1,
+            prompt: 1,
+            tags: 1,
+            stats: 1,
+          }
+        }
+      ])
       
       return {
         key: cat,

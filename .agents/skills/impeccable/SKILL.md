@@ -1,7 +1,7 @@
 ---
 name: impeccable
-description: "Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, and empty states. Handles UX review, visual hierarchy, information architecture, cognitive load, accessibility, performance, responsive behavior, theming, anti-patterns, typography, fonts, spacing, layout, alignment, color, motion, micro-interactions, UX copy, error states, edge cases, i18n, and reusable design systems or tokens. Also use for bland designs that need to become bolder or more delightful, loud designs that should become quieter, live browser iteration on UI elements, or ambitious visual effects that should feel technically extraordinary. Not for backend-only or non-UI tasks."
-argument-hint: "[{{command_hint}}] [target]"
+description: 'Use when the user wants to design, redesign, shape, critique, audit, polish, clarify, distill, harden, optimize, adapt, animate, colorize, extract, or otherwise improve a frontend interface. Covers websites, landing pages, dashboards, product UI, app shells, components, forms, settings, onboarding, and empty states. Handles UX review, visual hierarchy, information architecture, cognitive load, accessibility, performance, responsive behavior, theming, anti-patterns, typography, fonts, spacing, layout, alignment, color, motion, micro-interactions, UX copy, error states, edge cases, i18n, and reusable design systems or tokens. Also use for bland designs that need to become bolder or more delightful, loud designs that should become quieter, live browser iteration on UI elements, or ambitious visual effects that should feel technically extraordinary. Not for backend-only or non-UI tasks.'
+argument-hint: '[{{command_hint}}] [target]'
 user-invocable: true
 allowed-tools:
   - Bash(npx impeccable *)
@@ -41,7 +41,7 @@ If the output is already in this session's conversation history, don't re-run. E
 
 If PRODUCT.md is missing, empty, or placeholder (`[TODO]` markers, <200 chars): run `{{command_prefix}}impeccable teach`, then resume the user's original task with the fresh context. If the original task was `{{command_prefix}}impeccable craft`, resume into `{{command_prefix}}impeccable shape` before any implementation work.
 
-If DESIGN.md is missing: nudge once per session (*"Run `{{command_prefix}}impeccable document` for more on-brand output"*), then proceed.
+If DESIGN.md is missing: nudge once per session (_"Run `{{command_prefix}}impeccable document` for more on-brand output"_), then proceed.
 
 ### 2. Register
 
@@ -119,31 +119,31 @@ If someone could look at this interface and say "AI made that" without doubt, it
 
 ## Commands
 
-| Command | Category | Description | Reference |
-|---|---|---|---|
-| `craft [feature]` | Build | Shape, then build a feature end-to-end | [reference/craft.md](reference/craft.md) |
-| `shape [feature]` | Build | Plan UX/UI before writing code | [reference/shape.md](reference/shape.md) |
-| `teach` | Build | Set up PRODUCT.md and DESIGN.md context | [reference/teach.md](reference/teach.md) |
-| `document` | Build | Generate DESIGN.md from existing project code | [reference/document.md](reference/document.md) |
-| `extract [target]` | Build | Pull reusable tokens and components into design system | [reference/extract.md](reference/extract.md) |
-| `critique [target]` | Evaluate | UX design review with heuristic scoring | [reference/critique.md](reference/critique.md) |
-| `audit [target]` | Evaluate | Technical quality checks (a11y, perf, responsive) | [reference/audit.md](reference/audit.md) |
-| `polish [target]` | Refine | Final quality pass before shipping | [reference/polish.md](reference/polish.md) |
-| `bolder [target]` | Refine | Amplify safe or bland designs | [reference/bolder.md](reference/bolder.md) |
-| `quieter [target]` | Refine | Tone down aggressive or overstimulating designs | [reference/quieter.md](reference/quieter.md) |
-| `distill [target]` | Refine | Strip to essence, remove complexity | [reference/distill.md](reference/distill.md) |
-| `harden [target]` | Refine | Production-ready: errors, i18n, edge cases | [reference/harden.md](reference/harden.md) |
-| `onboard [target]` | Refine | Design first-run flows, empty states, activation | [reference/onboard.md](reference/onboard.md) |
-| `animate [target]` | Enhance | Add purposeful animations and motion | [reference/animate.md](reference/animate.md) |
-| `colorize [target]` | Enhance | Add strategic color to monochromatic UIs | [reference/colorize.md](reference/colorize.md) |
-| `typeset [target]` | Enhance | Improve typography hierarchy and fonts | [reference/typeset.md](reference/typeset.md) |
-| `layout [target]` | Enhance | Fix spacing, rhythm, and visual hierarchy | [reference/layout.md](reference/layout.md) |
-| `delight [target]` | Enhance | Add personality and memorable touches | [reference/delight.md](reference/delight.md) |
-| `overdrive [target]` | Enhance | Push past conventional limits | [reference/overdrive.md](reference/overdrive.md) |
-| `clarify [target]` | Fix | Improve UX copy, labels, and error messages | [reference/clarify.md](reference/clarify.md) |
-| `adapt [target]` | Fix | Adapt for different devices and screen sizes | [reference/adapt.md](reference/adapt.md) |
-| `optimize [target]` | Fix | Diagnose and fix UI performance | [reference/optimize.md](reference/optimize.md) |
-| `live` | Iterate | Visual variant mode: pick elements in the browser, generate alternatives | [reference/live.md](reference/live.md) |
+| Command              | Category | Description                                                              | Reference                                        |
+| -------------------- | -------- | ------------------------------------------------------------------------ | ------------------------------------------------ |
+| `craft [feature]`    | Build    | Shape, then build a feature end-to-end                                   | [reference/craft.md](reference/craft.md)         |
+| `shape [feature]`    | Build    | Plan UX/UI before writing code                                           | [reference/shape.md](reference/shape.md)         |
+| `teach`              | Build    | Set up PRODUCT.md and DESIGN.md context                                  | [reference/teach.md](reference/teach.md)         |
+| `document`           | Build    | Generate DESIGN.md from existing project code                            | [reference/document.md](reference/document.md)   |
+| `extract [target]`   | Build    | Pull reusable tokens and components into design system                   | [reference/extract.md](reference/extract.md)     |
+| `critique [target]`  | Evaluate | UX design review with heuristic scoring                                  | [reference/critique.md](reference/critique.md)   |
+| `audit [target]`     | Evaluate | Technical quality checks (a11y, perf, responsive)                        | [reference/audit.md](reference/audit.md)         |
+| `polish [target]`    | Refine   | Final quality pass before shipping                                       | [reference/polish.md](reference/polish.md)       |
+| `bolder [target]`    | Refine   | Amplify safe or bland designs                                            | [reference/bolder.md](reference/bolder.md)       |
+| `quieter [target]`   | Refine   | Tone down aggressive or overstimulating designs                          | [reference/quieter.md](reference/quieter.md)     |
+| `distill [target]`   | Refine   | Strip to essence, remove complexity                                      | [reference/distill.md](reference/distill.md)     |
+| `harden [target]`    | Refine   | Production-ready: errors, i18n, edge cases                               | [reference/harden.md](reference/harden.md)       |
+| `onboard [target]`   | Refine   | Design first-run flows, empty states, activation                         | [reference/onboard.md](reference/onboard.md)     |
+| `animate [target]`   | Enhance  | Add purposeful animations and motion                                     | [reference/animate.md](reference/animate.md)     |
+| `colorize [target]`  | Enhance  | Add strategic color to monochromatic UIs                                 | [reference/colorize.md](reference/colorize.md)   |
+| `typeset [target]`   | Enhance  | Improve typography hierarchy and fonts                                   | [reference/typeset.md](reference/typeset.md)     |
+| `layout [target]`    | Enhance  | Fix spacing, rhythm, and visual hierarchy                                | [reference/layout.md](reference/layout.md)       |
+| `delight [target]`   | Enhance  | Add personality and memorable touches                                    | [reference/delight.md](reference/delight.md)     |
+| `overdrive [target]` | Enhance  | Push past conventional limits                                            | [reference/overdrive.md](reference/overdrive.md) |
+| `clarify [target]`   | Fix      | Improve UX copy, labels, and error messages                              | [reference/clarify.md](reference/clarify.md)     |
+| `adapt [target]`     | Fix      | Adapt for different devices and screen sizes                             | [reference/adapt.md](reference/adapt.md)         |
+| `optimize [target]`  | Fix      | Diagnose and fix UI performance                                          | [reference/optimize.md](reference/optimize.md)   |
+| `live`               | Iterate  | Visual variant mode: pick elements in the browser, generate alternatives | [reference/live.md](reference/live.md)           |
 
 Plus two management commands: `pin <command>` and `unpin <command>`, detailed below.
 
@@ -166,3 +166,52 @@ node {{scripts_path}}/pin.mjs <pin|unpin> <command>
 ```
 
 Valid `<command>` is any command from the table above. Report the script's result concisely. Confirm the new shortcut on success, relay stderr verbatim on error.
+
+## <!-- frontend-design -->
+
+name: frontend-design
+description: "Use when the user wants to design beautiful, modern, high-quality front-end interfaces, landing pages, and components with professional typography and color palettes."
+
+---
+
+# Nội dung kỹ năng Frontend Design
+
+This skill guides creation of distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
+
+The user provides frontend requirements: a component, page, application, or interface to build. They may include context about the purpose, audience, or technical constraints.
+
+## Design Thinking
+
+Before coding, understand the context and commit to a BOLD aesthetic direction:
+
+- **Purpose**: What problem does this interface solve? Who uses it?
+- **Tone**: Pick an extreme: brutally minimal, maximalist chaos, retro-futuristic, organic/natural, luxury/refined, playful/toy-like, editorial/magazine, brutalist/raw, art deco/geometric, soft/pastel, industrial/utilitarian, etc. There are so many flavors to choose from. Use these for inspiration but design one that is true to the aesthetic direction.
+- **Constraints**: Technical requirements (framework, performance, accessibility).
+- **Differentiation**: What makes this UNFORGETTABLE? What's the one thing someone will remember?
+
+**CRITICAL**: Choose a clear conceptual direction and execute it with precision. Bold maximalism and refined minimalism both work - the key is intentionality, not intensity.
+
+Then implement working code (HTML/CSS/JS, React, Vue, etc.) that is:
+
+- Production-grade and functional
+- Visually striking and memorable
+- Cohesive with a clear aesthetic point-of-view
+- Meticulously refined in every detail
+
+## Frontend Aesthetics Guidelines
+
+Focus on:
+
+- **Typography**: Choose fonts that are beautiful, unique, and interesting. Avoid generic fonts like Arial and Inter; opt instead for distinctive choices that elevate the frontend's aesthetics; unexpected, characterful font choices. Pair a distinctive display font with a refined body font.
+- **Color & Theme**: Commit to a cohesive aesthetic. Use CSS variables for consistency. Dominant colors with sharp accents outperform timid, evenly-distributed palettes.
+- **Motion**: Use animations for effects and micro-interactions. Prioritize CSS-only solutions for HTML. Use Motion library for React when available. Focus on high-impact moments: one well-orchestrated page load with staggered reveals (animation-delay) creates more delight than scattered micro-interactions. Use scroll-triggering and hover states that surprise.
+- **Spatial Composition**: Unexpected layouts. Asymmetry. Overlap. Diagonal flow. Grid-breaking elements. Generous negative space OR controlled density.
+- **Backgrounds & Visual Details**: Create atmosphere and depth rather than defaulting to solid colors. Add contextual effects and textures that match the overall aesthetic. Apply creative forms like gradient meshes, noise textures, geometric patterns, layered transparencies, dramatic shadows, decorative borders, custom cursors, and grain overlays.
+
+NEVER use generic AI-generated aesthetics like overused font families (Inter, Roboto, Arial, system fonts), cliched color schemes (particularly purple gradients on white backgrounds), predictable layouts and component patterns, and cookie-cutter design that lacks context-specific character.
+
+Interpret creatively and make unexpected choices that feel genuinely designed for the context. No design should be the same. Vary between light and dark themes, different fonts, different aesthetics. NEVER converge on common choices (Space Grotesk, for example) across generations.
+
+**IMPORTANT**: Match implementation complexity to the aesthetic vision. Maximalist designs need elaborate code with extensive animations and effects. Minimalist or refined designs need restraint, precision, and careful attention to spacing, typography, and subtle details. Elegance comes from executing the vision well.
+
+Remember: Claude is capable of extraordinary creative work. Don't hold back, show what can truly be created when thinking outside the box and committing fully to a distinctive vision.
