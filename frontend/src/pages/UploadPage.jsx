@@ -497,9 +497,17 @@ export default function UploadPage() {
   )
 
   // ── Navigation ─────────────────────────────────────────────────
+  // Helper to validate meaningful text (at least 2 letters/numbers)
+  const hasRealContent = (text) => {
+    if (!text) return false
+    const stripped = text.replace(/[\s\-_~!@#$%^&*()+=\[\]{}<>|\\/:;"',.?]+/g, '')
+    return stripped.length >= 2
+  }
+
+  // ── Navigation ─────────────────────────────────────────────────
   const canGoNext = () => {
     if (uploadType === 'ai') {
-      if (step === 1) return form.aiTool && form.prompt.trim().length >= 3
+      if (step === 1) return form.aiTool && hasRealContent(form.prompt)
       if (step === 2) return true // optional
       if (step === 3) {
         if (multiModelMode)
@@ -523,7 +531,13 @@ export default function UploadPage() {
   const goNext = () => {
     if (!canGoNext()) {
       if (uploadType === 'ai') {
-        if (step === 1) toast.error('Chọn công cụ AI và nhập prompt')
+        if (step === 1) {
+          if (!form.aiTool) {
+            toast.error('Vui lòng chọn công cụ AI')
+          } else {
+            toast.error('Vui lòng nhập Prompt có nghĩa (ít nhất 2 ký tự chữ/số, không được chỉ chứa dấu cách hoặc ký tự đặc biệt)')
+          }
+        }
         if (step === 3)
           toast.error(
             multiModelMode
@@ -546,9 +560,25 @@ export default function UploadPage() {
 
   // ── Submit ─────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    // Validate caption (Mô tả)
+    if (!form.caption.trim()) {
+      return toast.error('Vui lòng nhập Mô tả cho bài đăng.')
+    }
+    if (!hasRealContent(form.caption)) {
+      return toast.error('Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+    }
+
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
 
     if (uploadType === 'ai') {
+      // Validate prompt
+      if (!form.prompt.trim()) {
+        return toast.error('Vui lòng nhập Prompt.')
+      }
+      if (!hasRealContent(form.prompt)) {
+        return toast.error('Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+      }
+
       if (multiModelMode) {
         if (modelSlots.length < 2) return toast.error('Cần ít nhất 2 model')
         if (modelSlots.some((s) => !s.aiTool))

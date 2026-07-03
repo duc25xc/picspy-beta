@@ -246,8 +246,8 @@ const imageWorker = new Worker(
       // - autoApprove TẮT   → pending, admin duyệt thủ công
       // Quyết định status:
       // - Lấy post hiện tại để kiểm tra status cũ
-      const existingPost = await Post.findById(postId).select('status').lean()
-      const currentStatus = existingPost?.status || 'pending'
+      const postDoc = await Post.findById(postId)
+      const currentStatus = postDoc?.status || 'pending'
 
       // - NSFW rõ ràng (>0.8) → luôn reject
       // - Nếu bài viết đã được duyệt (approved) → giữ nguyên approved
@@ -286,6 +286,45 @@ const imageWorker = new Worker(
       if (sourceThumbResult && sourcePreviewResult) {
         updateFields['sourceImages.0.thumbnailUrl'] = sourceThumbResult.secure_url
         updateFields['sourceImages.0.previewUrl'] = sourcePreviewResult.secure_url
+      }
+
+      // ── Process Multi-model Comparison images ───────────────────
+      if (postDoc && postDoc.isMultiModel && postDoc.modelComparisons && postDoc.modelComparisons.length > 0) {
+        for (let i = 0; i < postDoc.modelComparisons.length; i++) {
+          const comp = postDoc.modelComparisons[i]
+          const img = comp.generatedImages?.[0]
+          if (img && img.url) {
+            try {
+              console.log(`🔄 Processing comparison image for slot ${i}: ${img.url}`)
+              const dlRes = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 30000 })
+              const compBuf = Buffer.from(dlRes.data)
+
+              const compThumbBuf = await sharp(compBuf)
+                .rotate()
+                .resize(400, null, { withoutEnlargement: true })
+                .webp({ quality: 80 })
+                .toBuffer()
+
+              const compPrevBuf = await sharp(compBuf)
+                .rotate()
+                .resize(1200, null, { withoutEnlargement: true })
+                .webp({ quality: 85 })
+                .toBuffer()
+
+              const compBaseName = img.publicId ? img.publicId.split('/').pop() : `comp_${postId.toString().slice(-6)}_${i}`
+              const [thumbUp, prevUp] = await Promise.all([
+                uploadBuffer(compThumbBuf, 'picspy/posts/thumbnails', `${compBaseName}_thumb`, { format: 'webp' }),
+                uploadBuffer(compPrevBuf, 'picspy/posts/previews', `${compBaseName}_preview`, { format: 'webp' })
+              ])
+
+              updateFields[`modelComparisons.${i}.generatedImages.0.thumbnailUrl`] = thumbUp.secure_url
+              updateFields[`modelComparisons.${i}.generatedImages.0.previewUrl`] = prevUp.secure_url
+              console.log(`✅ Success processing comparison slot ${i}`)
+            } catch (compErr) {
+              console.error(`⚠️ Failed to process comparison image for slot ${i}:`, compErr.message)
+            }
+          }
+        }
       }
 
       await Post.findByIdAndUpdate(postId, {

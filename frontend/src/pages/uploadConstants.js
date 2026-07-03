@@ -14,7 +14,13 @@ export const AI_TOOLS = [
     icon: '◈',
   },
   { value: 'flux', label: 'Flux', color: '#f59e0b', icon: '◇' },
-  // ── Gemini / Banana / ChatGPT / DeepSeek / Grok (tools) ──
+  // ── Gemini / Banana / ChatGPT / Seedream / Grok (tools) ──
+  {
+    value: 'gemini-nano-banana-pro',
+    label: 'Nano Banana',
+    color: '#facc15',
+    icon: '🍌',
+  },
   {
     value: 'gemini-nano-banana-2',
     label: 'Nano Banana Pro',

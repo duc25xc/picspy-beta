@@ -36,7 +36,7 @@ const DownloadButton = ({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState('original')
 
-  const hasAttachments = !!post?.rawFile || !!post?.colorFile || !!post?.sourceImages?.[0]
+  const hasAttachments = !!post?.rawFile || !!post?.colorFile || !!post?.sourceImages?.[0] || (post?.modelComparisons && post.modelComparisons.length > 0)
 
   const doDownload = async (fileType = selectedFileType) => {
     setShowConfirm(false)
@@ -50,6 +50,11 @@ const DownloadButton = ({
           filename = `picspy-${postId}`
           if (fileType === 'original') {
             const img = post?.generatedImages?.[0]
+            filename += img?.format ? `.${img.format}` : '.jpg'
+          } else if (fileType.startsWith('comp_')) {
+            const compIdx = parseInt(fileType.replace('comp_', ''))
+            const img = post?.modelComparisons?.[compIdx]?.generatedImages?.[0]
+            filename = `comp_${compIdx + 2}-${filename}`
             filename += img?.format ? `.${img.format}` : '.jpg'
           } else if (fileType === 'source') {
             const img = post?.sourceImages?.[0]
@@ -179,9 +184,39 @@ const DownloadButton = ({
               >
                 <Download size={14} className="text-white/40 flex-shrink-0" />
                 <span className="truncate">
-                  {formatItemText(post?.sourceImages?.[0] ? 'Ảnh đã chỉnh sửa' : 'Ảnh gốc', post?.generatedImages?.[0])}
+                  {formatItemText(post?.isMultiModel ? `Ảnh model 1 (${post.aiTool || 'AI'})` : (post?.sourceImages?.[0] ? 'Ảnh đã chỉnh sửa' : 'Ảnh gốc'), post?.generatedImages?.[0])}
                 </span>
               </button>
+
+              {(() => {
+                const primaryImg = post?.generatedImages?.[0]
+                let displayedModelIndex = 2
+                return post?.modelComparisons?.map((comp, idx) => {
+                  const img = comp.generatedImages?.[0]
+                  if (!img) return null
+                  const isDuplicate = primaryImg && (
+                    (primaryImg.publicId && primaryImg.publicId === img.publicId) ||
+                    (primaryImg.url && primaryImg.url === img.url)
+                  )
+                  if (isDuplicate) return null
+                  const label = `Ảnh model ${displayedModelIndex++} (${comp.aiTool || 'AI'})`
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        handleInitiateDownload(`comp_${idx}`)
+                      }}
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-white/80 hover:text-white hover:bg-white/5 transition-colors text-left"
+                    >
+                      <Download size={14} className="text-white/40 flex-shrink-0" />
+                      <span className="truncate">
+                        {formatItemText(label, img)}
+                      </span>
+                    </button>
+                  )
+                })
+              })()}
 
               {post?.sourceImages?.[0] && (
                 <button

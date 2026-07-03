@@ -26,6 +26,12 @@ export const downloadPost = async (req, res, next) => {
     if (fileType === 'original') {
       targetFile = post.generatedImages?.[0]
       resourceType = 'image'
+    } else if (fileType.startsWith('comp_')) {
+      const compIdx = parseInt(fileType.replace('comp_', ''))
+      if (!isNaN(compIdx) && post.modelComparisons?.[compIdx]?.generatedImages?.[0]) {
+        targetFile = post.modelComparisons[compIdx].generatedImages[0]
+        resourceType = 'image'
+      }
     } else if (fileType === 'source') {
       targetFile = post.sourceImages?.[0]
       resourceType = 'image'
@@ -126,7 +132,8 @@ export const downloadPost = async (req, res, next) => {
     let ext = targetFile.format || 'jpg'
     let finalFilename = ''
 
-    if (fileType === 'original') {
+    if (fileType === 'original' || fileType.startsWith('comp_')) {
+      const prefix = fileType.startsWith('comp_') ? `comp_${fileType.replace('comp_', '')}_` : ''
       if (post.caption) {
         baseName = post.caption
           .trim()
@@ -141,7 +148,7 @@ export const downloadPost = async (req, res, next) => {
         baseName = `photo_${postId.toString().slice(-6)}`
       }
       baseName = baseName.replace(/_+$/, '').replace(/^_+/, '')
-      finalFilename = `${baseName}_${dateStr}_picspy.${ext}`
+      finalFilename = `${prefix}${baseName}_${dateStr}_picspy.${ext}`
     } else if (fileType === 'source') {
       ext = targetFile.format || 'jpg'
       if (post.caption) {
@@ -202,11 +209,12 @@ export const downloadPost = async (req, res, next) => {
       sign_url: true,
       expires_at: expiresAt,
       resource_type: resourceType,
+      format: ext,
     }
 
     // No transformations are applied here to ensure Cloudinary serves the original byte-for-byte uploaded file without compression.
 
-    const downloadUrl = cloudinary.url(targetFile.publicId, urlOptions)
+    const downloadUrl = targetFile.url || cloudinary.url(targetFile.publicId, urlOptions)
 
     // ─── Ghi interaction + cập nhật stats ─────────────────────
     await Interaction.create({ userId, postId, type: 'download' }).catch(() => {})

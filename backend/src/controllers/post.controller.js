@@ -12,12 +12,21 @@ import { logger } from '../utils/logger.js'
 
 // === ZOD SCHEMAS ===
 
+// Helper: strip excess whitespace and reject strings that are only special chars / spaces
+const sanitizeText = z.string().trim().transform(val => val.replace(/\s+/g, ' '))
+const hasRealContent = (val) => {
+  if (!val) return true // optional fields pass
+  // Strip all whitespace and common filler chars, check if anything meaningful remains
+  const stripped = val.replace(/[\s\-_~!@#$%^&*()+=\[\]{}<>|\\/:;"',.?]+/g, '')
+  return stripped.length >= 2
+}
+
 const createPostSchema = z.object({
   // Phân loại bài viết
   postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).default('ai'),
   // AI generation (core) - optional ở Zod, validate thủ công sau dựa trên postType
-  prompt: z.string().max(2000).trim().optional(),
-  negativePrompt: z.string().max(1000).trim().optional(),
+  prompt: sanitizeText.pipe(z.string().max(2000)).optional(),
+  negativePrompt: sanitizeText.pipe(z.string().max(1000)).optional(),
   aiTool: z.enum(AI_TOOLS).optional(),
   aiModel: z.string().trim().optional(),
   parameters: z.string().trim().optional(),
@@ -40,7 +49,7 @@ const createPostSchema = z.object({
   contentType: z.enum(['image', 'video']).default('image'),
 
   // Content metadata
-  caption: z.string().max(500).optional(),
+  caption: sanitizeText.pipe(z.string({ required_error: 'Mô tả (caption) là bắt buộc' }).max(500)).refine(hasRealContent, { message: 'Mô tả cần chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số)' }),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional().default([]),
   category: z.string().min(1).toLowerCase().trim().default('other'),
 
@@ -56,8 +65,9 @@ const createPostSchema = z.object({
 
 const updatePostSchema = z.object({
   postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).optional(),
-  prompt: z.string().min(1).max(2000).trim().optional(),
-  negativePrompt: z.string().max(1000).trim().optional(),
+  prompt: sanitizeText.pipe(z.string().max(2000)).optional()
+    .refine(hasRealContent, { message: 'Prompt cần chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số)' }),
+  negativePrompt: sanitizeText.pipe(z.string().max(1000)).optional(),
   aiTool: z.enum(AI_TOOLS).optional(),
   aiModel: z.string().trim().optional(),
   parameters: z.string().trim().optional(),
@@ -76,7 +86,8 @@ const updatePostSchema = z.object({
       },
       { message: 'workflowJson phải là JSON hợp lệ' }
     ),
-  caption: z.string().max(500).optional(),
+  caption: sanitizeText.pipe(z.string().max(500)).optional()
+    .refine(hasRealContent, { message: 'Mô tả cần chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số)' }),
   tags: z.array(z.string().toLowerCase().trim()).max(10).optional(),
   category: z.string().min(1).toLowerCase().trim().optional(),
   isPremium: z.boolean().optional(),
@@ -356,8 +367,8 @@ export const createPost = async (req, res, next) => {
 
     // ── Validation based on postType ─────────────────────────────
     if (data.postType === 'ai') {
-      if (!data.prompt || data.prompt.trim().length === 0) {
-        throw new AppError('VALIDATION_ERROR', 'Prompt là bắt buộc đối với ảnh AI', 400)
+      if (!data.prompt || !hasRealContent(data.prompt)) {
+        throw new AppError('VALIDATION_ERROR', 'Prompt là bắt buộc đối với ảnh AI và phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.', 400)
       }
       if (!data.aiTool) {
         throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn công cụ AI', 400)
@@ -540,9 +551,14 @@ export const createPost = async (req, res, next) => {
       isMultiModel,
     })
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      console.error('❌ ZOD VALIDATION ERROR:', JSON.stringify(err.errors, null, 2))
-      const errMsg = 'Dữ liệu không hợp lệ: ' + err.errors.map(e => `${e.path.join('.') || 'post'} (${e.message})`).join(', ')
+    console.error('❌ Error in createPost:', err)
+    if (err instanceof z.ZodError || err.name === 'ZodError') {
+      const issues = err.issues || err.errors || []
+      const errMsg = 'Dữ liệu không hợp lệ: ' + (Array.isArray(issues) ? issues : Object.values(issues)).map(e => `${e.path?.join('.') || e.path || 'post'} (${e.message})`).join(', ')
+      return next(new AppError('VALIDATION_ERROR', errMsg, 422, issues))
+    }
+    if (err.name === 'ValidationError') {
+      const errMsg = 'Dữ liệu không hợp lệ: ' + Object.values(err.errors).map(e => `${e.path} (${e.message})`).join(', ')
       return next(new AppError('VALIDATION_ERROR', errMsg, 422, err.errors))
     }
     next(err)
@@ -1033,6 +1049,24 @@ export const updatePost = async (req, res, next) => {
     // Validate textual data qua Zod
     const data = updatePostSchema.parse(body)
 
+    // ── Enforce content validations ──
+    const activeCaption = data.caption !== undefined ? data.caption : post.caption
+    if (!activeCaption || !hasRealContent(activeCaption)) {
+      throw new AppError('VALIDATION_ERROR', 'Mô tả (caption) là bắt buộc và phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.', 400)
+    }
+
+    const activePostType = data.postType || post.postType
+    if (activePostType === 'ai') {
+      const activePrompt = data.prompt !== undefined ? data.prompt : post.prompt
+      if (!activePrompt || !hasRealContent(activePrompt)) {
+        throw new AppError('VALIDATION_ERROR', 'Prompt là bắt buộc đối với ảnh AI và phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.', 400)
+      }
+      const activeAiTool = data.aiTool !== undefined ? data.aiTool : post.aiTool
+      if (!activeAiTool) {
+        throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn công cụ AI', 400)
+      }
+    }
+
     // ── Xử lý ảnh gốc (Source Images) ───────────────────────────
     let keepSourceImagePublicIds = []
     if (body.keepSourceImagePublicIds) {
@@ -1086,10 +1120,15 @@ export const updatePost = async (req, res, next) => {
       throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh tham khảo', 400)
     }
 
-    // Xóa ảnh gốc cũ khỏi Cloudinary (bao gồm cả file gốc, preview và thumbnail)
+    // Xóa ảnh gốc cũ khỏi Cloudinary (bao gồm cả file gốc, preview và thumbnail) nếu không còn bài viết nào khác liên kết
     if (sourceImagesToDestroy.length > 0) {
       await Promise.all(
-        sourceImagesToDestroy.map(img => {
+        sourceImagesToDestroy.map(async (img) => {
+          const isShared = await Post.exists({ _id: { $ne: post._id }, 'sourceImages.publicId': img.publicId })
+          if (isShared) {
+            console.log(`ℹ️ Skipping Cloudinary destroy for source image ${img.publicId} as it is referenced by other posts`)
+            return
+          }
           const promises = [cloudinary.uploader.destroy(img.publicId).catch(() => {})]
           const baseName = img.publicId.split('/').pop()
           promises.push(cloudinary.uploader.destroy(`picspy/posts/thumbnails/${baseName}_thumb`).catch(() => {}))
@@ -1153,15 +1192,16 @@ export const updatePost = async (req, res, next) => {
           throw new AppError('VALIDATION_ERROR', `Model ${i + 1} tối đa 5 ảnh kết quả`, 400)
         }
 
-        finalModelComparisons.push({
-          aiTool: slot.aiTool,
-          aiModel: slot.aiModel || undefined,
-          generatedImages: slotImages,
-        })
+        if (i === 0) {
+          finalGeneratedImages = slotImages
+        } else {
+          finalModelComparisons.push({
+            aiTool: slot.aiTool,
+            aiModel: slot.aiModel || undefined,
+            generatedImages: slotImages,
+          })
+        }
       }
-
-      // Slot đầu tiên làm primary cho tương thích ngược
-      finalGeneratedImages = finalModelComparisons[0].generatedImages
     } else {
       // Chế độ single-model
       let keepGeneratedImagePublicIds = []
@@ -1281,8 +1321,14 @@ export const updatePost = async (req, res, next) => {
 
     res.json({ message: 'Cập nhật thành công', post })
   } catch (err) {
-    if (err instanceof z.ZodError) {
-      const errMsg = 'Dữ liệu không hợp lệ: ' + err.errors.map(e => `${e.path.join('.') || 'post'} (${e.message})`).join(', ')
+    console.error('❌ Error in updatePost:', err)
+    if (err instanceof z.ZodError || err.name === 'ZodError') {
+      const issues = err.issues || err.errors || []
+      const errMsg = 'Dữ liệu không hợp lệ: ' + (Array.isArray(issues) ? issues : Object.values(issues)).map(e => `${e.path?.join('.') || e.path || 'post'} (${e.message})`).join(', ')
+      return next(new AppError('VALIDATION_ERROR', errMsg, 422, issues))
+    }
+    if (err.name === 'ValidationError') {
+      const errMsg = 'Dữ liệu không hợp lệ: ' + Object.values(err.errors).map(e => `${e.path} (${e.message})`).join(', ')
       return next(new AppError('VALIDATION_ERROR', errMsg, 422, err.errors))
     }
     next(err)
@@ -1309,23 +1355,28 @@ export const deletePost = async (req, res, next) => {
     // Xóa tất cả ảnh trên Cloudinary
     const deletePromises = []
 
-    // Xóa sourceImages + previews + thumbnails
+    // Xóa sourceImages + previews + thumbnails nếu không còn bài viết nào khác liên kết
     for (const img of post.sourceImages || []) {
       if (img.publicId) {
-        deletePromises.push(
-          cloudinary.uploader.destroy(img.publicId).catch(() => {})
-        )
-        const baseName = img.publicId.split('/').pop()
-        deletePromises.push(
-          cloudinary.uploader
-            .destroy(`picspy/posts/thumbnails/${baseName}_thumb`)
-            .catch(() => {})
-        )
-        deletePromises.push(
-          cloudinary.uploader
-            .destroy(`picspy/posts/previews/${baseName}_preview`)
-            .catch(() => {})
-        )
+        const isShared = await Post.exists({ _id: { $ne: post._id }, 'sourceImages.publicId': img.publicId })
+        if (!isShared) {
+          deletePromises.push(
+            cloudinary.uploader.destroy(img.publicId).catch(() => {})
+          )
+          const baseName = img.publicId.split('/').pop()
+          deletePromises.push(
+            cloudinary.uploader
+              .destroy(`picspy/posts/thumbnails/${baseName}_thumb`)
+              .catch(() => {})
+          )
+          deletePromises.push(
+            cloudinary.uploader
+              .destroy(`picspy/posts/previews/${baseName}_preview`)
+              .catch(() => {})
+          )
+        } else {
+          console.log(`ℹ️ Skipping Cloudinary destroy for source image ${img.publicId} as it is referenced by other posts`)
+        }
       }
     }
 
@@ -1762,6 +1813,101 @@ export const getHomepageData = async (req, res, next) => {
       newCollections,
       leaderboard
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /posts/me/source-history
+ * Lấy lịch sử tất cả các ảnh gốc đã tải lên của user, kèm danh sách bài viết đang dùng ảnh đó.
+ */
+export const getSourceHistory = async (req, res, next) => {
+  try {
+    const posts = await Post.find({ authorId: req.user._id }).lean()
+
+    // Gom tất cả các ảnh gốc duy nhất theo publicId
+    const historyMap = {}
+
+    posts.forEach(post => {
+      if (post.sourceImages && post.sourceImages.length > 0) {
+        post.sourceImages.forEach(img => {
+          if (img.publicId) {
+            if (!historyMap[img.publicId]) {
+              historyMap[img.publicId] = {
+                url: img.url,
+                publicId: img.publicId,
+                format: img.format,
+                width: img.width,
+                height: img.height,
+                fileSize: img.fileSize,
+                previewUrl: img.previewUrl || img.url,
+                thumbnailUrl: img.thumbnailUrl || img.url,
+                linkedPosts: [],
+                useCount: 0
+              }
+            }
+            // Thêm bài viết liên kết
+            historyMap[img.publicId].linkedPosts.push({
+              _id: post._id,
+              caption: post.caption || 'Bài viết không tiêu đề',
+              status: post.status
+            })
+            historyMap[img.publicId].useCount = historyMap[img.publicId].linkedPosts.length
+          }
+        })
+      }
+    })
+
+    const sourceHistory = Object.values(historyMap)
+    res.json({ sourceHistory })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * DELETE /posts/me/source-history
+ * Query param: ?publicId=...
+ * Gỡ bỏ ảnh gốc ra khỏi toàn bộ các bài đăng của user đó. Nếu không còn bài viết nào khác liên kết (bao gồm bài viết của người khác nếu có), xóa vật lý trên Cloudinary.
+ */
+export const deleteSourceHistoryImage = async (req, res, next) => {
+  try {
+    const { publicId } = req.query
+    if (!publicId) {
+      throw new AppError('BAD_REQUEST', 'Thiếu tham số publicId', 400)
+    }
+
+    // 1. Tìm toàn bộ bài đăng của user có chứa publicId này trong sourceImages
+    const posts = await Post.find({ authorId: req.user._id, 'sourceImages.publicId': publicId })
+
+    if (posts.length === 0) {
+      return res.json({ message: 'Ảnh không liên kết với bài đăng nào hoặc đã được xóa trước đó.' })
+    }
+
+    // 2. Gỡ liên kết trong từng bài viết
+    for (const post of posts) {
+      post.sourceImages = post.sourceImages.filter(img => img.publicId !== publicId)
+      await post.save()
+    }
+
+    // 3. Kiểm tra xem có bài đăng của người dùng khác đang sử dụng ảnh gốc này không
+    const isShared = await Post.exists({ 'sourceImages.publicId': publicId })
+
+    if (!isShared) {
+      // Xóa vật lý trên Cloudinary
+      const baseName = publicId.split('/').pop()
+      await Promise.all([
+        cloudinary.uploader.destroy(publicId).catch(() => {}),
+        cloudinary.uploader.destroy(`picspy/posts/thumbnails/${baseName}_thumb`).catch(() => {}),
+        cloudinary.uploader.destroy(`picspy/posts/previews/${baseName}_preview`).catch(() => {}),
+      ])
+      console.log(`🗑️ Deleted Cloudinary asset: ${publicId}`)
+    } else {
+      console.log(`ℹ️ Preserved Cloudinary asset ${publicId} as it is referenced by other user posts`)
+    }
+
+    res.json({ message: `Đã gỡ ảnh gốc khỏi ${posts.length} bài đăng thành công.` })
   } catch (err) {
     next(err)
   }

@@ -85,6 +85,12 @@ const settingsSchema = new mongoose.Schema(
       min: 0,
       max: 10000,
     },
+    myPostsSkeletonMs: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 10000,
+    },
     // ── Creator Monetization Settings ──
     payoutRatePerView: {
       type: Number,
@@ -101,6 +107,10 @@ const settingsSchema = new mongoose.Schema(
     withdrawalPercentFee: {
       type: Number,
       default: 2, // 2% processing fee
+    },
+    blurPremiumImages: {
+      type: Boolean,
+      default: false, // Tắt làm mờ ảnh Premium theo mặc định
     },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {

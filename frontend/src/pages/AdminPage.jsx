@@ -12,6 +12,7 @@ import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import { Navigate } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 // ─── Guard ─────────────────────────────────────────────────────
 const AdminGuard = ({ children }) => {
   const user = useAuthStore((s) => s.user)
@@ -371,7 +372,7 @@ const PostsTab = () => {
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-surface-100">
                     {(img?.thumbnailUrl || img?.url) && (
-                      <img src={img.thumbnailUrl || img.url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      <img src={getOptimizedWebpUrl(img.thumbnailUrl || img.url, 400)} alt="" className="w-full h-full object-cover" loading="lazy" />
                     )}
                     {/* Select checkbox */}
                     <button onClick={() => toggleSelect(post._id)}
@@ -1141,7 +1142,7 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
 
-  const { updateBrandColors, setAnnouncement, setGlobalLoaderType: setGlobalLoaderTypeContext, setSplashExtraMs: setSplashExtraMsContext } = useSettings()
+  const { updateBrandColors, setAnnouncement, setGlobalLoaderType: setGlobalLoaderTypeContext, setSplashExtraMs: setSplashExtraMsContext, setMyPostsSkeletonMs: setMyPostsSkeletonMsContext, setBlurPremiumImages: setBlurPremiumImagesContext } = useSettings()
   const [primaryColor, setPrimaryColor] = useState('#7c3aed')
   const [gradientColor, setGradientColor] = useState('#3b82f6')
   const [brandOpacity, setBrandOpacity] = useState(1)
@@ -1171,6 +1172,10 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [loaderSaving, setLoaderSaving] = useState(false)
   const [splashExtraMs, setSplashExtraMs] = useState(0)
   const [splashSaving, setSplashSaving] = useState(false)
+  const [myPostsSkeletonMs, setMyPostsSkeletonMs] = useState(0)
+  const [myPostsSkeletonSaving, setMyPostsSkeletonSaving] = useState(false)
+  const [blurPremiumImages, setBlurPremiumImages] = useState(false)
+  const [savingBlur, setSavingBlur] = useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -1230,8 +1235,9 @@ const SettingsTab = ({ onDirtyChange }) => {
           ? data.settings.heroCollageImages 
           : Array(8).fill('')
         )
-        setGlobalLoaderType(data.settings?.globalLoaderType || 'wave')
         setSplashExtraMs(data.settings?.splashExtraMs ?? 0)
+        setMyPostsSkeletonMs(data.settings?.myPostsSkeletonMs ?? 0)
+        setBlurPremiumImages(data.settings?.blurPremiumImages || false)
 
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
@@ -1482,6 +1488,38 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi khi lưu thời gian loading')
     } finally {
       setSplashSaving(false)
+    }
+  }
+
+  const handleSaveMyPostsSkeletonMs = async (val) => {
+    setMyPostsSkeletonSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { myPostsSkeletonMs: val })
+      setSettings(data.settings)
+      setMyPostsSkeletonMs(data.settings?.myPostsSkeletonMs ?? 0)
+      setMyPostsSkeletonMsContext(data.settings?.myPostsSkeletonMs ?? 0)
+      toast.success(`🖼️ Thời gian Skeleton Loading đã cập nhật: ${val >= 1000 ? (val / 1000).toFixed(1) + 's' : val + 'ms'}`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu thời gian Skeleton Loading')
+    } finally {
+      setMyPostsSkeletonSaving(false)
+    }
+  }
+
+  const handleSaveBlurPremium = async (val) => {
+    setSavingBlur(true)
+    try {
+      const { data } = await api.put('/admin/settings', { blurPremiumImages: val })
+      setSettings(data.settings)
+      setBlurPremiumImages(data.settings?.blurPremiumImages || false)
+      if (setBlurPremiumImagesContext) {
+        setBlurPremiumImagesContext(data.settings?.blurPremiumImages || false)
+      }
+      toast.success(val ? '💎 Đã bật làm mờ & khóa xem trước ảnh Premium!' : '💎 Đã tắt làm mờ ảnh Premium!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi cập nhật cài đặt làm mờ')
+    } finally {
+      setSavingBlur(false)
     }
   }
 
@@ -2178,6 +2216,8 @@ const SettingsTab = ({ onDirtyChange }) => {
                   <option value="home" className="bg-[#121214]">🏠 Trang chủ (Home Page)</option>
                   <option value="search" className="bg-[#121214]">🔍 Trang khám phá (Search Page)</option>
                   <option value="profile" className="bg-[#121214]">👤 Trang cá nhân (Profile Page)</option>
+                  <option value="post-detail" className="bg-[#121214]">💎 Trang chi tiết (Post Detail)</option>
+                  <option value="my-posts" className="bg-[#121214]">🖼️ Ảnh của tôi (My Posts)</option>
                 </select>
                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 text-xs">
                   ▼
@@ -2418,7 +2458,150 @@ const SettingsTab = ({ onDirtyChange }) => {
           )}
 
           {/* Render other pages placeholder */}
-          {selectedConfigPage !== 'home' && (
+          {/* Render Post Detail Page Config */}
+          {selectedConfigPage === 'post-detail' && (
+            <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    💎 Cấu hình Trang chi tiết bài viết (Post Detail)
+                  </h3>
+                  <p className="text-[11px] text-white/40">Quản lý cách hiển thị các ảnh Premium chưa được mở khóa</p>
+                </div>
+                {savingBlur && (
+                  <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold">
+                    <Loader2 size={12} className="animate-spin" /> Đang cập nhật...
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-1">Làm mờ & Khóa xem trước ảnh Premium</h4>
+                  <p className="text-[11px] text-white/40">Nếu bật, ảnh Premium sẽ bị làm mờ và hiển thị thông báo yêu cầu tải xuống.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveBlurPremium(!blurPremiumImages)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none
+                    ${blurPremiumImages ? 'bg-brand-500' : 'bg-white/10'}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                      ${blurPremiumImages ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {selectedConfigPage === 'my-posts' && (
+            <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl">🖼️</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base mb-1 font-display">Cài đặt trang Ảnh của tôi</h3>
+                    <p className="text-sm text-white/50 leading-relaxed">
+                      Tinh chỉnh trải nghiệm Skeleton Loading khi người dùng truy cập trang quản lý ảnh cá nhân.
+                    </p>
+                  </div>
+                </div>
+                {myPostsSkeletonSaving && (
+                  <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold animate-pulse flex-shrink-0">
+                    Đang lưu...
+                  </span>
+                )}
+              </div>
+
+              {/* ── Skeleton Loading Duration ───────────────────────── */}
+              <div className="p-5 rounded-xl border border-white/8 bg-white/[0.02] space-y-4">
+                <div>
+                  <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                    <span className="text-lg">⏱️</span> Thời gian hiệu ứng Skeleton Loading
+                  </h4>
+                  <p className="text-[11px] text-white/40 mt-0.5">
+                    Thời gian cộng thêm vào sau khi hệ thống tải xong dữ liệu để kéo dài hiệu ứng Skeleton trang "Ảnh của tôi"
+                  </p>
+                </div>
+
+                {/* Value Display */}
+                <div className="flex items-baseline gap-2">
+                  <span className="text-3xl font-black tabular-nums tracking-tight" style={{ color: 'hsla(var(--color-brand-h), var(--color-brand-s), 65%, 1)' }}>
+                    {myPostsSkeletonMs >= 1000 ? (myPostsSkeletonMs / 1000).toFixed(1) : myPostsSkeletonMs}
+                  </span>
+                  <span className="text-sm font-bold text-white/40">
+                    {myPostsSkeletonMs >= 1000 ? 'giây' : 'ms'}
+                  </span>
+                  {myPostsSkeletonMs === 0 && (
+                    <span className="ml-2 text-[10px] font-semibold text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                      Tắt
+                    </span>
+                  )}
+                </div>
+
+                {/* Slider */}
+                <div className="relative pt-1 pb-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={10000}
+                    step={100}
+                    value={myPostsSkeletonMs}
+                    onChange={(e) => setMyPostsSkeletonMs(Number(e.target.value))}
+                    onMouseUp={(e) => handleSaveMyPostsSkeletonMs(Number(e.target.value))}
+                    onTouchEnd={(e) => handleSaveMyPostsSkeletonMs(Number(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) 0%, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) ${(myPostsSkeletonMs / 10000) * 100}%, rgba(255,255,255,0.08) ${(myPostsSkeletonMs / 10000) * 100}%, rgba(255,255,255,0.08) 100%)`,
+                    }}
+                  />
+                  {/* Tick marks */}
+                  <div className="flex justify-between mt-2 px-0.5">
+                    {[0, 1000, 2000, 3000, 5000, 7000, 10000].map(v => (
+                      <button
+                        key={v}
+                        onClick={() => { setMyPostsSkeletonMs(v); handleSaveMyPostsSkeletonMs(v) }}
+                        className={`text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
+                          myPostsSkeletonMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
+                        }`}
+                      >
+                        {v === 0 ? '0' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Preset buttons */}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: 'Tắt (0ms)', value: 0 },
+                    { label: 'Nhanh (500ms)', value: 500 },
+                    { label: 'Vừa (1.5s)', value: 1500 },
+                    { label: 'Lâu (3s)', value: 3000 },
+                    { label: 'Rất lâu (5s)', value: 5000 },
+                    { label: 'Siêu lâu (10s)', value: 10000 },
+                  ].map(p => (
+                    <button
+                      key={p.value}
+                      onClick={() => { setMyPostsSkeletonMs(p.value); handleSaveMyPostsSkeletonMs(p.value) }}
+                      className={`text-[10px] font-bold px-3 py-1.5 rounded-lg border transition-all cursor-pointer ${
+                        myPostsSkeletonMs === p.value
+                          ? 'border-brand-500/40 bg-brand-500/10 text-brand-300'
+                          : 'border-white/8 bg-white/[0.03] text-white/40 hover:border-white/15 hover:text-white/60'
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {selectedConfigPage !== 'home' && selectedConfigPage !== 'post-detail' && selectedConfigPage !== 'my-posts' && (
             <div className="card p-12 border border-white/5 text-center space-y-3 bg-white/[0.01]">
               <div className="text-3xl">⚙️</div>
               <h4 className="font-bold text-white text-sm">Cài đặt đang được phát triển</h4>

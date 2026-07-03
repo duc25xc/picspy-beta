@@ -334,11 +334,14 @@ const ProfilePage = () => {
                 >
                   <img
                     src={
-                      post.images?.[0]?.thumbnailUrl
-                      || getOptimizedWebpUrl(post.images?.[0]?.url, 400)
-                      || post.generatedImages?.[0]?.thumbnailUrl
-                      || getOptimizedWebpUrl(post.generatedImages?.[0]?.url, 400)
-                      || post.thumbnail
+                      getOptimizedWebpUrl(
+                        post.images?.[0]?.thumbnailUrl ||
+                        post.images?.[0]?.url ||
+                        post.generatedImages?.[0]?.thumbnailUrl ||
+                        post.generatedImages?.[0]?.url ||
+                        post.thumbnail,
+                        400
+                      )
                     }
                     alt={post.caption}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"

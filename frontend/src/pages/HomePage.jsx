@@ -7,6 +7,7 @@ import ContentLoader, { BrandLogo } from '../components/ui/ContentLoader'
 import { createPortal } from 'react-dom'
 import { useSettings } from '../context/SettingsContext'
 import useModalUrl from '../hooks/useModalUrl'
+import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import {
   motion,
   useScroll,
@@ -433,7 +434,10 @@ const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', dela
   }, [style, posts])
 
   const fallbackImg = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
-  const getPostImg = (p) => p?.generatedImages?.[0]?.thumbnailUrl || p?.images?.[0]?.thumbnailUrl || p?.generatedImages?.[0]?.url || p?.images?.[0]?.url || fallbackImg
+  const getPostImg = (p) => {
+    const rawUrl = p?.generatedImages?.[0]?.thumbnailUrl || p?.images?.[0]?.thumbnailUrl || p?.generatedImages?.[0]?.url || p?.images?.[0]?.url
+    return getOptimizedWebpUrl(rawUrl || fallbackImg, 400)
+  }
 
   return (
     <motion.div

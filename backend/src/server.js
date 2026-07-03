@@ -134,6 +134,8 @@ app.get('/v1/settings', async (req, res, next) => {
       announcementEnabled: settings.announcementEnabled !== undefined ? settings.announcementEnabled : false,
       globalLoaderType: settings.globalLoaderType || 'wave',
       splashExtraMs: settings.splashExtraMs ?? 0,
+      myPostsSkeletonMs: settings.myPostsSkeletonMs ?? 0,
+      blurPremiumImages: settings.blurPremiumImages !== undefined ? settings.blurPremiumImages : false,
     })
   } catch (err) {
     next(err)

@@ -122,6 +122,8 @@ export const SettingsProvider = ({ children }) => {
 
   const [globalLoaderType, setGlobalLoaderType] = useState('wave');
   const [splashExtraMs, setSplashExtraMs] = useState(0);
+  const [myPostsSkeletonMs, setMyPostsSkeletonMs] = useState(0);
+  const [blurPremiumImages, setBlurPremiumImages] = useState(false);
 
   const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
@@ -161,6 +163,12 @@ export const SettingsProvider = ({ children }) => {
         }
         if (data?.splashExtraMs !== undefined) {
           setSplashExtraMs(data.splashExtraMs ?? 0);
+        }
+        if (data?.myPostsSkeletonMs !== undefined) {
+          setMyPostsSkeletonMs(data.myPostsSkeletonMs ?? 0);
+        }
+        if (data?.blurPremiumImages !== undefined) {
+          setBlurPremiumImages(data.blurPremiumImages);
         }
       })
       .catch((err) => {
@@ -235,7 +243,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, blurPremiumImages, setBlurPremiumImages }}>
       {children}
     </SettingsContext.Provider>
   );

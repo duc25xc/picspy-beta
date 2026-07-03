@@ -545,8 +545,8 @@ export const updateSettings = async (req, res, next) => {
       'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
       'announcementText', 'announcementLink', 'announcementEnabled',
       'categoryStyle', 'heroBannerMode', 'heroBannerImage',
-      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs',
-      'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee'
+      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs', 'myPostsSkeletonMs',
+      'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee', 'blurPremiumImages'
     ]
     const updates = {}
     allowed.forEach(key => {

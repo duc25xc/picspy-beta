@@ -94,6 +94,15 @@ const postSchema = new mongoose.Schema(
         },
         'Prompt là bắt buộc đối với ảnh AI',
       ],
+      validate: {
+        validator: function (val) {
+          if (this.postType !== 'ai') return true
+          if (!val) return false
+          const stripped = val.replace(/[\s\-_~!@#$%^&*()+=\[\]{}<>|\\/:;"',.?]+/g, '')
+          return stripped.length >= 2
+        },
+        message: 'Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.',
+      },
       maxlength: [2000, 'Prompt tối đa 2000 ký tự'],
       trim: true,
     },
@@ -185,7 +194,19 @@ const postSchema = new mongoose.Schema(
     colorPalette: [{ type: String }],
 
     // === CONTENT ===
-    caption: { type: String, maxlength: 500 },
+    caption: {
+      type: String,
+      required: [true, 'Mô tả (caption) là bắt buộc'],
+      validate: {
+        validator: function (val) {
+          if (!val) return false
+          const stripped = val.replace(/[\s\-_~!@#$%^&*()+=\[\]{}<>|\\/:;"',.?]+/g, '')
+          return stripped.length >= 2
+        },
+        message: 'Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.',
+      },
+      maxlength: 500,
+    },
     tags: [{ type: String, lowercase: true, trim: true }],
     category: {
       type: String,

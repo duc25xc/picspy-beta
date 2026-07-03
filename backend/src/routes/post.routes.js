@@ -12,6 +12,8 @@ import {
   getFollowingFeed,
   searchByImage,
   getHomepageData,
+  getSourceHistory,
+  deleteSourceHistoryImage,
 } from '../controllers/post.controller.js'
 import {
   getPostDetail,
@@ -61,6 +63,12 @@ router.get('/me', authenticate, getMyPosts)
 
 /** GET /posts/following — Feed từ những người đang follow */
 router.get('/following', authenticate, getFollowingFeed)
+
+/** GET /posts/me/source-history — Lấy danh sách ảnh gốc của user */
+router.get('/me/source-history', authenticate, getSourceHistory)
+
+/** DELETE /posts/me/source-history — Gỡ/Xóa ảnh gốc khỏi bài đăng */
+router.delete('/me/source-history', authenticate, deleteSourceHistoryImage)
 
 /** POST /posts — Upload AI content mới (sourceImages 0-5, generatedImages 1-5) */
 router.post(

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { AI_TOOLS } from '../../pages/uploadConstants'
 import { getOptimizedWebpUrl } from '../../utils/imageUrl'
+import { useSettings } from '../../context/SettingsContext'
 
 /**
  * ImageGallery — multi-image viewer cho PostDetail.
@@ -55,6 +56,7 @@ export default function ImageGallery({
   isMultiModel = false,
   modelComparisons = [],
 }) {
+  const { blurPremiumImages } = useSettings()
   // activeKey: 'gen-0' ... 'gen-4' | 'src-0' ... 'src-4'
   // Fallback: nếu cả hai rỗng, dùng legacy images[] vào slot gen
   // Hợp nhất ảnh chính (primary model) và ảnh từ các so sánh khác, tránh trùng lặp
@@ -197,7 +199,7 @@ export default function ImageGallery({
   const currentAiTool = activeImg?.aiTool || aiTool
   const currentAiModel = activeImg?.aiModel || aiModel
   const toolMeta = currentAiTool ? getToolMeta(currentAiTool) : null
-  const showBlurred = isPremium && !isUnlocked
+  const showBlurred = isPremium && !isUnlocked && blurPremiumImages
   const displayUrl = showBlurred
     ? makeBlurredUrl(
         activeImg?.previewUrl || getOptimizedWebpUrl(activeImg?.url, 1200) || activeImg?.thumbnailUrl

@@ -384,7 +384,7 @@ const PostCard = ({
   onClick,
 }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
-  const displayUrl = img?.thumbnailUrl || getOptimizedWebpUrl(img?.url, 400)
+  const displayUrl = getOptimizedWebpUrl(img?.thumbnailUrl || img?.url, 400)
   const isTall = useMemo(() => {
     if (!post._id) return false
     const idStr = post._id.toString()

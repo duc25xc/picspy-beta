@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutGrid,
@@ -18,9 +18,14 @@ import {
   GitCompare,
   PlusCircle,
   Plus,
+  Link,
+  ExternalLink,
+  Copy,
+  Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
+import { useSettings } from '../context/SettingsContext'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import { ImageDropZone, SourceHistoryPanel, ModelSlot } from './UploadComponents.jsx'
 import { deduplicateByPublicId, fileToPreview } from './uploadConstants.js'
@@ -74,11 +79,14 @@ const FALLBACK_CATEGORIES = [
 
 // ─── Skeleton Card ──────────────────────────────────────────
 const SkeletonCard = () => (
-  <div className="rounded-2xl bg-surface-50 overflow-hidden animate-pulse">
-    <div className="aspect-square bg-surface-100" />
-    <div className="p-3 space-y-2">
-      <div className="h-3 bg-surface-100 rounded w-2/3" />
-      <div className="h-3 bg-surface-100 rounded w-1/3" />
+  <div className="rounded-2xl bg-surface-50 overflow-hidden border border-white/5 p-0 space-y-0">
+    <div className="aspect-square skeleton w-full" />
+    <div className="p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <div className="h-4 skeleton rounded-lg w-16" />
+        <div className="h-3 skeleton rounded w-12" />
+      </div>
+      <div className="h-4 skeleton rounded-lg w-full mt-2" />
     </div>
   </div>
 )
@@ -99,11 +107,9 @@ const StatusBadge = ({ status }) => {
 
 // ─── Edit Modal ─────────────────────────────────────────────
 const AI_TOOL_OPTIONS = [
-  'midjourney','dalle-3','stable-diffusion','flux','leonardo',
-  'firefly','ideogram','bing-creator','playground','canva-ai','comfyui',
-  'gemini-flash','gemini-think','gemini-pro',
-  'gemini-nano-banana','gemini-nano-banana-pro','gemini-nano-banana-2',
-  'chatgpt','deepseek','grok','other',
+  'midjourney','dalle-3','stable-diffusion','flux',
+  'gemini-nano-banana-pro','gemini-nano-banana-2',
+  'chatgpt','seedream','grok',
 ]
 
 const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) => {
@@ -362,14 +368,55 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   }
 
   const handleSave = async () => {
+    // ── Helpers ─────────────────────────────────────────────────
+    // Strip "programming/junk" special chars; keep letters (incl. Vietnamese), numbers,
+    // spaces, and natural punctuation: . , ! ? ; : ' " - ( ) & @ # _
+    const JUNK_CHARS = /[%$^*+=\[\]{}<>|\\\/~`]/g
+    const stripJunk = (text) => text.replace(JUNK_CHARS, '').replace(/\s+/g, ' ').trim()
+    const hasJunk = (text) => JUNK_CHARS.test(text)
+    const hasRealContent = (text) => {
+      if (!text) return false
+      // Strip spaces + natural punctuation, require ≥2 meaningful chars remain
+      const core = text.replace(/[\s.,!?;:'"()\-&@#_]+/g, '').replace(JUNK_CHARS, '')
+      return core.length >= 2
+    }
+
+    // ── Validate + sanitize Mô tả (caption) ─────────────────────
+    if (!form.caption.trim()) return toast.error('Vui lòng nhập Mô tả cho bài đăng.')
+    if (hasJunk(form.caption)) {
+      return toast.error('Mô tả chứa ký tự không hợp lệ (%, $, ^, *, +, =, [, ], {, }, <, >, |, \\, /). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
+    }
+    if (!hasRealContent(form.caption)) {
+      return toast.error('Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+    }
+
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
+
+    // ── Detect AI post (hỗ trợ cả bài cũ không có postType) ─────
+    const isAiPost = post.postType === 'ai'
+      || !!post.aiTool
+      || (post.generatedImages?.length > 0)
+
+    if (isAiPost) {
+      if (!form.prompt.trim()) {
+        return toast.error('Bài đăng AI bắt buộc phải có Prompt. Vui lòng chuyển sang tab "✦ AI & Prompt" và nhập Prompt.')
+      }
+      if (hasJunk(form.prompt)) {
+        return toast.error('Prompt chứa ký tự không hợp lệ (%, $, ^, *, +, =, [, ], {, }, <, >, |, \\, /). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
+      }
+      if (!hasRealContent(form.prompt)) {
+        return toast.error('Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+      }
+      const effectiveAiTool = multiModelMode ? modelSlots[0]?.aiTool : form.aiTool
+      if (!effectiveAiTool) return toast.error('Bài đăng AI yêu cầu chọn Công cụ AI.')
+    }
 
     // Validate multi-model
     if (multiModelMode) {
       if (modelSlots.length < 2) return toast.error('Cần ít nhất 2 model để so sánh')
       if (modelSlots.some(s => !s.aiTool)) return toast.error('Mỗi model so sánh cần chọn công cụ AI')
       if (modelSlots.some(s => !s.genImages?.length)) return toast.error('Mỗi model cần ít nhất 1 ảnh kết quả')
-    } else {
+    } else if (isAiPost) {
       if (genImages.length === 0) return toast.error('Cần ít nhất 1 ảnh kết quả AI')
     }
 
@@ -377,13 +424,15 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     try {
       const fd = new FormData()
       
-      // Append text fields
-      fd.append('caption', form.caption.trim())
+      // Append text fields (use cleaned values)
+      fd.append('caption', stripJunk(form.caption))
       fd.append('category', form.category)
       fd.append('tags', JSON.stringify(form.tags))
-      fd.append('prompt', form.prompt.trim())
+      if (form.prompt.trim()) fd.append('prompt', stripJunk(form.prompt))
       if (form.negativePrompt.trim()) fd.append('negativePrompt', form.negativePrompt.trim())
-      fd.append('aiTool', multiModelMode ? (modelSlots[0].aiTool || 'other') : form.aiTool)
+      // Only append aiTool if it has a valid value (avoid sending empty string that fails enum validation)
+      const aiToolValue = multiModelMode ? (modelSlots[0].aiTool || '') : form.aiTool
+      if (aiToolValue) fd.append('aiTool', aiToolValue)
       if (!multiModelMode && form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
       if (form.parameters.trim()) fd.append('parameters', form.parameters.trim())
       fd.append('isPremium', String(form.isPremium))
@@ -975,25 +1024,52 @@ const DeleteConfirmModal = ({ post, onClose, onConfirm }) => {
   )
 }
 
+// ─── Post Card Animation Variants ────────────────────────────
+const postCardVariants = {
+  hidden: { opacity: 0, scale: 0.93 },
+  visible: (i) => ({
+    opacity: 1,
+    scale: 1,
+    transition: {
+      duration: 0.45,
+      ease: [0.16, 1, 0.3, 1], // Custom cubic-bezier (ease-out expo)
+      delay: Math.min(i * 0.03, 0.3),
+    },
+  }),
+  exit: {
+    opacity: 0,
+    scale: 0.95,
+    transition: { duration: 0.2, ease: 'easeOut' }
+  }
+}
+
 // ─── Post Card ──────────────────────────────────────────────
 const PostCard = ({ post, onEdit, onDelete, index }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
-  const displayUrl = img?.thumbnailUrl || getOptimizedWebpUrl(img?.url, 400)
+  const displayUrl = getOptimizedWebpUrl(img?.thumbnailUrl || img?.url, 400)
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay: index * 0.04 }}
-      className="group relative rounded-2xl bg-surface-50 overflow-hidden border border-white/5 hover:border-white/10 transition-all duration-300"
+      layout
+      custom={index}
+      variants={postCardVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      whileHover={{
+        y: -6,
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.12)'
+      }}
+      className="group relative rounded-2xl bg-surface-50 overflow-hidden border border-white/5 transition-colors duration-300"
     >
       {/* Image */}
-      <div className="relative aspect-square overflow-hidden">
+      <div className="relative aspect-square overflow-hidden border-b border-white/5">
         {displayUrl ? (
           <img
             src={displayUrl}
             alt={post.caption || 'Post'}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+            className="w-full h-full object-cover transform group-hover:scale-106 transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]"
             loading="lazy"
           />
         ) : (
@@ -1003,43 +1079,49 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
         )}
 
         {/* Overlay on hover */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" />
 
         {/* Action buttons */}
-        <div className="absolute top-2 right-2 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 translate-y-[-4px] group-hover:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
           <motion.button
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.1, backgroundColor: '#7c3aed' }}
+            whileTap={{ scale: 0.92 }}
             onClick={() => onEdit(post)}
-            className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-brand-600 transition-colors"
+            className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/20 transition-colors"
           >
-            <Pencil size={14} />
+            <Pencil size={13} />
           </motion.button>
           <motion.button
-            whileTap={{ scale: 0.9 }}
+            whileHover={{ scale: 1.1, backgroundColor: '#dc2626' }}
+            whileTap={{ scale: 0.92 }}
             onClick={() => onDelete(post)}
-            className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-sm flex items-center justify-center hover:bg-red-600 transition-colors"
+            className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/20 transition-colors"
           >
-            <Trash2 size={14} />
+            <Trash2 size={13} />
           </motion.button>
         </div>
 
         {/* Premium badge */}
         {post.isPremium && (
-          <div className="absolute top-2 left-2">
-            <span className="badge-warning text-xs">💎 Premium</span>
+          <div className="absolute top-2.5 left-2.5">
+            <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium">💎 Premium</span>
           </div>
         )}
 
-        {/* Bottom stats on hover */}
-        <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
-          <div className="flex items-center gap-3 text-white text-xs">
-            <span className="flex items-center gap-1">
-              <Heart size={11} className="text-red-400" />
-              {(post.stats?.likesCount || 0).toLocaleString()}
+        {/* Bottom stats on hover — opacity only, no translate to avoid layout shift */}
+        <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none">
+          <div className="flex items-center gap-2">
+            <span className="flex items-center gap-1 bg-black/55 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/8">
+              <Heart size={11} className="text-red-400 fill-red-400 flex-shrink-0" />
+              <span className="text-[11px] font-semibold text-white tabular-nums leading-none">
+                {(post.stats?.likesCount || 0).toLocaleString()}
+              </span>
             </span>
-            <span className="flex items-center gap-1">
-              <Download size={11} className="text-brand-400" />
-              {(post.stats?.downloadsCount || 0).toLocaleString()}
+            <span className="flex items-center gap-1 bg-black/55 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/8">
+              <Download size={11} className="text-brand-400 flex-shrink-0" />
+              <span className="text-[11px] font-semibold text-white tabular-nums leading-none">
+                {(post.stats?.downloadsCount || 0).toLocaleString()}
+              </span>
             </span>
           </div>
         </div>
@@ -1049,17 +1131,17 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
       <div className="p-3">
         <div className="flex items-center justify-between gap-2">
           <StatusBadge status={post.status} />
-          <span className="text-xs text-white/30">
+          <span className="text-xs text-white/30 font-medium">
             {new Date(post.createdAt).toLocaleDateString('vi-VN')}
           </span>
         </div>
         {post.caption && (
-          <p className="text-sm text-white/60 mt-2 line-clamp-1">
+          <p className="text-sm text-white/70 mt-2 line-clamp-1 font-normal">
             {post.caption}
           </p>
         )}
         {post.status === 'rejected' && post.rejectionReason && (
-          <p className="text-xs text-red-400/80 mt-1.5 line-clamp-1">
+          <p className="text-xs text-red-400/80 mt-1.5 line-clamp-1 font-medium">
             ⚠ {post.rejectionReason}
           </p>
         )}
@@ -1068,9 +1150,26 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
   )
 }
 
+// ─── Stats Skeleton Row ──────────────────────────────────────
+const StatsSkeletonRow = () => (
+  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+    {Array.from({ length: 5 }).map((_, i) => (
+      <div key={i} className="card p-3 text-center flex flex-col items-center justify-center h-[76px] space-y-1.5">
+        <div className="h-7 skeleton rounded-lg w-10" />
+        <div className="h-3.5 skeleton rounded w-16" />
+      </div>
+    ))}
+  </div>
+)
+
 // ─── Stats Row ──────────────────────────────────────────────
 const StatsRow = ({ stats }) => (
-  <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+  <motion.div
+    initial={{ opacity: 0 }}
+    animate={{ opacity: 1 }}
+    transition={{ duration: 0.35, ease: 'easeOut' }}
+    className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6"
+  >
     {[
       { label: 'Tổng cộng', value: stats.total, color: 'text-white' },
       { label: 'Chờ duyệt', value: stats.pending, color: 'text-yellow-400' },
@@ -1083,7 +1182,7 @@ const StatsRow = ({ stats }) => (
         <p className="text-xs text-white/40">{label}</p>
       </div>
     ))}
-  </div>
+  </motion.div>
 )
 
 // ─── Main Page ──────────────────────────────────────────────
@@ -1105,8 +1204,13 @@ const MyPostsPage = () => {
   const [deletePost, setDeletePost] = useState(null)
   const [initialLoaded, setInitialLoaded] = useState(false)
   const [isTabChanging, setIsTabChanging] = useState(false)
+  const [sourceHistory, setSourceHistory] = useState([])
+  const [historyLoading, setHistoryLoading] = useState(false)
   // Dynamic categories từ API
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
+
+  // Settings context – thời gian kéo dài Skeleton
+  const { myPostsSkeletonMs } = useSettings()
 
   useEffect(() => {
     api.get('/categories')
@@ -1156,16 +1260,23 @@ const MyPostsPage = () => {
     [activeStatus, cursor, hasMore, posts.length]
   )
 
+  const activeStatusRef = useRef(activeStatus)
+  useEffect(() => {
+    activeStatusRef.current = activeStatus
+  }, [activeStatus])
+
   const fetchPosts = useCallback(
     async ({ reset = false } = {}) => {
-      if (!reset && !hasMore && posts.length > 0) return
+      const requestedStatus = activeStatus
+      console.log("[MyPosts] fetchPosts start:", { reset, requestedStatus, cursor, hasMore })
+
+      if (!reset && !hasMore && posts.length > 0) {
+        console.log("[MyPosts] fetchPosts skipped - no reset and no more posts.")
+        return
+      }
 
       if (reset) {
-        if (!initialLoaded) {
-          setLoading(true) // Chỉ hiện Skeletons ở lần tải trang đầu tiên
-        } else {
-          setIsTabChanging(true) // Chuyển tab chỉ làm mờ nhẹ giao diện
-        }
+        setLoading(true) // Luôn hiện Skeletons khi tải trang và khi chuyển tab
         setCursor(null)
       }
 
@@ -1174,8 +1285,21 @@ const MyPostsPage = () => {
         if (!reset && cursor) params.cursor = cursor
         if (activeStatus !== 'all') params.status = activeStatus
 
+        console.log("[MyPosts] API fetching posts with params:", params)
         const { data } = await api.get('/posts/me', { params })
 
+        console.log(`[MyPosts] API response received, starting ${myPostsSkeletonMs}ms skeleton delay...`)
+        if (myPostsSkeletonMs > 0) {
+          await new Promise((resolve) => setTimeout(resolve, myPostsSkeletonMs))
+        }
+        console.log(`[MyPosts] Skeleton delay finished.`)
+
+        if (activeStatusRef.current !== requestedStatus) {
+          console.warn("[MyPosts] fetchPosts response IGNORED - activeStatus changed from " + requestedStatus + " to " + activeStatusRef.current)
+          return
+        }
+
+        console.log("[MyPosts] Updating states with fetched posts count:", data.posts?.length)
         if (reset) {
           setPosts(data.posts)
         } else {
@@ -1186,26 +1310,71 @@ const MyPostsPage = () => {
         setHasMore(data.pagination.hasMore)
         setCursor(data.pagination.nextCursor)
       } catch (err) {
+        console.error("[MyPosts] fetchPosts error:", err)
         toast.error(err.response?.data?.message || 'Không thể tải ảnh')
       } finally {
-        setLoading(false)
-        setIsTabChanging(false) // Tắt trạng thái mờ
-        setRefreshing(false)
-        setInitialLoaded(true) // Đánh dấu đã qua lần load đầu tiên
+        if (activeStatusRef.current === requestedStatus) {
+          setLoading(false)
+          setIsTabChanging(false)
+          setRefreshing(false)
+          setInitialLoaded(true)
+          console.log("[MyPosts] fetchPosts loading states set to false.")
+        }
       }
     },
-    [activeStatus, cursor, hasMore, posts.length, initialLoaded] // Thêm initialLoaded vào dependencies
+    [activeStatus, cursor, hasMore, posts.length]
   )
+
+  const fetchSourceHistory = useCallback(async () => {
+    const requestedStatus = 'history'
+    console.log("[MyPosts] fetchSourceHistory start.")
+    setHistoryLoading(true)
+    try {
+      const { data } = await api.get('/posts/me/source-history')
+
+      console.log(`[MyPosts] History API response received, starting ${myPostsSkeletonMs}ms skeleton delay...`)
+      if (myPostsSkeletonMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, myPostsSkeletonMs))
+      }
+      console.log(`[MyPosts] Skeleton delay finished.`)
+
+      if (activeStatusRef.current !== requestedStatus) {
+        console.warn("[MyPosts] fetchSourceHistory response IGNORED - activeStatus changed from " + requestedStatus + " to " + activeStatusRef.current)
+        return
+      }
+
+      console.log("[MyPosts] Updating sourceHistory state with count:", data.sourceHistory?.length)
+      setSourceHistory(data.sourceHistory || [])
+    } catch (err) {
+      console.error("[MyPosts] fetchSourceHistory error:", err)
+      toast.error('Không thể tải lịch sử ảnh gốc')
+    } finally {
+      if (activeStatusRef.current === requestedStatus) {
+        setHistoryLoading(false)
+        setRefreshing(false)
+        setInitialLoaded(true)
+        console.log("[MyPosts] fetchSourceHistory loading states set to false.")
+      }
+    }
+  }, [])
 
   // Fetch khi filter thay đổi
   useEffect(() => {
-    fetchPosts({ reset: true })
+    if (activeStatus === 'history') {
+      fetchSourceHistory()
+    } else {
+      fetchPosts({ reset: true })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeStatus])
 
   const handleRefresh = () => {
     setRefreshing(true)
-    fetchPosts({ reset: true })
+    if (activeStatus === 'history') {
+      fetchSourceHistory()
+    } else {
+      fetchPosts({ reset: true })
+    }
   }
 
   const handleEditSave = (updatedPost) => {
@@ -1228,6 +1397,7 @@ const MyPostsPage = () => {
     { key: 'approved', label: 'Đã duyệt', count: stats.approved },
     { key: 'rejected', label: 'Từ chối', count: stats.rejected },
     { key: 'hidden', label: 'Đã ẩn', count: stats.hidden },
+    { key: 'history', label: 'Lịch sử tải lên', count: sourceHistory.length },
   ]
 
   return (
@@ -1268,8 +1438,7 @@ const MyPostsPage = () => {
           </motion.button>
         </motion.div>
 
-        {/* Stats */}
-        {!loading && <StatsRow stats={stats} />}
+        {initialLoaded ? <StatsRow stats={stats} /> : <StatsSkeletonRow />}
 
         {/* Filter Tabs */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-5">
@@ -1301,12 +1470,66 @@ const MyPostsPage = () => {
         {/* Grid & Empty State */}
         <motion.div layout className="min-h-[400px]">
           <AnimatePresence mode="wait">
-            {loading ? (
+            {activeStatus === 'history' ? (
+              historyLoading ? (
+                <motion.div
+                  key="history-skeleton"
+                  initial={{ opacity: 0, scale: 0.96 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.96 }}
+                  transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+                  className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4"
+                >
+                  {Array.from({ length: 4 }).map((_, i) => (
+                    <SkeletonCard key={i} />
+                  ))}
+                </motion.div>
+              ) : sourceHistory.length === 0 ? (
+                <motion.div
+                  key="history-empty"
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  className="text-center py-20"
+                >
+                  <div className="w-20 h-20 rounded-3xl bg-surface-100 flex items-center justify-center mx-auto mb-4">
+                    <ImageOff size={32} className="text-white/20" />
+                  </div>
+                  <p className="text-white/40 mb-2">Chưa có ảnh gốc nào</p>
+                  <p className="text-white/20 text-sm">
+                    Lịch sử tải lên tự động lưu lại các ảnh gốc bạn dùng làm tham khảo khi đăng bài.
+                  </p>
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="history-data"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                >
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    <AnimatePresence mode="popLayout">
+                      {sourceHistory.map((img, i) => (
+                        <SourceHistoryCard
+                          key={img.publicId}
+                          img={img}
+                          index={i}
+                          onDeleteSuccess={(deletedId) => {
+                            setSourceHistory((prev) => prev.filter((item) => item.publicId !== deletedId))
+                          }}
+                        />
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </motion.div>
+              )
+            ) : loading ? (
               <motion.div
                 key="skeleton-state"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
+                initial={{ opacity: 0, scale: 0.96 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.96 }}
+                transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
                 className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3"
               >
                 {Array.from({ length: 8 }).map((_, i) => (
@@ -1350,7 +1573,7 @@ const MyPostsPage = () => {
                 }`}
               >
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                  <AnimatePresence>
+                  <AnimatePresence mode="popLayout">
                     {posts.map((post, i) => (
                       <PostCard
                         key={post._id}
@@ -1399,6 +1622,205 @@ const MyPostsPage = () => {
         )}
       </AnimatePresence>
     </div>
+  )
+}
+
+// ─── SourceHistoryCard ──────────────────────────────────────────
+const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
+  const [copied, setCopied] = useState(false)
+  const [showPostsPopover, setShowPostsPopover] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  const handleCopyLink = async (e) => {
+    e.stopPropagation()
+    try {
+      await navigator.clipboard.writeText(img.url)
+      setCopied(true)
+      toast.success('Đã sao chép liên kết ảnh gốc!')
+      setTimeout(() => setCopied(false), 2000)
+    } catch {
+      toast.error('Không thể sao chép liên kết')
+    }
+  }
+
+  const handleDelete = async () => {
+    setDeleting(true)
+    setShowDeleteConfirm(false)
+    try {
+      const { data } = await api.delete('/posts/me/source-history', {
+        params: { publicId: img.publicId }
+      })
+      toast.success(data.message || 'Đã gỡ ảnh thành công')
+      onDeleteSuccess(img.publicId)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể gỡ ảnh gốc')
+    } finally {
+      setDeleting(false)
+    }
+  }
+
+  // Format kích thước file sang KB/MB dễ đọc
+  const formatSize = (bytes) => {
+    if (!bytes) return '0 B'
+    const k = 1024
+    const sizes = ['B', 'KB', 'MB']
+    const i = Math.floor(Math.log(bytes) / Math.log(k))
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i]
+  }
+  return (
+    <motion.div
+      layout
+      custom={index}
+      variants={postCardVariants}
+      initial="hidden"
+      animate="visible"
+      exit="exit"
+      whileHover={{
+        y: -6,
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.12)'
+      }}
+      className="group relative rounded-2xl bg-surface-50 border border-white/5 overflow-hidden flex flex-col transition-colors duration-300"
+    >
+      {/* Thumbnail Container */}
+      <div className="relative aspect-square w-full overflow-hidden bg-black/40">
+        <img
+          src={getOptimizedWebpUrl(img.thumbnailUrl || img.url, 400)}
+          alt="Source preview"
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+        />
+        
+        {/* Hover overlay actions */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-3 flex flex-col justify-between z-10">
+          <div className="flex justify-end gap-1.5">
+            <button
+              onClick={handleCopyLink}
+              title="Sao chép liên kết"
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-md cursor-pointer"
+            >
+              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+            </button>
+            
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowDeleteConfirm(true)
+              }}
+              title="Xóa ảnh gốc"
+              disabled={deleting}
+              className="w-8 h-8 rounded-lg bg-red-500/20 hover:bg-red-500/40 border border-red-500/30 flex items-center justify-center text-red-400 transition-colors backdrop-blur-md cursor-pointer"
+            >
+              <Trash2 size={14} />
+            </button>
+          </div>
+
+          {/* Kích thước / Chiều dài rộng */}
+          <div className="text-[10px] text-white/60 font-mono flex items-center justify-between">
+            <span>{img.width}x{img.height}</span>
+            <span>{formatSize(img.fileSize)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* Info Body */}
+      <div className="p-3.5 flex flex-col gap-2 relative">
+        <div className="flex items-center justify-between text-xs text-white/50">
+          <span className="font-mono uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded text-[10px] border border-white/5 font-semibold text-white/70">
+            {img.format || 'jpg'}
+          </span>
+          
+          {/* Linked posts trigger */}
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setShowPostsPopover(!showPostsPopover)
+              }}
+              className="flex items-center gap-1 hover:text-brand-400 font-medium transition-colors text-white/70 cursor-pointer text-[11px]"
+            >
+              <Tag size={11} className="text-brand-400" />
+              Dùng trong {img.useCount || 0} bài đăng
+            </button>
+
+            {/* Linked posts popover */}
+            <AnimatePresence>
+              {showPostsPopover && (
+                <>
+                  {/* Backdrop click cover */}
+                  <div
+                    className="fixed inset-0 z-40"
+                    onClick={() => setShowPostsPopover(false)}
+                  />
+                  <motion.div
+                    initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                    className="absolute right-0 bottom-full mb-2 w-56 bg-[#161620] border border-white/10 rounded-xl shadow-2xl p-2.5 z-50 text-left"
+                  >
+                    <p className="text-[10px] text-white/40 uppercase tracking-wider font-bold mb-1.5 px-1">
+                      Các bài viết liên kết
+                    </p>
+                    <div className="max-h-36 overflow-y-auto space-y-1 scrollbar-thin scrollbar-thumb-white/15 pr-1">
+                      {img.linkedPosts?.map((post) => (
+                        <a
+                          key={post._id}
+                          href={`/posts/${post._id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-1.5 rounded-lg hover:bg-white/5 text-white/80 hover:text-white transition-all text-xs truncate flex items-center justify-between"
+                        >
+                          <span className="truncate mr-2 font-medium">{post.caption}</span>
+                          <ExternalLink size={10} className="text-white/30 flex-shrink-0" />
+                        </a>
+                      ))}
+                    </div>
+                  </motion.div>
+                </>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+      </div>
+
+      {/* Delete Confirmation Modal Overlay */}
+      <AnimatePresence>
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <motion.div
+              initial={{ scale: 0.95, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              className="w-full max-w-sm rounded-3xl bg-[#14141c] border border-white/10 p-6 text-center shadow-2xl"
+            >
+              <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4 text-red-500">
+                <Trash2 size={22} />
+              </div>
+              <h4 className="text-lg font-bold text-white mb-2">Gỡ bỏ ảnh gốc?</h4>
+              <p className="text-sm text-white/50 mb-6 leading-relaxed">
+                Ảnh gốc này đang liên kết với <span className="font-semibold text-white">{img.useCount}</span> bài viết. 
+                Hành động này sẽ gỡ ảnh gốc khỏi toàn bộ bài viết này và xóa vĩnh viễn tệp trên hệ thống.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  className="flex-1 btn-secondary text-sm cursor-pointer"
+                >
+                  Hủy
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-500 text-white font-medium transition-colors text-sm shadow-lg shadow-red-600/15 disabled:opacity-50 cursor-pointer"
+                >
+                  {deleting ? 'Đang xóa...' : 'Xác nhận xóa'}
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   )
 }
 
