@@ -98,17 +98,32 @@ const ProfilePage = () => {
       .finally(() => setLoadingProfile(false))
   }, [username])
 
-  // ── Fetch user posts ───────────────────────────────────────────
+  // ── Fetch user posts / bookmarks / purchases ───────────────────
   useEffect(() => {
     if (!profile?._id) return
     setLoadingPosts(true)
-    api.get('/posts', {
-      params: { authorId: profile._id, status: 'approved', limit: 24 }
-    })
-      .then(({ data }) => setPosts(data.posts ?? []))
-      .catch(() => setPosts([]))
-      .finally(() => setLoadingPosts(false))
-  }, [profile?._id])
+
+    let request = null
+    if (activeTab === 'posts') {
+      request = api.get('/posts', {
+        params: { authorId: profile._id, status: 'approved', limit: 24 }
+      })
+    } else if (activeTab === 'bookmarks') {
+      request = api.get('/users/me/bookmarks')
+    } else if (activeTab === 'purchases') {
+      request = api.get('/users/me/purchases')
+    }
+
+    if (request) {
+      request
+        .then(({ data }) => setPosts(data.posts ?? []))
+        .catch(() => setPosts([]))
+        .finally(() => setLoadingPosts(false))
+    } else {
+      setPosts([])
+      setLoadingPosts(false)
+    }
+  }, [profile?._id, activeTab])
 
   // ── Follow / Unfollow ─────────────────────────────────────────
   const handleFollow = useCallback(async () => {
@@ -291,6 +306,7 @@ const ProfilePage = () => {
           {[
             { key: 'posts', label: '🖼 Ảnh' },
             ...(isOwnProfile ? [{ key: 'bookmarks', label: '🔖 Bookmark' }] : []),
+            ...(isOwnProfile ? [{ key: 'purchases', label: '🛍 Đã mua' }] : []),
           ].map(({ key, label }) => (
             <button
               key={key}
@@ -315,9 +331,15 @@ const ProfilePage = () => {
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <Camera size={40} className="text-white/10" />
               <p className="text-white/30 text-sm">
-                {isOwnProfile ? 'Bạn chưa đăng ảnh nào.' : 'Người dùng chưa đăng ảnh nào.'}
+                {activeTab === 'bookmarks'
+                  ? 'Bạn chưa lưu bookmark ảnh nào.'
+                  : activeTab === 'purchases'
+                    ? 'Bạn chưa mua tệp tin Premium nào.'
+                    : isOwnProfile
+                      ? 'Bạn chưa đăng ảnh nào.'
+                      : 'Người dùng chưa đăng ảnh nào.'}
               </p>
-              {isOwnProfile && (
+              {isOwnProfile && activeTab === 'posts' && (
                 <Link to="/upload" className="btn-primary text-sm mt-2">+ Đăng ảnh đầu tiên</Link>
               )}
             </div>

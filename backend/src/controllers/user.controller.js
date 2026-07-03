@@ -405,3 +405,43 @@ export const getVndTransactions = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * GET /users/me/purchases
+ * Lấy danh sách bài đăng có chứa tệp tin đã mua
+ */
+export const getMyPurchasedPosts = async (req, res, next) => {
+  try {
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    const txns = await VndTransaction.find({
+      userId: req.user._id,
+      type: 'purchase_post',
+      walletType: 'available'
+    })
+      .populate({
+        path: 'relatedPostId',
+        populate: { path: 'authorId', select: 'username displayName avatar' }
+      })
+      .sort({ createdAt: -1 })
+      .lean()
+
+    const seenPostIds = new Set()
+    const posts = []
+
+    for (const txn of txns) {
+      if (txn.relatedPostId && !seenPostIds.has(txn.relatedPostId._id.toString())) {
+        seenPostIds.add(txn.relatedPostId._id.toString())
+        const postObj = {
+          ...txn.relatedPostId,
+          purchasedFileType: txn.fileType || 'original',
+          purchasedAt: txn.createdAt
+        }
+        posts.push(postObj)
+      }
+    }
+
+    res.json({ posts })
+  } catch (err) {
+    next(err)
+  }
+}

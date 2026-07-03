@@ -603,3 +603,107 @@ export const triggerSettlement = async (req, res, next) => {
   } catch (err) { next(err) }
 }
 
+/** POST /admin/users/:id/deposit */
+export const depositUserVnd = async (req, res, next) => {
+  try {
+    const { id: userId } = req.params
+    const { amount, description, adminNote } = req.body
+    const parsed = parseInt(amount)
+    if (isNaN(parsed) || parsed === 0) {
+      throw new AppError('INVALID_AMOUNT', 'Số tiền điều chỉnh không hợp lệ', 400)
+    }
+
+    const WalletService = (await import('../services/WalletService.js')).default
+    const result = await WalletService.deposit({
+      userId,
+      amount: parsed,
+      description,
+      adminNote,
+      adminId: req.user._id
+    })
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_VND_DEPOSIT', userId, 'User', {
+      amount: parsed,
+      description,
+      adminNote,
+      newBalance: result.user.vndBalance
+    })
+
+    const actionText = parsed > 0 ? 'nạp thành công' : 'trừ thành công'
+    res.json({
+      message: `Đã ${actionText} ${Math.abs(parsed).toLocaleString('vi-VN')} VNĐ cho @${result.user.username}`,
+      username: result.user.username,
+      vndBalance: result.user.vndBalance,
+      transaction: result.transaction
+    })
+  } catch (err) { next(err) }
+}
+
+/** GET /admin/withdrawals */
+export const getWithdrawalRequests = async (req, res, next) => {
+  try {
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    // Tìm các yêu cầu rút tiền
+    const requests = await VndTransaction.find({ type: 'withdraw_request' })
+      .populate('userId', 'username displayName email avatar bankAccount vndBalance holdingBalance lockedBalance')
+      .sort({ createdAt: -1 })
+      .lean()
+
+    res.json({ requests })
+  } catch (err) { next(err) }
+}
+
+/** POST /admin/withdrawals/:txnId/approve */
+export const approveWithdrawal = async (req, res, next) => {
+  try {
+    const { txnId } = req.params
+    const { adminNote } = req.body
+
+    const WalletService = (await import('../services/WalletService.js')).default
+    const result = await WalletService.withdrawApprove(
+      txnId,
+      adminNote,
+      req.user._id
+    )
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'WITHDRAW_APPROVE', result.transaction.userId, 'VndTransaction', {
+      transactionId: txnId,
+      adminNote
+    })
+
+    res.json({
+      message: 'Đã duyệt yêu cầu rút tiền thành công',
+      transaction: result.transaction
+    })
+  } catch (err) { next(err) }
+}
+
+/** POST /admin/withdrawals/:txnId/reject */
+export const rejectWithdrawal = async (req, res, next) => {
+  try {
+    const { txnId } = req.params
+    const { adminNote } = req.body
+
+    const WalletService = (await import('../services/WalletService.js')).default
+    const result = await WalletService.withdrawReject(
+      txnId,
+      adminNote,
+      req.user._id
+    )
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'WITHDRAW_REJECT', result.transaction.userId, 'VndTransaction', {
+      transactionId: txnId,
+      adminNote
+    })
+
+    res.json({
+      message: 'Đã từ chối yêu cầu rút tiền thành công',
+      transaction: result.transaction
+    })
+  } catch (err) { next(err) }
+}
+
+

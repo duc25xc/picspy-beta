@@ -113,7 +113,10 @@ const PostDetailPage = () => {
     setPalette([]); setAmbientReady(false); setImgLoaded(false)
     try {
       const { data } = await api.get(`/posts/${id}`)
-      setPost(data.post)
+      setPost({
+        ...data.post,
+        purchasedFileTypes: data.purchasedFileTypes || []
+      })
       if (!data.post.isPremium) setIsUnlocked(true)
       if (data.post.colorPalette?.length) setPalette(data.post.colorPalette)
     } catch (err) {

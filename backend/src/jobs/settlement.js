@@ -112,6 +112,12 @@ export const runDailySettlement = async () => {
 }
 
 // 7. Lập lịch chạy tự động lúc 00:00 hàng đêm
-cron.schedule('0 0 * * *', () => {
-  runDailySettlement()
+cron.schedule('0 0 * * *', async () => {
+  try {
+    await runDailySettlement()
+    const WalletService = (await import('../services/WalletService.js')).default
+    await WalletService.releasePendingHolds()
+  } catch (err) {
+    console.error('[Settlement Cron] Error running daily jobs:', err)
+  }
 })

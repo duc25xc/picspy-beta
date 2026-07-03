@@ -57,8 +57,19 @@ export const getPostDetail = async (req, res, next) => {
           followerId: req.user._id,
           followingId: post.authorId._id,
         }).lean()
-        isFollowingAuthor = !!followDoc
       }
+    }
+
+    let purchasedFileTypes = []
+    if (req.user) {
+      const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+      const txns = await VndTransaction.find({
+        userId: req.user._id,
+        type: 'purchase_post',
+        relatedPostId: post._id,
+        walletType: 'available'
+      }).select('fileType').lean()
+      purchasedFileTypes = txns.map(t => t.fileType || 'original')
     }
 
     res.json({
@@ -66,6 +77,7 @@ export const getPostDetail = async (req, res, next) => {
       isLiked,
       isBookmarked,
       isFollowingAuthor,
+      purchasedFileTypes,
     })
   } catch (err) {
     next(err)

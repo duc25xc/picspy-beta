@@ -40,12 +40,28 @@ const writeLog = (level, message, meta) => {
     console.log(`🟢 ${formatted.trim()}`)
   }
 
-  // Ghi thêm vào file log (appendFile không đồng bộ không gây block Event Loop)
-  fs.appendFile(logFilePath, formatted, (err) => {
-    if (err) {
-      console.error('Không thể ghi nhật ký vào file log:', err.message)
-    }
-  })
+  // Chỉ ghi vào file logs/server.log các lỗi (error), cảnh báo (warn) hoặc các sự kiện khởi động/quyết toán quan trọng
+  const shouldWriteToFile =
+    level === 'error' ||
+    level === 'warn' ||
+    (level === 'info' && (
+      message.includes('🚀') ||
+      message.includes('📡') ||
+      message.includes('🌍') ||
+      message.includes('running') ||
+      message.includes('listening') ||
+      message.includes('settlement') ||
+      message.includes('Cron') ||
+      message.includes('job')
+    ))
+
+  if (shouldWriteToFile) {
+    fs.appendFile(logFilePath, formatted, (err) => {
+      if (err) {
+        console.error('Không thể ghi nhật ký vào file log:', err.message)
+      }
+    })
+  }
 }
 
 export const logger = {

@@ -5,7 +5,7 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight, Megaphone,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight, Megaphone, Wallet,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -492,6 +492,10 @@ const UsersTab = () => {
   const [coinModal, setCoinModal] = useState(null)
   const [coinAmount, setCoinAmount] = useState('')
   const [coinLoading, setCoinLoading] = useState(false)
+  const [vndModal, setVndModal] = useState(null)
+  const [vndAmount, setVndAmount] = useState('')
+  const [vndDescription, setVndDescription] = useState('')
+  const [vndLoading, setVndLoading] = useState(false)
   const [tierModal, setTierModal] = useState(null)
   const [tierLoading, setTierLoading] = useState(false)
   const [selectedTier, setSelectedTier] = useState('free')
@@ -534,6 +538,23 @@ const UsersTab = () => {
       setCoinModal(null); setCoinAmount('')
     } catch (err) { toast.error(err.response?.data?.message || 'Lỗi nạp xu') }
     finally { setCoinLoading(false) }
+  }
+
+  const handleAdjustVnd = async () => {
+    const amount = parseInt(vndAmount)
+    if (isNaN(amount) || amount === 0) { toast.error('Nhập số tiền hợp lệ'); return }
+    setVndLoading(true)
+    try {
+      const { data } = await api.post(`/admin/users/${vndModal._id}/deposit`, {
+        amount,
+        description: vndDescription || 'Admin điều chỉnh ví VNĐ',
+      })
+      toast.success(data.message)
+      setUsers(prev => prev.map(u => u._id === vndModal._id ? { ...u, vndBalance: data.vndBalance } : u))
+      if (vndModal._id === currentAdminId) window.location.reload()
+      setVndModal(null); setVndAmount(''); setVndDescription('')
+    } catch (err) { toast.error(err.response?.data?.message || 'Lỗi điều chỉnh ví') }
+    finally { setVndLoading(false) }
   }
 
   const openBanModal = (user, ban) => {
@@ -645,12 +666,17 @@ const UsersTab = () => {
               </div>
               <div className="text-right flex-shrink-0">
                 <p className="text-sm font-bold text-violet-400">{user.tokenBalance || 0} token</p>
+                <p className="text-[11px] font-bold text-emerald-400">{(user.vndBalance || 0).toLocaleString('vi-VN')}đ</p>
                 <p className="text-[10px] text-white/30">{user.stats?.postsCount || 0} posts</p>
               </div>
               <div className="flex gap-1.5 flex-shrink-0">
                 <button onClick={() => { setCoinModal(user); setCoinAmount('') }}
                   className="p-2 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all" title="Điều chỉnh token">
                   <Coins size={14} />
+                </button>
+                <button onClick={() => { setVndModal(user); setVndAmount(''); setVndDescription('') }}
+                  className="p-2 rounded-xl bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-600/30 transition-all" title="Nạp tiền ví VNĐ">
+                  <Wallet size={14} />
                 </button>
                 {user._id !== currentAdminId && (
                   <button onClick={() => openRoleModal(user)}
@@ -716,6 +742,48 @@ const UsersTab = () => {
                 <motion.button whileTap={{ scale: 0.97 }} onClick={handleAdjustCoins} disabled={coinLoading || !coinAmount}
                   className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50">
                   {coinLoading ? <Loader2 size={16} className="animate-spin" /> : <><Coins size={15} /> Xác nhận</>}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Vnd modal */}
+      <AnimatePresence>
+        {vndModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={e => e.target === e.currentTarget && setVndModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="card p-6 max-w-sm w-full">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-600/20 flex items-center justify-center"><Wallet size={24} className="text-emerald-400" /></div>
+                <div><h3 className="font-bold text-lg">Điều chỉnh ví VNĐ</h3><p className="text-sm text-white/40">@{vndModal.username} — <span className="text-emerald-400 font-bold">{(vndModal.vndBalance || 0).toLocaleString('vi-VN')}đ</span></p></div>
+              </div>
+              <div className="flex gap-2 mb-2">
+                {[50000, 100000, 200000, 500000].map(v => (
+                  <button key={v} onClick={() => setVndAmount(String(v))}
+                    className="flex-1 py-1.5 rounded-lg bg-emerald-600/20 border border-emerald-500/35 text-emerald-400 text-xs font-bold hover:bg-emerald-600/30 transition-all">+{v.toLocaleString('vi-VN')}đ</button>
+                ))}
+              </div>
+              <div className="relative mb-3">
+                <input type="number" className="input text-center text-lg font-bold" placeholder="Nhập số tiền (âm để trừ)"
+                  value={vndAmount} onChange={e => setVndAmount(e.target.value)} />
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 flex gap-1">
+                  <button onClick={() => setVndAmount(v => String(Math.abs(parseInt(v) || 0)))} className="p-1 text-green-400 hover:text-green-300"><Plus size={14} /></button>
+                  <button onClick={() => setVndAmount(v => String(-(Math.abs(parseInt(v) || 0))))} className="p-1 text-red-400 hover:text-red-300"><Minus size={14} /></button>
+                </div>
+              </div>
+              <div className="relative mb-4">
+                <input type="text" className="input text-sm" placeholder="Mô tả giao dịch (tùy chọn)"
+                  value={vndDescription} onChange={e => setVndDescription(e.target.value)} />
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setVndModal(null)} className="btn-secondary flex-1">Hủy</button>
+                <motion.button whileTap={{ scale: 0.97 }} onClick={handleAdjustVnd} disabled={vndLoading || !vndAmount}
+                  className="btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 !bg-emerald-600 hover:!bg-emerald-500 border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                  {vndLoading ? <Loader2 size={16} className="animate-spin" /> : <><Wallet size={15} /> Xác nhận</>}
                 </motion.button>
               </div>
             </motion.div>
@@ -2784,6 +2852,198 @@ const LogsTab = () => {
   )
 }
 
+const WithdrawalsTab = () => {
+  const [requests, setRequests] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [processingId, setProcessingId] = useState(null)
+  const [actionModal, setActionModal] = useState(null) // { txn, type: 'approve' | 'reject' }
+  const [adminNote, setAdminNote] = useState('')
+
+  const fetchRequests = async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get('/admin/withdrawals')
+      setRequests(data.requests || [])
+    } catch (err) {
+      toast.error('Không thể tải danh sách rút tiền')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchRequests()
+  }, [])
+
+  const handleAction = async () => {
+    if (!actionModal) return
+    const { txn, type } = actionModal
+    setProcessingId(txn._id)
+    try {
+      const endpoint = `/admin/withdrawals/${txn._id}/${type}`
+      const { data } = await api.post(endpoint, { adminNote })
+      toast.success(data.message)
+      setActionModal(null)
+      setAdminNote('')
+      await fetchRequests()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Xử lý thất bại')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const formatTime = (dateStr) => {
+    const d = new Date(dateStr)
+    return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+  }
+
+  return (
+    <div className="space-y-4 font-body">
+      <div>
+        <h2 className="font-bold text-xl text-white mb-1 font-display">Yêu cầu rút tiền</h2>
+        <p className="text-sm text-white/40">Duyệt hoặc từ chối các yêu cầu rút tiền của Creator.</p>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="card p-5 animate-pulse h-24" />)}</div>
+      ) : requests.length === 0 ? (
+        <div className="card p-12 text-center text-white/35">
+          <Wallet size={40} className="mx-auto mb-3 opacity-25" />
+          Hiện tại không có yêu cầu rút tiền nào
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {requests.map((txn) => {
+            const user = txn.userId || {}
+            const isPending = txn.meta?.statusApproved === undefined
+            const isApproved = txn.meta?.statusApproved === true
+            const isRejected = txn.meta?.statusApproved === false
+
+            return (
+              <motion.div key={txn._id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                className="card p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border border-white/10 hover:border-white/20 transition-all">
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="flex items-center gap-3">
+                    {user.avatar ? (
+                      <img src={user.avatar} className="w-9 h-9 rounded-full object-cover flex-shrink-0" alt="" />
+                    ) : (
+                      <div className="w-9 h-9 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold flex-shrink-0">{user.username?.[0]?.toUpperCase()}</div>
+                    )}
+                    <div>
+                      <h4 className="font-bold text-sm text-white">{user.displayName || user.username}</h4>
+                      <p className="text-xs text-white/40">@{user.username}</p>
+                    </div>
+                    <div className="ml-auto md:ml-0">
+                      {isPending && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/25 font-bold">CHỜ DUYỆT</span>}
+                      {isApproved && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/25 font-bold">ĐÃ DUYỆT</span>}
+                      {isRejected && <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/25 font-bold">TỪ CHỐI</span>}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-white/5 border border-white/10 rounded-2xl grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <span className="text-white/40 block">Ngân hàng</span>
+                      <span className="font-semibold text-white">{txn.meta?.bankDetails?.bankName || user.bankAccount?.bankName || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block">Số tài khoản</span>
+                      <span className="font-semibold text-emerald-400 font-mono tracking-wider">{txn.meta?.bankDetails?.accountNumber || user.bankAccount?.accountNumber || 'N/A'}</span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block">Chủ tài khoản</span>
+                      <span className="font-semibold text-white uppercase">{txn.meta?.bankDetails?.accountHolder || user.bankAccount?.accountHolder || 'N/A'}</span>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/50">
+                    <span>Số tiền rút: <strong className="text-white font-bold">{Math.abs(txn.amount).toLocaleString('vi-VN')} VNĐ</strong></span>
+                    <span>•</span>
+                    <span>Tạo lúc: {formatTime(txn.createdAt)}</span>
+                    {txn.meta?.adminNote && (
+                      <>
+                        <span>•</span>
+                        <span>Ghi chú Admin: <em className="text-white/70">"{txn.meta.adminNote}"</em></span>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-3 justify-center border-t md:border-t-0 pt-3 md:pt-0 border-white/5 flex-shrink-0 min-w-[200px]">
+                  <div className="text-right text-xs space-y-0.5 text-white/40">
+                    <p>Khả dụng: <span className="text-white font-semibold">{(user.vndBalance || 0).toLocaleString()}đ</span></p>
+                    <p>Tạm giữ: <span className="text-white font-semibold">{(user.holdingBalance || 0).toLocaleString()}đ</span></p>
+                    <p>Đóng băng: <span className="text-white font-semibold">{(user.lockedBalance || 0).toLocaleString()}đ</span></p>
+                  </div>
+
+                  {isPending && (
+                    <div className="flex gap-2 w-full md:w-auto">
+                      <button
+                        onClick={() => setActionModal({ txn, type: 'reject' })}
+                        className="flex-1 md:flex-none px-4 py-2 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 text-xs font-bold transition-all"
+                      >
+                        Từ chối
+                      </button>
+                      <button
+                        onClick={() => setActionModal({ txn, type: 'approve' })}
+                        className="flex-1 md:flex-none px-4 py-2 rounded-xl bg-green-600 hover:bg-green-500 border border-green-500/30 text-white text-xs font-bold shadow-[0_0_15px_rgba(34,197,94,0.2)] transition-all"
+                      >
+                        Duyệt chi
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+
+      <AnimatePresence>
+        {actionModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={e => e.target === e.currentTarget && setActionModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="card p-6 max-w-sm w-full">
+              <h3 className="font-bold text-lg mb-2">
+                {actionModal.type === 'approve' ? 'Duyệt yêu cầu rút tiền' : 'Từ chối yêu cầu rút tiền'}
+              </h3>
+              <p className="text-xs text-white/40 mb-4 leading-relaxed">
+                {actionModal.type === 'approve'
+                  ? 'Vui lòng xác nhận bạn đã chuyển khoản ngân hàng thành công số tiền này cho người dùng trước khi duyệt.'
+                  : 'Vui lòng nhập lý do từ chối để gửi lại tiền từ đóng băng về ví khả dụng cho người dùng.'}
+              </p>
+              
+              <div className="relative mb-4">
+                <input
+                  type="text"
+                  className="input text-sm"
+                  placeholder={actionModal.type === 'approve' ? 'Ghi chú giao dịch (tùy chọn)' : 'Lý do từ chối rút tiền'}
+                  value={adminNote}
+                  onChange={e => setAdminNote(e.target.value)}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <button onClick={() => setActionModal(null)} className="btn-secondary flex-1">Hủy</button>
+                <motion.button
+                  whileTap={{ scale: 0.97 }}
+                  onClick={handleAction}
+                  disabled={processingId !== null || (actionModal.type === 'reject' && !adminNote)}
+                  className={`btn-primary flex-1 flex items-center justify-center gap-2 disabled:opacity-50 ${actionModal.type === 'approve' ? '!bg-green-600 hover:!bg-green-500 border-green-500/30' : '!bg-red-600 hover:!bg-red-500 border-red-500/30'}`}
+                >
+                  {processingId !== null ? <Loader2 size={16} className="animate-spin" /> : 'Xác nhận'}
+                </motion.button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════
 // MAIN AdminPage
 // ══════════════════════════════════════════════════════════════════
@@ -2791,6 +3051,7 @@ const TABS = [
   { key: 'dashboard',  label: 'Dashboard',  Icon: BarChart3 },
   { key: 'posts',      label: 'Bài đăng',   Icon: Images },
   { key: 'users',      label: 'Users',       Icon: Users },
+  { key: 'withdrawals', label: 'Rút tiền',    Icon: Wallet },
   { key: 'categories', label: 'Danh mục',   Icon: Tag },
   { key: 'settings',   label: 'Cài đặt',    Icon: Settings },
   { key: 'logs',       label: 'Nhật ký Admin', Icon: Clock },
@@ -2803,7 +3064,7 @@ const AdminPage = () => {
   return (
     <AdminGuard>
       <div className="min-h-screen pb-24 md:pb-8 p-4 md:p-8">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-6xl mx-auto font-body">
           <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}
             className="flex items-center justify-between mb-6">
             <div>
@@ -2839,6 +3100,7 @@ const AdminPage = () => {
               {activeTab === 'dashboard'  && <DashboardTab />}
               {activeTab === 'posts'      && <PostsTab />}
               {activeTab === 'users'      && <UsersTab />}
+              {activeTab === 'withdrawals' && <WithdrawalsTab />}
               {activeTab === 'categories' && <CategoriesTab />}
               {activeTab === 'settings'   && <SettingsTab onDirtyChange={setHasUnsavedColors} />}
               {activeTab === 'logs'       && <LogsTab />}
@@ -2851,3 +3113,4 @@ const AdminPage = () => {
 }
 
 export default AdminPage
+

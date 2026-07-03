@@ -177,7 +177,10 @@ const PostDetailModal = ({
     setAmbientReady(false)
     try {
       const { data } = await api.get(`/posts/${id}`)
-      setPost(data.post)
+      setPost({
+        ...data.post,
+        purchasedFileTypes: data.purchasedFileTypes || []
+      })
       setIsLiked(data.isLiked || false)
       setIsBookmarked(data.isBookmarked || false)
       setIsFollowing(data.isFollowingAuthor || false)
