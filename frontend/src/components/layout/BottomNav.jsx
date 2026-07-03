@@ -185,7 +185,7 @@ const BottomNav = () => {
                         <span
                           className={`h-[18px] px-2.5 rounded-[4px] flex items-center justify-center text-[8px] uppercase transition-all duration-500 select-none ${
                             user.subscriptionTier === 'free'
-                              ? 'bg-white/[0.03] text-white/35 border border-white/10 text-[7px] font-sans font-medium'
+                              ? 'bg-white/[0.03] text-[#fafafa] border border-white/10 text-[7px] font-serif font-bold'
                               : user.subscriptionTier === 'founder' || user.subscriptionTier === 'pro'
                                 ? 'bg-[linear-gradient(110deg,#94a3b8,35%,#ffffff,50%,#cbd5e1,65%,#94a3b8)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_8px_rgba(255,255,255,0.3)] border border-white/20'
                                 : user.subscriptionTier === 'ultimate'

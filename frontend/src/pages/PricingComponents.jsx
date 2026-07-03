@@ -121,12 +121,28 @@ export function PlanCard({ plan, cycle, founderLeft, currentTier, onSub, busy })
       {/* Visual strip: colored per plan, glass lets bg orbs show through */}
       <div className="relative h-28 flex-shrink-0 overflow-hidden"
         style={{ background: `radial-gradient(ellipse 90% 120% at 50% 110%, ${cfg.orb}, transparent 70%)` }}>
-        {/* Plan glyph */}
-        <span className="absolute bottom-3 left-5 text-3xl font-black select-none leading-none"
-          style={{ color: cfg.badge, ...F.display }}
-          aria-hidden="true">
-          {GLYPH[id]}
-        </span>
+        {/* Subscription Tier Badge (Centered & Brightened) */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span
+            className={`h-6 px-3.5 rounded-[4px] flex items-center justify-center text-[10px] uppercase transition-all duration-500 select-none ${
+              id === 'free'
+                ? 'bg-white/10 text-white border border-white/25 text-[8.5px] font-serif font-bold shadow-[0_0_10px_rgba(255,255,255,0.1)]'
+                : id === 'founder' || id === 'pro'
+                  ? 'bg-[linear-gradient(110deg,#cbd5e1,35%,#ffffff,50%,#cbd5e1,65%,#e2e8f0)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_18px_rgba(255,255,255,0.45)] border border-white/30'
+                  : id === 'ultimate'
+                    ? 'bg-[linear-gradient(110deg,#d4af37,35%,#fffdd0,50%,#aa771c,65%,#d4af37)] bg-[length:200%_100%] animate-shimmer text-stone-950 font-serif font-bold shadow-[0_0_22px_rgba(251,191,36,0.55)] border border-amber-400/50'
+                    : 'bg-[linear-gradient(110deg,#a855f7,35%,#f3e8ff,50%,#7c3aed,65%,#a855f7)] bg-[length:200%_100%] animate-shimmer text-purple-950 font-serif font-bold shadow-[0_0_18px_rgba(168,85,247,0.45)]'
+            }`}
+            style={{ letterSpacing: '0.12em' }}
+          >
+            <span style={{ marginRight: '-0.12em' }} className="flex items-center gap-1.2">
+              {id === 'ultimate' && <span className="text-[11px] leading-none">✦</span>}
+              {(id === 'founder' || id === 'pro') && <span className="text-[10px] leading-none">★</span>}
+              <span>{id === 'founder' ? 'Founder' : id === 'pro' ? 'Pro' : id === 'ultimate' ? 'Ultimate' : 'Free'}</span>
+              {id === 'ultimate' && <span className="text-[11px] leading-none">✦</span>}
+            </span>
+          </span>
+        </div>
         {/* Badges */}
         {isPro && (
           <div className="absolute top-0 inset-x-0 flex justify-center">
