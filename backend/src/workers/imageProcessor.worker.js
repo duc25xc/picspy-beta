@@ -53,6 +53,70 @@ const checkNSFW = async (imageUrl) => {
 }
 
 /**
+ * Trích xuất RGB Histogram (64-bin) chuẩn hóa từ ảnh buffer
+ */
+const computeRGBHistogram = async (imageBuffer) => {
+  const { data: rawPixels } = await sharp(imageBuffer)
+    .resize(200, null, { withoutEnlargement: true })
+    .removeAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true })
+
+  const bins = 64
+  const rBins = new Uint32Array(bins)
+  const gBins = new Uint32Array(bins)
+  const bBins = new Uint32Array(bins)
+
+  for (let i = 0; i < rawPixels.length; i += 3) {
+    rBins[Math.floor(rawPixels[i] / 4)]++
+    gBins[Math.floor(rawPixels[i + 1] / 4)]++
+    bBins[Math.floor(rawPixels[i + 2] / 4)]++
+  }
+
+  // Chuẩn hóa về dải 0-100
+  const maxVal = Math.max(...rBins, ...gBins, ...bBins) || 1
+  return {
+    r: Array.from(rBins, v => Math.round(v / maxVal * 100)),
+    g: Array.from(gBins, v => Math.round(v / maxVal * 100)),
+    b: Array.from(bBins, v => Math.round(v / maxVal * 100)),
+  }
+}
+
+/**
+ * Trích xuất tất cả các đối tượng ảnh từ các trường khác nhau trong Post
+ */
+const getAllPostImages = (post) => {
+  const images = []
+
+  // 1. Root generatedImages
+  if (post.generatedImages && post.generatedImages.length > 0) {
+    post.generatedImages.forEach(img => {
+      if (img && img.url) images.push(img)
+    })
+  }
+
+  // 2. modelComparisons
+  if (post.modelComparisons && post.modelComparisons.length > 0) {
+    post.modelComparisons.forEach(comp => {
+      if (comp.generatedImages && comp.generatedImages.length > 0) {
+        comp.generatedImages.forEach(img => {
+          if (img && img.url) images.push(img)
+        })
+      }
+    })
+  }
+
+  // 3. Old images field
+  if (post.images && post.images.length > 0) {
+    post.images.forEach(img => {
+      if (img && img.url) images.push(img)
+    })
+  }
+
+  return images
+}
+
+/**
  * BullMQ Worker: xử lý ảnh AI sau khi upload
  *
  * Job data:
@@ -189,30 +253,31 @@ const imageWorker = new Worker(
         .map((swatch) => swatch.hex)
         .slice(0, 6) // Tối đa 6 màu
 
-      // 5. Compute RGB histogram (64-bin mỗi kênh)
+      // 5. Compute RGB histograms for all generated images
       await job.updateProgress(62)
       let histogram = { r: [], g: [], b: [] }
+      const histograms = []
       try {
-        const { data: rawPixels } = await sharp(thumbnailBuffer)
-          .resize(200, null, { withoutEnlargement: true })
-          .removeAlpha()
-          .raw()
-          .toBuffer({ resolveWithObject: true })
-        const bins = 64
-        const rBins = new Uint32Array(bins)
-        const gBins = new Uint32Array(bins)
-        const bBins = new Uint32Array(bins)
-        for (let i = 0; i < rawPixels.length; i += 3) {
-          rBins[Math.floor(rawPixels[i] / 4)]++
-          gBins[Math.floor(rawPixels[i + 1] / 4)]++
-          bBins[Math.floor(rawPixels[i + 2] / 4)]++
-        }
-        // Normalize to 0-100 range
-        const maxVal = Math.max(...rBins, ...gBins, ...bBins) || 1
-        histogram = {
-          r: Array.from(rBins, v => Math.round(v / maxVal * 100)),
-          g: Array.from(gBins, v => Math.round(v / maxVal * 100)),
-          b: Array.from(bBins, v => Math.round(v / maxVal * 100)),
+        histogram = await computeRGBHistogram(thumbnailBuffer)
+        histograms.push(histogram)
+
+        if (postDoc) {
+          const allImages = getAllPostImages(postDoc)
+          const primaryUrl = postDoc.generatedImages?.[0]?.url
+          const secondaryImages = allImages.filter(img => img.url && img.url !== primaryUrl)
+
+          for (let i = 0; i < secondaryImages.length; i++) {
+            const img = secondaryImages[i]
+            try {
+              console.log(`📸 Computing histogram for secondary post image: ${img.url}`)
+              const imgRes = await axios.get(img.url, { responseType: 'arraybuffer', timeout: 15000 })
+              const imgBuf = Buffer.from(imgRes.data)
+              const imgHist = await computeRGBHistogram(imgBuf)
+              histograms.push(imgHist)
+            } catch (imgErr) {
+              console.warn(`⚠️ Failed to compute histogram for post image ${img.url}: ${imgErr.message}`)
+            }
+          }
         }
       } catch (histErr) {
         console.warn(`⚠️ Histogram computation failed: ${histErr.message}`)
@@ -278,6 +343,7 @@ const imageWorker = new Worker(
         isNSFW: nsfwScore > 0.4,
         status,
         ...(histogram.r.length > 0 && { histogram }),
+        ...(histograms.length > 0 && { histograms }),
         ...(status === 'rejected' && {
           rejectionReason: 'Nội dung không phù hợp (NSFW)',
         }),

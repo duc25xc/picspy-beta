@@ -1517,7 +1517,7 @@ export const searchByImage = async (req, res, next) => {
     }
 
     const postsWithHist = await Post.find(queryConditions)
-      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram colorPalette')
+      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram histograms colorPalette')
       .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
       .lean()
 
@@ -1543,24 +1543,38 @@ export const searchByImage = async (req, res, next) => {
     const MAX_DIST = 1385.64
 
     let scoredPosts = candidates.map(post => {
-      let rDistSum = 0
-      let gDistSum = 0
-      let bDistSum = 0
+      // Fallback: nếu mảng histograms không có, sử dụng histogram đơn ở root (để tương thích ngược)
+      const targetHistograms = post.histograms && post.histograms.length > 0 
+        ? post.histograms 
+        : (post.histogram ? [post.histogram] : [])
 
-      const h = post.histogram
-      for (let i = 0; i < bins; i++) {
-        rDistSum += Math.pow((targetHist.r[i] - (h.r[i] || 0)), 2)
-        gDistSum += Math.pow((targetHist.g[i] - (h.g[i] || 0)), 2)
-        bDistSum += Math.pow((targetHist.b[i] - (h.b[i] || 0)), 2)
+      if (targetHistograms.length === 0) {
+        return {
+          ...post,
+          similarityScore: 0
+        }
       }
 
-      const distance = Math.sqrt(rDistSum + gDistSum + bDistSum)
-      // Tỷ lệ phần trăm khớp (0% - 100%)
-      const score = Math.max(0, Math.min(100, Math.round((1 - distance / MAX_DIST) * 100)))
+      const scores = targetHistograms.map(h => {
+        let rDistSum = 0
+        let gDistSum = 0
+        let bDistSum = 0
+
+        for (let i = 0; i < bins; i++) {
+          rDistSum += Math.pow((targetHist.r[i] - (h.r[i] || 0)), 2)
+          gDistSum += Math.pow((targetHist.g[i] - (h.g[i] || 0)), 2)
+          bDistSum += Math.pow((targetHist.b[i] - (h.b[i] || 0)), 2)
+        }
+
+        const distance = Math.sqrt(rDistSum + gDistSum + bDistSum)
+        return Math.max(0, Math.min(100, Math.round((1 - distance / MAX_DIST) * 100)))
+      })
+
+      const maxScore = Math.max(...scores)
 
       return {
         ...post,
-        similarityScore: score
+        similarityScore: maxScore
       }
     })
 

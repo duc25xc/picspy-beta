@@ -10,7 +10,7 @@ async function run() {
   await mongoose.connect(MONGO_URI);
   console.log('Connected');
 
-  const post = await Post.findById('69d49b6cbb2bf5bd28778b68').lean();
+  const post = await Post.findById('69d49b9cbb2bf5bd28778ba4').lean();
   console.log('Full Post:', JSON.stringify(post, null, 2));
 
   await mongoose.disconnect();

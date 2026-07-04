@@ -77,6 +77,16 @@ const postSchema = new mongoose.Schema(
       b: [Number],
     },
 
+    // === HISTOGRAMS (RGB 64-bin — mảng chứa tất cả các ảnh kết quả) ===
+    histograms: {
+      type: [{
+        r: [Number],
+        g: [Number],
+        b: [Number],
+      }],
+      default: []
+    },
+
     // === POST TYPE & CLASSIFICATION ===
     postType: {
       type: String,
