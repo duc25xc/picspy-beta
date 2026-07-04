@@ -269,6 +269,7 @@ const postSchema = new mongoose.Schema(
 // Compound indexes
 postSchema.index({ authorId: 1, createdAt: -1 })
 postSchema.index({ status: 1, createdAt: -1 })
+postSchema.index({ status: 1, category: 1, postType: 1 })
 postSchema.index({ category: 1, score: -1 })
 postSchema.index({ tags: 1 })
 postSchema.index({ score: -1 })

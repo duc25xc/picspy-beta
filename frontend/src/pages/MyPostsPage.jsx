@@ -372,12 +372,17 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     // Strip "programming/junk" special chars; keep letters (incl. Vietnamese), numbers,
     // spaces, and natural punctuation: . , ! ? ; : ' " - ( ) & @ # _
     const JUNK_CHARS = /[%$^*+=\[\]{}<>|\\\/~`]/g
+    const PROMPT_JUNK_CHARS = /[%$^|~`]/g // Cho phép các ký tự { } [ ] < > = + * \ / phục vụ bôi đen keyword
+
     const stripJunk = (text) => text.replace(JUNK_CHARS, '').replace(/\s+/g, ' ').trim()
     const hasJunk = (text) => JUNK_CHARS.test(text)
-    const hasRealContent = (text) => {
+    const hasJunkPrompt = (text) => PROMPT_JUNK_CHARS.test(text)
+
+    const hasRealContent = (text, isPrompt = false) => {
       if (!text) return false
+      const currentJunk = isPrompt ? PROMPT_JUNK_CHARS : JUNK_CHARS
       // Strip spaces + natural punctuation, require ≥2 meaningful chars remain
-      const core = text.replace(/[\s.,!?;:'"()\-&@#_]+/g, '').replace(JUNK_CHARS, '')
+      const core = text.replace(/[\s.,!?;:'"()\-&@#_]+/g, '').replace(currentJunk, '')
       return core.length >= 2
     }
 
@@ -386,7 +391,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     if (hasJunk(form.caption)) {
       return toast.error('Mô tả chứa ký tự không hợp lệ (%, $, ^, *, +, =, [, ], {, }, <, >, |, \\, /). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
     }
-    if (!hasRealContent(form.caption)) {
+    if (!hasRealContent(form.caption, false)) {
       return toast.error('Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
     }
 
@@ -401,10 +406,10 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
       if (!form.prompt.trim()) {
         return toast.error('Bài đăng AI bắt buộc phải có Prompt. Vui lòng chuyển sang tab "✦ AI & Prompt" và nhập Prompt.')
       }
-      if (hasJunk(form.prompt)) {
-        return toast.error('Prompt chứa ký tự không hợp lệ (%, $, ^, *, +, =, [, ], {, }, <, >, |, \\, /). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
+      if (hasJunkPrompt(form.prompt)) {
+        return toast.error('Prompt chứa ký tự không hợp lệ (%, $, ^, |, ~, `). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
       }
-      if (!hasRealContent(form.prompt)) {
+      if (!hasRealContent(form.prompt, true)) {
         return toast.error('Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
       }
       const effectiveAiTool = multiModelMode ? modelSlots[0]?.aiTool : form.aiTool

@@ -43,6 +43,33 @@ const getToolMeta = (value) =>
     icon: '·',
   }
 
+// Component hiển thị thumbnail kèm cơ chế fallback nếu ảnh tối ưu hóa trả về lỗi 404
+const ThumbnailImage = ({ imgObj, index, isGen, showBlurred }) => {
+  const defaultSrc = imgObj.thumbnailUrl || getOptimizedWebpUrl(imgObj.url, 150)
+  const [src, setSrc] = useState(defaultSrc)
+
+  useEffect(() => {
+    setSrc(imgObj.thumbnailUrl || getOptimizedWebpUrl(imgObj.url, 150))
+  }, [imgObj])
+
+  return (
+    <img
+      src={src}
+      alt={`${isGen ? 'Kết quả' : 'Ảnh gốc'} ${index + 1}`}
+      className="w-full h-full object-cover"
+      loading="lazy"
+      style={{
+        filter: showBlurred ? 'blur(4px)' : 'none',
+      }}
+      onError={() => {
+        if (imgObj.url && src !== imgObj.url) {
+          setSrc(imgObj.url)
+        }
+      }}
+    />
+  )
+}
+
 export default function ImageGallery({
   generatedImages = [],
   sourceImages = [],
@@ -55,6 +82,7 @@ export default function ImageGallery({
   onImageChange,
   isMultiModel = false,
   modelComparisons = [],
+  maxImageHeight = 'max-h-[78vh]',
 }) {
   const { blurPremiumImages } = useSettings()
   // activeKey: 'gen-0' ... 'gen-4' | 'src-0' ... 'src-4'
@@ -206,6 +234,20 @@ export default function ImageGallery({
       )
     : activeImg?.previewUrl || getOptimizedWebpUrl(activeImg?.url, 1200) || activeImg?.thumbnailUrl
 
+  const [imageSrc, setImageSrc] = useState('')
+
+  useEffect(() => {
+    setImageSrc(displayUrl)
+    setImgLoaded(false)
+  }, [activeKey, displayUrl])
+
+  const handleImageError = () => {
+    if (activeImg?.url && imageSrc !== activeImg.url) {
+      console.warn('Optimized image failed to load, falling back to original URL:', activeImg.url)
+      setImageSrc(activeImg.url)
+    }
+  }
+
   const altText = activeIsSource
     ? `Ảnh tham khảo cho "${caption}"`
     : isLegacy
@@ -227,11 +269,11 @@ export default function ImageGallery({
         style={{ background: 'oklch(11% 0.012 285)' }}
       >
         {/* Ambient glow bg from active image */}
-        {displayUrl && (
+        {imageSrc && (
           <div
             className="absolute inset-0 opacity-15 scale-110 pointer-events-none"
             style={{
-              backgroundImage: `url(${activeImg?.thumbnailUrl || displayUrl})`,
+              backgroundImage: `url(${activeImg?.thumbnailUrl || imageSrc})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'blur(28px)',
@@ -240,7 +282,7 @@ export default function ImageGallery({
         )}
 
         {/* Image crossfade */}
-        <div className="relative z-10 w-full flex items-center justify-center min-h-[260px]">
+        <div className="relative z-10 w-full flex items-center justify-center h-[320px] sm:h-[460px] md:h-[540px] lg:h-[580px]">
           <AnimatePresence initial={false} custom={direction} mode="wait">
             <motion.div
               key={activeKey}
@@ -250,16 +292,17 @@ export default function ImageGallery({
               animate="center"
               exit="exit"
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="w-full flex items-center justify-center"
+              className="w-full h-full flex items-center justify-center"
             >
-              {displayUrl ? (
+              {imageSrc ? (
                 <img
-                  src={displayUrl}
+                  src={imageSrc}
                   alt={altText}
                   draggable={false}
                   onLoad={() => setImgLoaded(true)}
+                  onError={handleImageError}
                   onContextMenu={(e) => showBlurred && e.preventDefault()}
-                  className="block w-full h-auto max-h-[78vh] object-contain transition-all duration-500"
+                  className="block max-w-full max-h-full object-contain transition-all duration-500"
                   style={{
                     filter: showBlurred
                       ? 'blur(20px) brightness(0.45)'
@@ -278,7 +321,7 @@ export default function ImageGallery({
           </AnimatePresence>
 
           {/* Image loading pulse */}
-          {!imgLoaded && displayUrl && (
+          {!imgLoaded && imageSrc && (
             <div className="absolute inset-0 flex items-center justify-center z-10">
               <div
                 className="w-12 h-12 rounded-xl animate-pulse"
@@ -467,14 +510,11 @@ export default function ImageGallery({
                     >
                       {img.thumbnailUrl || img.url ? (
                         <>
-                          <img
-                            src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
-                            alt={`Kết quả ${i + 1}`}
-                            className="w-full h-full object-cover"
-                            loading="lazy"
-                            style={{
-                              filter: showBlurred ? 'blur(4px)' : 'none',
-                            }}
+                          <ThumbnailImage
+                            imgObj={img}
+                            index={i}
+                            isGen={true}
+                            showBlurred={showBlurred}
                           />
                           {isMultiModel && img.aiTool && (
                             <div className="absolute bottom-0 left-0 right-0 bg-black/60 py-0.5 text-[8px] text-white/90 font-bold text-center truncate px-1 uppercase tracking-tight">
@@ -537,11 +577,11 @@ export default function ImageGallery({
                       }}
                     >
                       {img.thumbnailUrl || img.url ? (
-                        <img
-                          src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
-                          alt={`Ảnh gốc ${i + 1}`}
-                          className="w-full h-full object-cover"
-                          loading="lazy"
+                        <ThumbnailImage
+                          imgObj={img}
+                          index={i}
+                          isGen={false}
+                          showBlurred={false}
                         />
                       ) : (
                         <div

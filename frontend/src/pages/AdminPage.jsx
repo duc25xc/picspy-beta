@@ -1103,69 +1103,76 @@ const CategoriesTab = () => {
         <div className="space-y-2">{Array.from({ length: 5 }).map((_, i) => <div key={i} className="card p-4 animate-pulse h-16" />)}</div>
       ) : (
         <div className="space-y-2">
-          {categories.map(cat => (
-            <motion.div key={cat._id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-              className={`card p-4 flex items-center gap-3 transition-all ${!cat.isActive ? 'opacity-50' : ''}`}>
-              {/* Emoji */}
-              <span className="text-2xl w-8 text-center flex-shrink-0">{cat.emoji}</span>
+          {(() => {
+            const sorted = [...categories].sort((a, b) => {
+              if (a.slug === 'other') return 1
+              if (b.slug === 'other') return -1
+              return (a.sortOrder || 0) - (b.sortOrder || 0)
+            })
+            return sorted.map(cat => (
+              <motion.div key={cat._id} layout initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                className={`card p-4 flex items-center gap-3 transition-all ${!cat.isActive ? 'opacity-50' : ''}`}>
+                {/* Emoji */}
+                <span className="text-2xl w-8 text-center flex-shrink-0">{cat.emoji}</span>
 
-              {/* Edit mode */}
-              {editId === cat._id ? (
-                <div className="flex-1 grid grid-cols-2 gap-2">
-                  <input className="input text-sm" placeholder="Tên" value={editData.name}
-                    onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} />
-                  <input className="input text-sm text-2xl text-center" placeholder="Emoji" maxLength={4}
-                    value={editData.emoji} onChange={e => setEditData(p => ({ ...p, emoji: e.target.value }))} />
-                  <input className="input text-xs col-span-2" placeholder="Mô tả" value={editData.description}
-                    onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} />
-                </div>
-              ) : (
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-sm">{cat.name}</span>
-                    <span className="text-[10px] text-white/30 font-mono">/{cat.slug}</span>
-                    {!cat.isActive && <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/30 border border-white/10">Tắt</span>}
-                    {cat.slug === 'other' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/20">Fallback</span>}
-                  </div>
-                  {cat.description && <p className="text-xs text-white/30 truncate mt-0.5">{cat.description}</p>}
-                </div>
-              )}
-
-              {/* Actions */}
-              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Edit mode */}
                 {editId === cat._id ? (
-                  <>
-                    <button onClick={() => setEditId(null)} className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white transition-all"><X size={14} /></button>
-                    <button onClick={() => handleSave(cat._id)} disabled={saving}
-                      className="p-2 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all">
-                      {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
-                    </button>
-                  </>
+                  <div className="flex-1 grid grid-cols-2 gap-2">
+                    <input className="input text-sm" placeholder="Tên" value={editData.name}
+                      onChange={e => setEditData(p => ({ ...p, name: e.target.value }))} />
+                    <input className="input text-sm text-2xl text-center" placeholder="Emoji" maxLength={4}
+                      value={editData.emoji} onChange={e => setEditData(p => ({ ...p, emoji: e.target.value }))} />
+                    <input className="input text-xs col-span-2" placeholder="Mô tả" value={editData.description}
+                      onChange={e => setEditData(p => ({ ...p, description: e.target.value }))} />
+                  </div>
                 ) : (
-                  <>
-                    {/* Toggle active */}
-                    <button onClick={() => handleToggle(cat)} disabled={cat.slug === 'other'}
-                      className={`p-2 rounded-xl border transition-all ${cat.isActive ? 'bg-green-600/20 border-green-500/30 text-green-400 hover:bg-green-600/30' : 'bg-white/5 border-white/10 text-white/30 hover:text-white/60'} disabled:opacity-30 disabled:cursor-not-allowed`}
-                      title={cat.isActive ? 'Tắt danh mục' : 'Bật danh mục'}>
-                      {cat.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
-                    </button>
-                    {/* Edit */}
-                    <button onClick={() => startEdit(cat)}
-                      className="p-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 transition-all" title="Chỉnh sửa">
-                      <Pencil size={14} />
-                    </button>
-                    {/* Delete */}
-                    {cat.slug !== 'other' && (
-                      <button onClick={() => handleDelete(cat)} disabled={deletingId === cat._id}
-                        className="p-2 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 transition-all disabled:opacity-50" title="Xóa">
-                        {deletingId === cat._id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                      </button>
-                    )}
-                  </>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-sm">{cat.name}</span>
+                      <span className="text-[10px] text-white/30 font-mono">/{cat.slug}</span>
+                      {!cat.isActive && <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/5 text-white/30 border border-white/10">Tắt</span>}
+                      {cat.slug === 'other' && <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/20 text-yellow-400 border border-yellow-500/20">Fallback</span>}
+                    </div>
+                    {cat.description && <p className="text-xs text-white/30 truncate mt-0.5">{cat.description}</p>}
+                  </div>
                 )}
-              </div>
-            </motion.div>
-          ))}
+
+                {/* Actions */}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {editId === cat._id ? (
+                    <>
+                      <button onClick={() => setEditId(null)} className="p-2 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white transition-all"><X size={14} /></button>
+                      <button onClick={() => handleSave(cat._id)} disabled={saving}
+                        className="p-2 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all">
+                        {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      {/* Toggle active */}
+                      <button onClick={() => handleToggle(cat)} disabled={cat.slug === 'other'}
+                        className={`p-2 rounded-xl border transition-all ${cat.isActive ? 'bg-green-600/20 border-green-500/30 text-green-400 hover:bg-green-600/30' : 'bg-white/5 border-white/10 text-white/30 hover:text-white/60'} disabled:opacity-30 disabled:cursor-not-allowed`}
+                        title={cat.isActive ? 'Tắt danh mục' : 'Bật danh mục'}>
+                        {cat.isActive ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                      </button>
+                      {/* Edit */}
+                      <button onClick={() => startEdit(cat)}
+                        className="p-2 rounded-xl bg-blue-600/20 border border-blue-500/30 text-blue-400 hover:bg-blue-600/30 transition-all" title="Chỉnh sửa">
+                        <Pencil size={14} />
+                      </button>
+                      {/* Delete */}
+                      {cat.slug !== 'other' && (
+                        <button onClick={() => handleDelete(cat)} disabled={deletingId === cat._id}
+                          className="p-2 rounded-xl bg-red-600/20 border border-red-500/30 text-red-400 hover:bg-red-600/30 transition-all disabled:opacity-50" title="Xóa">
+                          {deletingId === cat._id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                        </button>
+                      )}
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            ))
+          })()}
         </div>
       )}
     </div>
@@ -1210,7 +1217,7 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [loading, setLoading]   = useState(true)
   const [saving, setSaving]     = useState(false)
 
-  const { updateBrandColors, setAnnouncement, setGlobalLoaderType: setGlobalLoaderTypeContext, setSplashExtraMs: setSplashExtraMsContext, setMyPostsSkeletonMs: setMyPostsSkeletonMsContext, setBlurPremiumImages: setBlurPremiumImagesContext } = useSettings()
+  const { updateBrandColors, setAnnouncement, setGlobalLoaderType: setGlobalLoaderTypeContext, setSplashExtraMs: setSplashExtraMsContext, setMyPostsSkeletonMs: setMyPostsSkeletonMsContext, setBlurPremiumImages: setBlurPremiumImagesContext, postDetailLayout: postDetailLayoutContext, setPostDetailLayout: setPostDetailLayoutContext, postLoadingDelayMs: postLoadingDelayMsContext, setPostLoadingDelayMs: setPostLoadingDelayMsContext } = useSettings()
   const [primaryColor, setPrimaryColor] = useState('#7c3aed')
   const [gradientColor, setGradientColor] = useState('#3b82f6')
   const [brandOpacity, setBrandOpacity] = useState(1)
@@ -1242,8 +1249,12 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [splashSaving, setSplashSaving] = useState(false)
   const [myPostsSkeletonMs, setMyPostsSkeletonMs] = useState(0)
   const [myPostsSkeletonSaving, setMyPostsSkeletonSaving] = useState(false)
+  const [postLoadingDelayMs, setPostLoadingDelayMs] = useState(0)
+  const [postLoadingDelaySaving, setPostLoadingDelaySaving] = useState(false)
   const [blurPremiumImages, setBlurPremiumImages] = useState(false)
   const [savingBlur, setSavingBlur] = useState(false)
+  const [postDetailLayout, setPostDetailLayout] = useState('left-image')
+  const [savingLayout, setSavingLayout] = useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -1305,8 +1316,9 @@ const SettingsTab = ({ onDirtyChange }) => {
         )
         setSplashExtraMs(data.settings?.splashExtraMs ?? 0)
         setMyPostsSkeletonMs(data.settings?.myPostsSkeletonMs ?? 0)
+        setPostLoadingDelayMs(data.settings?.postLoadingDelayMs ?? 0)
         setBlurPremiumImages(data.settings?.blurPremiumImages || false)
-
+        setPostDetailLayout(data.settings?.postDetailLayout || 'left-image')
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
         // Check if saved colors match any preset
@@ -1574,6 +1586,25 @@ const SettingsTab = ({ onDirtyChange }) => {
     }
   }
 
+  const handleSavePostLoadingDelayMs = async (val) => {
+    setPostLoadingDelaySaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { postLoadingDelayMs: val })
+      setSettings(data.settings)
+      setPostLoadingDelayMs(data.settings?.postLoadingDelayMs ?? 0)
+      setPostLoadingDelayMsContext(data.settings?.postLoadingDelayMs ?? 0)
+      toast.success(
+        val === 0 
+          ? '⏱️ Đã tắt hiệu ứng trì hoãn tải ảnh!' 
+          : `⏱️ Đã cập nhật thời gian trì hoãn tải ảnh: ${val >= 1000 ? (val / 1000).toFixed(1) + 's' : val + 'ms'}`
+      )
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu thời gian trì hoãn tải ảnh')
+    } finally {
+      setPostLoadingDelaySaving(false)
+    }
+  }
+
   const handleSaveBlurPremium = async (val) => {
     setSavingBlur(true)
     try {
@@ -1588,6 +1619,23 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi khi cập nhật cài đặt làm mờ')
     } finally {
       setSavingBlur(false)
+    }
+  }
+
+  const handleSavePostDetailLayout = async (val) => {
+    setSavingLayout(true)
+    try {
+      const { data } = await api.put('/admin/settings', { postDetailLayout: val })
+      setSettings(data.settings)
+      setPostDetailLayout(data.settings?.postDetailLayout || 'left-image')
+      if (setPostDetailLayoutContext) {
+        setPostDetailLayoutContext(data.settings?.postDetailLayout || 'left-image')
+      }
+      toast.success('💎 Đã cập nhật bố cục trang chi tiết bài viết!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi cập nhật bố cục')
+    } finally {
+      setSavingLayout(false)
     }
   }
 
@@ -2224,18 +2272,40 @@ const SettingsTab = ({ onDirtyChange }) => {
                 }}
               />
               {/* Tick marks */}
-              <div className="flex justify-between mt-2 px-0.5">
-                {[0, 1000, 2000, 3000, 5000, 7000, 10000].map(v => (
-                  <button
-                    key={v}
-                    onClick={() => { setSplashExtraMs(v); handleSaveSplashMs(v) }}
-                    className={`text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
-                      splashExtraMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
-                    }`}
-                  >
-                    {v === 0 ? '0' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
-                  </button>
-                ))}
+              <div className="relative w-full h-5 mt-2">
+                {[0, 1000, 2000, 3000, 5000, 7000, 10000].map(v => {
+                  const pct = (v / 10000) * 100
+                  const isLeftBound = v === 0
+                  const isRightBound = v === 10000
+
+                  let transformStyle = 'translateX(-50%)'
+                  let leftStyle = `${pct}%`
+                  if (isLeftBound) {
+                    leftStyle = '0%'
+                    transformStyle = 'none'
+                  } else if (isRightBound) {
+                    leftStyle = 'auto'
+                    transformStyle = 'none'
+                  }
+
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => { setSplashExtraMs(v); handleSaveSplashMs(v) }}
+                      className={`absolute text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
+                        splashExtraMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
+                      }`}
+                      style={{
+                        left: leftStyle,
+                        right: isRightBound ? '0%' : 'auto',
+                        transform: transformStyle,
+                      }}
+                    >
+                      {v === 0 ? '0' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
+                    </button>
+                  )
+                })}
               </div>
             </div>
 
@@ -2522,6 +2592,120 @@ const SettingsTab = ({ onDirtyChange }) => {
                   </button>
                 </div>
               </div>
+
+              {/* ── Post Loading Delay Slider ───────────────────────── */}
+              <div className="card p-6 border border-white/10 space-y-4 bg-white/[0.01]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span className="text-base">⏱️</span> Thời gian hiệu ứng Loading post
+                    </h3>
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      Khoảng thời gian trì hoãn tải ảnh (giả lập loading) khi đổi danh mục/tab ngoài trang chủ để người dùng thưởng thức hiệu ứng mượt mà.
+                    </p>
+                  </div>
+                  {postLoadingDelaySaving && (
+                    <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold animate-pulse">
+                      Đang lưu...
+                    </span>
+                  )}
+                </div>
+
+                {/* Value Display */}
+                <div className="flex items-baseline gap-2 pt-2">
+                  <span className="text-3xl font-black tabular-nums tracking-tight" style={{ color: 'hsla(var(--color-brand-h), var(--color-brand-s), 65%, 1)' }}>
+                    {postLoadingDelayMs >= 1000 ? (postLoadingDelayMs / 1000).toFixed(1) : postLoadingDelayMs}
+                  </span>
+                  <span className="text-sm font-bold text-white/40">
+                    {postLoadingDelayMs >= 1000 ? 'giây' : 'ms'}
+                  </span>
+                  {postLoadingDelayMs === 0 && (
+                    <span className="ml-2 text-[10px] font-semibold text-emerald-400/80 bg-emerald-500/10 px-2 py-0.5 rounded-md">
+                      Tắt
+                    </span>
+                  )}
+                </div>
+
+                {/* Slider */}
+                <div className="relative pt-1 pb-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={5000}
+                    step={100}
+                    value={postLoadingDelayMs}
+                    onChange={(e) => setPostLoadingDelayMs(Number(e.target.value))}
+                    onMouseUp={(e) => handleSavePostLoadingDelayMs(Number(e.target.value))}
+                    onTouchEnd={(e) => handleSavePostLoadingDelayMs(Number(e.target.value))}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) 0%, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) ${(postLoadingDelayMs / 5000) * 100}%, rgba(255,255,255,0.08) ${(postLoadingDelayMs / 5000) * 100}%, rgba(255,255,255,0.08) 100%)`,
+                    }}
+                  />
+                  {/* Tick marks */}
+                  <div className="relative w-full h-5 mt-2">
+                    {[0, 500, 1000, 1500, 2000, 3000, 4000, 5000].map(v => {
+                      const pct = (v / 5000) * 100
+                      const isLeftBound = v === 0
+                      const isRightBound = v === 5000
+
+                      let transformStyle = 'translateX(-50%)'
+                      let leftStyle = `${pct}%`
+                      if (isLeftBound) {
+                        leftStyle = '0%'
+                        transformStyle = 'none'
+                      } else if (isRightBound) {
+                        leftStyle = 'auto'
+                        transformStyle = 'none'
+                      }
+
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => { setPostLoadingDelayMs(v); handleSavePostLoadingDelayMs(v) }}
+                          className={`absolute text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
+                            postLoadingDelayMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
+                          }`}
+                          style={{
+                            left: leftStyle,
+                            right: isRightBound ? '0%' : 'auto',
+                            transform: transformStyle,
+                          }}
+                        >
+                          {v === 0 ? 'Tắt' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                {/* Preset buttons row */}
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    { label: 'Tắt (0ms)', value: 0 },
+                    { label: 'Nhanh (500ms)', value: 500 },
+                    { label: 'Vừa (1.2s)', value: 1200 },
+                    { label: 'Kịch tính (3s)', value: 3000 },
+                    { label: 'Tối đa (5s)', value: 5000 },
+                  ].map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => {
+                        setPostLoadingDelayMs(p.value)
+                        handleSavePostLoadingDelayMs(p.value)
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer
+                        ${postLoadingDelayMs === p.value
+                          ? 'bg-brand-500/10 border-brand-500/40 text-brand-300 shadow-sm'
+                          : 'bg-white/[0.02] border-white/5 text-white/50 hover:bg-white/[0.06] hover:text-white'}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </>
           )}
 
@@ -2559,6 +2743,54 @@ const SettingsTab = ({ onDirtyChange }) => {
                       ${blurPremiumImages ? 'translate-x-6' : 'translate-x-1'}`}
                   />
                 </button>
+              </div>
+
+              {/* Cấu hình vị trí panel (Layout Swapping) */}
+              <div className="flex flex-col gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-1">
+                  <div>
+                    <h4 className="text-xs font-bold text-white mb-0.5 font-display">Bố cục bảng điều khiển (Layout Swapping)</h4>
+                    <p className="text-[11px] text-white/40">Thay đổi vị trí giữa Bảng ảnh và Bảng thông tin chi tiết</p>
+                  </div>
+                  {savingLayout && (
+                    <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold">
+                      <Loader2 size={12} className="animate-spin" /> Đang lưu...
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-2 gap-4 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => handleSavePostDetailLayout('left-image')}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                      postDetailLayout === 'left-image'
+                        ? 'border-brand-500 bg-brand-500/10 text-white'
+                        : 'border-white/5 bg-white/[0.01] text-white/60 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 w-full max-w-[100px] h-12 bg-black/40 rounded-lg p-1 border border-white/10">
+                      <div className="w-[60%] h-full bg-brand-500/20 rounded flex items-center justify-center text-[10px] text-brand-400 font-bold border border-brand-500/30">Ảnh</div>
+                      <div className="w-[40%] h-full bg-white/5 rounded flex items-center justify-center text-[10px] text-white/30 border border-white/5">Info</div>
+                    </div>
+                    <span className="text-xs font-semibold">Ảnh bên trái (Mặc định)</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => handleSavePostDetailLayout('right-image')}
+                    className={`flex flex-col items-center gap-2 p-3 rounded-xl border text-center transition-all cursor-pointer ${
+                      postDetailLayout === 'right-image'
+                        ? 'border-brand-500 bg-brand-500/10 text-white'
+                        : 'border-white/5 bg-white/[0.01] text-white/60 hover:border-white/20'
+                    }`}
+                  >
+                    <div className="flex items-center gap-1 w-full max-w-[100px] h-12 bg-black/40 rounded-lg p-1 border border-white/10">
+                      <div className="w-[40%] h-full bg-white/5 rounded flex items-center justify-center text-[10px] text-white/30 border border-white/5">Info</div>
+                      <div className="w-[60%] h-full bg-brand-500/20 rounded flex items-center justify-center text-[10px] text-brand-400 font-bold border border-brand-500/30">Ảnh</div>
+                    </div>
+                    <span className="text-xs font-semibold">Ảnh bên phải</span>
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -2627,18 +2859,40 @@ const SettingsTab = ({ onDirtyChange }) => {
                     }}
                   />
                   {/* Tick marks */}
-                  <div className="flex justify-between mt-2 px-0.5">
-                    {[0, 1000, 2000, 3000, 5000, 7000, 10000].map(v => (
-                      <button
-                        key={v}
-                        onClick={() => { setMyPostsSkeletonMs(v); handleSaveMyPostsSkeletonMs(v) }}
-                        className={`text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
-                          myPostsSkeletonMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
-                        }`}
-                      >
-                        {v === 0 ? '0' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
-                      </button>
-                    ))}
+                  <div className="relative w-full h-5 mt-2">
+                    {[0, 1000, 2000, 3000, 5000, 7000, 10000].map(v => {
+                      const pct = (v / 10000) * 100
+                      const isLeftBound = v === 0
+                      const isRightBound = v === 10000
+
+                      let transformStyle = 'translateX(-50%)'
+                      let leftStyle = `${pct}%`
+                      if (isLeftBound) {
+                        leftStyle = '0%'
+                        transformStyle = 'none'
+                      } else if (isRightBound) {
+                        leftStyle = 'auto'
+                        transformStyle = 'none'
+                      }
+
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => { setMyPostsSkeletonMs(v); handleSaveMyPostsSkeletonMs(v) }}
+                          className={`absolute text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
+                            myPostsSkeletonMs === v ? 'text-brand-400 font-bold' : 'text-white/25'
+                          }`}
+                          style={{
+                            left: leftStyle,
+                            right: isRightBound ? '0%' : 'auto',
+                            transform: transformStyle,
+                          }}
+                        >
+                          {v === 0 ? '0' : v >= 1000 ? `${v / 1000}s` : `${v}ms`}
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
 

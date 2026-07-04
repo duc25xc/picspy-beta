@@ -123,7 +123,9 @@ export const SettingsProvider = ({ children }) => {
   const [globalLoaderType, setGlobalLoaderType] = useState('wave');
   const [splashExtraMs, setSplashExtraMs] = useState(0);
   const [myPostsSkeletonMs, setMyPostsSkeletonMs] = useState(0);
+  const [postLoadingDelayMs, setPostLoadingDelayMs] = useState(0);
   const [blurPremiumImages, setBlurPremiumImages] = useState(false);
+  const [postDetailLayout, setPostDetailLayout] = useState('left-image');
 
   const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
@@ -167,8 +169,14 @@ export const SettingsProvider = ({ children }) => {
         if (data?.myPostsSkeletonMs !== undefined) {
           setMyPostsSkeletonMs(data.myPostsSkeletonMs ?? 0);
         }
+        if (data?.postLoadingDelayMs !== undefined) {
+          setPostLoadingDelayMs(data.postLoadingDelayMs ?? 0);
+        }
         if (data?.blurPremiumImages !== undefined) {
           setBlurPremiumImages(data.blurPremiumImages);
+        }
+        if (data?.postDetailLayout) {
+          setPostDetailLayout(data.postDetailLayout);
         }
       })
       .catch((err) => {
@@ -243,7 +251,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, blurPremiumImages, setBlurPremiumImages }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, postLoadingDelayMs, setPostLoadingDelayMs, blurPremiumImages, setBlurPremiumImages, postDetailLayout, setPostDetailLayout }}>
       {children}
     </SettingsContext.Provider>
   );

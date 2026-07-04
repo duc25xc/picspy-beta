@@ -91,6 +91,12 @@ const settingsSchema = new mongoose.Schema(
       min: 0,
       max: 10000,
     },
+    postLoadingDelayMs: {
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5000,
+    },
     // ── Creator Monetization Settings ──
     payoutRatePerView: {
       type: Number,
@@ -111,6 +117,11 @@ const settingsSchema = new mongoose.Schema(
     blurPremiumImages: {
       type: Boolean,
       default: false, // Tắt làm mờ ảnh Premium theo mặc định
+    },
+    postDetailLayout: {
+      type: String,
+      enum: ['left-image', 'right-image'],
+      default: 'left-image', // 'left-image' matches original default (ảnh bên trái | thông tin bên phải)
     },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {

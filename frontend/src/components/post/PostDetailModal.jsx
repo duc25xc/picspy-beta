@@ -6,6 +6,7 @@ import {
   Eye,
   Tag,
   Calendar,
+  Camera,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
@@ -24,6 +25,8 @@ import ExifPanel from './ExifPanel'
 import ImageGallery from './ImageGallery'
 import PromptBlock from './PromptBlock'
 import toast from 'react-hot-toast'
+import ConfirmModal from '../common/ConfirmModal'
+import { useSettings } from '../../context/SettingsContext'
 
 /* ─── Ambient glow builder ────────────────────────────────────── */
 /**
@@ -45,6 +48,16 @@ const buildAmbientGradient = (palette = []) => {
     return `radial-gradient(ellipse 90% 80% at ${pos}, ${hex}55 0%, transparent 70%)`
   })
   return layers.join(', ')
+}
+
+const formatDate = (dateInput) => {
+  if (!dateInput) return ''
+  const date = new Date(dateInput)
+  if (isNaN(date.getTime())) return ''
+  const day = String(date.getDate()).padStart(2, '0')
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const year = date.getFullYear()
+  return `${day}/${month}/${year}`
 }
 
 /* ─── Font & inline styles ────────────────────────────────────── */
@@ -137,6 +150,7 @@ const PostDetailModal = ({
   hasNext,
 }) => {
   const navigate = useNavigate()
+  const { postDetailLayout } = useSettings()
   const currentUser = useAuthStore((s) => s.user)
   const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
 
@@ -147,6 +161,7 @@ const PostDetailModal = ({
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [followLoading, setFollowLoading] = useState(false)
+  const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [ambientReady, setAmbientReady] = useState(false)
 
@@ -179,7 +194,7 @@ const PostDetailModal = ({
       const { data } = await api.get(`/posts/${id}`)
       setPost({
         ...data.post,
-        purchasedFileTypes: data.purchasedFileTypes || []
+        purchasedFileTypes: data.purchasedFileTypes || [],
       })
       setIsLiked(data.isLiked || false)
       setIsBookmarked(data.isBookmarked || false)
@@ -202,9 +217,10 @@ const PostDetailModal = ({
   /* Keyboard nav */
   useEffect(() => {
     const handleKey = (e) => {
-      const isEditable = e.target.tagName === 'INPUT' || 
-                         e.target.tagName === 'TEXTAREA' || 
-                         e.target.isContentEditable
+      const isEditable =
+        e.target.tagName === 'INPUT' ||
+        e.target.tagName === 'TEXTAREA' ||
+        e.target.isContentEditable
       if (isEditable) return
 
       if (e.key === 'Escape') onClose()
@@ -217,9 +233,15 @@ const PostDetailModal = ({
 
   /* Lock body scroll */
   useEffect(() => {
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+
     document.body.style.overflow = 'hidden'
+    document.documentElement.style.overflow = 'hidden'
+
     return () => {
-      document.body.style.overflow = ''
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
     }
   }, [])
 
@@ -231,27 +253,71 @@ const PostDetailModal = ({
     }
   }, [imgLoaded, ambientGradient])
 
+  // ── Sync follow state across tabs ──────────────────────────────
+  useEffect(() => {
+    if (!post?.authorId?._id) return
+    const channel = new BroadcastChannel('picspy_follow_sync')
+    const handleMessage = (event) => {
+      const { creatorId, isFollowing: newIsFollowing } = event.data
+      if (post.authorId._id === creatorId) {
+        setIsFollowing(newIsFollowing)
+      }
+    }
+    channel.addEventListener('message', handleMessage)
+    return () => {
+      channel.removeEventListener('message', handleMessage)
+      channel.close()
+    }
+  }, [post?.authorId?._id])
+
   /* ─── Follow/Unfollow ── */
+  const confirmUnfollow = async () => {
+    if (followLoading) return
+    setFollowLoading(true)
+    try {
+      const { data } = await api.post(`/users/${post.authorId._id}/follow`)
+      setIsFollowing(data.following)
+      toast('Đã bỏ follow', { icon: '✓', duration: 1500 })
+
+      // Broadcast sự kiện sync cho các tab khác
+      const channel = new BroadcastChannel('picspy_follow_sync')
+      channel.postMessage({ creatorId: post.authorId._id, isFollowing: data.following })
+      channel.close()
+    } catch {
+      toast.error('Không thể thực hiện')
+    } finally {
+      setFollowLoading(false)
+      setShowUnfollowConfirm(false)
+    }
+  }
+
   const handleFollow = async () => {
     if (!isLoggedIn) {
       toast('Đăng nhập để follow creator này 💜', { icon: '🔒' })
       return
     }
-    if (followLoading) return
-    const was = isFollowing
-    setIsFollowing(!was)
-    setFollowLoading(true)
-    try {
-      await api.post(`/users/${post.authorId._id}/follow`)
-      toast(was ? 'Đã bỏ follow' : `Đang follow @${post.authorId.username}`, {
-        icon: was ? '✓' : '💜',
-        duration: 1500,
-      })
-    } catch {
-      setIsFollowing(was)
-      toast.error('Không thể thực hiện')
-    } finally {
-      setFollowLoading(false)
+    if (isFollowing) {
+      setShowUnfollowConfirm(true)
+    } else {
+      if (followLoading) return
+      setFollowLoading(true)
+      try {
+        const { data } = await api.post(`/users/${post.authorId._id}/follow`)
+        setIsFollowing(data.following)
+        toast(`Đang follow @${post.authorId.username}`, {
+          icon: '💜',
+          duration: 1500,
+        })
+
+        // Broadcast sự kiện sync cho các tab khác
+        const channel = new BroadcastChannel('picspy_follow_sync')
+        channel.postMessage({ creatorId: post.authorId._id, isFollowing: data.following })
+        channel.close()
+      } catch {
+        toast.error('Không thể thực hiện')
+      } finally {
+        setFollowLoading(false)
+      }
     }
   }
 
@@ -334,91 +400,18 @@ const PostDetailModal = ({
           exit={{ opacity: 0, scale: 0.95, y: 16 }}
           transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
           className="modal-glass rounded-2xl overflow-hidden
-            w-full max-w-6xl max-h-[95vh]
+            w-full max-w-6xl h-[820px] max-h-[95vh]
             flex flex-col md:flex-row
             shadow-[0_40px_120px_rgba(0,0,0,0.9)]
             border border-white/8 relative"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ═══ LEFT: Image Gallery ════════════════════════════ */}
+          {/* ═══ Info Panel ═══════════════════════════════ */}
           <div
-            className="img-panel relative flex items-center justify-center
-            md:flex-1 min-h-[280px] md:min-h-0 overflow-hidden p-3"
-          >
-            {/* ── Ambient Mode Layer ── */}
-            {ambientGradient && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: ambientReady ? 1 : 0 }}
-                transition={{ duration: 1.2, ease: 'easeOut' }}
-                className="ambient-layer absolute inset-0 z-0 pointer-events-none"
-                style={{
-                  background: ambientGradient,
-                  filter: 'blur(40px)',
-                  mixBlendMode: 'screen',
-                }}
-              />
-            )}
-
-            {loading ? (
-              <div className="flex items-center justify-center relative z-10 w-full min-h-[260px]">
-                <motion.div
-                  className="w-8 h-8 border-2 border-[#7986eb]/40 border-t-[#7986eb] rounded-full"
-                  animate={{ rotate: 360 }}
-                  transition={{
-                    duration: 0.8,
-                    repeat: Infinity,
-                    ease: 'linear',
-                  }}
-                />
-              </div>
-            ) : error ? (
-              <div className="text-center p-8 relative z-10">
-                <p className="text-red-400 text-sm">{error}</p>
-                <button
-                  onClick={onClose}
-                  className="mt-4 text-white/40 text-xs hover:text-white"
-                >
-                  Đóng
-                </button>
-              </div>
-            ) : post ? (
-              <div className="relative z-10 w-full">
-                <ImageGallery
-                  generatedImages={post.generatedImages || []}
-                  sourceImages={post.sourceImages || []}
-                  legacyImages={post.images || []}
-                  aiTool={post.aiTool}
-                  aiModel={post.aiModel}
-                  isPremium={post.isPremium}
-                  isUnlocked={!post.isPremium}
-                  caption={post.caption}
-                  onExpand={goToDetail}
-                  isMultiModel={post.isMultiModel}
-                  modelComparisons={post.modelComparisons}
-                />
-                {/* Trang riêng button */}
-                <button
-                  onClick={goToDetail}
-                  className="absolute bottom-4 right-4 z-20 flex items-center gap-1.5 px-3 py-1.5 rounded-xl
-    border border-white/10 text-white/50 hover:text-white/80 shadow-lg
-    transition-all text-xs font-semibold backdrop-blur-md"
-                  style={{
-                    background: 'rgba(10,9,14,0.5)',
-                    fontFamily: 'Outfit, sans-serif',
-                  }}
-                >
-                  <Maximize2 size={11} />
-                  Xem trang riêng
-                </button>
-              </div>
-            ) : null}
-          </div>
-
-          {/* ═══ RIGHT: Info Panel ═══════════════════════════════ */}
-          <div
-            className="flex flex-col w-full md:w-[380px] lg:w-[420px] min-h-0
-            border-t md:border-t-0 md:border-l border-white/8 pj"
+            className={`flex flex-col w-full md:w-[380px] lg:w-[420px] min-h-0 order-2
+              ${postDetailLayout === 'right-image' ? 'md:order-1 md:border-r' : 'md:order-2 md:border-l'}
+              border-b md:border-b-0 border-white/8 pj
+              overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10`}
           >
             {/* Author + Actions */}
             <div className="flex flex-col gap-3 p-5 border-b border-white/8">
@@ -463,7 +456,15 @@ const PostDetailModal = ({
                             ? 'bg-white/5 border-white/15 text-white/60 hover:border-red-500/40 hover:text-red-400'
                             : 'bg-brand-600 hover:bg-brand-500 text-white'
                         }`}
-                      style={isFollowing ? {} : { backdropFilter: 'var(--color-brand-blur, none)', border: '1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15))' }}
+                      style={
+                        isFollowing
+                          ? {}
+                          : {
+                              backdropFilter: 'var(--color-brand-blur, none)',
+                              border:
+                                '1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15))',
+                            }
+                      }
                     >
                       {isFollowing ? (
                         <>
@@ -559,10 +560,18 @@ const PostDetailModal = ({
                     💎 Premium
                   </span>
                 )}
-                <span className="flex items-center gap-1 text-xs text-white/30">
-                  <Calendar size={10} />
-                  {new Date(post.createdAt).toLocaleDateString('vi-VN')}
-                </span>
+                <div className="flex flex-col gap-0.5 text-[11px] text-white/40 font-medium">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={11} className="text-white/30" />
+                    <span>Ngày đăng: {formatDate(post.createdAt)}</span>
+                  </div>
+                  {post.exifData?.dateTaken && (
+                    <div className="flex items-center gap-1.5">
+                      <Camera size={11} className="text-white/30" />
+                      <span>Ngày chụp: {formatDate(post.exifData.dateTaken)}</span>
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
@@ -621,10 +630,7 @@ const PostDetailModal = ({
             )}
 
             {/* Comments */}
-            <div
-              className="flex-1 overflow-y-auto px-5 py-4 min-h-0
-              scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10"
-            >
+            <div className="px-5 py-4 min-h-0 border-t border-white/5">
               {post && (
                 <CommentSection
                   postId={post._id}
@@ -633,8 +639,109 @@ const PostDetailModal = ({
               )}
             </div>
           </div>
+
+          {/* ═══ Image Gallery ════════════════════════════ */}
+          <div
+            className={`img-panel relative flex items-center justify-center
+              md:flex-1 min-h-[280px] md:min-h-0 overflow-hidden p-3 order-1
+              ${postDetailLayout === 'right-image' ? 'md:order-2' : 'md:order-1'}`}
+          >
+            {/* ── Ambient Mode Layer ── */}
+            {ambientGradient && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: ambientReady ? 1 : 0 }}
+                transition={{ duration: 1.2, ease: 'easeOut' }}
+                className="ambient-layer absolute inset-0 z-0 pointer-events-none"
+                style={{
+                  background: ambientGradient,
+                  filter: 'blur(40px)',
+                  mixBlendMode: 'screen',
+                }}
+              />
+            )}
+
+            {loading ? (
+              <div className="flex items-center justify-center relative z-10 w-full min-h-[260px]">
+                <motion.div
+                  className="w-8 h-8 border-2 border-[#7986eb]/40 border-t-[#7986eb] rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
+                />
+              </div>
+            ) : error ? (
+              <div className="text-center p-8 relative z-10">
+                <p className="text-red-400 text-sm">{error}</p>
+                <button
+                  onClick={onClose}
+                  className="mt-4 text-white/40 text-xs hover:text-white"
+                >
+                  Đóng
+                </button>
+              </div>
+            ) : post ? (
+              <>
+                <div className="relative z-10 w-full">
+                  <ImageGallery
+                    generatedImages={post.generatedImages || []}
+                    sourceImages={post.sourceImages || []}
+                    legacyImages={post.images || []}
+                    aiTool={post.aiTool}
+                    aiModel={post.aiModel}
+                    isPremium={post.isPremium}
+                    isUnlocked={!post.isPremium}
+                    caption={post.caption}
+                    onExpand={goToDetail}
+                    isMultiModel={post.isMultiModel}
+                    modelComparisons={post.modelComparisons}
+                    maxImageHeight="max-h-[58vh]"
+                  />
+                </div>
+                {/* Trang riêng button - Floating Sticker style (Transparent/Translucent) */}
+                <button
+                  onClick={goToDetail}
+                  className="absolute bottom-6 right-6 z-30 flex items-center gap-1.5 px-3.5 py-2 rounded-xl
+                    border border-white/15 text-white/80 hover:text-white hover:border-white/40 hover:bg-white/10 shadow-lg
+                    transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] text-xs font-semibold backdrop-blur-md cursor-pointer"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.3)',
+                    fontFamily: 'Outfit, sans-serif',
+                    letterSpacing: '0.03em',
+                  }}
+                >
+                  <Maximize2 size={11} />
+                  Xem trang riêng
+                </button>
+              </>
+            ) : null}
+          </div>
         </motion.div>
       </motion.div>
+
+      {/* Unfollow Confirm Dialog */}
+      <ConfirmModal
+        isOpen={showUnfollowConfirm}
+        onClose={() => setShowUnfollowConfirm(false)}
+        onConfirm={confirmUnfollow}
+        title="Hủy theo dõi?"
+        message={post?.authorId ? (
+          <>
+            Bạn có chắc chắn muốn hủy theo dõi{' '}
+            <span className="text-white font-bold whitespace-nowrap">
+              {post.authorId.displayName || post.authorId.username}
+            </span>{' '}
+            không?
+          </>
+        ) : ''}
+        confirmText="Hủy theo dõi"
+        cancelText="Bỏ qua"
+        type="danger"
+        zIndex={300}
+      />
     </AnimatePresence>
   )
 }

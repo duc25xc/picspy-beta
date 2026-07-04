@@ -3,7 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Eye, Download, Share2,
-  Calendar, Tag, Zap, Crown,
+  Calendar, Tag, Zap, Crown, Camera,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -174,8 +174,15 @@ const PostDetailPage = () => {
     setTimeout(() => setImgLoaded(true), 200) // give gallery time to swap
   }, [])
 
-  const formatDate = (d) =>
-    new Date(d).toLocaleDateString('vi-VN', { year: 'numeric', month: 'long', day: 'numeric' })
+  const formatDate = (dateInput) => {
+    if (!dateInput) return ''
+    const date = new Date(dateInput)
+    if (isNaN(date.getTime())) return ''
+    const day = String(date.getDate()).padStart(2, '0')
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const year = date.getFullYear()
+    return `${day}/${month}/${year}`
+  }
 
   /* ── Loading skeleton ──────────────────────────────── */
   if (loading) return (
@@ -502,12 +509,20 @@ const PostDetailPage = () => {
                   {post.resolution}
                 </span>
               )}
-              {post.createdAt && (
-                <span className="flex items-center gap-1 text-xs text-white/30">
-                  <Calendar size={10} />
-                  {formatDate(post.createdAt)}
-                </span>
-              )}
+              <div className="flex flex-col gap-0.5 text-[11px] text-white/40 font-medium">
+                {post.createdAt && (
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={11} className="text-white/30" />
+                    <span>Ngày đăng: {formatDate(post.createdAt)}</span>
+                  </div>
+                )}
+                {post.exifData?.dateTaken && (
+                  <div className="flex items-center gap-1.5">
+                    <Camera size={11} className="text-white/30" />
+                    <span>Ngày chụp: {formatDate(post.exifData.dateTaken)}</span>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* ── Stats ───────────────────────────────── */}

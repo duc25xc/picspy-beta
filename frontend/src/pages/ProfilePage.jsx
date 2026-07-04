@@ -9,6 +9,8 @@ import {
 import useAuthStore from '../store/auth.store'
 import api from '../api/api'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
+import ConfirmModal from '../components/common/ConfirmModal'
+import toast from 'react-hot-toast'
 
 // ─── Tier config (đồng bộ với useTierAccess + AdminPage) ────────
 const TIER_META = {
@@ -74,6 +76,7 @@ const ProfilePage = () => {
   const [error, setError] = useState(null)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState('posts')
   const [avatarError, setAvatarError] = useState(false)
 
@@ -125,9 +128,40 @@ const ProfilePage = () => {
     }
   }, [profile?._id, activeTab])
 
+  // ── Sync follow state across tabs ──────────────────────────────
+  useEffect(() => {
+    if (!profile?._id) return
+    const channel = new BroadcastChannel('picspy_follow_sync')
+    const handleMessage = (event) => {
+      const { creatorId, isFollowing: newIsFollowing } = event.data
+      if (profile._id === creatorId) {
+        setIsFollowing(newIsFollowing)
+        setProfile(prev => {
+          if (!prev) return prev
+          // Tránh cộng trừ sai lệch nếu trạng thái đã khớp từ trước
+          const currentIsFollowing = isFollowing
+          if (currentIsFollowing === newIsFollowing) return prev
+          const diff = newIsFollowing ? 1 : -1
+          return {
+            ...prev,
+            stats: {
+              ...prev.stats,
+              followersCount: Math.max(0, (prev.stats?.followersCount || 0) + diff),
+            },
+          }
+        })
+      }
+    }
+    channel.addEventListener('message', handleMessage)
+    return () => {
+      channel.removeEventListener('message', handleMessage)
+      channel.close()
+    }
+  }, [profile?._id, isFollowing])
+
   // ── Follow / Unfollow ─────────────────────────────────────────
-  const handleFollow = useCallback(async () => {
-    if (!currentUser) { navigate('/login'); return }
+  const confirmUnfollow = useCallback(async () => {
+    if (followLoading) return
     setFollowLoading(true)
     try {
       const { data } = await api.post(`/users/${profile._id}/follow`)
@@ -136,12 +170,53 @@ const ProfilePage = () => {
         ...prev,
         stats: {
           ...prev.stats,
-          followersCount: prev.stats.followersCount + (data.following ? 1 : -1),
+          followersCount: Math.max(0, prev.stats.followersCount + (data.following ? 1 : -1)),
         },
       }))
-    } catch { /* ignore */ }
-    finally { setFollowLoading(false) }
-  }, [currentUser, navigate, profile?._id])
+      toast.success('Đã bỏ theo dõi', { duration: 1500 })
+
+      // Broadcast sự kiện sync cho các tab khác
+      const channel = new BroadcastChannel('picspy_follow_sync')
+      channel.postMessage({ creatorId: profile._id, isFollowing: data.following })
+      channel.close()
+    } catch {
+      toast.error('Không thể thực hiện')
+    } finally {
+      setFollowLoading(false)
+      setShowUnfollowConfirm(false)
+    }
+  }, [profile?._id, followLoading])
+
+  const handleFollow = useCallback(async () => {
+    if (!currentUser) { navigate('/login'); return }
+    if (isFollowing) {
+      setShowUnfollowConfirm(true)
+    } else {
+      if (followLoading) return
+      setFollowLoading(true)
+      try {
+        const { data } = await api.post(`/users/${profile._id}/follow`)
+        setIsFollowing(data.following)
+        setProfile(prev => ({
+          ...prev,
+          stats: {
+            ...prev.stats,
+            followersCount: Math.max(0, prev.stats.followersCount + (data.following ? 1 : -1)),
+          },
+        }))
+        toast.success(`Đang theo dõi @${profile.username}`, { duration: 1500 })
+
+        // Broadcast sự kiện sync cho các tab khác
+        const channel = new BroadcastChannel('picspy_follow_sync')
+        channel.postMessage({ creatorId: profile._id, isFollowing: data.following })
+        channel.close()
+      } catch {
+        toast.error('Không thể thực hiện')
+      } finally {
+        setFollowLoading(false)
+      }
+    }
+  }, [currentUser, navigate, isFollowing, followLoading, profile])
 
   // ── Error / Loading states ─────────────────────────────────────
   if (loadingProfile) return <ProfileSkeleton />
@@ -395,6 +470,27 @@ const ProfilePage = () => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* Unfollow Confirm Dialog */}
+      <ConfirmModal
+        isOpen={showUnfollowConfirm}
+        onClose={() => setShowUnfollowConfirm(false)}
+        onConfirm={confirmUnfollow}
+        title="Hủy theo dõi?"
+        message={profile ? (
+          <>
+            Bạn có chắc chắn muốn hủy theo dõi{' '}
+            <span className="text-white font-bold whitespace-nowrap">
+              {profile.displayName || profile.username}
+            </span>{' '}
+            không?
+          </>
+        ) : ''}
+        confirmText="Hủy theo dõi"
+        cancelText="Bỏ qua"
+        type="danger"
+        zIndex={250}
+      />
     </div>
   )
 }

@@ -135,7 +135,9 @@ app.get('/v1/settings', async (req, res, next) => {
       globalLoaderType: settings.globalLoaderType || 'wave',
       splashExtraMs: settings.splashExtraMs ?? 0,
       myPostsSkeletonMs: settings.myPostsSkeletonMs ?? 0,
+      postLoadingDelayMs: settings.postLoadingDelayMs ?? 0,
       blurPremiumImages: settings.blurPremiumImages !== undefined ? settings.blurPremiumImages : false,
+      postDetailLayout: settings.postDetailLayout || 'left-image',
     })
   } catch (err) {
     next(err)

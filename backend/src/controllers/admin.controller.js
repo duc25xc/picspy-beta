@@ -410,8 +410,13 @@ export const getAnalytics = async (req, res, next) => {
 export const getCategories = async (req, res, next) => {
   try {
     await seedCategories() // auto-seed nếu chưa có
-    const categories = await Category.find().sort({ sortOrder: 1, createdAt: 1 }).lean()
-    res.json({ categories })
+    const categories = await Category.find().lean()
+    const sorted = [...categories].sort((a, b) => {
+      if (a.slug === 'other') return 1
+      if (b.slug === 'other') return -1
+      return (a.sortOrder || 0) - (b.sortOrder || 0) || (a.createdAt || 0) - (b.createdAt || 0)
+    })
+    res.json({ categories: sorted })
   } catch (err) { next(err) }
 }
 
@@ -420,10 +425,14 @@ export const getPublicCategories = async (req, res, next) => {
   try {
     await seedCategories()
     const categories = await Category.find({ isActive: true })
-      .sort({ sortOrder: 1 })
-      .select('name slug emoji')
+      .select('name slug emoji sortOrder')
       .lean()
-    res.json({ categories })
+    const sorted = [...categories].sort((a, b) => {
+      if (a.slug === 'other') return 1
+      if (b.slug === 'other') return -1
+      return (a.sortOrder || 0) - (b.sortOrder || 0)
+    })
+    res.json({ categories: sorted })
   } catch (err) { next(err) }
 }
 
@@ -545,8 +554,9 @@ export const updateSettings = async (req, res, next) => {
       'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
       'announcementText', 'announcementLink', 'announcementEnabled',
       'categoryStyle', 'heroBannerMode', 'heroBannerImage',
-      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs', 'myPostsSkeletonMs',
-      'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee', 'blurPremiumImages'
+      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs', 'myPostsSkeletonMs', 'postLoadingDelayMs',
+      'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee', 'blurPremiumImages',
+      'postDetailLayout'
     ]
     const updates = {}
     allowed.forEach(key => {

@@ -361,43 +361,35 @@ const DownloadButton = ({
 
   // ─── Detail variant (dùng trong detail page) ──────────────
   if (variant === 'detail') {
-    const btnStyle =
-      isPremium && !isAllPurchased
-        ? {
-            background: 'oklch(72% 0.18 65)', // Founder Amber
-            boxShadow:
-              'inset 0 1.5px 0 rgba(255,255,255,0.22), inset 0 -2px 0 rgba(0,0,0,0.2), 0 6px 24px rgba(217,119,6,0.4)',
-          }
-        : {
-            background: 'oklch(52% 0.28 285)', // Studio Violet
-            boxShadow:
-              'inset 0 1.5px 0 rgba(255,255,255,0.26), inset 0 -2px 0 rgba(0,0,0,0.22), 0 8px 28px rgba(109,40,217,0.45)',
-          }
-
     return (
       <div className="relative w-full">
         <motion.button
-          whileTap={{ scale: 0.97 }}
+          whileTap={{ scale: 0.98 }}
           onClick={handleClick}
           disabled={loading}
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-2xl
-            font-bold text-sm text-[#f5f3ff] disabled:opacity-60 transition-all duration-200"
+          className={`flex items-center justify-center gap-2.5 w-full py-3 px-6 rounded-2xl
+            font-extrabold text-sm uppercase tracking-wider transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed min-h-[48px]
+            ${
+              done
+                ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-[0_0_20px_rgba(16,185,129,0.15)]'
+                : isPremium && !isAllPurchased
+                  ? 'bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-500 text-neutral-950 shadow-[0_4px_24px_rgba(245,158,11,0.25)] hover:shadow-[0_4px_30px_rgba(245,158,11,0.4)] border border-yellow-300/30'
+                  : 'bg-white/5 hover:bg-white/10 text-white/90 border border-white/10 hover:border-white/20 shadow-[0_4px_20px_rgba(0,0,0,0.3)]'
+            }`}
           style={{
-            ...btnStyle,
             fontFamily: 'Outfit, sans-serif',
-            minHeight: 48,
           }}
         >
           {loading ? (
             <motion.div
-              className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+              className={`w-4 h-4 border-2 rounded-full ${isPremium && !isAllPurchased && !done ? 'border-neutral-950/30 border-t-neutral-950' : 'border-white/30 border-t-white'}`}
               animate={{ rotate: 360 }}
               transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
             />
           ) : done ? (
             <CheckCircle2 size={16} />
           ) : isPremium && !isAllPurchased ? (
-            <Lock size={16} />
+            <Lock size={16} className="stroke-[2.5]" />
           ) : (
             <Download size={16} />
           )}
@@ -408,12 +400,12 @@ const DownloadButton = ({
               ? 'Đóng menu'
               : hasAttachments
                 ? isAllPurchased
-                  ? 'Đã mua trọn bộ'
+                  ? 'Đã sở hữu'
                   : 'Tải xuống...'
                 : isPremium && !isAllPurchased
-                  ? `Tải Premium · ${priceInVnd.toLocaleString('vi-VN')}đ`
+                  ? `Sở hữu Premium • ${priceInVnd.toLocaleString('vi-VN')}đ`
                   : isAllPurchased
-                    ? 'Đã mua 🛍'
+                    ? 'Đã sở hữu'
                     : 'Tải miễn phí'}
         </motion.button>
 
@@ -430,51 +422,44 @@ const DownloadButton = ({
     )
   }
 
-  // ─── Default variant ──────────────────────────────────────
+  // ─── Default variant (dùng trong modal chi tiết ngoài home) ──
   return (
     <div className="relative inline-block">
       <motion.button
         onClick={handleClick}
         whileTap={{ scale: 0.97 }}
         disabled={loading}
-        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-semibold text-sm transition-all
+        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed
           ${
             done
-              ? 'bg-green-600/20 border border-green-500/30 text-green-400'
+              ? 'bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.1)]'
               : isPremium && !isAllPurchased
-                ? 'bg-amber-500/20 border border-amber-500/40 text-amber-400 hover:bg-amber-500/30'
-                : 'bg-brand-600 hover:bg-brand-500 text-white shadow-lg shadow-black/25'
-          }
-          disabled:opacity-60 disabled:cursor-not-allowed ${className}`}
-        style={
-          done || (isPremium && !isAllPurchased)
-            ? {}
-            : {
-                backdropFilter: 'var(--color-brand-blur, none)',
-                border:
-                  '1px solid rgba(255, 255, 255, calc((1 - var(--color-brand-opacity, 1)) * 0.15))',
-              }
-        }
+                ? 'bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 hover:border-amber-500/40 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.12)]'
+                : 'bg-white/5 hover:bg-white/10 border border-white/10 hover:border-white/20 text-white/90 shadow-lg shadow-black/20'
+          } ${className}`}
+        style={{
+          fontFamily: 'Outfit, sans-serif',
+        }}
       >
         {loading ? (
-          <Loader2 size={16} className="animate-spin" />
+          <Loader2 size={14} className="animate-spin" />
         ) : done ? (
-          <CheckCircle2 size={16} />
+          <CheckCircle2 size={14} />
         ) : isPremium && !isAllPurchased ? (
-          <Coins size={16} />
+          <Lock size={14} className="stroke-[2.5]" />
         ) : (
-          <Download size={16} />
+          <Download size={14} />
         )}
         {done
           ? 'Đã tải!'
           : hasAttachments
             ? isAllPurchased
-              ? 'Đã mua 🛍'
+              ? 'Đã sở hữu'
               : 'Tải xuống'
             : isPremium && !isAllPurchased
-              ? `${priceInVnd.toLocaleString('vi-VN')}đ`
+              ? `Sở hữu • ${priceInVnd.toLocaleString('vi-VN')}đ`
               : isAllPurchased
-                ? 'Đã mua 🛍'
+                ? 'Đã sở hữu'
                 : 'Tải miễn phí'}
       </motion.button>
 
@@ -499,40 +484,40 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
         onClick={(e) => e.target === e.currentTarget && onCancel()}
       >
         <motion.div
-          initial={{ scale: 0.9, y: 20 }}
+          initial={{ scale: 0.95, y: 15 }}
           animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.9, y: 20 }}
-          className="bg-[#1a1a2e] border border-white/10 rounded-3xl p-6 max-w-sm w-full shadow-2xl"
+          exit={{ scale: 0.95, y: 15 }}
+          className="relative bg-[#121225]/95 border border-white/10 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl noise"
         >
           <div className="text-center mb-5">
-            <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 flex items-center justify-center mx-auto mb-4">
-              <span className="text-2xl">💳</span>
+            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-400">
+              <Lock size={24} className="stroke-[2]" />
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">Xác nhận mua</h3>
-            <p className="text-white/50 text-sm">Tải tệp chất lượng gốc</p>
+            <h3 className="text-lg font-bold text-white mb-1">Xác nhận sở hữu</h3>
+            <p className="text-white/40 text-xs">Mở khóa tệp chất lượng gốc</p>
           </div>
 
-          <div className="space-y-2 mb-5">
-            <div className="flex justify-between items-center py-2 border-b border-white/8">
-              <span className="text-white/50 text-sm">Giá tải ảnh</span>
-              <span className="text-emerald-400 font-bold">
+          <div className="space-y-2 mb-6 bg-white/[0.02] border border-white/5 rounded-2xl p-4">
+            <div className="flex justify-between items-center py-1.5">
+              <span className="text-white/50 text-xs">Giá sở hữu</span>
+              <span className="text-amber-400 font-extrabold text-sm">
                 {price.toLocaleString('vi-VN')}đ
               </span>
             </div>
-            <div className="flex justify-between items-center py-2">
-              <span className="text-white/50 text-sm">Số dư khả dụng</span>
-              <span className="text-white font-semibold">
+            <div className="flex justify-between items-center py-1.5 border-t border-white/5">
+              <span className="text-white/50 text-xs">Số dư khả dụng</span>
+              <span className="text-white/80 font-bold text-xs">
                 {balance.toLocaleString('vi-VN')}đ
               </span>
             </div>
-            <div className="flex justify-between items-center py-2 border-t border-white/8">
-              <span className="text-white/50 text-sm">Số dư còn lại</span>
+            <div className="flex justify-between items-center py-1.5 border-t border-white/5">
+              <span className="text-white/50 text-xs">Số dư còn lại</span>
               <span
-                className={`font-bold ${balance - price < 0 ? 'text-red-400' : 'text-green-400'}`}
+                className={`font-black text-xs ${balance - price < 0 ? 'text-red-400' : 'text-emerald-400'}`}
               >
                 {(balance - price).toLocaleString('vi-VN')}đ
               </span>
@@ -542,16 +527,16 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="flex-1 py-2.5 px-4 rounded-xl border border-white/10 text-white/60 hover:text-white hover:border-white/20 transition-all text-sm font-semibold"
+              className="w-1/2 py-2.5 px-4 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
             >
               Hủy
             </button>
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={onConfirm}
-              className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-bold text-sm shadow-[0_0_20px_rgba(16,185,129,0.3)] hover:from-emerald-400 hover:to-teal-400 transition-all"
+              className="w-1/2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:from-amber-400 hover:to-yellow-400 transition-all cursor-pointer"
             >
-              Mua & Tải xuống
+              Xác nhận
             </motion.button>
           </div>
         </motion.div>

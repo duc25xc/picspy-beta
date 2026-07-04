@@ -38,6 +38,7 @@ import {
   X,
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
+import ConfirmModal from '../components/common/ConfirmModal'
 
 /* ─── Google Fonts: Plus Jakarta Sans ─────────────────────── */
 const FontLoader = () => (
@@ -769,15 +770,16 @@ const CARD_THUMB = {
 }
 
 /* Community gallery card — magazine editorial style */
-const CommunityPostCard = ({ post, index, onClick }) => {
+const CommunityPostCard = ({ post, index, onClick, customType }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
   const author = post.authorId
   const glowColor = post.colors?.[0]?.hex || '#7c3aed'
   const pattern = CARD_PATTERN[index % CARD_PATTERN.length]
-  const alwaysShow = pattern.type === 'hero' || pattern.type === 'tall'
+  const type = customType || pattern.type
+  const alwaysShow = type === 'hero' || type === 'tall'
 
   // Smart crop URL: Cloudinary AI tìm điểm đẹp nhất đúng với tỷ lệ card
-  const { w, h, face } = CARD_THUMB[pattern.type]
+  const { w, h, face } = CARD_THUMB[type]
   const sourceUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
   const displayUrl = sourceUrl ? getSmartCropUrl(sourceUrl, w, h, face) : null
 
@@ -1035,19 +1037,33 @@ const FEED_TABS = [
 ]
 
 const POST_TYPE_TABS = [
-  { key: 'all', label: 'Tất cả', icon: Globe, countKey: 'all' },
-  { key: 'ai', label: 'Nghệ thuật AI', icon: Sparkles, countKey: 'ai' },
+  {
+    key: 'all',
+    label: 'Tất cả',
+    icon: Globe,
+    countKey: 'all',
+    widthClass: 'w-[140px]',
+  },
+  {
+    key: 'ai',
+    label: 'Nghệ thuật AI',
+    icon: Sparkles,
+    countKey: 'ai',
+    widthClass: 'w-[210px]',
+  },
   {
     key: 'digital-normal',
     label: 'Ảnh Camera (EXIF)',
     icon: Camera,
     countKey: 'cameraExif',
+    widthClass: 'w-[250px]',
   },
   {
     key: 'digital-raw',
     label: 'RAW & Presets',
     icon: Download,
     countKey: 'raw',
+    widthClass: 'w-[220px]',
   },
 ]
 
@@ -1062,7 +1078,29 @@ const GALLERY_CATEGORIES = [
   { key: 'other', label: 'Khác', emoji: '✨' },
 ]
 
+const getFewPostsPattern = (count, index) => {
+  if (count === 1) {
+    return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
+  }
+  if (count === 2) {
+    return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
+  }
+  if (count === 3) {
+    if (index === 0) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
+    if (index === 1) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-1', type: 'wide' }
+    if (index === 2) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-1', type: 'wide' }
+  }
+  if (count === 4) {
+    if (index === 0) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
+    if (index === 1) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-1', type: 'wide' }
+    if (index === 2) return { col: 'col-span-1 lg:col-span-1', row: 'row-span-1', type: 'std' }
+    if (index === 3) return { col: 'col-span-1 lg:col-span-1', row: 'row-span-1', type: 'std' }
+  }
+  return CARD_PATTERN[index % CARD_PATTERN.length]
+}
+
 const CommunityGallerySection = () => {
+  const { postLoadingDelayMs } = useSettings()
   const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
   const [activeTab, setActiveTab] = useState('new')
   const [activePostType, setActivePostType] = useState('all')
@@ -1082,6 +1120,64 @@ const CommunityGallerySection = () => {
   const [isEmpty, setIsEmpty] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(null)
 
+  const scrollContainerRef = useRef(null)
+
+  const [activeCategoriesList, setActiveCategoriesList] = useState([
+    { key: 'all', label: 'Tất cả' },
+    { key: 'nature', label: '🌿 Thiên nhiên' },
+    { key: 'anime', label: '🎌 Anime' },
+    { key: 'minimal', label: '⬜ Tối giản' },
+    { key: 'abstract', label: '🎨 Abstract' },
+    { key: 'city', label: '🌃 Thành phố' },
+    { key: 'space', label: '🚀 Vũ trụ' },
+    { key: 'dark', label: '🌑 Dark' },
+    { key: 'light', label: '☀️ Light' },
+    { key: 'gradient', label: '🌈 Gradient' },
+    { key: 'other', label: '✨ Khác' },
+  ])
+
+  // Drag-to-scroll cho category chips
+  const makeDraggable = (ref) => ({
+    ref,
+    onMouseDown: (e) => {
+      const ele = ref.current
+      if (!ele) return
+      const startPos = { left: ele.scrollLeft, x: e.clientX }
+      const move = (e) => {
+        ele.scrollLeft = startPos.left - (e.clientX - startPos.x)
+        ele.style.cursor = 'grabbing'
+      }
+      const up = () => {
+        ele.style.cursor = 'grab'
+        document.removeEventListener('mousemove', move)
+        document.removeEventListener('mouseup', up)
+      }
+      document.addEventListener('mousemove', move)
+      document.addEventListener('mouseup', up)
+    },
+  })
+
+  const catDrag = makeDraggable(scrollContainerRef)
+
+  useEffect(() => {
+    api
+      .get('/categories')
+      .then(({ data }) => {
+        if (data.categories?.length > 0) {
+          setActiveCategoriesList([
+            { key: 'all', label: 'Tất cả' },
+            ...data.categories.map((c) => ({
+              key: c.slug,
+              label: `${c.emoji || ''} ${c.name}`.trim(),
+            })),
+          ])
+        }
+      })
+      .catch((err) =>
+        console.error('Failed to load categories for gallery:', err)
+      )
+  }, [])
+
   const tab = FEED_TABS.find((t) => t.key === activeTab)
 
   const fetchPosts = useCallback(
@@ -1091,6 +1187,10 @@ const CommunityGallerySection = () => {
         setCursor(null)
         setIsEmpty(false)
       } else setLoadingMore(true)
+
+      if (postLoadingDelayMs > 0) {
+        await new Promise((resolve) => setTimeout(resolve, postLoadingDelayMs))
+      }
 
       try {
         const params = { limit: 12, ...tab.params }
@@ -1108,6 +1208,7 @@ const CommunityGallerySection = () => {
         }
 
         if (!reset && cursor) params.cursor = cursor
+
         const { data } = await api.get(tab.endpoint, { params })
 
         if (data.isEmpty) {
@@ -1163,6 +1264,9 @@ const CommunityGallerySection = () => {
     setActiveTab(key)
   }
 
+  const currentCategoryObj = activeCategoriesList.find(c => c.key === activeCategory)
+  const currentCategoryName = currentCategoryObj ? currentCategoryObj.label : 'Tất cả'
+
   return (
     <>
       <section className="py-20 px-4">
@@ -1189,7 +1293,7 @@ const CommunityGallerySection = () => {
                 <button
                   key={key}
                   onClick={() => handleTabChange(key)}
-                  className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-all pj
+                  className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 pj
                     ${
                       activeTab === key
                         ? 'bg-brand-600 text-white shadow-md'
@@ -1223,13 +1327,21 @@ const CommunityGallerySection = () => {
                   const isActive = activePostType === tabItem.key
                   const count = tabStats[tabItem.countKey] ?? 0
 
+                  const formatTabCount = (num) => {
+                    if (num >= 10000) return '9.9k+'
+                    if (num >= 1000) {
+                      return (num / 1000).toFixed(1).replace('.0', '') + 'k'
+                    }
+                    return num.toString()
+                  }
+
                   return (
                     <button
                       key={tabItem.key}
                       onClick={() => {
                         setActivePostType(tabItem.key)
                       }}
-                      className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-all flex items-center gap-2 pj cursor-pointer select-none whitespace-nowrap
+                      className={`relative px-4 py-2.5 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 flex items-center justify-center gap-2 pj cursor-pointer select-none whitespace-nowrap ${tabItem.widthClass}
                         ${isActive ? 'text-white' : 'text-foreground/45 hover:text-foreground/80'}
                       `}
                     >
@@ -1254,11 +1366,11 @@ const CommunityGallerySection = () => {
 
                       {/* Live Stats Badge */}
                       <span
-                        className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-all
+                        className={`relative z-10 text-[10px] px-1 py-0.5 w-[42px] h-[18px] flex-shrink-0 inline-flex items-center justify-center rounded-full font-bold transition-colors
                         ${isActive ? 'bg-white/20 text-white' : 'bg-foreground/5 text-foreground/40'}
                       `}
                       >
-                        {count.toLocaleString()}
+                        {formatTabCount(count)}
                       </span>
                     </button>
                   )
@@ -1304,39 +1416,25 @@ const CommunityGallerySection = () => {
             </div>
 
             {/* Row 2: Category Pills Row */}
-            <div className="flex gap-2 overflow-x-auto hide-scrollbar py-1">
-              {GALLERY_CATEGORIES.map((cat) => {
+            <div
+              ref={scrollContainerRef}
+              {...catDrag}
+              className="flex gap-2 overflow-x-auto no-scrollbar pb-2 mb-3 cursor-grab active:cursor-grabbing select-none py-1"
+            >
+              {activeCategoriesList.map((cat) => {
                 const isActive = activeCategory === cat.key
                 return (
                   <button
                     key={cat.key}
                     onClick={() => setActiveCategory(cat.key)}
-                    className={`relative px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 pj cursor-pointer select-none whitespace-nowrap border
-                      ${isActive ? 'text-white border-transparent' : 'bg-[#1a172e]/10 hover:bg-[#1a172e]/20 dark:bg-[#1a172e]/20 dark:hover:bg-[#1a172e]/40 text-foreground/50'}
-                    `}
-                    style={
-                      !isActive
-                        ? {
-                            borderColor:
-                              'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.08)',
-                          }
-                        : {}
-                    }
+                    className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border flex-shrink-0 cursor-pointer
+                      ${
+                        isActive
+                          ? 'bg-brand-600 border-brand-500 text-white'
+                          : 'bg-surface-50 border-white/10 text-white/60 hover:border-brand-500/50 hover:text-white/80'
+                      }`}
                   >
-                    {/* Spring Active Indicator sliding background */}
-                    {isActive && (
-                      <motion.div
-                        layoutId="activeCategoryPill"
-                        className="absolute inset-0 bg-brand-600 rounded-xl z-0"
-                        transition={{
-                          type: 'spring',
-                          stiffness: 350,
-                          damping: 28,
-                        }}
-                      />
-                    )}
-                    <span className="relative z-10 text-xs">{cat.emoji}</span>
-                    <span className="relative z-10">{cat.label}</span>
+                    {cat.label}
                   </button>
                 )
               })}
@@ -1344,119 +1442,162 @@ const CommunityGallerySection = () => {
           </div>
 
           {/* Content */}
-          {loading ? (
-            <motion.div
-              key="skeleton"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-            >
-              <GallerySkeleton />
-            </motion.div>
-          ) : isEmpty ? (
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-20"
-            >
-              <div
-                className="w-20 h-20 rounded-3xl border flex items-center justify-center mx-auto mb-4"
-                style={{
-                  background:
-                    'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)',
-                  borderColor:
-                    'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)',
-                }}
+          <div className="min-h-[1360px] flex flex-col">
+            {loading ? (
+              <motion.div
+                key="skeleton"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
               >
-                <span className="text-3xl">✨</span>
-              </div>
-              <h3 className="text-foreground font-bold text-lg mb-2 pj">
-                Chưa follow ai cả
-              </h3>
-              <p className="text-foreground/50 text-sm max-w-xs mx-auto pj">
-                Follow những creator bạn yêu thích để xem ảnh của họ tại đây.
-              </p>
-              <Link
-                to="/search"
-                className="mt-5 inline-flex items-center gap-2 btn-primary text-sm"
+                <GallerySkeleton />
+              </motion.div>
+            ) : posts.length === 0 ? (
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                className="text-center py-20 min-h-[900px] flex flex-col items-center justify-center select-none"
               >
-                Khám phá ngay <ArrowRight size={14} />
-              </Link>
-            </motion.div>
-          ) : posts.length === 0 ? null : (
-            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-              {/*
-                CARD_PATTERN editorial grid — mỗi card có span cố định
-                AnimatePresence initial={false} + KHÔNG có mode="wait"
-                → item MỚI fade-in riêng, grid KHÔNG collapse/re-expand
-              */}
-              <div
-                className="grid grid-cols-2 lg:grid-cols-4 gap-3"
-                style={{ gridAutoRows: '200px' }}
-              >
-                <AnimatePresence initial={false}>
-                  {posts.map((post, i) => {
-                    const p = CARD_PATTERN[i % CARD_PATTERN.length]
-                    return (
-                      <motion.div
-                        key={post._id}
-                        initial={{ opacity: 0, filter: 'blur(4px)', y: 15 }}
-                        animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
-                        transition={{
-                          duration: 0.45,
-                          // Chỉ delay khi batch LOAD MORE (i >= 8), batch đầu vẫn nhanh
-                          delay: i < 12 ? i * 0.04 : (i % 6) * 0.06,
-                          ease: 'easeOut',
-                        }}
-                        className={`col-span-1 row-span-1 ${p.col} ${p.row}`}
-                      >
-                        <CommunityPostCard
-                          post={post}
-                          index={i}
-                          onClick={handleOpenPost}
-                        />
-                      </motion.div>
-                    )
-                  })}
-                </AnimatePresence>
-              </div>
-
-              {/* Load more */}
-              {hasMore && (
-                <div className="flex justify-center mt-12">
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => fetchPosts(false)}
-                    disabled={loadingMore}
-                    className="flex items-center gap-2 px-6 py-3 rounded-2xl
-                      bg-surface-50 border border-[var(--color-border)] text-foreground/60
-                      hover:bg-surface-100 hover:text-foreground transition-all text-sm font-semibold pj
-                      disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {loadingMore ? (
-                      <motion.div
-                        className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                        animate={{ rotate: 360 }}
-                        transition={{
-                          duration: 0.8,
-                          repeat: Infinity,
-                          ease: 'linear',
-                        }}
-                      />
-                    ) : (
-                      <ArrowRight size={16} />
-                    )}
-                    {loadingMore ? 'Đang tải...' : 'Xem thêm'}
-                  </motion.button>
+                {/* Illustration with glassmorphic elements and glowing ambient effect */}
+                <div className="relative mb-8 group">
+                  {/* Glowing background ambient blur */}
+                  <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-brand-600/35 to-fuchsia-600/35 blur-3xl opacity-80 group-hover:scale-105 transition-transform duration-700" />
+                  
+                  {/* Image */}
+                  <img
+                    src="/empty_gallery_illustration.png"
+                    alt="Empty gallery"
+                    className="relative w-64 h-64 object-contain mx-auto rounded-[2rem] border border-white/10 shadow-2xl backdrop-blur-md hover:rotate-1 transition-transform duration-500 ease-out"
+                  />
+                  
+                  {/* Floating camera overlay icons */}
+                  <div className="absolute -top-3 -right-3 z-10 w-10 h-10 rounded-2xl bg-brand-500/20 border border-brand-500/30 backdrop-blur-md flex items-center justify-center text-lg shadow-lg shadow-brand-500/20 animate-bounce duration-1000">
+                    📷
+                  </div>
+                  <div className="absolute -bottom-3 -left-3 z-10 w-10 h-10 rounded-2xl bg-fuchsia-500/20 border border-fuchsia-500/30 backdrop-blur-md flex items-center justify-center text-lg shadow-lg shadow-fuchsia-500/20 animate-pulse">
+                    ✨
+                  </div>
                 </div>
-              )}
 
-              {!hasMore && posts.length >= 12 && (
-                <p className="text-center text-foreground/30 text-xs mt-10 pj italic">
-                  — Đã xem hết {posts.length} ảnh —
-                </p>
-              )}
-            </motion.div>
-          )}
+                {activeTab === 'following' ? (
+                  <>
+                    <h3 className="text-foreground font-black text-2xl mb-3 pj tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
+                      Chưa follow ai cả
+                    </h3>
+                    <p className="text-foreground/50 text-sm max-w-sm mx-auto pj mb-6 leading-relaxed">
+                      Follow những creator bạn yêu thích để cập nhật ngay những tác phẩm mới nhất của họ tại đây.
+                    </p>
+                    <Link
+                      to="/search"
+                      className="inline-flex items-center gap-2 btn-primary text-sm shadow-lg shadow-brand-500/20 hover:shadow-brand-500/35 transition-all"
+                    >
+                      Khám phá ngay <ArrowRight size={14} />
+                    </Link>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-foreground font-black text-2xl mb-3 pj tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
+                      {currentCategoryName === 'Tất cả' ? 'Không tìm thấy tác phẩm' : `Danh mục ${currentCategoryName} trống`}
+                    </h3>
+                    <p className="text-foreground/50 text-sm max-w-md mx-auto pj mb-6 leading-relaxed">
+                      Hiện tại chưa có bức ảnh nào trong danh mục này. Hãy trở thành người tiên phong đăng tải những tác phẩm xuất sắc của bạn!
+                    </p>
+                    <Link
+                      to="/upload"
+                      className="inline-flex items-center gap-2 btn-primary text-sm shadow-lg shadow-brand-500/20 hover:shadow-brand-500/35 transition-all"
+                    >
+                      Đăng ảnh ngay <ArrowRight size={14} />
+                    </Link>
+                  </>
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex-1 flex flex-col justify-between"
+              >
+                {/* 
+                  Magazine Grid starting from the very top.
+                  Uses getFewPostsPattern to override grid spans when posts.length <= 4,
+                  allowing few posts to occupy the top row beautifully without vertical centering shifts.
+                */}
+                <div
+                  className="grid grid-cols-2 lg:grid-cols-4 gap-3"
+                  style={{ gridAutoRows: '200px' }}
+                >
+                  <AnimatePresence initial={false}>
+                    {posts.map((post, i) => {
+                      const p = getFewPostsPattern(posts.length, i)
+                      return (
+                        <motion.div
+                          key={post._id}
+                          initial={{ opacity: 0, filter: 'blur(4px)', y: 15 }}
+                          animate={{ opacity: 1, filter: 'blur(0px)', y: 0 }}
+                          transition={{
+                            duration: 0.45,
+                            delay: i < 12 ? i * 0.04 : (i % 6) * 0.06,
+                            ease: 'easeOut',
+                          }}
+                          className={`col-span-1 row-span-1 ${p.col} ${p.row}`}
+                        >
+                          <CommunityPostCard
+                            post={post}
+                            index={i}
+                            onClick={handleOpenPost}
+                            customType={p.type}
+                          />
+                        </motion.div>
+                      )
+                    })}
+                  </AnimatePresence>
+                </div>
+
+                {/* Load more */}
+                {hasMore && (
+                  <div className="flex justify-center mt-12">
+                    <motion.button
+                      whileTap={{ scale: 0.97 }}
+                      onClick={() => fetchPosts(false)}
+                      disabled={loadingMore}
+                      className="flex items-center gap-2 px-6 py-3 rounded-2xl
+                        bg-surface-50 border border-[var(--color-border)] text-foreground/60
+                        hover:bg-surface-100 hover:text-foreground transition-all text-sm font-semibold pj
+                        disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingMore ? (
+                        <motion.div
+                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            ease: 'linear',
+                          }}
+                        />
+                      ) : (
+                        <ArrowRight size={16} />
+                      )}
+                      {loadingMore ? 'Đang tải...' : 'Xem thêm'}
+                    </motion.button>
+                  </div>
+                )}
+
+                {!hasMore && posts.length > 0 && (
+                  <div className="text-center mt-12 mb-6 pj flex flex-col items-center gap-2 select-none">
+                    <p className="text-foreground/30 text-xs italic">
+                      — Đã hiển thị tất cả {posts.length} kết quả của danh mục {currentCategoryName} —
+                    </p>
+                    <Link
+                      to="/upload"
+                      className="text-brand-500 hover:text-brand-400 text-xs font-semibold hover:underline transition-colors mt-1 cursor-pointer"
+                    >
+                      Bạn là một creator? Hãy chia sẻ những tác phẩm nghệ thuật tuyệt vời của bạn tới cộng đồng ngay!
+                    </Link>
+                  </div>
+                )}
+              </motion.div>
+            )}
+          </div>
 
           {/* View all link */}
           {!loading && posts.length > 0 && (
@@ -1582,6 +1723,46 @@ const HomePage = () => {
     }
   }, [showLeaderModal, modalPeriod, modalType, fetchLeaderboard])
 
+  // ── Sync follow state across tabs ──────────────────────────────
+  useEffect(() => {
+    const channel = new BroadcastChannel('picspy_follow_sync')
+    const handleMessage = (event) => {
+      const { creatorId, isFollowing } = event.data
+
+      const updateList = (prev) =>
+        prev.map((c) =>
+          c._id === creatorId
+            ? {
+                ...c,
+                isFollowing: isFollowing,
+                stats: {
+                  ...c.stats,
+                  followersCount: Math.max(
+                    0,
+                    (c.stats?.followersCount || 0) + (isFollowing ? 1 : -1)
+                  ),
+                },
+              }
+            : c
+        )
+
+      setLeaderboard(updateList)
+      setModalCreators(updateList)
+      setHomepageData((prev) => {
+        if (!prev) return prev
+        return {
+          ...prev,
+          leaderboard: updateList(prev.leaderboard || []),
+        }
+      })
+    }
+    channel.addEventListener('message', handleMessage)
+    return () => {
+      channel.removeEventListener('message', handleMessage)
+      channel.close()
+    }
+  }, [])
+
   const [unfollowTarget, setUnfollowTarget] = useState(null)
 
   const confirmUnfollow = async (creatorId) => {
@@ -1597,8 +1778,10 @@ const HomePage = () => {
                 isFollowing: data.following,
                 stats: {
                   ...c.stats,
-                  followersCount:
-                    (c.stats?.followersCount || 0) + (data.following ? 1 : -1),
+                  followersCount: Math.max(
+                    0,
+                    (c.stats?.followersCount || 0) + (data.following ? 1 : -1)
+                  ),
                 },
               }
             : c
@@ -1614,10 +1797,17 @@ const HomePage = () => {
           leaderboard: updateList(prev.leaderboard || []),
         }
       })
+
+      // Broadcast sự kiện sync cho các tab khác
+      const channel = new BroadcastChannel('picspy_follow_sync')
+      channel.postMessage({ creatorId, isFollowing: data.following })
+      channel.close()
     } catch (err) {
       toast.error(
         err.response?.data?.message || 'Không thể hủy theo dõi nghệ sĩ'
       )
+    } finally {
+      setUnfollowTarget(null)
     }
   }
 
@@ -1638,9 +1828,10 @@ const HomePage = () => {
                   isFollowing: data.following,
                   stats: {
                     ...c.stats,
-                    followersCount:
-                      (c.stats?.followersCount || 0) +
-                      (data.following ? 1 : -1),
+                    followersCount: Math.max(
+                      0,
+                      (c.stats?.followersCount || 0) + (data.following ? 1 : -1)
+                    ),
                   },
                 }
               : c
@@ -1656,6 +1847,14 @@ const HomePage = () => {
             leaderboard: updateList(prev.leaderboard || []),
           }
         })
+
+        // Broadcast sự kiện sync cho các tab khác
+        const channel = new BroadcastChannel('picspy_follow_sync')
+        channel.postMessage({
+          creatorId: creator._id,
+          isFollowing: data.following,
+        })
+        channel.close()
       } catch (err) {
         toast.error(err.response?.data?.message || 'Không thể theo dõi nghệ sĩ')
       }
@@ -1709,26 +1908,24 @@ const HomePage = () => {
 
   const categoriesToRender = useMemo(() => {
     const style = homepageData?.categoryStyle || 'style-1'
-    if (!homepageData?.categories) {
-      return CATEGORIES.map((c) => ({
-        ...c,
+    if (!homepageData?.categories || homepageData.categories.length === 0) {
+      return CATEGORIES.slice(0, 6).map((c) => ({
+        key: c.label.toLowerCase(),
+        label: c.label,
+        count: 0,
+        emoji: c.emoji,
         posts: [],
         style,
       }))
     }
-    return GALLERY_CATEGORIES.filter(
-      (c) => c.key !== 'all' && c.key !== 'other'
-    ).map((c) => {
-      const dbData = homepageData.categories.find((d) => d.key === c.key)
-      return {
-        label: c.label,
-        emoji: c.emoji,
-        key: c.key,
-        count: dbData?.count || 0,
-        posts: dbData?.posts || [],
-        style,
-      }
-    })
+    return homepageData.categories.map((c) => ({
+      key: c.key,
+      label: c.label || c.key,
+      emoji: c.emoji || '🏷️',
+      count: c.count || 0,
+      posts: c.posts || [],
+      style,
+    }))
   }, [homepageData])
 
   const { scrollYProgress } = useScroll({
@@ -2235,7 +2432,7 @@ const HomePage = () => {
                 </div>
 
                 {/* Leaderboard Rows */}
-                <div className="space-y-4 divide-y divide-[var(--color-border)] h-[310px] flex flex-col justify-center overflow-hidden">
+                <div className="divide-y divide-[var(--color-border)] h-[320px] flex flex-col justify-between overflow-hidden">
                   {leaderboardLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center py-10 gap-2">
                       <motion.div
@@ -2252,9 +2449,7 @@ const HomePage = () => {
                     leaderboard.map((c, i) => (
                       <div
                         key={c._id}
-                        className={
-                          i > 0 ? 'pt-4 border-[var(--color-border)]' : ''
-                        }
+                        className="py-1.5 flex-1 flex flex-col justify-center"
                       >
                         <LeaderRow
                           c={c}
@@ -2738,57 +2933,29 @@ const HomePage = () => {
       </AnimatePresence>
 
       {/* Unfollow Confirm Dialog */}
-      <AnimatePresence>
-        {unfollowTarget && (
-          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
-            {/* Overlay click to close */}
-            <div
-              className="fixed inset-0 w-full h-full"
-              onClick={() => setUnfollowTarget(null)}
-            />
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2 }}
-              className="relative bg-[#121225]/95 border border-white/10 p-8 rounded-[2rem] w-full max-w-sm text-center shadow-2xl z-10 noise"
-              style={{ backdropFilter: 'blur(32px)' }}
-            >
-              <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5 text-red-500 text-xl">
-                ⚠️
-              </div>
-              <h4 className="text-lg font-black text-white mb-2 pj">
-                Hủy theo dõi?
-              </h4>
-              <p className="text-sm text-white/60 mb-6 leading-relaxed pj">
-                Bạn có chắc chắn muốn hủy theo dõi{' '}
-                <span className="text-white font-bold">
-                  {unfollowTarget.displayName || unfollowTarget.username}
-                </span>{' '}
-                không?
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setUnfollowTarget(null)}
-                  className="flex-1 py-3 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs font-bold cursor-pointer"
-                >
-                  Bỏ qua
-                </button>
-                <button
-                  onClick={() => {
-                    confirmUnfollow(unfollowTarget._id)
-                    setUnfollowTarget(null)
-                  }}
-                  className="flex-1 py-3 rounded-full bg-red-600 hover:bg-red-500 text-white transition-all text-xs font-bold shadow-[0_4px_12px_rgba(220,38,38,0.3)] cursor-pointer"
-                >
-                  Hủy theo dõi
-                </button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      <ConfirmModal
+        isOpen={!!unfollowTarget}
+        onClose={() => setUnfollowTarget(null)}
+        onConfirm={() => confirmUnfollow(unfollowTarget?._id)}
+        title="Hủy theo dõi?"
+        message={
+          unfollowTarget ? (
+            <>
+              Bạn có chắc chắn muốn hủy theo dõi{' '}
+              <span className="text-white font-bold whitespace-nowrap">
+                {unfollowTarget.displayName || unfollowTarget.username}
+              </span>{' '}
+              không?
+            </>
+          ) : (
+            ''
+          )
+        }
+        confirmText="Hủy theo dõi"
+        cancelText="Bỏ qua"
+        type="danger"
+        zIndex={250}
+      />
     </div>
   )
 }
@@ -2807,13 +2974,19 @@ const LeaderboardModal = ({
 }) => {
   // Prevent background scroll when modal is open
   useEffect(() => {
+    const originalBodyOverflow = document.body.style.overflow
+    const originalHtmlOverflow = document.documentElement.style.overflow
+
     if (open) {
       document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
     } else {
-      document.body.style.overflow = ''
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
     }
     return () => {
-      document.body.style.overflow = ''
+      document.body.style.overflow = originalBodyOverflow
+      document.documentElement.style.overflow = originalHtmlOverflow
     }
   }, [open])
 
@@ -2827,9 +3000,9 @@ const LeaderboardModal = ({
   ]
 
   const typeTabs = [
-    { key: 'followers', label: 'Người theo dõi 👥' },
-    { key: 'views', label: 'Lượt xem 👁' },
-    { key: 'downloads', label: 'Lượt tải xuống 📥' },
+    { key: 'followers', label: 'Người theo dõi' },
+    { key: 'views', label: 'Lượt xem' },
+    { key: 'downloads', label: 'Lượt tải xuống' },
   ]
 
   return (
@@ -2842,7 +3015,7 @@ const LeaderboardModal = ({
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 0.95, y: 20 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="relative bg-[#121225]/95 border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col h-[650px] max-h-[85vh] z-10 noise"
+        className="relative bg-[#121225]/95 border border-white/10 rounded-[2.5rem] w-full max-w-3xl overflow-hidden shadow-2xl flex flex-col h-[720px] max-h-[85vh] z-10 noise"
         style={{ backdropFilter: 'blur(32px)' }}
       >
         {/* Modal Header */}
@@ -2864,14 +3037,14 @@ const LeaderboardModal = ({
         </div>
 
         {/* Filters Panel */}
-        <div className="p-6 py-5 bg-white/[0.02] border-b border-white/5 flex flex-col sm:flex-row items-center justify-center gap-4">
+        <div className="p-6 py-5 bg-white/[0.02] border-b border-white/5 flex flex-col lg:flex-row items-center justify-center gap-4">
           {/* Period Tabs */}
-          <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/10 w-full sm:w-auto justify-between min-w-[285px]">
+          <div className="flex bg-white/[0.03] p-1.5 rounded-full border border-white/10 w-full lg:w-auto justify-between min-w-[310px] gap-1">
             {periodTabs.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setPeriod(t.key)}
-                className={`flex-1 text-center py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
+                className={`flex-1 text-center py-2.5 rounded-full text-xs font-black transition-all cursor-pointer ${
                   period === t.key
                     ? 'bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-[0_4px_12px_rgba(139,92,246,0.35)] scale-[1.03]'
                     : 'text-white/40 hover:text-white/80 hover:bg-white/[0.02]'
@@ -2883,12 +3056,12 @@ const LeaderboardModal = ({
           </div>
 
           {/* Type Tabs */}
-          <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/10 w-full sm:w-auto justify-between min-w-[360px] gap-1">
+          <div className="flex bg-white/[0.03] p-1.5 rounded-full border border-white/10 w-full lg:w-auto justify-between min-w-[390px] gap-1">
             {typeTabs.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setType(t.key)}
-                className={`flex-1 text-center py-2 rounded-full text-[11px] sm:text-xs font-black transition-all cursor-pointer select-none whitespace-nowrap px-1.5 ${
+                className={`flex-1 text-center py-2.5 rounded-full text-[11px] sm:text-xs font-black transition-all cursor-pointer select-none whitespace-nowrap px-1.5 ${
                   type === t.key
                     ? 'bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-[0_4px_12px_rgba(139,92,246,0.35)] scale-[1.03]'
                     : 'text-white/40 hover:text-white/80 hover:bg-white/[0.02]'

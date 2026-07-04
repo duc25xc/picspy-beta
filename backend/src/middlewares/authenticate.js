@@ -60,12 +60,20 @@ export const optionalAuth = async (req, res, next) => {
     if (!authHeader?.startsWith('Bearer ')) return next()
 
     const token = authHeader.split(' ')[1]
-    const payload = jwt.verify(token, process.env.JWT_SECRET)
+    let payload
+    try {
+      payload = jwt.verify(token, process.env.JWT_SECRET)
+    } catch (err) {
+      const message = err.name === 'TokenExpiredError'
+        ? 'Phiên đăng nhập đã hết hạn'
+        : 'Token không hợp lệ'
+      return res.status(401).json({ error: 'UNAUTHORIZED', message })
+    }
+
     const user = await User.findById(payload.userId).select('-passwordHash')
     if (user && !user.isBanned) req.user = user
     next()
-  } catch {
-    // Token lỗi → tiếp tục như anonymous
-    next()
+  } catch (err) {
+    next(err)
   }
 }

@@ -742,33 +742,25 @@ export const getApprovedPosts = async (req, res, next) => {
     if (resolution) countsMatch.resolution = resolution
     if (authorId && /^[a-f\d]{24}$/i.test(authorId)) countsMatch.authorId = authorId
 
-    // Calculate dynamic stats
-    const countsFacet = await Post.aggregate([
-      { $match: countsMatch },
-      {
-        $facet: {
-          total: [{ $count: 'count' }],
-          ai: [{ $match: { postType: 'ai' } }, { $count: 'count' }],
-          raw: [{ $match: { postType: 'digital-raw' } }, { $count: 'count' }],
-          cameraExif: [
-            {
-              $match: {
-                postType: 'digital-normal',
-                exifData: { $ne: null },
-                'exifData.camera': { $exists: true }
-              }
-            },
-            { $count: 'count' }
-          ]
-        }
-      }
+    // Calculate dynamic stats using highly optimized parallel countDocuments (index-covered scans)
+    const countsMatchAll = { ...countsMatch }
+    const [totalCount, aiCount, rawCount, cameraExifCount] = await Promise.all([
+      Post.countDocuments(countsMatchAll),
+      Post.countDocuments({ ...countsMatchAll, postType: 'ai' }),
+      Post.countDocuments({ ...countsMatchAll, postType: 'digital-raw' }),
+      Post.countDocuments({
+        ...countsMatchAll,
+        postType: 'digital-normal',
+        exifData: { $ne: null },
+        'exifData.camera': { $exists: true }
+      })
     ])
 
     const stats = {
-      all: countsFacet[0]?.total[0]?.count || 0,
-      ai: countsFacet[0]?.ai[0]?.count || 0,
-      raw: countsFacet[0]?.raw[0]?.count || 0,
-      cameraExif: countsFacet[0]?.cameraExif[0]?.count || 0,
+      all: totalCount,
+      ai: aiCount,
+      raw: rawCount,
+      cameraExif: cameraExifCount,
     }
 
     // =====================
@@ -1680,12 +1672,57 @@ export const getHomepageData = async (req, res, next) => {
     const totalCoinsPaid = coinsAgg[0]?.total || 0
 
     // 3. Featured Categories
-    const categoriesList = ['nature', 'cyberpunk', 'minimal', 'street', 'studio', 'anime']
-    const categoriesData = await Promise.all(categoriesList.map(async (cat) => {
-      const count = await Post.countDocuments({ status: 'approved', category: cat })
+    const Category = (await import('../models/Category.model.js')).default
+    const activeCategories = await Category.find({ isActive: true }).lean()
+    const activeSlugs = activeCategories.map(cat => cat.slug)
+
+    // Sum views of approved posts grouped by category
+    const categoryViewsAgg = await Post.aggregate([
+      { $match: { status: 'approved', category: { $in: activeSlugs } } },
+      {
+        $group: {
+          _id: '$category',
+          totalViews: { $sum: { $ifNull: ['$stats.viewsCount', 0] } }
+        }
+      }
+    ])
+
+    const categoryViewsMap = {}
+    categoryViewsAgg.forEach(item => {
+      if (item._id) {
+        categoryViewsMap[item._id] = item.totalViews
+      }
+    })
+
+    const categoriesWithViews = activeCategories.map(cat => ({
+      ...cat,
+      views: categoryViewsMap[cat.slug] || 0
+    }))
+
+    // Sắp xếp theo tổng số views giảm dần, nếu bằng nhau thì theo sortOrder
+    categoriesWithViews.sort((a, b) => {
+      if (b.views !== a.views) return b.views - a.views
+      return (a.sortOrder || 0) - (b.sortOrder || 0)
+    })
+
+    const top6Categories = categoriesWithViews.slice(0, 6)
+    const activeCategoriesList = activeCategories.map(cat => ({
+      key: cat.slug,
+      label: cat.name,
+      emoji: cat.emoji
+    }))
+    // Đưa 'other' (Khác) về cuối danh sách
+    activeCategoriesList.sort((a, b) => {
+      if (a.key === 'other') return 1
+      if (b.key === 'other') return -1
+      return 0
+    })
+
+    const categoriesData = await Promise.all(top6Categories.map(async (cat) => {
+      const count = await Post.countDocuments({ status: 'approved', category: cat.slug })
       // Lấy tối đa 6 ảnh để hiển thị dạng Grid (Style 2), Carousel (Style 3) hoặc Split (Style 4)
       const topPosts = await Post.aggregate([
-        { $match: { status: 'approved', category: cat } },
+        { $match: { status: 'approved', category: cat.slug } },
         {
           $addFields: {
             popularityScore: {
@@ -1713,11 +1750,20 @@ export const getHomepageData = async (req, res, next) => {
       ])
       
       return {
-        key: cat,
+        key: cat.slug,
+        label: cat.name,
+        emoji: cat.emoji,
         count,
         posts: topPosts
       }
     }))
+
+    // Đưa 'other' (Khác) về cuối danh sách
+    categoriesData.sort((a, b) => {
+      if (a.key === 'other') return 1
+      if (b.key === 'other') return -1
+      return 0
+    })
 
     // 4. Hero Background Collage (8 ảnh từ database hoặc manual settings)
     let collageImages = []
@@ -1847,6 +1893,7 @@ export const getHomepageData = async (req, res, next) => {
         totalVndPaid: totalCoinsPaid
       },
       categories: categoriesData,
+      activeCategories: activeCategoriesList,
       collage: collageImages,
       trending: trendingPosts,
       newCollections,

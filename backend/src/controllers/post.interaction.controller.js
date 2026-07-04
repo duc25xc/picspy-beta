@@ -57,6 +57,7 @@ export const getPostDetail = async (req, res, next) => {
           followerId: req.user._id,
           followingId: post.authorId._id,
         }).lean()
+        isFollowingAuthor = !!followDoc
       }
     }
 
