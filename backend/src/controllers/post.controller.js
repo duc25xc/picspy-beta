@@ -1578,14 +1578,18 @@ export const searchByImage = async (req, res, next) => {
     // 4. Sắp xếp theo độ tương đồng giảm dần
     scoredPosts.sort((a, b) => b.similarityScore - a.similarityScore || b.createdAt - a.createdAt)
 
-    // Extract color palette of uploaded image using node-vibrant
+    // Extract color palette of uploaded image using node-vibrant (consistent with 400px worker thumbnail size)
     let colorPalette = []
     try {
-      const jpegBuffer = await sharp(req.file.buffer).jpeg().toBuffer()
+      const jpegBuffer = await sharp(req.file.buffer)
+        .resize(400, null, { withoutEnlargement: true })
+        .jpeg({ quality: 80 })
+        .toBuffer()
       const palette = await Vibrant.from(jpegBuffer).getPalette()
       colorPalette = Object.values(palette)
-        .filter(c => c !== null)
+        .filter(Boolean)
         .map(c => c.hex)
+        .slice(0, 6)
     } catch (vibrateErr) {
       logger.error('Vibrant palette extraction failed during image search', vibrateErr)
     }

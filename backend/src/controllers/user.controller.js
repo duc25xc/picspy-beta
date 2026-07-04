@@ -445,3 +445,156 @@ export const getMyPurchasedPosts = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * GET /users/leaderboard
+ * Query top creators based on followersCount, total post views, or total post downloads for specific timeframes
+ */
+export const getLeaderboard = async (req, res, next) => {
+  try {
+    const { period = 'all', type = 'followers', limit = 20 } = req.query
+    const limitNum = Math.min(20, Math.max(1, parseInt(limit) || 20))
+
+    let creatorsData = []
+
+    // Helper to get start date of period
+    const getStartDate = (p) => {
+      const now = new Date()
+      if (p === 'week') {
+        const start = new Date(now)
+        start.setDate(now.getDate() - 7)
+        return start
+      }
+      if (p === 'month') {
+        const start = new Date(now)
+        start.setMonth(now.getMonth() - 1)
+        return start
+      }
+      if (p === 'year') {
+        const start = new Date(now)
+        start.setFullYear(now.getFullYear() - 1)
+        return start
+      }
+      return null
+    }
+
+    const startDate = getStartDate(period)
+
+    // Dynamic model imports
+    const Post = (await import('../models/Post.model.js')).default
+    const Follow = (await import('../models/Follow.model.js')).default
+
+    if (type === 'followers') {
+      if (period === 'all') {
+        creatorsData = await User.find({
+          $or: [
+            { role: 'creator' },
+            { 'stats.postsCount': { $gt: 0 } }
+          ]
+        })
+          .sort({ 'stats.followersCount': -1, _id: -1 })
+          .limit(limitNum)
+          .select('username displayName avatar stats isVerified')
+          .lean()
+      } else {
+        const matchCond = { createdAt: { $gte: startDate } }
+        const topFollows = await Follow.aggregate([
+          { $match: matchCond },
+          { $group: { _id: '$followingId', count: { $sum: 1 } } },
+          { $sort: { count: -1 } },
+          { $limit: limitNum }
+        ])
+
+        const topIds = topFollows.map(f => f._id)
+        const users = await User.find({ _id: { $in: topIds } })
+          .select('username displayName avatar stats isVerified')
+          .lean()
+
+        creatorsData = topIds.map(id => users.find(u => u._id.toString() === id.toString())).filter(Boolean)
+      }
+    } else if (type === 'views' || type === 'downloads') {
+      const metricField = type === 'views' ? 'stats.viewsCount' : 'stats.downloadsCount'
+      
+      const matchCond = { status: 'approved' }
+      if (startDate) {
+        matchCond.createdAt = { $gte: startDate }
+      }
+
+      const topCreators = await Post.aggregate([
+        { $match: matchCond },
+        { $group: { _id: '$authorId', total: { $sum: `$${metricField}` } } },
+        { $sort: { total: -1 } },
+        { $limit: limitNum }
+      ])
+
+      const topIds = topCreators.map(c => c._id)
+      const users = await User.find({ _id: { $in: topIds } })
+        .select('username displayName avatar stats isVerified')
+        .lean()
+
+      creatorsData = topCreators.map(tc => {
+        const user = users.find(u => u._id.toString() === tc._id.toString())
+        if (!user) return null
+        return {
+          ...user,
+          scoreValue: tc.total
+        }
+      }).filter(Boolean)
+    }
+
+    // Backup 1: Creators or users with posts
+    if (creatorsData.length < limitNum) {
+      const existingIds = creatorsData.map(c => c._id.toString())
+      const backupCreators = await User.find({
+        _id: { $nin: existingIds },
+        $or: [
+          { role: 'creator' },
+          { 'stats.postsCount': { $gt: 0 } }
+        ]
+      })
+        .sort({ 'stats.followersCount': -1, _id: -1 })
+        .limit(limitNum - creatorsData.length)
+        .select('username displayName avatar stats isVerified')
+        .lean()
+
+      creatorsData = [...creatorsData, ...backupCreators]
+    }
+
+    // Backup 2: Regular users (excluding admins) if still not enough to fill the requested count
+    if (creatorsData.length < limitNum) {
+      const existingIds = creatorsData.map(c => c._id.toString())
+      const backupUsers = await User.find({
+        _id: { $nin: existingIds },
+        role: { $ne: 'admin' }
+      })
+        .sort({ 'stats.followersCount': -1, _id: -1 })
+        .limit(limitNum - creatorsData.length)
+        .select('username displayName avatar stats isVerified')
+        .lean()
+
+      creatorsData = [...creatorsData, ...backupUsers]
+    }
+
+    // Attach follows status
+    let followMap = {}
+    if (req.user) {
+      const creatorIds = creatorsData.map(c => c._id)
+      const follows = await Follow.find({
+        followerId: req.user._id,
+        followingId: { $in: creatorIds }
+      }).lean()
+      follows.forEach(f => {
+        followMap[f.followingId.toString()] = true
+      })
+    }
+
+    const result = creatorsData.map(c => ({
+      ...c,
+      isFollowing: !!followMap[c._id.toString()]
+    }))
+
+    res.json({ creators: result })
+  } catch (err) {
+    next(err)
+  }
+}

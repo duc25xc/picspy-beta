@@ -35,6 +35,7 @@ import {
   Bell,
   Copy,
   Check,
+  X,
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
 
@@ -330,7 +331,8 @@ const AnimatedCounter = ({ targetValue, format = '', color }) => {
             const elapsed = now - startTime
             const progress = Math.min(elapsed / duration, 1)
             // Ease-out expo curve
-            const easeProgress = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
+            const easeProgress =
+              progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
             const current = Math.floor(easeProgress * targetValue)
             setCount(current)
 
@@ -360,7 +362,8 @@ const AnimatedCounter = ({ targetValue, format = '', color }) => {
 
   return (
     <span ref={ref} style={{ color, textShadow: `0 0 20px ${color}50` }}>
-      {formatNumber(count)}{format}
+      {formatNumber(count)}
+      {format}
     </span>
   )
 }
@@ -385,7 +388,11 @@ const StatCard = ({ value, label, color, delay }) => (
         className="text-4xl font-black pj mb-1.5 relative z-10"
         style={{ color, textShadow: `0 0 30px ${color}60` }}
       >
-        <AnimatedCounter targetValue={parseInt(value) || 0} format={value.toString().includes('+') ? '+' : ''} color={color} />
+        <AnimatedCounter
+          targetValue={parseInt(value) || 0}
+          format={value.toString().includes('+') ? '+' : ''}
+          color={color}
+        />
       </p>
       <p className="text-foreground/45 dark:text-white/45 text-[10px] font-bold tracking-widest uppercase pj relative z-10">
         {label}
@@ -395,7 +402,15 @@ const StatCard = ({ value, label, color, delay }) => (
 )
 
 /* Category card with 4 dynamic layout styles configured by Admin */
-const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', delay, onClick }) => {
+const CategoryCard = ({
+  label,
+  count,
+  emoji,
+  posts = [],
+  style = 'style-1',
+  delay,
+  onClick,
+}) => {
   const cardRef = useRef(null)
   const [activeIndex, setActiveIndex] = useState(0)
 
@@ -417,13 +432,16 @@ const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', dela
     }
 
     if (cardRef.current) {
-      observer = new IntersectionObserver(([entry]) => {
-        if (entry.isIntersecting) {
-          startCarousel()
-        } else {
-          stopCarousel()
-        }
-      }, { threshold: 0.05 })
+      observer = new IntersectionObserver(
+        ([entry]) => {
+          if (entry.isIntersecting) {
+            startCarousel()
+          } else {
+            stopCarousel()
+          }
+        },
+        { threshold: 0.05 }
+      )
       observer.observe(cardRef.current)
     }
 
@@ -433,9 +451,14 @@ const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', dela
     }
   }, [style, posts])
 
-  const fallbackImg = 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
+  const fallbackImg =
+    'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=600&q=80'
   const getPostImg = (p) => {
-    const rawUrl = p?.generatedImages?.[0]?.thumbnailUrl || p?.images?.[0]?.thumbnailUrl || p?.generatedImages?.[0]?.url || p?.images?.[0]?.url
+    const rawUrl =
+      p?.generatedImages?.[0]?.thumbnailUrl ||
+      p?.images?.[0]?.thumbnailUrl ||
+      p?.generatedImages?.[0]?.url ||
+      p?.images?.[0]?.url
     return getOptimizedWebpUrl(rawUrl || fallbackImg, 400)
   }
 
@@ -464,18 +487,30 @@ const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', dela
         <div className="absolute inset-0 grid grid-cols-2 gap-1 p-1 bg-[#121214]/50 dark:bg-black/40">
           <div className="flex flex-col gap-1 h-full">
             <div className="flex-[3] rounded-lg overflow-hidden border border-white/5 bg-white/5">
-              <img src={posts[0] ? getPostImg(posts[0]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img
+                src={posts[0] ? getPostImg(posts[0]) : fallbackImg}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
             </div>
             <div className="flex-[2] rounded-lg overflow-hidden border border-white/5 bg-white/5">
-              <img src={posts[1] ? getPostImg(posts[1]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img
+                src={posts[1] ? getPostImg(posts[1]) : fallbackImg}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
             </div>
           </div>
           <div className="flex flex-col gap-1 h-full">
             <div className="flex-[2] rounded-lg overflow-hidden border border-white/5 bg-white/5">
-              <img src={posts[2] ? getPostImg(posts[2]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img
+                src={posts[2] ? getPostImg(posts[2]) : fallbackImg}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
             </div>
             <div className="flex-[3] rounded-lg overflow-hidden border border-white/5 bg-white/5">
-              <img src={posts[3] ? getPostImg(posts[3]) : fallbackImg} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+              <img
+                src={posts[3] ? getPostImg(posts[3]) : fallbackImg}
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+              />
             </div>
           </div>
         </div>
@@ -500,25 +535,27 @@ const CategoryCard = ({ label, count, emoji, posts = [], style = 'style-1', dela
       {/* STYLE 4: Interactive Split Slices */}
       {style === 'style-4' && (
         <div className="absolute inset-0 flex overflow-hidden bg-[#121214]/50 dark:bg-black/40">
-          {(posts.length > 0 ? posts.slice(0, 3) : [null, null, null]).map((post, idx) => (
-            <div
-              key={post?._id || idx}
-              className="h-full relative flex-1 hover:flex-[3.5] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group/slice overflow-hidden border-r border-white/5 last:border-r-0"
-            >
-              <img
-                src={post ? getPostImg(post) : fallbackImg}
-                className="absolute inset-0 w-full h-full object-cover scale-105 group-hover/slice:scale-100 transition-transform duration-750"
-              />
-              <div className="absolute inset-0 bg-black/40 group-hover/slice:bg-black/10 transition-colors duration-300" />
-              {post && (
-                <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover/slice:opacity-100 transition-opacity duration-300 pointer-events-none delay-100 z-30">
-                  <p className="text-[9px] text-white/90 line-clamp-2 font-medium bg-black/75 backdrop-blur-md px-2 py-1 border border-white/10 leading-normal">
-                    {post.prompt || post.caption || "Art"}
-                  </p>
-                </div>
-              )}
-            </div>
-          ))}
+          {(posts.length > 0 ? posts.slice(0, 3) : [null, null, null]).map(
+            (post, idx) => (
+              <div
+                key={post?._id || idx}
+                className="h-full relative flex-1 hover:flex-[3.5] transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] group/slice overflow-hidden border-r border-white/5 last:border-r-0"
+              >
+                <img
+                  src={post ? getPostImg(post) : fallbackImg}
+                  className="absolute inset-0 w-full h-full object-cover scale-105 group-hover/slice:scale-100 transition-transform duration-750"
+                />
+                <div className="absolute inset-0 bg-black/40 group-hover/slice:bg-black/10 transition-colors duration-300" />
+                {post && (
+                  <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover/slice:opacity-100 transition-opacity duration-300 pointer-events-none delay-100 z-30">
+                    <p className="text-[9px] text-white/90 line-clamp-2 font-medium bg-black/75 backdrop-blur-md px-2 py-1 border border-white/10 leading-normal">
+                      {post.prompt || post.caption || 'Art'}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )
+          )}
         </div>
       )}
 
@@ -555,14 +592,16 @@ const TrendingCard = ({ post, index, delay, onClick }) => {
       transition={{ delay, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
       onClick={onClick}
       className={`group relative rounded-2xl overflow-hidden cursor-pointer border transition-all duration-500 min-h-[220px] md:min-h-[260px]
-        ${isCenter 
-          ? 'scale-105 border-brand-500/30 z-15 shadow-2xl' 
-          : 'scale-95 opacity-80 border-white/5 hover:opacity-100 hover:scale-[0.98]'}`}
+        ${
+          isCenter
+            ? 'scale-105 border-brand-500/30 z-15 shadow-2xl'
+            : 'scale-95 opacity-80 border-white/5 hover:opacity-100 hover:scale-[0.98]'
+        }`}
       style={isCenter ? { boxShadow: `0 15px 45px -10px ${glowColor}50` } : {}}
     >
       <img
         src={displayUrl}
-        alt={post.caption || "Trending Art"}
+        alt={post.caption || 'Trending Art'}
         className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-700"
         loading="lazy"
       />
@@ -591,18 +630,24 @@ const TrendingCard = ({ post, index, delay, onClick }) => {
         <div className="liquid-glass rounded-xl px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {author?.avatar ? (
-              <img src={author.avatar} alt={author.displayName} className="w-8 h-8 rounded-full object-cover border border-white/10" />
+              <img
+                src={author.avatar}
+                alt={author.displayName}
+                className="w-8 h-8 rounded-full object-cover border border-white/10"
+              />
             ) : (
               <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-black pj">
-                {(author?.displayName || author?.username || 'U').slice(0, 2).toUpperCase()}
+                {(author?.displayName || author?.username || 'U')
+                  .slice(0, 2)
+                  .toUpperCase()}
               </div>
             )}
             <div>
               <p className="font-bold text-xs text-foreground pj">
-                {author?.displayName || author?.username || "Nghệ sĩ"}
+                {author?.displayName || author?.username || 'Nghệ sĩ'}
               </p>
               <p className="text-[9px] text-foreground/60 pj line-clamp-1 w-28 md:w-36">
-                {post.caption || post.prompt || "Tác phẩm"}
+                {post.caption || post.prompt || 'Tác phẩm'}
               </p>
             </div>
           </div>
@@ -615,7 +660,6 @@ const TrendingCard = ({ post, index, delay, onClick }) => {
     </motion.div>
   )
 }
-
 
 /* Masonry drop card for New Collections */
 const MasonryCard = ({ post, index, onClick }) => {
@@ -643,7 +687,7 @@ const MasonryCard = ({ post, index, onClick }) => {
     >
       <img
         src={displayUrl}
-        alt={post.caption || "Collection Image"}
+        alt={post.caption || 'Collection Image'}
         className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700"
         loading="lazy"
       />
@@ -653,9 +697,7 @@ const MasonryCard = ({ post, index, onClick }) => {
       />
       {badge && (
         <div className="absolute top-3 left-3">
-          <span
-            className="badge-brand px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider backdrop-blur-md pj"
-          >
+          <span className="badge-brand px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider backdrop-blur-md pj">
             {badge}
           </span>
         </div>
@@ -737,9 +779,7 @@ const CommunityPostCard = ({ post, index, onClick }) => {
   // Smart crop URL: Cloudinary AI tìm điểm đẹp nhất đúng với tỷ lệ card
   const { w, h, face } = CARD_THUMB[pattern.type]
   const sourceUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
-  const displayUrl = sourceUrl
-    ? getSmartCropUrl(sourceUrl, w, h, face)
-    : null
+  const displayUrl = sourceUrl ? getSmartCropUrl(sourceUrl, w, h, face) : null
 
   return (
     <div
@@ -796,9 +836,7 @@ const CommunityPostCard = ({ post, index, onClick }) => {
           </span>
         )}
         {post.aiTool && (
-          <span
-            className="badge-brand px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj"
-          >
+          <span className="badge-brand px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj">
             ✨ AI
           </span>
         )}
@@ -877,8 +915,17 @@ const GallerySkeleton = () => (
 )
 
 /* Leaderboard row with dynamic details and follow toggler */
-const LeaderRow = ({ c, rank, delay, onFollow }) => {
-  const rankColors = ['text-yellow-500', 'text-slate-400', 'text-amber-700', 'text-slate-500']
+const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
+  const currentUser = useAuthStore((s) => s.user)
+  const isMe =
+    currentUser && (currentUser._id === c._id || currentUser.id === c._id)
+
+  const rankColors = [
+    'text-yellow-500',
+    'text-slate-400',
+    'text-amber-700',
+    'text-slate-500',
+  ]
   const rankText = rank < 10 ? `0${rank}` : `${rank}`
 
   return (
@@ -889,48 +936,75 @@ const LeaderRow = ({ c, rank, delay, onFollow }) => {
       transition={{ delay, duration: 0.4 }}
       className="flex items-center justify-between group py-2"
     >
-      <div className="flex items-center gap-4">
-        <span className={`font-black italic text-xl w-7 pj ${rankColors[rank - 1] || 'text-foreground/30'}`}>
+      <div className="flex items-center gap-4 flex-1 min-w-0">
+        <span
+          className={`font-black italic text-xl w-7 pj ${rankColors[rank - 1] || 'text-foreground/30'}`}
+        >
           {rankText}
         </span>
-        <div className="relative">
-          {c.avatar ? (
-            <img src={c.avatar} alt={c.displayName || c.username} className="w-12 h-12 rounded-full object-cover border border-[var(--color-border)]" />
-          ) : (
-            <div
-              className="w-12 h-12 rounded-full bg-gradient-brand
-              flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
-            >
-              {(c.displayName || c.username || 'U').slice(0, 2).toUpperCase()}
-            </div>
-          )}
-          {c.isVerified && (
-            <span
-              className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black
-              px-1.5 py-0.5 rounded-sm text-white pj tracking-wide"
-            >
-              PRO
-            </span>
-          )}
-        </div>
-        <div>
-          <div className="font-bold text-sm text-foreground pj">{c.displayName || c.username}</div>
-          <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider pj">
-            {c.stats?.followersCount || 0} followers
+        <Link
+          to={`/profile/${c.username}`}
+          className="flex items-center gap-3 hover:opacity-80 transition-opacity flex-1 min-w-0"
+        >
+          <div className="relative flex-shrink-0">
+            {c.avatar ? (
+              <img
+                src={c.avatar}
+                alt={c.displayName || c.username}
+                className="w-12 h-12 rounded-full object-cover border border-[var(--color-border)]"
+              />
+            ) : (
+              <div
+                className="w-12 h-12 rounded-full bg-gradient-brand
+                flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
+              >
+                {(c.displayName || c.username || 'U').slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            {c.isVerified && (
+              <span
+                className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black
+                px-1.5 py-0.5 rounded-sm text-white pj tracking-wide"
+              >
+                PRO
+              </span>
+            )}
           </div>
-        </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-bold text-sm text-foreground pj truncate">
+              {c.displayName || c.username}
+            </div>
+            <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider pj truncate">
+              {metricType === 'followers' &&
+                `${(c.stats?.followersCount || 0).toLocaleString()} followers`}
+              {metricType === 'views' &&
+                `${(c.scoreValue || c.stats?.viewsCount || 0).toLocaleString()} views`}
+              {metricType === 'downloads' &&
+                `${(c.scoreValue || c.stats?.downloadsCount || 0).toLocaleString()} downloads`}
+            </div>
+          </div>
+        </Link>
       </div>
-      <button
-        type="button"
-        onClick={() => onFollow?.(c._id)}
-        className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border
-          ${c.isFollowing 
-            ? 'bg-green-500/10 border-green-500/30 text-green-500' 
-            : 'liquid-glass border-white/10 text-foreground/30 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/20'}`}
-        title={c.isFollowing ? "Đang theo dõi" : "Theo dõi"}
-      >
-        {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
-      </button>
+
+      {isMe ? (
+        <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 font-bold select-none pj flex-shrink-0">
+          Tôi
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onFollow?.(c)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border flex-shrink-0
+            ${
+              c.isFollowing
+                ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                : 'liquid-glass border-white/10 text-foreground/30 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/20'
+            }`}
+          title={c.isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+        >
+          {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
+        </button>
+      )}
     </motion.div>
   )
 }
@@ -963,8 +1037,18 @@ const FEED_TABS = [
 const POST_TYPE_TABS = [
   { key: 'all', label: 'Tất cả', icon: Globe, countKey: 'all' },
   { key: 'ai', label: 'Nghệ thuật AI', icon: Sparkles, countKey: 'ai' },
-  { key: 'digital-normal', label: 'Ảnh Camera (EXIF)', icon: Camera, countKey: 'cameraExif' },
-  { key: 'digital-raw', label: 'RAW & Presets', icon: Download, countKey: 'raw' },
+  {
+    key: 'digital-normal',
+    label: 'Ảnh Camera (EXIF)',
+    icon: Camera,
+    countKey: 'cameraExif',
+  },
+  {
+    key: 'digital-raw',
+    label: 'RAW & Presets',
+    icon: Download,
+    countKey: 'raw',
+  },
 ]
 
 const GALLERY_CATEGORIES = [
@@ -984,7 +1068,12 @@ const CommunityGallerySection = () => {
   const [activePostType, setActivePostType] = useState('all')
   const [activeCategory, setActiveCategory] = useState('all')
   const [onlyShowExif, setOnlyShowExif] = useState(true)
-  const [tabStats, setTabStats] = useState({ all: 0, ai: 0, raw: 0, cameraExif: 0 })
+  const [tabStats, setTabStats] = useState({
+    all: 0,
+    ai: 0,
+    raw: 0,
+    cameraExif: 0,
+  })
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [hasMore, setHasMore] = useState(false)
@@ -1005,7 +1094,7 @@ const CommunityGallerySection = () => {
 
       try {
         const params = { limit: 12, ...tab.params }
-        
+
         if (activeCategory !== 'all') {
           params.category = activeCategory
         }
@@ -1122,15 +1211,18 @@ const CommunityGallerySection = () => {
           <div className="flex flex-col gap-6 mb-10">
             {/* Row 1: Post Type Tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div 
+              <div
                 className="flex gap-2 p-1 bg-[#1a172e]/30 dark:bg-[#1a172e]/50 backdrop-blur-md rounded-2xl border overflow-x-auto hide-scrollbar max-w-full"
-                style={{ borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)' }}
+                style={{
+                  borderColor:
+                    'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
+                }}
               >
                 {POST_TYPE_TABS.map((tabItem) => {
                   const IconComp = tabItem.icon
                   const isActive = activePostType === tabItem.key
                   const count = tabStats[tabItem.countKey] ?? 0
-                  
+
                   return (
                     <button
                       key={tabItem.key}
@@ -1146,20 +1238,26 @@ const CommunityGallerySection = () => {
                         <motion.div
                           layoutId="activePostTypeTab"
                           className="absolute inset-0 bg-gradient-brand shadow-md rounded-xl z-0"
-                          transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                          transition={{
+                            type: 'spring',
+                            stiffness: 350,
+                            damping: 28,
+                          }}
                         />
                       )}
-                      
+
                       <span className="relative z-10 flex items-center justify-center">
                         <IconComp size={15} />
                       </span>
-                      
+
                       <span className="relative z-10">{tabItem.label}</span>
-                      
+
                       {/* Live Stats Badge */}
-                      <span className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-all
+                      <span
+                        className={`relative z-10 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-all
                         ${isActive ? 'bg-white/20 text-white' : 'bg-foreground/5 text-foreground/40'}
-                      `}>
+                      `}
+                      >
                         {count.toLocaleString()}
                       </span>
                     </button>
@@ -1176,11 +1274,16 @@ const CommunityGallerySection = () => {
                     exit={{ opacity: 0, x: 10, scale: 0.95 }}
                     transition={{ duration: 0.25, ease: 'easeOut' }}
                     className="flex items-center gap-3 bg-[#1a172e]/30 backdrop-blur-md px-4 py-2.5 rounded-xl border self-start sm:self-auto"
-                    style={{ borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)' }}
+                    style={{
+                      borderColor:
+                        'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
+                    }}
                   >
-                    <span className="text-xs text-foreground/60 font-medium pj">Chỉ hiện ảnh có EXIF chi tiết</span>
+                    <span className="text-xs text-foreground/60 font-medium pj">
+                      Chỉ hiện ảnh có EXIF chi tiết
+                    </span>
                     <button
-                      onClick={() => setOnlyShowExif(prev => !prev)}
+                      onClick={() => setOnlyShowExif((prev) => !prev)}
                       className={`w-9 h-5 rounded-full p-0.5 transition-all flex items-center cursor-pointer
                         ${onlyShowExif ? 'bg-green-500 justify-end' : 'bg-foreground/15 justify-start'}
                       `}
@@ -1188,7 +1291,11 @@ const CommunityGallerySection = () => {
                       <motion.div
                         layout
                         className="w-4 h-4 rounded-full bg-white shadow-sm"
-                        transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 500,
+                          damping: 30,
+                        }}
                       />
                     </button>
                   </motion.div>
@@ -1207,14 +1314,25 @@ const CommunityGallerySection = () => {
                     className={`relative px-4 py-2 rounded-xl text-xs font-semibold transition-all flex items-center gap-1.5 pj cursor-pointer select-none whitespace-nowrap border
                       ${isActive ? 'text-white border-transparent' : 'bg-[#1a172e]/10 hover:bg-[#1a172e]/20 dark:bg-[#1a172e]/20 dark:hover:bg-[#1a172e]/40 text-foreground/50'}
                     `}
-                    style={!isActive ? { borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.08)' } : {}}
+                    style={
+                      !isActive
+                        ? {
+                            borderColor:
+                              'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.08)',
+                          }
+                        : {}
+                    }
                   >
                     {/* Spring Active Indicator sliding background */}
                     {isActive && (
                       <motion.div
                         layoutId="activeCategoryPill"
                         className="absolute inset-0 bg-brand-600 rounded-xl z-0"
-                        transition={{ type: 'spring', stiffness: 350, damping: 28 }}
+                        transition={{
+                          type: 'spring',
+                          stiffness: 350,
+                          damping: 28,
+                        }}
                       />
                     )}
                     <span className="relative z-10 text-xs">{cat.emoji}</span>
@@ -1240,9 +1358,14 @@ const CommunityGallerySection = () => {
               animate={{ opacity: 1, scale: 1 }}
               className="text-center py-20"
             >
-              <div 
+              <div
                 className="w-20 h-20 rounded-3xl border flex items-center justify-center mx-auto mb-4"
-                style={{ background: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)', borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
+                style={{
+                  background:
+                    'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)',
+                  borderColor:
+                    'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)',
+                }}
               >
                 <span className="text-3xl">✨</span>
               </div>
@@ -1376,24 +1499,67 @@ const HomePage = () => {
   const heroRef = useRef(null)
   const navigate = useNavigate()
   const [activeCategory, setActiveCategory] = useState(0)
-  
+
   const [homepageData, setHomepageData] = useState(null)
   const [homepageLoading, setHomepageLoading] = useState(true)
   const [viewsInput, setViewsInput] = useState(5000)
   const [downloadsInput, setDownloadsInput] = useState(100)
+  const [freeDownloadsInput, setFreeDownloadsInput] = useState(500)
   const [selectedPostId, setSelectedPostId] = useState(null)
+
+  // Leaderboard states
+  const [leaderboard, setLeaderboard] = useState([])
+  const [leaderboardLoading, setLeaderboardLoading] = useState(false)
+  const [leaderPeriod, setLeaderPeriod] = useState('all') // 'week' | 'month' | 'year' | 'all'
+  const [leaderType, setLeaderType] = useState('followers') // 'followers' | 'views' | 'downloads'
+
+  const [showLeaderModal, setShowLeaderModal] = useState(false)
+  const [modalCreators, setModalCreators] = useState([])
+  const [modalLoading, setModalLoading] = useState(false)
+  const [modalPeriod, setModalPeriod] = useState('all')
+  const [modalType, setModalType] = useState('followers')
 
   const { splashExtraMs } = useSettings()
 
+  const fetchLeaderboard = useCallback(
+    async (period, type, limit = 4, target = 'local') => {
+      try {
+        if (target === 'local') setLeaderboardLoading(true)
+        else setModalLoading(true)
+
+        const { data } = await api.get('/users/leaderboard', {
+          params: { period, type, limit },
+        })
+
+        if (target === 'local') {
+          setLeaderboard(data.creators || [])
+          setLeaderboardLoading(false)
+        } else {
+          setModalCreators(data.creators || [])
+          setModalLoading(false)
+        }
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err)
+        if (target === 'local') setLeaderboardLoading(false)
+        else setModalLoading(false)
+      }
+    },
+    []
+  )
+
   useEffect(() => {
-    api.get('/posts/homepage-data')
+    api
+      .get('/posts/homepage-data')
       .then(({ data }) => {
         // Lấy thời gian cộng thêm từ API response, fallback về context settings
         const extra = data.splashExtraMs ?? splashExtraMs ?? 0
-        
+
         // Chờ thêm khoảng thời gian setting sau khi dữ liệu đã được tải xong
         setTimeout(() => {
           setHomepageData(data)
+          if (data.leaderboard) {
+            setLeaderboard(data.leaderboard)
+          }
           setHomepageLoading(false)
         }, extra)
       })
@@ -1402,27 +1568,97 @@ const HomePage = () => {
       })
   }, []) // eslint-disable-line
 
-  const handleFollowCreator = async (creatorId) => {
+  // Fetch local leaderboard when type/period changes (skip first load since payload has it)
+  useEffect(() => {
+    if (homepageData) {
+      fetchLeaderboard(leaderPeriod, leaderType, 4, 'local')
+    }
+  }, [leaderPeriod, leaderType, fetchLeaderboard]) // eslint-disable-line
+
+  // Fetch modal leaderboard when open, type/period changes
+  useEffect(() => {
+    if (showLeaderModal) {
+      fetchLeaderboard(modalPeriod, modalType, 20, 'modal')
+    }
+  }, [showLeaderModal, modalPeriod, modalType, fetchLeaderboard])
+
+  const [unfollowTarget, setUnfollowTarget] = useState(null)
+
+  const confirmUnfollow = async (creatorId) => {
     try {
       const { data } = await api.post(`/users/${creatorId}/follow`)
       toast.success(data.message)
-      setHomepageData(prev => {
+
+      const updateList = (prev) =>
+        prev.map((c) =>
+          c._id === creatorId
+            ? {
+                ...c,
+                isFollowing: data.following,
+                stats: {
+                  ...c.stats,
+                  followersCount:
+                    (c.stats?.followersCount || 0) + (data.following ? 1 : -1),
+                },
+              }
+            : c
+        )
+
+      setLeaderboard(updateList)
+      setModalCreators(updateList)
+
+      setHomepageData((prev) => {
         if (!prev) return prev
         return {
           ...prev,
-          leaderboard: prev.leaderboard.map(c => 
-            c._id === creatorId 
-              ? { 
-                  ...c, 
-                  isFollowing: data.following, 
-                  stats: { ...c.stats, followersCount: c.stats.followersCount + (data.following ? 1 : -1) } 
-                } 
-              : c
-          )
+          leaderboard: updateList(prev.leaderboard || []),
         }
       })
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Không thể theo dõi nghệ sĩ')
+      toast.error(
+        err.response?.data?.message || 'Không thể hủy theo dõi nghệ sĩ'
+      )
+    }
+  }
+
+  const handleFollowCreator = async (creator) => {
+    if (creator.isFollowing) {
+      setUnfollowTarget(creator)
+    } else {
+      // Follow instantly
+      try {
+        const { data } = await api.post(`/users/${creator._id}/follow`)
+        toast.success(data.message)
+
+        const updateList = (prev) =>
+          prev.map((c) =>
+            c._id === creator._id
+              ? {
+                  ...c,
+                  isFollowing: data.following,
+                  stats: {
+                    ...c.stats,
+                    followersCount:
+                      (c.stats?.followersCount || 0) +
+                      (data.following ? 1 : -1),
+                  },
+                }
+              : c
+          )
+
+        setLeaderboard(updateList)
+        setModalCreators(updateList)
+
+        setHomepageData((prev) => {
+          if (!prev) return prev
+          return {
+            ...prev,
+            leaderboard: updateList(prev.leaderboard || []),
+          }
+        })
+      } catch (err) {
+        toast.error(err.response?.data?.message || 'Không thể theo dõi nghệ sĩ')
+      }
     }
   }
 
@@ -1437,37 +1673,60 @@ const HomePage = () => {
       'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?auto=format&fit=crop&w=500&q=70&fm=webp',
       'https://images.unsplash.com/photo-1475274047050-1d0c0975c63e?auto=format&fit=crop&w=500&q=70&fm=webp',
     ]
-    if (!homepageData?.collage || homepageData.collage.length < 8) return defaultCollage
+    if (!homepageData?.collage || homepageData.collage.length < 8)
+      return defaultCollage
     return homepageData.collage
   }, [homepageData])
 
   const statsList = useMemo(() => {
     return [
-      { value: homepageData?.stats?.totalPosts || 0, label: 'Wallpapers', color: '#a78bfa', format: '+' },
-      { value: homepageData?.stats?.totalDownloads || 0, label: 'Downloads', color: '#60a5fa', format: '' },
-      { value: homepageData?.stats?.totalCreators || 0, label: 'Creators', color: '#f59e0b', format: '' },
-      { value: homepageData?.stats?.totalCoinsPaid || 0, label: 'Xu đã trả', color: '#34d399', format: '+' }
+      {
+        value: homepageData?.stats?.totalPosts || 0,
+        label: 'Wallpapers',
+        color: '#a78bfa',
+        format: '+',
+      },
+      {
+        value: homepageData?.stats?.totalDownloads || 0,
+        label: 'Downloads',
+        color: '#60a5fa',
+        format: '',
+      },
+      {
+        value: homepageData?.stats?.totalCreators || 0,
+        label: 'Creators',
+        color: '#f59e0b',
+        format: '',
+      },
+      {
+        value: homepageData?.stats?.totalCoinsPaid || 0,
+        label: 'Xu đã trả',
+        color: '#34d399',
+        format: '+',
+      },
     ]
   }, [homepageData])
 
   const categoriesToRender = useMemo(() => {
     const style = homepageData?.categoryStyle || 'style-1'
     if (!homepageData?.categories) {
-      return CATEGORIES.map(c => ({
+      return CATEGORIES.map((c) => ({
         ...c,
         posts: [],
-        style
+        style,
       }))
     }
-    return GALLERY_CATEGORIES.filter(c => c.key !== 'all' && c.key !== 'other').map(c => {
-      const dbData = homepageData.categories.find(d => d.key === c.key)
+    return GALLERY_CATEGORIES.filter(
+      (c) => c.key !== 'all' && c.key !== 'other'
+    ).map((c) => {
+      const dbData = homepageData.categories.find((d) => d.key === c.key)
       return {
         label: c.label,
         emoji: c.emoji,
         key: c.key,
         count: dbData?.count || 0,
         posts: dbData?.posts || [],
-        style
+        style,
       }
     })
   }, [homepageData])
@@ -1489,7 +1748,10 @@ const HomePage = () => {
         {/* Subtle glowing radial blob */}
         <div
           className="absolute w-[320px] h-[320px] rounded-full blur-[130px] pointer-events-none"
-          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.18)' }}
+          style={{
+            backgroundColor:
+              'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.18)',
+          }}
         />
         {/* Loader */}
         <div className="relative z-10">
@@ -1523,7 +1785,10 @@ const HomePage = () => {
         <Orb
           className="orb-float-1 top-[-10%] left-[-5%] w-[40vw] h-[40vw]
           blur-[130px] rounded-full"
-          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)' }}
+          style={{
+            backgroundColor:
+              'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.1)',
+          }}
         />
         <Orb
           className="orb-float-2 bottom-[0%] right-[-8%] w-[35vw] h-[35vw]
@@ -1647,7 +1912,10 @@ const HomePage = () => {
                 className="px-10 py-5 rounded-full font-bold text-white text-base w-full sm:w-auto
                   bg-gradient-brand
                   transition-shadow duration-300 flex items-center gap-2 justify-center"
-                style={{ boxShadow: '0 0 50px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.35)' }}
+                style={{
+                  boxShadow:
+                    '0 0 50px hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.35)',
+                }}
               >
                 Bắt đầu ngay <ArrowRight size={18} />
               </motion.button>
@@ -1696,7 +1964,10 @@ const HomePage = () => {
                 alt="" className="flex-1 object-cover object-center opacity-60" loading="eager"
               /> */}
               <img
-                src={homepageData?.heroBannerImage || "https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85"}
+                src={
+                  homepageData?.heroBannerImage ||
+                  'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85'
+                }
                 alt="PICSPY hero"
                 className="w-full h-[400px] md:h-[520px] object-cover object-center opacity-50"
                 loading="eager"
@@ -1738,7 +2009,11 @@ const HomePage = () => {
                   className="text-3xl md:text-4xl font-black pj mb-1.5 transition-transform
                   duration-300 group-hover:scale-110"
                 >
-                  <AnimatedCounter targetValue={value} format={format} color={color} />
+                  <AnimatedCounter
+                    targetValue={value}
+                    format={format}
+                    color={color}
+                  />
                 </p>
                 <p className="text-[10px] font-bold tracking-widest uppercase text-[#6D6255] dark:text-white/45 pj">
                   {label}
@@ -1845,7 +2120,9 @@ const HomePage = () => {
                 onClick={() => setSelectedPostId(post._id)}
               />
             )) || (
-              <div className="col-span-3 text-center text-white/40 py-10">Đang tải xu hướng...</div>
+              <div className="col-span-3 text-center text-white/40 py-10">
+                Đang tải xu hướng...
+              </div>
             )}
           </div>
         </div>
@@ -1878,7 +2155,8 @@ const HomePage = () => {
                 </h2>
               </div>
               <span className="text-foreground/45 dark:text-white/30 text-sm font-bold pj flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" /> Live Feed
+                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />{' '}
+                Live Feed
               </span>
             </motion.div>
 
@@ -1891,7 +2169,9 @@ const HomePage = () => {
                   onClick={() => setSelectedPostId(post._id)}
                 />
               )) || (
-                <div className="text-center text-white/40 py-10">Đang tải bộ sưu tập mới...</div>
+                <div className="text-center text-white/40 py-10">
+                  Đang tải bộ sưu tập mới...
+                </div>
               )}
             </div>
           </div>
@@ -1905,33 +2185,107 @@ const HomePage = () => {
               transition={{ duration: 0.6 }}
             >
               <LiquidCard strong className="p-8 sticky top-28">
-                <h2 className="text-2xl font-black tracking-tight mb-8 pj">
+                <h2 className="text-2xl font-black tracking-tight mb-4 pj">
                   Bảng xếp hạng
                 </h2>
-                <div className="space-y-4 divide-y divide-[var(--color-border)]">
-                  {homepageData?.leaderboard?.map((c, i) => (
-                    <div key={c._id} className={i > 0 ? 'pt-4 border-[var(--color-border)]' : ''}>
-                      <LeaderRow
-                        c={c}
-                        rank={i + 1}
-                        delay={i * 0.08}
-                        onFollow={handleFollowCreator}
+
+                {/* Filter Pills */}
+                <div className="flex flex-col gap-3 mb-6 border-b border-white/5 pb-5 items-center justify-center">
+                  {/* Metric Tab Segmented Control */}
+                  <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/10 w-full justify-between gap-1">
+                    {[
+                      { key: 'followers', label: 'Người theo dõi' },
+                      { key: 'views', label: 'Lượt xem' },
+                      { key: 'downloads', label: 'Lượt tải xuống' },
+                    ].map((t) => (
+                      <button
+                        key={t.key}
+                        onClick={() => setLeaderType(t.key)}
+                        className={`flex-1 text-center py-2.5 rounded-full text-[10px] font-black transition-all cursor-pointer select-none whitespace-nowrap px-1 ${
+                          leaderType === t.key
+                            ? 'bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-[0_4px_12px_rgba(139,92,246,0.35)] scale-[1.02]'
+                            : 'text-white/40 hover:text-white/80 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* Period Tab Segmented Control */}
+                  <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/10 w-full justify-between max-w-[250px]">
+                    {[
+                      { key: 'week', label: 'Tuần' },
+                      { key: 'month', label: 'Tháng' },
+                      { key: 'all', label: 'Tất cả' },
+                    ].map((t) => (
+                      <button
+                        key={t.key}
+                        onClick={() => setLeaderPeriod(t.key)}
+                        className={`flex-1 text-center py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer select-none ${
+                          leaderPeriod === t.key
+                            ? 'bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-[0_4px_12px_rgba(139,92,246,0.35)] scale-[1.03]'
+                            : 'text-white/40 hover:text-white/80 hover:bg-white/[0.02]'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Leaderboard Rows */}
+                <div className="space-y-4 divide-y divide-[var(--color-border)] h-[310px] flex flex-col justify-center overflow-hidden">
+                  {leaderboardLoading ? (
+                    <div className="flex-1 flex flex-col items-center justify-center py-10 gap-2">
+                      <motion.div
+                        className="w-5 h-5 border-2 border-brand-500 border-t-transparent rounded-full"
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 0.8,
+                          repeat: Infinity,
+                          ease: 'linear',
+                        }}
                       />
                     </div>
-                  )) || (
-                    <div className="text-center text-white/40 py-6">Đang tải xếp hạng...</div>
+                  ) : leaderboard.length > 0 ? (
+                    leaderboard.map((c, i) => (
+                      <div
+                        key={c._id}
+                        className={
+                          i > 0 ? 'pt-4 border-[var(--color-border)]' : ''
+                        }
+                      >
+                        <LeaderRow
+                          c={c}
+                          rank={i + 1}
+                          delay={i * 0.08}
+                          onFollow={handleFollowCreator}
+                          metricType={leaderType}
+                        />
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center text-white/40 py-6 pj">
+                      Không có dữ liệu xếp hạng
+                    </div>
                   )}
                 </div>
-                <Link to="/creators">
-                  <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
-                    className="w-full mt-8 py-4 liquid-glass rounded-full text-sm font-bold pj
-                      text-foreground/60 hover:text-foreground dark:text-white/60 dark:hover:text-white transition-all"
-                  >
-                    Xem tất cả creator
-                  </motion.button>
-                </Link>
+
+                {/* Show Top 20 Modal Button */}
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    setModalPeriod(leaderPeriod)
+                    setModalType(leaderType)
+                    setShowLeaderModal(true)
+                  }}
+                  className="w-full mt-8 py-4 liquid-glass rounded-full text-sm font-bold pj
+                    text-foreground/60 hover:text-foreground dark:text-white/60 dark:hover:text-white transition-all cursor-pointer"
+                >
+                  Xem top 20 creators 🏆
+                </motion.button>
               </LiquidCard>
             </motion.div>
           </div>
@@ -1945,7 +2299,10 @@ const HomePage = () => {
         <Orb
           className="top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2
           w-[60vw] h-[60vw] blur-[150px] orb-float-1"
-          style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12)' }}
+          style={{
+            backgroundColor:
+              'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12)',
+          }}
         />
 
         <motion.div
@@ -1970,7 +2327,10 @@ const HomePage = () => {
             <div
               className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[300px]
               rounded-full blur-[100px] pointer-events-none"
-              style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12)' }}
+              style={{
+                backgroundColor:
+                  'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.12)',
+              }}
             />
             <div
               className="absolute bottom-0 right-0 w-80 h-80
@@ -1995,79 +2355,172 @@ const HomePage = () => {
                   Bạn là nhà sáng tạo nghệ thuật?
                 </h2>
                 <p className="text-foreground/70 text-base mb-8 leading-relaxed pj">
-                  Gia nhập đội ngũ PICSPY Creators ngay. Hệ thống phân phối và chia sẻ
-                  doanh thu bằng tiền mặt VNĐ minh bạch, trả lại giá trị thực xứng đáng với tài năng của bạn.
+                  Gia nhập đội ngũ PICSPY Creators ngay. Hệ thống phân phối và
+                  chia sẻ doanh thu bằng tiền mặt VNĐ minh bạch, trả lại giá trị
+                  thực xứng đáng với tài năng của bạn.
                 </p>
 
                 {/* Revenue Payout Calculator */}
                 <div className="space-y-4 mb-8 w-full max-w-lg">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black uppercase text-foreground/50 tracking-widest pj">Ước tính doanh thu của bạn</span>
+                    <span className="text-[10px] font-black uppercase text-foreground/50 tracking-widest pj">
+                      Ước tính doanh thu của bạn
+                    </span>
                   </div>
-                  
+
                   <div className="bg-white/5 border border-white/5 rounded-[2rem] p-6 space-y-6 text-left relative overflow-hidden">
-                    <div className="grid grid-cols-2 gap-4 pb-4 border-b border-white/[0.05]">
-                      <div>
-                        <p className="text-[10px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">Lượt xem ước tính</p>
-                        <p className="text-xl font-black text-foreground tabular-nums leading-none pj">{viewsInput.toLocaleString()}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">Lượt tải Premium (Ảnh bán)</p>
-                        <p className="text-xl font-black text-foreground tabular-nums leading-none pj">{downloadsInput.toLocaleString()}</p>
-                      </div>
-                    </div>
+                    {(() => {
+                      const minViews =
+                        freeDownloadsInput * 5 + downloadsInput * 15
+                      const effectiveViews = Math.max(viewsInput, minViews)
+                      const viewPayout =
+                        effectiveViews *
+                        (homepageData?.rates?.payoutRatePerView || 10)
+                      const freeDownloadPayout = freeDownloadsInput * 100
+                      const premiumDownloadPayout =
+                        downloadsInput *
+                        20000 *
+                        ((homepageData?.rates?.creatorSharePercent || 70) / 100)
+                      const totalPayout =
+                        viewPayout + freeDownloadPayout + premiumDownloadPayout
 
-                    <div className="space-y-4">
-                      {/* Views Slider */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
-                          <span>Lượt xem</span>
-                          <span className="text-brand-400 font-bold">{(viewsInput * (homepageData?.rates?.payoutRatePerView || 10)).toLocaleString()}đ</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="100000"
-                          step="500"
-                          value={viewsInput}
-                          onChange={(e) => setViewsInput(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
-                          style={{
-                            background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${(viewsInput) / 1000}%, rgba(255,255,255,0.1) ${(viewsInput) / 1000}%, rgba(255,255,255,0.1) 100%)`
-                          }}
-                        />
-                      </div>
+                      return (
+                        <>
+                          <div className="grid grid-cols-3 gap-4 pb-4 border-b border-white/[0.05]">
+                            <div>
+                              <p className="text-[9px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">
+                                Lượt xem ước tính
+                              </p>
+                              <p className="text-lg font-black text-foreground tabular-nums leading-none pj">
+                                {effectiveViews.toLocaleString()}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">
+                                Lượt tải ảnh thường
+                              </p>
+                              <p className="text-lg font-black text-foreground tabular-nums leading-none pj">
+                                {freeDownloadsInput.toLocaleString()}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-bold text-foreground/55 mb-1 uppercase tracking-wide pj">
+                                Lượt tải Premium
+                              </p>
+                              <p className="text-lg font-black text-foreground tabular-nums leading-none pj">
+                                {downloadsInput.toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
 
-                      {/* Downloads Slider */}
-                      <div className="space-y-1">
-                        <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
-                          <span>Lượt tải Premium (Ví dụ bán 20k/ảnh)</span>
-                          <span className="text-brand-400 font-bold">{(downloadsInput * 20000 * ((homepageData?.rates?.creatorSharePercent || 70) / 100)).toLocaleString()}đ</span>
-                        </div>
-                        <input
-                          type="range"
-                          min="0"
-                          max="1000"
-                          step="5"
-                          value={downloadsInput}
-                          onChange={(e) => setDownloadsInput(parseInt(e.target.value))}
-                          className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
-                          style={{
-                            background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${(downloadsInput) / 10}%, rgba(255,255,255,0.1) ${(downloadsInput) / 10}%, rgba(255,255,255,0.1) 100%)`
-                          }}
-                        />
-                      </div>
-                    </div>
+                          <div className="space-y-4">
+                            {/* Views Slider */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
+                                <span>
+                                  Lượt xem (tối thiểu{' '}
+                                  {minViews.toLocaleString()})
+                                </span>
+                                <span className="text-brand-400 font-bold">
+                                  {viewPayout.toLocaleString()}đ
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min={minViews}
+                                max="100000"
+                                step="500"
+                                value={effectiveViews}
+                                onChange={(e) =>
+                                  setViewsInput(
+                                    Math.max(parseInt(e.target.value), minViews)
+                                  )
+                                }
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                                style={{
+                                  background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${effectiveViews / 1000}%, rgba(255,255,255,0.1) ${effectiveViews / 1000}%, rgba(255,255,255,0.1) 100%)`,
+                                }}
+                              />
+                            </div>
 
-                    <div className="pt-2 flex items-center justify-between">
-                      <span className="text-xs font-bold text-foreground/50 pj">Doanh thu nhận về (70% Share)</span>
-                      <p className="text-3xl font-black text-emerald-400 tabular-nums pj">
-                        {(
-                          viewsInput * (homepageData?.rates?.payoutRatePerView || 10) +
-                          downloadsInput * 20000 * ((homepageData?.rates?.creatorSharePercent || 70) / 100)
-                        ).toLocaleString('vi-VN')} đ
-                      </p>
-                    </div>
+                            {/* Free Downloads Slider */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
+                                <span>
+                                  Lượt tải ảnh thường (Khuyến khích tương tác
+                                  100đ/tải)
+                                </span>
+                                <span className="text-brand-400 font-bold">
+                                  {freeDownloadPayout.toLocaleString()}đ
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="10000"
+                                step="50"
+                                value={freeDownloadsInput}
+                                onChange={(e) => {
+                                  const newVal = parseInt(e.target.value)
+                                  setFreeDownloadsInput(newVal)
+                                  const newMin =
+                                    newVal * 5 + downloadsInput * 15
+                                  if (viewsInput < newMin) {
+                                    setViewsInput(newMin)
+                                  }
+                                }}
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                                style={{
+                                  background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${freeDownloadsInput / 100}%, rgba(255,255,255,0.1) ${freeDownloadsInput / 100}%, rgba(255,255,255,0.1) 100%)`,
+                                }}
+                              />
+                            </div>
+
+                            {/* Downloads Slider */}
+                            <div className="space-y-1">
+                              <div className="flex justify-between text-[9px] font-bold text-white/40 uppercase">
+                                <span>
+                                  Lượt tải Premium (Ví dụ bán 20k/tải - nhận
+                                  70%)
+                                </span>
+                                <span className="text-brand-400 font-bold">
+                                  {premiumDownloadPayout.toLocaleString()}đ
+                                </span>
+                              </div>
+                              <input
+                                type="range"
+                                min="0"
+                                max="1000"
+                                step="5"
+                                value={downloadsInput}
+                                onChange={(e) => {
+                                  const newVal = parseInt(e.target.value)
+                                  setDownloadsInput(newVal)
+                                  const newMin =
+                                    freeDownloadsInput * 5 + newVal * 15
+                                  if (viewsInput < newMin) {
+                                    setViewsInput(newMin)
+                                  }
+                                }}
+                                className="w-full h-1 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                                style={{
+                                  background: `linear-gradient(to right, var(--color-brand-500) 0%, var(--color-brand-500) ${downloadsInput / 10}%, rgba(255,255,255,0.1) ${downloadsInput / 10}%, rgba(255,255,255,0.1) 100%)`,
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          <div className="pt-2 flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground/55 pj">
+                              Ước tính Doanh thu nhận về
+                            </span>
+                            <p className="text-3xl font-black text-emerald-400 tabular-nums pj">
+                              {totalPayout.toLocaleString('vi-VN')} đ
+                            </p>
+                          </div>
+                        </>
+                      )
+                    })()}
                   </div>
                 </div>
               </div>
@@ -2087,9 +2540,15 @@ const HomePage = () => {
                 <div className="flex items-center justify-between mb-6 pb-4 border-b border-white/[0.06]">
                   <div>
                     <h3 className="text-sm font-black text-white tracking-tight flex items-center gap-1.5 uppercase">
-                      <TrendingUp size={15} className="text-emerald-400 animate-pulse" /> Tỷ giá Creator
+                      <TrendingUp
+                        size={15}
+                        className="text-emerald-400 animate-pulse"
+                      />{' '}
+                      Tỷ giá Creator
                     </h3>
-                    <p className="text-[10px] text-white/45 font-bold uppercase tracking-wider mt-0.5">Cập nhật hôm nay</p>
+                    <p className="text-[10px] text-white/45 font-bold uppercase tracking-wider mt-0.5">
+                      Cập nhật hôm nay
+                    </p>
                   </div>
                   <span className="flex h-2 w-2 relative">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -2101,42 +2560,57 @@ const HomePage = () => {
                   {[
                     {
                       label: 'Tỷ giá Lượt xem (View)',
-                      value: `${(homepageData?.rates?.payoutRatePerView || 10)}đ / view`,
+                      value: `${homepageData?.rates?.payoutRatePerView || 10}đ / view`,
                       desc: 'Tính trên mỗi view hợp lệ (Quyết toán đêm 00:00)',
                       indicator: '📈 +3.2%',
-                      indicatorColor: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20'
+                      indicatorColor:
+                        'text-emerald-400 bg-emerald-500/10 border-emerald-500/20',
                     },
                     {
                       label: 'Doanh thu bán ảnh Premium',
-                      value: `${(homepageData?.rates?.creatorSharePercent || 70)}%`,
+                      value: `${homepageData?.rates?.creatorSharePercent || 70}%`,
                       desc: 'Tỷ lệ chia sẻ doanh thu trực tiếp cho tác giả',
                       indicator: '🛡️ Ổn định',
-                      indicatorColor: 'text-brand-400 bg-brand-500/10 border-brand-500/20'
+                      indicatorColor:
+                        'text-brand-400 bg-brand-500/10 border-brand-500/20',
                     },
                     {
                       label: 'Hạn mức rút tối thiểu',
                       value: `${(50000).toLocaleString('vi-VN')}đ`,
                       desc: 'Chuyển khoản trực tiếp về ngân hàng của bạn',
                       indicator: '💳 Instant',
-                      indicatorColor: 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                      indicatorColor:
+                        'text-amber-400 bg-amber-500/10 border-amber-500/20',
                     },
                     {
                       label: 'Phí giao dịch rút ví',
                       value: '2% + 10.000đ',
                       desc: 'Chi trả phí liên ngân hàng & kiểm duyệt viên',
                       indicator: '🏦 Sàn thu',
-                      indicatorColor: 'text-white/40 bg-white/5 border-white/10'
-                    }
+                      indicatorColor:
+                        'text-white/40 bg-white/5 border-white/10',
+                    },
                   ].map((rate, idx) => (
-                    <div key={idx} className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 hover:bg-white/[0.04] transition-colors">
+                    <div
+                      key={idx}
+                      className="bg-white/[0.02] border border-white/[0.04] rounded-2xl p-4 hover:bg-white/[0.04] transition-colors"
+                    >
                       <div className="flex justify-between items-start mb-1">
-                        <span className="text-[10px] font-bold text-white/55">{rate.label}</span>
-                        <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${rate.indicatorColor} tracking-wide`}>
+                        <span className="text-[10px] font-bold text-white/55">
+                          {rate.label}
+                        </span>
+                        <span
+                          className={`text-[9px] font-black px-1.5 py-0.5 rounded-md border ${rate.indicatorColor} tracking-wide`}
+                        >
                           {rate.indicator}
                         </span>
                       </div>
-                      <p className="text-xl font-black text-white leading-none tracking-tight mb-1">{rate.value}</p>
-                      <p className="text-[9px] text-white/30 leading-normal">{rate.desc}</p>
+                      <p className="text-xl font-black text-white leading-none tracking-tight mb-1">
+                        {rate.value}
+                      </p>
+                      <p className="text-[9px] text-white/30 leading-normal">
+                        {rate.desc}
+                      </p>
                     </div>
                   ))}
                 </div>
@@ -2245,6 +2719,221 @@ const HomePage = () => {
           />
         )}
       </AnimatePresence>
+
+      {/* Leaderboard Modal */}
+      <AnimatePresence>
+        {showLeaderModal && (
+          <LeaderboardModal
+            open={showLeaderModal}
+            onClose={() => setShowLeaderModal(false)}
+            creators={modalCreators}
+            loading={modalLoading}
+            period={modalPeriod}
+            setPeriod={setModalPeriod}
+            type={modalType}
+            setType={setModalType}
+            onFollow={handleFollowCreator}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Unfollow Confirm Dialog */}
+      <AnimatePresence>
+        {unfollowTarget && (
+          <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+            {/* Overlay click to close */}
+            <div
+              className="fixed inset-0 w-full h-full"
+              onClick={() => setUnfollowTarget(null)}
+            />
+
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2 }}
+              className="relative bg-[#121225]/95 border border-white/10 p-8 rounded-[2rem] w-full max-w-sm text-center shadow-2xl z-10 noise"
+              style={{ backdropFilter: 'blur(32px)' }}
+            >
+              <div className="w-14 h-14 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-5 text-red-500 text-xl">
+                ⚠️
+              </div>
+              <h4 className="text-lg font-black text-white mb-2 pj">
+                Hủy theo dõi?
+              </h4>
+              <p className="text-sm text-white/60 mb-6 leading-relaxed pj">
+                Bạn có chắc chắn muốn hủy theo dõi{' '}
+                <span className="text-white font-bold">
+                  {unfollowTarget.displayName || unfollowTarget.username}
+                </span>{' '}
+                không?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setUnfollowTarget(null)}
+                  className="flex-1 py-3 rounded-full border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs font-bold cursor-pointer"
+                >
+                  Bỏ qua
+                </button>
+                <button
+                  onClick={() => {
+                    confirmUnfollow(unfollowTarget._id)
+                    setUnfollowTarget(null)
+                  }}
+                  className="flex-1 py-3 rounded-full bg-red-600 hover:bg-red-500 text-white transition-all text-xs font-bold shadow-[0_4px_12px_rgba(220,38,38,0.3)] cursor-pointer"
+                >
+                  Hủy theo dõi
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}
+
+/* ─── Leaderboard Modal Component ─────────────────────────── */
+const LeaderboardModal = ({
+  open,
+  onClose,
+  creators,
+  loading,
+  period,
+  setPeriod,
+  type,
+  setType,
+  onFollow,
+}) => {
+  // Prevent background scroll when modal is open
+  useEffect(() => {
+    if (open) {
+      document.body.style.overflow = 'hidden'
+    } else {
+      document.body.style.overflow = ''
+    }
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [open])
+
+  if (!open) return null
+
+  const periodTabs = [
+    { key: 'week', label: 'Tuần này' },
+    { key: 'month', label: 'Tháng này' },
+    { key: 'year', label: 'Năm này' },
+    { key: 'all', label: 'Tất cả' },
+  ]
+
+  const typeTabs = [
+    { key: 'followers', label: 'Người theo dõi 👥' },
+    { key: 'views', label: 'Lượt xem 👁' },
+    { key: 'downloads', label: 'Lượt tải xuống 📥' },
+  ]
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md">
+      {/* Click outside overlay */}
+      <div className="fixed inset-0 w-full h-full" onClick={onClose} />
+
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.3, ease: 'easeOut' }}
+        className="relative bg-[#121225]/95 border border-white/10 rounded-[2.5rem] w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col h-[650px] max-h-[85vh] z-10 noise"
+        style={{ backdropFilter: 'blur(32px)' }}
+      >
+        {/* Modal Header */}
+        <div className="p-6 pb-4 border-b border-white/5 flex items-center justify-between">
+          <div>
+            <h3 className="text-xl font-black text-white pj">
+              Bảng Xếp Hạng Creators
+            </h3>
+            <p className="text-xs text-white/40 font-bold pj">
+              Top 20 nghệ sĩ nổi bật nhất
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="w-10 h-10 rounded-full flex items-center justify-center bg-white/5 border border-white/10 hover:bg-white/10 transition-colors text-white/60 hover:text-white cursor-pointer"
+          >
+            <X size={18} />
+          </button>
+        </div>
+
+        {/* Filters Panel */}
+        <div className="p-6 py-5 bg-white/[0.02] border-b border-white/5 flex flex-col sm:flex-row items-center justify-center gap-4">
+          {/* Period Tabs */}
+          <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/10 w-full sm:w-auto justify-between min-w-[285px]">
+            {periodTabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setPeriod(t.key)}
+                className={`flex-1 text-center py-2 rounded-full text-xs font-extrabold transition-all cursor-pointer ${
+                  period === t.key
+                    ? 'bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-[0_4px_12px_rgba(139,92,246,0.35)] scale-[1.03]'
+                    : 'text-white/40 hover:text-white/80 hover:bg-white/[0.02]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Type Tabs */}
+          <div className="flex bg-white/[0.03] p-1 rounded-full border border-white/10 w-full sm:w-auto justify-between min-w-[360px] gap-1">
+            {typeTabs.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setType(t.key)}
+                className={`flex-1 text-center py-2 rounded-full text-[11px] sm:text-xs font-black transition-all cursor-pointer select-none whitespace-nowrap px-1.5 ${
+                  type === t.key
+                    ? 'bg-gradient-to-r from-brand-600 to-violet-600 text-white shadow-[0_4px_12px_rgba(139,92,246,0.35)] scale-[1.03]'
+                    : 'text-white/40 hover:text-white/80 hover:bg-white/[0.02]'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Modal List Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-3 custom-scrollbar flex flex-col">
+          {loading ? (
+            <div className="flex-1 flex flex-col items-center justify-center py-20 gap-3">
+              <motion.div
+                className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+              />
+              <p className="text-xs text-white/40 font-bold pj">
+                Đang tải bảng xếp hạng...
+              </p>
+            </div>
+          ) : creators.length === 0 ? (
+            <div className="text-center text-white/40 py-20 pj">
+              Không tìm thấy dữ liệu xếp hạng
+            </div>
+          ) : (
+            <div className="divide-y divide-white/5 space-y-3">
+              {creators.map((c, i) => (
+                <div key={c._id} className={i > 0 ? 'pt-3 border-white/5' : ''}>
+                  <LeaderRow
+                    c={c}
+                    rank={i + 1}
+                    delay={i * 0.04}
+                    onFollow={onFollow}
+                    metricType={type}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </motion.div>
     </div>
   )
 }

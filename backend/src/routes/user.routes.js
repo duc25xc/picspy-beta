@@ -15,6 +15,7 @@ import {
   requestWithdrawal,
   getVndTransactions,
   getMyPurchasedPosts,
+  getLeaderboard,
 } from '../controllers/user.controller.js'
 import { getMyBookmarks } from '../controllers/post.interaction.controller.js'
 
@@ -33,6 +34,7 @@ router.post('/me/withdraw', authenticate, requestWithdrawal)
 router.get('/me/transactions', authenticate, getVndTransactions)
 
 // Public
+router.get('/leaderboard', optionalAuth, getLeaderboard)
 router.get('/:username', optionalAuth, getPublicProfile)
 router.get('/:id/followers', getFollowers)
 router.get('/:id/following', getFollowing)

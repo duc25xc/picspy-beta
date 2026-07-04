@@ -579,7 +579,14 @@ const SearchPage = () => {
       return
     }
 
-    setQuery('') // clear text query
+    // Reset all other search queries and filters to run a clean image search
+    setQuery('')
+    setDebouncedQuery('')
+    setActiveCategory('all')
+    setActiveSort('new')
+    setIsAIOnly(false)
+    setActiveColor(null)
+
     setSearchImageFile(file)
     setSearchImagePreview(URL.createObjectURL(file))
   }
@@ -830,33 +837,35 @@ const SearchPage = () => {
                   </div>
                 )}
 
-                {searchImageLoading ? (
-                  <motion.div
-                    className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full flex-shrink-0"
-                    animate={{ rotate: 360 }}
-                    transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
-                  />
-                ) : (
-                  !searchImagePreview ? (
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
-                      title="Tìm bằng hình ảnh"
-                    >
-                      <Camera size={18} />
-                    </button>
+                <div className="w-8 h-8 flex items-center justify-center flex-shrink-0">
+                  {searchImageLoading ? (
+                    <motion.div
+                      className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full"
+                      animate={{ rotate: 360 }}
+                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                    />
                   ) : (
-                    <button
-                      type="button"
-                      onClick={clearImageSearch}
-                      className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center flex-shrink-0 cursor-pointer"
-                      title="Xóa ảnh tìm kiếm"
-                    >
-                      <X size={18} />
-                    </button>
-                  )
-                )}
+                    !searchImagePreview ? (
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center cursor-pointer"
+                        title="Tìm bằng hình ảnh"
+                      >
+                        <Camera size={18} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={clearImageSearch}
+                        className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center cursor-pointer"
+                        title="Xóa ảnh tìm kiếm"
+                      >
+                        <X size={18} />
+                      </button>
+                    )
+                  )}
+                </div>
                 
                 {query && !searchImagePreview && (
                   <button
