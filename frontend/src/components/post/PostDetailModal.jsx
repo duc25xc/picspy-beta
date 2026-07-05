@@ -281,7 +281,10 @@ const PostDetailModal = ({
 
       // Broadcast sự kiện sync cho các tab khác
       const channel = new BroadcastChannel('picspy_follow_sync')
-      channel.postMessage({ creatorId: post.authorId._id, isFollowing: data.following })
+      channel.postMessage({
+        creatorId: post.authorId._id,
+        isFollowing: data.following,
+      })
       channel.close()
     } catch {
       toast.error('Không thể thực hiện')
@@ -311,7 +314,10 @@ const PostDetailModal = ({
 
         // Broadcast sự kiện sync cho các tab khác
         const channel = new BroadcastChannel('picspy_follow_sync')
-        channel.postMessage({ creatorId: post.authorId._id, isFollowing: data.following })
+        channel.postMessage({
+          creatorId: post.authorId._id,
+          isFollowing: data.following,
+        })
         channel.close()
       } catch {
         toast.error('Không thể thực hiện')
@@ -537,12 +543,20 @@ const PostDetailModal = ({
             {post && (
               <div className="px-5 py-3 border-b border-white/8 flex flex-wrap items-center gap-x-4 gap-y-1.5">
                 {post.postType && (
-                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
-                    post.postType === 'ai' ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
-                    : post.postType === 'digital-raw' ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
-                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
-                  }`}>
-                    {post.postType === 'ai' ? '✦ AI' : post.postType === 'digital-raw' ? '📷 RAW' : 'Ảnh Digital'}
+                  <span
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                      post.postType === 'ai'
+                        ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
+                        : post.postType === 'digital-raw'
+                          ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                          : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                    }`}
+                  >
+                    {post.postType === 'ai'
+                      ? '✦ AI'
+                      : post.postType === 'digital-raw'
+                        ? '📷 RAW'
+                        : 'Ảnh Digital'}
                   </span>
                 )}
                 {post.category && (
@@ -577,7 +591,9 @@ const PostDetailModal = ({
                   {post.exifData?.dateTaken && (
                     <div className="flex items-center gap-1.5">
                       <Camera size={11} className="text-white/30" />
-                      <span>Ngày chụp: {formatDate(post.exifData.dateTaken)}</span>
+                      <span>
+                        Ngày chụp: {formatDate(post.exifData.dateTaken)}
+                      </span>
                     </div>
                   )}
                 </div>
@@ -737,15 +753,19 @@ const PostDetailModal = ({
         onClose={() => setShowUnfollowConfirm(false)}
         onConfirm={confirmUnfollow}
         title="Hủy theo dõi?"
-        message={post?.authorId ? (
-          <>
-            Bạn có chắc chắn muốn hủy theo dõi{' '}
-            <span className="text-white font-bold whitespace-nowrap">
-              {post.authorId.displayName || post.authorId.username}
-            </span>{' '}
-            không?
-          </>
-        ) : ''}
+        message={
+          post?.authorId ? (
+            <>
+              Bạn có chắc chắn muốn hủy theo dõi{' '}
+              <span className="text-white font-bold whitespace-nowrap">
+                {post.authorId.displayName || post.authorId.username}
+              </span>{' '}
+              không?
+            </>
+          ) : (
+            ''
+          )
+        }
         confirmText="Hủy theo dõi"
         cancelText="Bỏ qua"
         type="danger"
