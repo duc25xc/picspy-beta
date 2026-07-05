@@ -379,7 +379,18 @@ const PostsTab = () => {
                       className="absolute top-2 left-2 w-6 h-6 rounded-lg bg-black/50 backdrop-blur-sm flex items-center justify-center border border-white/20 transition-all hover:border-brand-400">
                       {isSelected ? <Check size={13} className="text-brand-400" /> : <Square size={11} className="text-white/50" />}
                     </button>
-                    <div className="absolute top-2 right-2"><StatusBadge status={post.status} /></div>
+                    <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                      <StatusBadge status={post.status} />
+                      {post.postType && (
+                        <span className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold uppercase tracking-wide border backdrop-blur-sm ${
+                          post.postType === 'ai' ? 'bg-violet-900/60 text-violet-200 border-violet-500/30'
+                          : post.postType === 'digital-raw' ? 'bg-sky-900/60 text-sky-200 border-sky-500/30'
+                          : 'bg-emerald-950/60 text-emerald-200 border-emerald-500/30'
+                        }`}>
+                          {post.postType === 'ai' ? '✦ AI' : post.postType === 'digital-raw' ? '📷 RAW' : 'DIGITAL'}
+                        </span>
+                      )}
+                    </div>
                     {post.isNSFW && <div className="absolute bottom-2 left-2"><span className="bg-red-600/80 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">NSFW</span></div>}
                   </div>
 

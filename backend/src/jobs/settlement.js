@@ -27,15 +27,8 @@ export const runDailySettlement = async () => {
       return { status: 'success', settledCount: 0, totalAmount: 0 }
     }
 
-    // 2. Nhóm các views theo postId
-    const postViewMap = {}
-    unsettledViews.forEach((view) => {
-      const pid = view.postId.toString()
-      postViewMap[pid] = (postViewMap[pid] || 0) + 1
-    })
-
-    // 3. Tra cứu tác giả (authorId) của các bài đăng này
-    const postIds = Object.keys(postViewMap)
+    // 2. Tra cứu tác giả (authorId) của các bài đăng này
+    const postIds = [...new Set(unsettledViews.map(v => v.postId.toString()))]
     const posts = await Post.find({ _id: { $in: postIds } })
       .select('authorId')
       .lean()
@@ -45,56 +38,71 @@ export const runDailySettlement = async () => {
       postAuthorMap[post._id.toString()] = post.authorId.toString()
     })
 
-    // 4. Gom tổng số view và số tiền kiếm được theo tác giả (creator)
-    const creatorEarnings = {}
-    // Cấu trúc: { [authorId]: { views: number, amount: number } }
+    // 3. Gom nhóm theo creator và ngày (YYYY-MM-DD)
+    const creatorDailyGroup = {}
+    unsettledViews.forEach((view) => {
+      const pid = view.postId.toString()
+      const creatorId = postAuthorMap[pid]
+      if (!creatorId) return
 
-    Object.entries(postViewMap).forEach(([pid, views]) => {
-      const authorId = postAuthorMap[pid]
-      if (authorId) {
-        if (!creatorEarnings[authorId]) {
-          creatorEarnings[authorId] = { views: 0, amount: 0 }
-        }
-        creatorEarnings[authorId].views += views
-        creatorEarnings[authorId].amount += views * ratePerView
+      const dateStr = new Date(view.createdAt).toISOString().slice(0, 10)
+
+      if (!creatorDailyGroup[creatorId]) creatorDailyGroup[creatorId] = {}
+      if (!creatorDailyGroup[creatorId][dateStr]) {
+        creatorDailyGroup[creatorId][dateStr] = { views: 0, viewIds: [] }
       }
+
+      creatorDailyGroup[creatorId][dateStr].views++
+      creatorDailyGroup[creatorId][dateStr].viewIds.push(view._id)
     })
 
     let totalAmountDisbursed = 0
+    let processedViewsCount = 0
 
-    // 5. Cộng tiền vào ví VNĐ của từng creator và lưu giao dịch
-    for (const [creatorId, stats] of Object.entries(creatorEarnings)) {
+    // 4. Cộng tiền vào ví VNĐ của từng creator theo từng ngày dồn lại
+    for (const [creatorId, datesMap] of Object.entries(creatorDailyGroup)) {
       const creator = await User.findById(creatorId)
       if (!creator) continue
 
-      const balanceBefore = creator.vndBalance || 0
-      const balanceAfter = balanceBefore + stats.amount
+      // Sắp xếp ngày tăng dần
+      const sortedDates = Object.keys(datesMap).sort()
 
-      // Cập nhật ví creator
-      await User.findByIdAndUpdate(creatorId, {
-        vndBalance: balanceAfter,
-        $inc: { totalEarned: stats.amount }
-      })
+      for (const dateStr of sortedDates) {
+        const stats = datesMap[dateStr]
+        const amount = stats.views * ratePerView
 
-      // Ghi log giao dịch VNĐ
-      await VndTransaction.create({
-        userId: creatorId,
-        type: 'earn_views',
-        amount: stats.amount,
-        balanceBefore,
-        balanceAfter,
-        description: `Quyết toán lượt xem ngày: ${stats.views.toLocaleString()} lượt xem x ${ratePerView}đ`,
-      }).catch((err) => console.error(`[Settlement Job] Error logging transaction for creator ${creatorId}:`, err))
+        const balanceBefore = creator.vndBalance || 0
+        const balanceAfter = balanceBefore + amount
 
-      totalAmountDisbursed += stats.amount
+        // Cập nhật ví creator (để vndBalance cộng dồn cho ngày tiếp theo)
+        creator.vndBalance = balanceAfter
+        creator.totalEarned = (creator.totalEarned || 0) + amount
+        await creator.save()
+
+        // Định dạng ngày hiển thị VN: DD-MM-YYYY
+        const [y, m, d] = dateStr.split('-')
+        const formattedDate = `${d}-${m}-${y}`
+
+        // Ghi log giao dịch VNĐ cho ngày này
+        await VndTransaction.create({
+          userId: creatorId,
+          type: 'earn_views',
+          amount,
+          balanceBefore,
+          balanceAfter,
+          description: `Quyết toán lượt xem ngày ${formattedDate}: ${stats.views.toLocaleString()} lượt xem x ${ratePerView}đ`,
+        }).catch((err) => console.error(`[Settlement Job] Error logging transaction for creator ${creatorId}:`, err))
+
+        // Đánh dấu các views của ngày này là đã quyết toán
+        await Interaction.updateMany(
+          { _id: { $in: stats.viewIds } },
+          { $set: { settled: true } }
+        )
+
+        totalAmountDisbursed += amount
+        processedViewsCount += stats.viewIds.length
+      }
     }
-
-    // 6. Đánh dấu các views đã được quyết toán xong
-    const interactionIds = unsettledViews.map((v) => v._id)
-    await Interaction.updateMany(
-      { _id: { $in: interactionIds } },
-      { $set: { settled: true } }
-    )
 
     const duration = Date.now() - start
     console.log(`[Settlement Job] Successfully settled ${unsettledViews.length} views for a total of ${totalAmountDisbursed.toLocaleString()} VNĐ in ${duration}ms`)

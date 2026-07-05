@@ -188,7 +188,7 @@ const STATS = [
   { value: '50K+', label: 'Wallpapers', color: '#a78bfa' },
   { value: '12M', label: 'Downloads', color: '#60a5fa' },
   { value: '8.5K', label: 'Creators', color: '#f59e0b' },
-  { value: '2M+', label: 'Xu đã trả', color: '#34d399' },
+  { value: '2M+', label: 'VNĐ đã trả', color: '#34d399' },
 ]
 
 const CATEGORIES = [
@@ -889,12 +889,6 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
             </span>
           </div>
         </div>
-        {/* Caption chỉ ở hero */}
-        {pattern.type === 'hero' && post.caption && (
-          <p className="text-white/70 text-xs mt-1.5 line-clamp-1 pj font-medium">
-            {post.caption}
-          </p>
-        )}
       </div>
     </div>
   )
@@ -1086,15 +1080,42 @@ const getFewPostsPattern = (count, index) => {
     return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
   }
   if (count === 3) {
-    if (index === 0) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
-    if (index === 1) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-1', type: 'wide' }
-    if (index === 2) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-1', type: 'wide' }
+    if (index === 0)
+      return {
+        col: 'col-span-2 lg:col-span-2',
+        row: 'row-span-2',
+        type: 'hero',
+      }
+    if (index === 1)
+      return {
+        col: 'col-span-2 lg:col-span-2',
+        row: 'row-span-1',
+        type: 'wide',
+      }
+    if (index === 2)
+      return {
+        col: 'col-span-2 lg:col-span-2',
+        row: 'row-span-1',
+        type: 'wide',
+      }
   }
   if (count === 4) {
-    if (index === 0) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-2', type: 'hero' }
-    if (index === 1) return { col: 'col-span-2 lg:col-span-2', row: 'row-span-1', type: 'wide' }
-    if (index === 2) return { col: 'col-span-1 lg:col-span-1', row: 'row-span-1', type: 'std' }
-    if (index === 3) return { col: 'col-span-1 lg:col-span-1', row: 'row-span-1', type: 'std' }
+    if (index === 0)
+      return {
+        col: 'col-span-2 lg:col-span-2',
+        row: 'row-span-2',
+        type: 'hero',
+      }
+    if (index === 1)
+      return {
+        col: 'col-span-2 lg:col-span-2',
+        row: 'row-span-1',
+        type: 'wide',
+      }
+    if (index === 2)
+      return { col: 'col-span-1 lg:col-span-1', row: 'row-span-1', type: 'std' }
+    if (index === 3)
+      return { col: 'col-span-1 lg:col-span-1', row: 'row-span-1', type: 'std' }
   }
   return CARD_PATTERN[index % CARD_PATTERN.length]
 }
@@ -1264,8 +1285,12 @@ const CommunityGallerySection = () => {
     setActiveTab(key)
   }
 
-  const currentCategoryObj = activeCategoriesList.find(c => c.key === activeCategory)
-  const currentCategoryName = currentCategoryObj ? currentCategoryObj.label : 'Tất cả'
+  const currentCategoryObj = activeCategoriesList.find(
+    (c) => c.key === activeCategory
+  )
+  const currentCategoryName = currentCategoryObj
+    ? currentCategoryObj.label
+    : 'Tất cả'
 
   return (
     <>
@@ -1461,14 +1486,14 @@ const CommunityGallerySection = () => {
                 <div className="relative mb-8 group">
                   {/* Glowing background ambient blur */}
                   <div className="absolute -inset-6 rounded-full bg-gradient-to-tr from-brand-600/35 to-fuchsia-600/35 blur-3xl opacity-80 group-hover:scale-105 transition-transform duration-700" />
-                  
+
                   {/* Image */}
                   <img
                     src="/empty_gallery_illustration.png"
                     alt="Empty gallery"
                     className="relative w-64 h-64 object-contain mx-auto rounded-[2rem] border border-white/10 shadow-2xl backdrop-blur-md hover:rotate-1 transition-transform duration-500 ease-out"
                   />
-                  
+
                   {/* Floating camera overlay icons */}
                   <div className="absolute -top-3 -right-3 z-10 w-10 h-10 rounded-2xl bg-brand-500/20 border border-brand-500/30 backdrop-blur-md flex items-center justify-center text-lg shadow-lg shadow-brand-500/20 animate-bounce duration-1000">
                     📷
@@ -1484,7 +1509,8 @@ const CommunityGallerySection = () => {
                       Chưa follow ai cả
                     </h3>
                     <p className="text-foreground/50 text-sm max-w-sm mx-auto pj mb-6 leading-relaxed">
-                      Follow những creator bạn yêu thích để cập nhật ngay những tác phẩm mới nhất của họ tại đây.
+                      Follow những creator bạn yêu thích để cập nhật ngay những
+                      tác phẩm mới nhất của họ tại đây.
                     </p>
                     <Link
                       to="/search"
@@ -1496,10 +1522,14 @@ const CommunityGallerySection = () => {
                 ) : (
                   <>
                     <h3 className="text-foreground font-black text-2xl mb-3 pj tracking-tight bg-gradient-to-r from-white via-white to-white/70 bg-clip-text text-transparent">
-                      {currentCategoryName === 'Tất cả' ? 'Không tìm thấy tác phẩm' : `Danh mục ${currentCategoryName} trống`}
+                      {currentCategoryName === 'Tất cả'
+                        ? 'Không tìm thấy tác phẩm'
+                        : `Danh mục ${currentCategoryName} trống`}
                     </h3>
                     <p className="text-foreground/50 text-sm max-w-md mx-auto pj mb-6 leading-relaxed">
-                      Hiện tại chưa có bức ảnh nào trong danh mục này. Hãy trở thành người tiên phong đăng tải những tác phẩm xuất sắc của bạn!
+                      Hiện tại chưa có bức ảnh nào trong danh mục này. Hãy trở
+                      thành người tiên phong đăng tải những tác phẩm xuất sắc
+                      của bạn!
                     </p>
                     <Link
                       to="/upload"
@@ -1585,13 +1615,15 @@ const CommunityGallerySection = () => {
                 {!hasMore && posts.length > 0 && (
                   <div className="text-center mt-12 mb-6 pj flex flex-col items-center gap-2 select-none">
                     <p className="text-foreground/30 text-xs italic">
-                      — Đã hiển thị tất cả {posts.length} kết quả của danh mục {currentCategoryName} —
+                      — Đã hiển thị tất cả {posts.length} kết quả của danh mục{' '}
+                      {currentCategoryName} —
                     </p>
                     <Link
                       to="/upload"
                       className="text-brand-500 hover:text-brand-400 text-xs font-semibold hover:underline transition-colors mt-1 cursor-pointer"
                     >
-                      Bạn là một creator? Hãy chia sẻ những tác phẩm nghệ thuật tuyệt vời của bạn tới cộng đồng ngay!
+                      Bạn là một creator? Hãy chia sẻ những tác phẩm nghệ thuật
+                      tuyệt vời của bạn tới cộng đồng ngay!
                     </Link>
                   </div>
                 )}
@@ -1899,7 +1931,7 @@ const HomePage = () => {
       },
       {
         value: homepageData?.stats?.totalCoinsPaid || 0,
-        label: 'Xu đã trả',
+        label: 'VNĐ đã trả',
         color: '#34d399',
         format: '+',
       },

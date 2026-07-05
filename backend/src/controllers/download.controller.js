@@ -53,7 +53,11 @@ export const downloadPost = async (req, res, next) => {
     // ─── Premium: kiểm tra và thanh toán bằng VNĐ ────────────────
     // ─── Premium: kiểm tra và thanh toán bằng VNĐ (Ledger-based / ACID) ──
     let purchaseCompleted = false
-    if (post.isPremium) {
+
+    // Creator luôn được tải ảnh của mình miễn phí
+    const isOwner = post.authorId && post.authorId.toString() === userId.toString()
+
+    if (post.isPremium && !isOwner) {
       const WalletService = (await import('../services/WalletService.js')).default
       const User = (await import('../models/User.model.js')).default
       const user = await User.findById(userId)

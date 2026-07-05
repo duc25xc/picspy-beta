@@ -11,6 +11,8 @@ import api from '../api/api'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import ConfirmModal from '../components/common/ConfirmModal'
 import toast from 'react-hot-toast'
+import EditProfileModal from '../components/profile/EditProfileModal'
+import FollowListModal from '../components/profile/FollowListModal'
 
 // ─── Tier config (đồng bộ với useTierAccess + AdminPage) ────────
 const TIER_META = {
@@ -79,8 +81,18 @@ const ProfilePage = () => {
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [activeTab, setActiveTab] = useState('posts')
   const [avatarError, setAvatarError] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [showFollowModal, setShowFollowModal] = useState(false)
+  const [followModalType, setFollowModalType] = useState('followers') // 'followers' | 'following'
 
   const isOwnProfile = currentUser?.username === username
+
+  const handleProfileUpdated = useCallback((updates) => {
+    setProfile(prev => {
+      if (!prev) return prev
+      return { ...prev, ...updates }
+    })
+  }, [])
 
   // ── Fetch profile ──────────────────────────────────────────────
   useEffect(() => {
@@ -288,6 +300,12 @@ const ProfilePage = () => {
           <div className="flex gap-2 mb-2">
             {isOwnProfile ? (
               <>
+                <button
+                  onClick={() => setShowEditModal(true)}
+                  className="btn-secondary text-sm flex items-center gap-1.5 cursor-pointer hover:bg-surface-200 transition-colors"
+                >
+                  <Settings size={14} /> Thiết lập
+                </button>
                 <Link to="/studio" className="btn-secondary text-sm flex items-center gap-1.5">
                   <Film size={14} /> Creator Studio
                 </Link>
@@ -365,12 +383,28 @@ const ProfilePage = () => {
           )}
 
           {/* Stats */}
-          <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar border-b border-white/5 pb-6">
+          <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar border-b border-white/5 pb-6 items-center">
             <StatItem label="Ảnh" value={profile.stats?.postsCount} />
-            <div className="w-px bg-white/10 mx-1" />
-            <StatItem label="Followers" value={profile.stats?.followersCount} />
-            <StatItem label="Following" value={profile.stats?.followingCount} />
-            <div className="w-px bg-white/10 mx-1" />
+            <div className="w-px bg-white/10 mx-1 self-stretch my-2" />
+            <button
+              onClick={() => {
+                setFollowModalType('followers')
+                setShowFollowModal(true)
+              }}
+              className="focus:outline-none hover:opacity-80 transition-opacity cursor-pointer text-left"
+            >
+              <StatItem label="Followers" value={profile.stats?.followersCount} />
+            </button>
+            <button
+              onClick={() => {
+                setFollowModalType('following')
+                setShowFollowModal(true)
+              }}
+              className="focus:outline-none hover:opacity-80 transition-opacity cursor-pointer text-left"
+            >
+              <StatItem label="Following" value={profile.stats?.followingCount} />
+            </button>
+            <div className="w-px bg-white/10 mx-1 self-stretch my-2" />
             <StatItem label="Lượt thích" value={profile.stats?.totalLikes} />
             <StatItem label="Downloads" value={profile.stats?.totalDownloads} />
           </div>
@@ -490,6 +524,23 @@ const ProfilePage = () => {
         cancelText="Bỏ qua"
         type="danger"
         zIndex={250}
+      />
+
+      {/* Edit Profile Dialog */}
+      <EditProfileModal
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        profile={profile}
+        onProfileUpdated={handleProfileUpdated}
+      />
+
+      {/* Followers / Following List Dialog */}
+      <FollowListModal
+        isOpen={showFollowModal}
+        onClose={() => setShowFollowModal(false)}
+        userId={profile._id}
+        type={followModalType}
+        username={profile.username}
       />
     </div>
   )

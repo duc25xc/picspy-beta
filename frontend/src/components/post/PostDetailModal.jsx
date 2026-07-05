@@ -536,6 +536,15 @@ const PostDetailModal = ({
             {/* Meta Info */}
             {post && (
               <div className="px-5 py-3 border-b border-white/8 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+                {post.postType && (
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                    post.postType === 'ai' ? 'bg-violet-500/15 text-violet-300 border-violet-500/30'
+                    : post.postType === 'digital-raw' ? 'bg-sky-500/15 text-sky-300 border-sky-500/30'
+                    : 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30'
+                  }`}>
+                    {post.postType === 'ai' ? '✦ AI' : post.postType === 'digital-raw' ? '📷 RAW' : 'Ảnh Digital'}
+                  </span>
+                )}
                 {post.category && (
                   <span className="text-xs text-white/40">{post.category}</span>
                 )}

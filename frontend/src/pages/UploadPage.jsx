@@ -1,4 +1,5 @@
 import { useState, useCallback, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -12,6 +13,7 @@ import {
   Settings,
   Tag,
   Coins,
+  History,
   ChevronDown,
   Image as ImageIcon,
   AlertCircle,
@@ -500,7 +502,10 @@ export default function UploadPage() {
   // Helper to validate meaningful text (at least 2 letters/numbers)
   const hasRealContent = (text) => {
     if (!text) return false
-    const stripped = text.replace(/[\s\-_~!@#$%^&*()+=\[\]{}<>|\\/:;"',.?]+/g, '')
+    const stripped = text.replace(
+      /[\s\-_~!@#$%^&*()+=\[\]{}<>|\\/:;"',.?]+/g,
+      ''
+    )
     return stripped.length >= 2
   }
 
@@ -535,7 +540,9 @@ export default function UploadPage() {
           if (!form.aiTool) {
             toast.error('Vui lòng chọn công cụ AI')
           } else {
-            toast.error('Vui lòng nhập Prompt có nghĩa (ít nhất 2 ký tự chữ/số, không được chỉ chứa dấu cách hoặc ký tự đặc biệt)')
+            toast.error(
+              'Vui lòng nhập Prompt có nghĩa (ít nhất 2 ký tự chữ/số, không được chỉ chứa dấu cách hoặc ký tự đặc biệt)'
+            )
           }
         }
         if (step === 3)
@@ -565,7 +572,9 @@ export default function UploadPage() {
       return toast.error('Vui lòng nhập Mô tả cho bài đăng.')
     }
     if (!hasRealContent(form.caption)) {
-      return toast.error('Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+      return toast.error(
+        'Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.'
+      )
     }
 
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
@@ -576,7 +585,9 @@ export default function UploadPage() {
         return toast.error('Vui lòng nhập Prompt.')
       }
       if (!hasRealContent(form.prompt)) {
-        return toast.error('Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+        return toast.error(
+          'Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.'
+        )
       }
 
       if (multiModelMode) {
@@ -966,6 +977,10 @@ export default function UploadPage() {
                       progress={progress}
                       step={4}
                       total={4}
+                      genImages={genImages}
+                      modelSlots={modelSlots}
+                      multiModelMode={multiModelMode}
+                      uploadType={uploadType}
                     />
                   )}
                 </>
@@ -1001,6 +1016,10 @@ export default function UploadPage() {
                       progress={progress}
                       step={3}
                       total={3}
+                      genImages={genImages}
+                      modelSlots={modelSlots}
+                      multiModelMode={multiModelMode}
+                      uploadType={uploadType}
                     />
                   )}
                 </>
@@ -1170,7 +1189,9 @@ function Step1Prompt({ form, setForm, tierAccess }) {
     if (!form.prompt) return
 
     // 1. Aspect Ratio extraction
-    const arTagMatch = form.prompt.match(/\{argument\s+name="aspect_ratio"\s+default="([0-9:]+)"\}/i)
+    const arTagMatch = form.prompt.match(
+      /\{argument\s+name="aspect_ratio"\s+default="([0-9:]+)"\}/i
+    )
     const arTextMatch = form.prompt.match(/tỷ lệ khung hình là\s+([0-9:]+)/i)
     const arCmdMatch = form.prompt.match(/--ar\s+([0-9:]+)/i)
     const extractedAr = arTagMatch?.[1] || arTextMatch?.[1] || arCmdMatch?.[1]
@@ -1181,7 +1202,11 @@ function Step1Prompt({ form, setForm, tierAccess }) {
     // 2. Version extraction
     const vCmdMatch = form.prompt.match(/--v\s+([0-9.]+)/i)
     const nijiCmdMatch = form.prompt.match(/--niji\s+(\d+)/i)
-    const extractedVersion = vCmdMatch ? vCmdMatch[1] : (nijiCmdMatch ? `niji ${nijiCmdMatch[1]}` : null)
+    const extractedVersion = vCmdMatch
+      ? vCmdMatch[1]
+      : nijiCmdMatch
+        ? `niji ${nijiCmdMatch[1]}`
+        : null
     if (extractedVersion && extractedVersion !== version) {
       setVersion(extractedVersion)
     }
@@ -1758,7 +1783,10 @@ function HistoryDrawer({ images, selectedIds, onToggle, loading, onClose }) {
                             }`}
                         >
                           <img
-                            src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
+                            src={
+                              img.thumbnailUrl ||
+                              getOptimizedWebpUrl(img.url, 150)
+                            }
                             alt=""
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                             loading="lazy"
@@ -1898,6 +1926,63 @@ function Step3Generated({
   )
 }
 
+// ── STYLE OPTIONS CONSTANT FOR METADATA SUGGESTIONS ────────────────
+const STYLE_OPTIONS = [
+  { key: 'gioi_tre_y2k', label: 'Giới trẻ Y2K', shortLabel: 'Y2K', icon: '⚡' },
+  {
+    key: 'tho_mong',
+    label: 'Thơ mộng thả thính',
+    shortLabel: 'Thơ mộng',
+    icon: '🌸',
+  },
+  {
+    key: 'hai_huoc',
+    label: 'Hài hước xoáy sâu',
+    shortLabel: 'Hài hước',
+    icon: '🤪',
+  },
+  { key: 'ngau', label: 'Ngầu cá tính', shortLabel: 'Ngầu', icon: '🔥' },
+  {
+    key: 'sau_lang',
+    label: 'Sâu lắng sâu sắc',
+    shortLabel: 'Sâu sắc',
+    icon: '🍃',
+  },
+  { key: 'buon', label: 'Buồn - Cô đơn', shortLabel: 'Buồn', icon: '💧' },
+  { key: 'tet_le', label: 'Tết - Lễ - Noel', shortLabel: 'Tết/Lễ', icon: '🎉' },
+  {
+    key: 'dong_luc',
+    label: 'Động lực học tập',
+    shortLabel: 'Động lực',
+    icon: '📚',
+  },
+  {
+    key: 'cong_viec',
+    label: 'Công việc - Đi làm',
+    shortLabel: 'Đi làm',
+    icon: '💼',
+  },
+  {
+    key: 'tinh_ban',
+    label: 'Tình bạn - Gia đình',
+    shortLabel: 'Tình bạn',
+    icon: '❤️',
+  },
+  { key: 'do_an', label: 'Đăng ảnh đồ ăn', shortLabel: 'Đồ ăn', icon: '🍕' },
+  {
+    key: 'du_lich',
+    label: 'Du lịch dã ngoại',
+    shortLabel: 'Du lịch',
+    icon: '✈️',
+  },
+  {
+    key: 'tieng_anh',
+    label: 'Tiếng Anh song ngữ',
+    shortLabel: 'Song ngữ',
+    icon: '🇬🇧',
+  },
+]
+
 // ── STEP 4: Metadata ─────────────────────────────────────────────
 function Step4Meta({
   form,
@@ -1907,135 +1992,682 @@ function Step4Meta({
   progress,
   step = 4,
   total = 4,
+  genImages = [],
+  modelSlots = [],
+  multiModelMode = false,
+  uploadType = 'ai',
 }) {
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }))
+  const [maxLimit, setMaxLimit] = useState(() => {
+    const price = form.priceInVnd || 20000
+    if (price > 5000000) return 10000000
+    if (price > 1000000) return 5000000
+    return 1000000
+  })
+
+  const [suggestHistory, setSuggestHistory] = useState([])
+  const [activeHistoryIdx, setActiveHistoryIdx] = useState(-1)
+  const [aiLoading, setAiLoading] = useState(false)
+  const tierAccess = useTierAccess()
+  const isUltimate = tierAccess?.tier === 'ultimate'
+
+  // Custom AI Meta generation states
+  const [selectedStyle, setSelectedStyle] = useState(() => {
+    return localStorage.getItem('picspy-default-meta-style') || 'gioi_tre_y2k'
+  })
+  const [isStyleModalOpen, setIsStyleModalOpen] = useState(false)
+  const [makeDefaultChecked, setMakeDefaultChecked] = useState(true)
+  const [styleDropdownOpen, setStyleDropdownOpen] = useState(false)
+  const [previewResult, setPreviewResult] = useState(null)
+
+  // Handle clicking outside the style dropdown to close it
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (styleDropdownOpen && !e.target.closest('#style-dropdown-container')) {
+        setStyleDropdownOpen(false)
+      }
+    }
+    document.addEventListener('click', handleOutsideClick)
+    return () => document.removeEventListener('click', handleOutsideClick)
+  }, [styleDropdownOpen])
+
+  const fileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.readAsDataURL(file)
+      reader.onload = () => resolve(reader.result)
+      reader.onerror = (error) => reject(error)
+    })
+  }
+
+  const getPrimaryImageFile = () => {
+    if (multiModelMode) {
+      return modelSlots[0]?.genImages?.[0]?.file
+    }
+    return genImages[0]?.file
+  }
+
+  const handleAiSuggestMeta = async (overrideStyle = null) => {
+    const file = getPrimaryImageFile()
+    if (!file) {
+      toast.error('Vui lòng upload hình ảnh trước khi sử dụng AI gợi ý!')
+      return
+    }
+
+    const targetStyle = overrideStyle || selectedStyle
+
+    // Case 1: Chưa cài đặt phong cách mặc định và chưa được truyền override
+    const hasDefault =
+      localStorage.getItem('picspy-default-meta-style') !== null
+    if (!hasDefault && !overrideStyle) {
+      setIsStyleModalOpen(true)
+      return
+    }
+
+    setAiLoading(true)
+    try {
+      const base64 = await fileToBase64(file)
+      const { data } = await api.post('/ai/suggest-meta', {
+        imageBase64: base64,
+        style: targetStyle,
+      })
+      if (data.success) {
+        let currentHistory = [...suggestHistory]
+        if (currentHistory.length === 0) {
+          currentHistory = [
+            { caption: form.caption, tags: form.tags, styleKey: 'original' },
+          ]
+        }
+
+        const newSuggest = {
+          caption: data.caption,
+          tags: data.tags.join(', '),
+          styleKey: targetStyle,
+        }
+        const updatedHistory = [...currentHistory, newSuggest]
+
+        setSuggestHistory(updatedHistory)
+        setActiveHistoryIdx(updatedHistory.length - 1)
+
+        // Show suggestions in the preview box first
+        setPreviewResult({
+          caption: data.caption,
+          tags: data.tags.join(', '),
+          styleKey: targetStyle,
+        })
+
+        toast.success(
+          `Đã tự động gợi ý mô tả và tags! (Tiêu tốn ${data.tokensCost} token)`
+        )
+      }
+    } catch (err) {
+      console.error(err)
+      const msg =
+        err.response?.data?.message || 'Có lỗi xảy ra khi gọi gợi ý AI'
+      toast.error(msg)
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
+  const handleApplyPreview = () => {
+    if (!previewResult) return
+    set('caption')(previewResult.caption)
+    set('tags')(previewResult.tags)
+    setPreviewResult(null)
+    toast.success('Đã áp dụng mô tả & tags vào bài viết!')
+  }
+
+  const handleRetryStyle = () => {
+    setIsStyleModalOpen(true)
+  }
+
+  const handleConfirmStyle = (styleKey) => {
+    setSelectedStyle(styleKey)
+    if (makeDefaultChecked) {
+      localStorage.setItem('picspy-default-meta-style', styleKey)
+    }
+    setIsStyleModalOpen(false)
+    handleAiSuggestMeta(styleKey)
+  }
+
+  const handleRestoreMetaHistory = (idx) => {
+    if (idx >= 0 && idx < suggestHistory.length) {
+      setActiveHistoryIdx(idx)
+      set('caption')(suggestHistory[idx].caption)
+      set('tags')(suggestHistory[idx].tags)
+
+      const histItem = suggestHistory[idx]
+      if (histItem.styleKey && histItem.styleKey !== 'original') {
+        setSelectedStyle(histItem.styleKey)
+      }
+    }
+  }
+
+  const currentStyleOption =
+    STYLE_OPTIONS.find((s) => s.key === selectedStyle) || STYLE_OPTIONS[0]
 
   return (
-    <div className="card p-6 space-y-5">
-      <StepHeader
-        step={step}
-        total={total}
-        title="Thông tin bài đăng"
-        subtitle="Thêm mô tả và gắn thẻ để dễ tìm kiếm"
-      />
-
-      {/* Caption */}
-      <div>
-        <label className="input-label">Mô tả ngắn</label>
-        <textarea
-          rows={3}
-          value={form.caption}
-          onChange={(e) => set('caption')(e.target.value)}
-          placeholder="Chia sẻ cảm nghĩ về tác phẩm này..."
-          maxLength={500}
-          className="input resize-none"
+    <>
+      <div className="card p-6 space-y-5">
+        <StepHeader
+          step={step}
+          total={total}
+          title="Thông tin bài đăng"
+          subtitle="Thêm mô tả và gắn thẻ để dễ tìm kiếm"
         />
-        <p className="text-right text-xs text-white/25 mt-1">
-          {form.caption.length}/500
-        </p>
-      </div>
 
-      {/* Tags */}
-      <div>
-        <label className="input-label flex items-center gap-1.5">
-          <Tag size={13} /> Tags{' '}
-          <span className="text-white/30">(cách nhau bởi dấu phẩy)</span>
-        </label>
-        <input
-          type="text"
-          value={form.tags}
-          onChange={(e) => set('tags')(e.target.value)}
-          placeholder="portrait, dark, cinematic, fantasy..."
-          className="input"
-        />
-      </div>
+        {/* AI Meta & Tags Generator Section */}
+        <div className="relative border border-white/8 bg-white/[0.015] rounded-2xl p-4 space-y-4">
+          {/* Loading shimmer overlay — blocks editing while AI is running */}
+          {aiLoading && (
+            <div className="absolute inset-0 z-10 rounded-2xl overflow-hidden pointer-events-auto">
+              {/* Frosted backdrop */}
+              <div className="absolute inset-0 bg-[#0d0d14]/70 backdrop-blur-[2px] rounded-2xl" />
+              {/* Shimmer sweep */}
+              <div
+                className="absolute inset-0 rounded-2xl"
+                style={{
+                  background:
+                    'linear-gradient(105deg, transparent 40%, rgba(121,134,235,0.08) 50%, transparent 60%)',
+                  backgroundSize: '200% 100%',
+                  animation: 'ai-shimmer 1.6s ease-in-out infinite',
+                }}
+              />
+              {/* Center indicator */}
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+                <div className="relative">
+                  <div className="w-9 h-9 rounded-full border-2 border-[#7986eb]/30 border-t-[#7986eb] animate-spin" />
+                  <Sparkles
+                    size={14}
+                    className="absolute inset-0 m-auto text-[#a5b0f5]"
+                    style={{ animation: 'pulse 1.6s ease-in-out infinite' }}
+                  />
+                </div>
+                <p className="text-xs font-bold text-[#a5b0f5] tracking-wide">
+                  AI đang phân tích ảnh...
+                </p>
+                <p className="text-[10px] text-white/30">
+                  Vui lòng chờ trong giây lát
+                </p>
+              </div>
+            </div>
+          )}
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <span className="text-xs font-semibold text-white/50 uppercase tracking-wider">
+              Mô tả & Tags
+            </span>
 
-      {/* Category */}
-      <div>
-        <label className="input-label">
-          Danh mục <span className="text-red-400">*</span>
-        </label>
-        <div className="flex flex-wrap gap-2">
-          {categories.map((cat) => (
-            <button
-              key={cat.slug}
-              type="button"
-              onClick={() => set('category')(cat.slug)}
-              className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150
+            <div className="flex items-center gap-2">
+              {/* Style Selector Dropdown */}
+              <div
+                className="relative inline-block text-left"
+                id="style-dropdown-container"
+              >
+                <button
+                  type="button"
+                  onClick={() => setStyleDropdownOpen(!styleDropdownOpen)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
+                  title="Thay đổi phong cách viết"
+                >
+                  <span>
+                    {currentStyleOption.icon} {currentStyleOption.label}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    className={`text-white/50 transition-transform duration-200 ${styleDropdownOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+
+                {styleDropdownOpen && (
+                  <div className="absolute right-0 mt-1.5 w-56 rounded-xl bg-[#181824]/95 border border-white/10 shadow-2xl backdrop-blur-md z-30 py-1 max-h-60 overflow-y-auto">
+                    {STYLE_OPTIONS.map((opt) => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStyle(opt.key)
+                          setStyleDropdownOpen(false)
+                        }}
+                        className={`w-full text-left px-3.5 py-2 text-xs font-medium transition-colors flex items-center gap-2 ${
+                          selectedStyle === opt.key
+                            ? 'bg-brand-600/20 text-brand-300 font-bold'
+                            : 'text-white/70 hover:bg-white/5 hover:text-white'
+                        }`}
+                      >
+                        <span>{opt.icon}</span>
+                        <span>{opt.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* AI Call Button */}
+              <button
+                type="button"
+                onClick={() => handleAiSuggestMeta()}
+                disabled={aiLoading}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 disabled:opacity-50"
+              >
+                {aiLoading ? (
+                  <>
+                    <Loader2
+                      size={13}
+                      className="animate-spin text-[#7986eb]"
+                    />
+                    Đang phân tích...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={13} className="text-yellow-400" />
+                    Gợi ý mô tả & tags{' '}
+                    <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal">
+                      <Coins size={9} /> {isUltimate ? 'Free' : '-2 xu'}
+                    </span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {/* Style modal is rendered via portal — avoids stacking context issues */}
+
+          {/* AI Results Preview Block */}
+          {previewResult && (
+            <div className="border border-brand-500/20 bg-brand-950/5 rounded-2xl p-4 space-y-4 animate-fade-in relative overflow-hidden">
+              <div className="absolute -right-10 -bottom-10 w-24 h-24 rounded-full bg-brand-500/5 blur-xl pointer-events-none" />
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Sparkles size={13} className="text-brand-400" />
+                  <span className="text-xs font-black text-brand-300 uppercase tracking-wider">
+                    Gợi ý AI đang chờ
+                  </span>
+                </div>
+                <span className="text-[10px] bg-brand-600/20 border border-brand-500/30 text-brand-300 font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                  <span>
+                    {
+                      STYLE_OPTIONS.find(
+                        (s) => s.key === previewResult.styleKey
+                      )?.icon
+                    }
+                  </span>
+                  <span>
+                    Style:{' '}
+                    {
+                      STYLE_OPTIONS.find(
+                        (s) => s.key === previewResult.styleKey
+                      )?.label
+                    }
+                  </span>
+                </span>
+              </div>
+
+              <div className="space-y-3">
+                {/* Caption Preview */}
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3 text-xs leading-relaxed text-white/90">
+                  <p className="font-semibold text-white/30 text-[9px] uppercase tracking-wider mb-1">
+                    Mô tả đề xuất
+                  </p>
+                  <p className="whitespace-pre-wrap">{previewResult.caption}</p>
+                </div>
+
+                {/* Tags Preview */}
+                <div className="bg-black/30 border border-white/5 rounded-xl p-3">
+                  <p className="font-semibold text-white/30 text-[9px] uppercase tracking-wider mb-1.5">
+                    Tags đề xuất
+                  </p>
+                  <div className="flex flex-wrap gap-1.5">
+                    {previewResult.tags.split(',').map((t, idx) => {
+                      const trimmed = t.trim()
+                      if (!trimmed) return null
+                      return (
+                        <span
+                          key={idx}
+                          className="bg-white/5 border border-white/8 text-white/60 text-[10px] font-bold px-2 py-0.5 rounded"
+                        >
+                          #{trimmed}
+                        </span>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleApplyPreview}
+                  className="flex-1 py-2 rounded-xl bg-gradient-brand text-xs font-bold text-white transition-all shadow-lg hover:brightness-105"
+                >
+                  Dùng ngay
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRetryStyle}
+                  className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold text-white/70 transition-all"
+                >
+                  Đổi phong cách khác
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* History Row */}
+          {suggestHistory.length > 0 && (
+            <div className="flex items-center gap-2 text-xs py-1 border-b border-white/5 pb-2">
+              <span className="text-white/35 flex items-center gap-1">
+                <History size={11} /> Lịch sử gợi ý:
+              </span>
+              <div className="flex items-center gap-1.5 flex-wrap">
+                {suggestHistory.map((item, idx) => {
+                  const isSelected = idx === activeHistoryIdx
+                  const opt = STYLE_OPTIONS.find((s) => s.key === item.styleKey)
+                  const styleName = opt ? opt.shortLabel : ''
+
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleRestoreMetaHistory(idx)}
+                      className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                        isSelected
+                          ? 'bg-[#7986eb]/25 border border-[#7986eb]/50 text-[#a5b0f5]'
+                          : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10'
+                      }`}
+                    >
+                      {idx === 0
+                        ? 'Bản gốc'
+                        : `Lần ${idx} ${styleName ? `(${styleName})` : ''}`}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Caption */}
+          <div>
+            <label className="input-label">Mô tả ngắn</label>
+            <textarea
+              rows={8}
+              value={form.caption}
+              onChange={(e) => set('caption')(e.target.value)}
+              placeholder="Chia sẻ cảm nghĩ về tác phẩm này..."
+              maxLength={800}
+              className="input resize-none"
+            />
+            <p className="text-right text-xs text-white/25 mt-1">
+              {form.caption.length}/500
+            </p>
+          </div>
+
+          {/* Tags */}
+          <div>
+            <label className="input-label flex items-center gap-1.5">
+              <Tag size={13} /> Tags{' '}
+              <span className="text-white/30">(cách nhau bởi dấu phẩy)</span>
+            </label>
+            <input
+              type="text"
+              value={form.tags}
+              onChange={(e) => set('tags')(e.target.value)}
+              placeholder="portrait, dark, cinematic, fantasy..."
+              className="input"
+            />
+          </div>
+        </div>
+
+        {/* Category */}
+        <div>
+          <label className="input-label">
+            Danh mục <span className="text-red-400">*</span>
+          </label>
+          <div className="flex flex-wrap gap-2">
+            {categories.map((cat) => (
+              <button
+                key={cat.slug}
+                type="button"
+                onClick={() => set('category')(cat.slug)}
+                className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150
                 ${
                   form.category === cat.slug
                     ? 'bg-brand-600/30 border border-brand-500/60 text-brand-300'
                     : 'bg-white/5 border border-white/10 text-white/50 hover:border-white/25'
                 }`}
-            >
-              {cat.name}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Premium toggle */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/8">
-        <div className="flex items-center gap-3">
-          <Coins size={18} className="text-yellow-400" />
-          <div>
-            <p className="text-sm font-semibold">Premium Download</p>
-            <p className="text-xs text-white/40">
-              Người dùng tốn token để tải ảnh full-res
-            </p>
+              >
+                {cat.name}
+              </button>
+            ))}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={() => set('isPremium')(!form.isPremium)}
-          className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
+
+        {/* Premium toggle */}
+        <div className="flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/8">
+          <div className="flex items-center gap-3">
+            <Coins size={18} className="text-yellow-400" />
+            <div>
+              <p className="text-sm font-semibold">Premium Download</p>
+              <p className="text-xs text-white/40">
+                Người dùng tốn token để tải ảnh full-res
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => set('isPremium')(!form.isPremium)}
+            className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
             ${form.isPremium ? 'bg-brand-600' : 'bg-white/15'}`}
-        >
-          <div
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
+          >
+            <div
+              className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
             ${form.isPremium ? 'translate-x-6' : 'translate-x-1'}`}
-          />
-        </button>
+            />
+          </button>
+        </div>
+
+        {/* Price in VNĐ */}
+        {form.isPremium && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="input-label">Giá bán (VNĐ)</label>
+
+              {/* Slider Row */}
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="range"
+                  min={1000}
+                  max={maxLimit}
+                  step={1000}
+                  value={Math.min(form.priceInVnd, maxLimit)}
+                  onChange={(e) => set('priceInVnd')(Number(e.target.value))}
+                  className="flex-1 accent-brand-500"
+                />
+                <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/5 border border-white/10 min-w-[110px] justify-center">
+                  <span className="text-emerald-400 text-sm">đ</span>
+                  <span className="font-bold text-sm">
+                    {form.priceInVnd?.toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              {/* Slider ticks */}
+              <div className="flex justify-between text-xs text-white/25 px-1 mt-1">
+                <span>1.000đ</span>
+                {maxLimit === 1000000 ? (
+                  <>
+                    <span>250.000đ</span>
+                    <span>500.000đ</span>
+                    <span>1.000.000đ</span>
+                  </>
+                ) : maxLimit === 5000000 ? (
+                  <>
+                    <span>1.500.000đ</span>
+                    <span>3.000.000đ</span>
+                    <span>5.000.000đ</span>
+                  </>
+                ) : (
+                  <>
+                    <span>3.000.000đ</span>
+                    <span>6.000.000đ</span>
+                    <span>10.000.000đ</span>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Limit options buttons */}
+            <div className="space-y-2">
+              <span className="text-[11px] text-white/35">
+                Hạn mức thanh kéo:
+              </span>
+              <div className="flex gap-2">
+                {[
+                  { val: 1000000, label: 'Tối đa 1 Triệu' },
+                  { val: 5000000, label: 'Tối đa 5 Triệu' },
+                  { val: 10000000, label: 'Tối đa 10 Triệu' },
+                ].map((opt) => (
+                  <button
+                    key={opt.val}
+                    type="button"
+                    onClick={() => {
+                      setMaxLimit(opt.val)
+                      if (form.priceInVnd > opt.val) {
+                        set('priceInVnd')(opt.val)
+                      }
+                    }}
+                    className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150
+                    ${
+                      maxLimit === opt.val
+                        ? 'bg-brand-600/30 border-brand-500/60 text-brand-300'
+                        : 'bg-white/3 border-white/5 text-white/40 hover:border-white/20'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Upload progress */}
+        {uploading && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm">
+              <span className="text-white/60">Đang upload...</span>
+              <span className="text-brand-400 font-semibold">{progress}%</span>
+            </div>
+            <div className="h-2 bg-white/8 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-brand-600 rounded-full"
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3 }}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
-      {/* Price in VNĐ */}
-      {form.isPremium && (
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-        >
-          <label className="input-label">Giá bán (VNĐ)</label>
-          <input
-            type="number"
-            min={1000}
-            step={1000}
-            value={form.priceInVnd}
-            onChange={(e) =>
-              set('priceInVnd')(parseInt(e.target.value) || 20000)
-            }
-            className="input w-48"
-          />
-        </motion.div>
-      )}
+      {/* Style Selection Modal — portaled to body to escape stacking contexts */}
+      {isStyleModalOpen &&
+        createPortal(
+          <div
+            className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            style={{ animation: 'fadeIn 0.15s ease' }}
+          >
+            <div
+              className="relative w-full max-w-xl bg-[#13131c]/98 border border-white/12 rounded-3xl p-6 shadow-2xl space-y-5 max-h-[90vh] flex flex-col"
+              style={{
+                animation: 'slideUp 0.2s cubic-bezier(0.34,1.56,0.64,1)',
+              }}
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={18} className="text-yellow-400" />
+                  <h3 className="text-lg font-black text-white">
+                    Chọn Phong Cách Thả Thính / Viết Caption
+                  </h3>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsStyleModalOpen(false)}
+                  className="p-1 rounded-lg text-white/45 hover:bg-white/5 hover:text-white transition-all"
+                >
+                  <X size={18} />
+                </button>
+              </div>
 
-      {/* Upload progress */}
-      {uploading && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-white/60">Đang upload...</span>
-            <span className="text-brand-400 font-semibold">{progress}%</span>
-          </div>
-          <div className="h-2 bg-white/8 rounded-full overflow-hidden">
-            <motion.div
-              className="h-full bg-brand-600 rounded-full"
-              animate={{ width: `${progress}%` }}
-              transition={{ duration: 0.3 }}
-            />
-          </div>
-        </div>
-      )}
-    </div>
+              <p className="text-xs text-white/40">
+                AI sẽ phân tích ảnh & áp dụng phong cách viết này kết hợp với
+                kho mẫu tương ứng để tạo caption phù hợp nhất.
+              </p>
+
+              {/* Grid of styles */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 overflow-y-auto pr-1 flex-1 py-1">
+                {STYLE_OPTIONS.map((opt) => {
+                  const isSelected = selectedStyle === opt.key
+                  return (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setSelectedStyle(opt.key)}
+                      className={`p-3 rounded-2xl text-left border transition-all duration-200 flex flex-col gap-1.5 ${
+                        isSelected
+                          ? 'bg-brand-600/15 border-brand-500 text-white shadow-lg shadow-brand-900/10'
+                          : 'bg-white/[0.02] border-white/5 text-white/60 hover:bg-white/[0.04] hover:border-white/10'
+                      }`}
+                    >
+                      <span className="text-lg">{opt.icon}</span>
+                      <span className="text-xs font-bold">{opt.label}</span>
+                    </button>
+                  )
+                })}
+              </div>
+
+              {/* Checkbox & Button */}
+              <div className="flex flex-col gap-4 border-t border-white/5 pt-4">
+                <label className="flex items-center gap-2.5 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={makeDefaultChecked}
+                    onChange={(e) => setMakeDefaultChecked(e.target.checked)}
+                    className="w-4 h-4 rounded border-white/10 bg-white/5 text-brand-600 focus:ring-brand-500 focus:ring-offset-0 focus:ring-1"
+                  />
+                  <span className="text-xs text-white/50 font-medium">
+                    Đặt phong cách này làm mặc định cho các lần sau
+                  </span>
+                </label>
+
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsStyleModalOpen(false)}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 hover:bg-white/5 text-xs font-bold transition-all text-white/70"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleConfirmStyle(selectedStyle)}
+                    className="flex-1 py-2.5 rounded-xl bg-gradient-brand text-xs font-bold text-white transition-all shadow-lg shadow-brand-900/25 hover:brightness-110"
+                  >
+                    Xác nhận & Tạo mô tả
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )}
+    </>
   )
 }
 

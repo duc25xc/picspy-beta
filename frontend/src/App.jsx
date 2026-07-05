@@ -98,16 +98,18 @@ const AuthLayout = ({ children }) => (
 export default function App() {
   const location = useLocation()
   const refreshMe = useAuthStore((s) => s.refreshMe)
-  const isAuth = useAuthStore((s) => !!s.user && !!s.accessToken)
+  const userId = useAuthStore((s) => s.user?._id ?? null)
 
-  // Sync user data (coin, stats) mỗi khi user quay lại tab
+  // Sync user data (coin, stats) mỗi khi userId thay đổi (kể cả khi switch account)
+  // Dùng userId thay vì isAuth để effect re-run khi đăng nhập tài khoản khác
+  // mà không cần logout trước
   useEffect(() => {
-    if (!isAuth) return
+    if (!userId) return
     const onFocus = () => refreshMe()
     window.addEventListener('focus', onFocus)
     refreshMe()
     return () => window.removeEventListener('focus', onFocus)
-  }, [isAuth]) // eslint-disable-line
+  }, [userId]) // eslint-disable-line
 
   return (
     <>

@@ -38,6 +38,10 @@ const DownloadButton = ({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState('original')
 
+  // Creator owns this post — treat as already purchased for all file types
+  const isOwner = !!user && !!post?.authorId &&
+    (user._id === post.authorId || user._id === post.authorId?._id)
+
   const hasAttachments =
     !!post?.rawFile ||
     !!post?.colorFile ||
@@ -68,8 +72,10 @@ const DownloadButton = ({
 
   const availableTypes = getAvailableFileTypes()
   const purchasedTypes = post?.purchasedFileTypes || []
+  // Owner always treated as having purchased everything
   const isAllPurchased =
-    isPremium && availableTypes.every((type) => purchasedTypes.includes(type))
+    isOwner ||
+    (isPremium && availableTypes.every((type) => purchasedTypes.includes(type)))
 
   const doDownload = async (fileType = selectedFileType) => {
     setShowConfirm(false)
@@ -191,7 +197,7 @@ const DownloadButton = ({
 
     setSelectedFileType(fileType)
 
-    const isPurchased = post?.purchasedFileTypes?.includes(fileType)
+    const isPurchased = isOwner || post?.purchasedFileTypes?.includes(fileType)
 
     if (isPremium && !isPurchased) {
       const balance = user?.vndBalance || 0
@@ -221,7 +227,7 @@ const DownloadButton = ({
   }
 
   const renderDropdownItem = (label, fileType, mediaItem) => {
-    const isPurchased = post?.purchasedFileTypes?.includes(fileType)
+    const isPurchased = isOwner || post?.purchasedFileTypes?.includes(fileType)
     return (
       <button
         onClick={() => {
@@ -339,7 +345,7 @@ const DownloadButton = ({
             <Loader2 size={16} className="animate-spin" />
           ) : done ? (
             <CheckCircle2 size={16} className="text-green-400" />
-          ) : isPremium ? (
+          ) : isPremium && !isOwner ? (
             <Lock size={16} />
           ) : (
             <Download size={16} />

@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import api from '../api/api'
+import api, { setAuthBridge } from '../api/api'
 
 const useAuthStore = create(
   persist(
@@ -22,11 +22,16 @@ const useAuthStore = create(
         set({ isLoading: true })
         try {
           const { data } = await api.post('/auth/login', { email, password })
+          // Xóa sạch state cũ trước khi set data mới,
+          // đảm bảo không có field nào của tài khoản cũ bị giữ lại
           set({
             user: data.user,
             accessToken: data.accessToken,
             isLoading: false,
           })
+          // Gọi refreshMe ngay sau login để đồng bộ đầy đủ dữ liệu từ server
+          // (login response chỉ trả về một subset của user fields)
+          get().refreshMe()
           return { success: true }
         } catch (err) {
           set({ isLoading: false })
@@ -79,10 +84,16 @@ const useAuthStore = create(
       },
 
       // Đồng bộ thông tin user mới nhất từ server (token, stats...)
+      // Dùng REPLACE (không merge) để tránh dữ liệu cũ của tài khoản khác bị giữ lại
       refreshMe: async () => {
+        const currentToken = get().accessToken
+        if (!currentToken) return
         try {
           const { data } = await api.get('/users/me')
-          set((state) => ({ user: { ...state.user, ...data.user } }))
+          // Kiểm tra token không đổi trong lúc đang fetch (phòng race condition switch account)
+          if (get().accessToken !== currentToken) return
+          // Replace toàn bộ user object thay vì merge để tránh stale data
+          set({ user: data.user })
         } catch {
           // Bỏ qua nếu lỗi (token hết hạn sẽ do interceptor xử lý)
         }
@@ -99,5 +110,20 @@ const useAuthStore = create(
     }
   )
 )
+
+/**
+ * Kết nối bridge sau khi store đã được khởi tạo.
+ * Từ đây, api.js luôn đọc/ghi token trực tiếp từ Zustand in-memory state
+ * thay vì localStorage — đảm bảo tính nhất quán khi switch account.
+ */
+setAuthBridge({
+  getToken: () => useAuthStore.getState().accessToken,
+  updateToken: (newToken) => {
+    useAuthStore.setState({ accessToken: newToken })
+  },
+  clearAuth: () => {
+    useAuthStore.setState({ user: null, accessToken: null })
+  },
+})
 
 export default useAuthStore

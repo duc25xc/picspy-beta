@@ -1,5 +1,12 @@
 import { GoogleGenerativeAI } from '@google/generative-ai'
 import axios from 'axios'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+import { dirname } from 'path'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = dirname(__filename)
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
@@ -259,6 +266,189 @@ Hãy trả về kết quả dưới định dạng JSON bao gồm:
   }
 
   console.error('❌ extractPromptArguments: Tất cả model đều bị rate-limited!')
+  throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+}
+
+const STYLE_MAP = {
+  gioi_tre_y2k: 'Giới Trẻ Y2K',
+  tho_mong: 'Thơ Mộng Thả Thính',
+  hai_huoc: 'Hài Hước Xoáy Sâu',
+  ngau: 'Ngầu Cá Tính',
+  sau_lang: 'Sâu Lắng Sâu Sắc',
+  buon: 'Buồn - Cô Đơn',
+  tet_le: 'Tết - Lễ - Noel',
+  dong_luc: 'Động Lực - Học Tập - Tuổi Trẻ',
+  cong_viec: 'Công Việc - Đi Làm',
+  tinh_ban: 'Tình Bạn - Gia Đình - Hôn Nhân',
+  do_an: 'Đăng Ảnh Đồ Ăn',
+  du_lich: 'Du Lịch',
+  tieng_anh: 'Tiếng Anh Song Ngữ'
+}
+
+const getStyleCorpus = (styleKey) => {
+  try {
+    const targetHeading = STYLE_MAP[styleKey]
+    if (!targetHeading) return ''
+
+    // Candidate file paths for robust resolution
+    const candidates = [
+      path.join(__dirname, '..', '..', '..', 'memories', 'captions', 'caption-tha-thinh-tong-hop_pro.md'),
+      path.join(process.cwd(), 'memories', 'captions', 'caption-tha-thinh-tong-hop_pro.md'),
+      path.join(process.cwd(), '..', 'memories', 'captions', 'caption-tha-thinh-tong-hop_pro.md'),
+      path.join(process.cwd(), 'caption-tha-thinh-tong-hop_pro.md'),
+    ]
+
+    let filePath = ''
+    for (const p of candidates) {
+      if (fs.existsSync(p)) {
+        filePath = p
+        break
+      }
+    }
+
+    if (!filePath) {
+      console.warn('⚠️ getStyleCorpus: Không tìm thấy file corpus tại bất kỳ đường dẫn nào.')
+      return ''
+    }
+
+    const fileContent = fs.readFileSync(filePath, 'utf8')
+
+    // Phân tách nội dung file dựa trên ký tự phân đoạn Markdown '## '
+    const sections = fileContent.split('\n## ')
+    const targetSection = sections.find(sec => sec.trim().startsWith(targetHeading))
+
+    if (!targetSection) return ''
+
+    // Cắt bóc tách các dòng gợi ý mẫu
+    const lines = targetSection.split('\n')
+    const headerLines = []
+    const captionLines = []
+
+    for (const line of lines) {
+      const trimmed = line.trim()
+      // Nhận diện dòng caption dạng "1. Câu thính..." hoặc "2. ..."
+      if (/^\d+\./.test(trimmed)) {
+        captionLines.push(line)
+      } else {
+        if (trimmed !== '') {
+          headerLines.push(line)
+        }
+      }
+    }
+
+    const maxCaptions = 50 // Giới hạn tối đa 50 câu thính cho mỗi lần tạo để tiết kiệm token
+    if (captionLines.length <= maxCaptions) {
+      return headerLines.join('\n') + '\n\n' + captionLines.join('\n')
+    }
+
+    // Shuffle ngẫu nhiên và lấy ra 50 câu đại diện mẫu
+    const shuffled = [...captionLines].sort(() => 0.5 - Math.random())
+    const sampled = shuffled.slice(0, maxCaptions)
+
+    return (
+      headerLines.join('\n') + 
+      '\n\n' + 
+      sampled.join('\n') + 
+      `\n... (Đã trích xuất ngẫu nhiên ${maxCaptions}/${captionLines.length} mẫu tiêu biểu để tối ưu hóa xử lý)`
+    )
+  } catch (error) {
+    console.error('❌ getStyleCorpus Error:', error)
+    return ''
+  }
+}
+
+
+export const generateMetaSuggestions = async (imageBase64, styleKey = 'gioi_tre_y2k', imageMimeType = 'image/jpeg') => {
+  const styleName = STYLE_MAP[styleKey] || 'Tổng hợp'
+  const styleCorpus = getStyleCorpus(styleKey)
+
+  const systemPrompt = `
+[ROLE - VAI TRÒ]
+Bạn là một Chuyên gia Sáng tạo Nội dung Truyền thông Xã hội (Social Media Content Creator) kiêm Chuyên gia tối ưu hóa SEO hình ảnh. Bạn am hiểu sâu sắc xu hướng ngôn từ của giới trẻ, các cấu trúc câu thả thính độc lạ và cách giật tít bắt mắt trên Facebook, Instagram, TikTok, Threads.
+
+[TASK - NHIỆM VỤ]
+Phân tích chi tiết bối cảnh hình ảnh được cung cấp kết hợp với Kho ngữ liệu tham khảo để sinh ra một đối tượng dữ liệu JSON gồm câu mô tả (caption) sống động và danh sách các thẻ khóa liên quan (tags).
+
+[CONTEXT - BỐI CẢNH]
+- Hình ảnh này được tải lên bởi một người dùng đang có nhu cầu tạo bài đăng mạng xã hội để tăng tương tác.
+- Phong cách viết bài (Tone of Voice) được chỉ định cho ảnh này là: "${styleName}".
+- Dưới đây là Kho ngữ liệu chứa các từ lóng, câu caption mẫu tiêu biểu cho phong cách này. Bạn cần học tập tư duy nhả chữ, nhịp điệu ngắt câu hoặc áp dụng linh hoạt dữ liệu này vào ngữ cảnh thực tế của bức ảnh:
+---
+${styleCorpus}
+---
+
+[CONSTRAINTS - RÀNG BUỘC & CHUYÊN NGHIỆP]
+1. Nhận diện giới tính & Chủ thể trong ảnh:
+   - Hãy phân tích xem chủ thể chính trong bức ảnh là nam, nữ, một cặp đôi (nam & nữ/đồng giới), một nhóm người hay là phong cảnh/đồ vật/đồ ăn.
+   - Hãy THAY THẾ linh hoạt đại từ nhân xưng (anh/em/ta/tôi) trong caption mẫu cho phù hợp. Ví dụ: Nếu ảnh là một chàng trai (nam), caption không được dùng đại từ xưng hô tự gọi mình là "em" (ví dụ: "Em vụng về..." phải đổi thành "Anh vụng về..." hoặc xưng hô cho tự nhiên với nam giới). Nếu là phong cảnh/đồ ăn, hãy viết mô tả hướng tới trải nghiệm, vibe, hoặc chill.
+2. Tiêu chuẩn Caption:
+   - Độ dài tối đa 500 ký tự. Viết hoàn toàn bằng tiếng Việt văn phong tự nhiên, lôi cuốn, mang tính viral cao, đúng phong cách "${styleName}" đã chọn.
+   - Tránh copy y hệt rập khuôn từ kho ngữ liệu mẫu nếu bối cảnh ảnh hoàn toàn không khớp. Hãy chế tác lại một cách khéo léo để vừa giữ được tone vừa khớp với nội dung bức ảnh.
+3. Tiêu chuẩn Tags:
+   - Trả về một mảng chứa từ 5 đến 10 từ khóa (tiếng Anh hoặc tiếng Việt) viết thường, không chứa dấu thăng (#).
+   - Tag phải bám sát vào chủ thể, trang phục (outfit), mood (tâm trạng), màu sắc hoặc phong cách được nhận diện trong ảnh.
+`.trim()
+
+  const content = [
+    { text: systemPrompt },
+    { inlineData: { data: imageBase64, mimeType: imageMimeType } }
+  ]
+
+  let lastError = null
+
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      console.log(`🤖 generateMetaSuggestions: Trying model "${modelName}" with style "${styleKey}"...`)
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              caption: {
+                type: 'STRING',
+                description: 'Attractive customized style caption in Vietnamese, max 500 chars'
+              },
+              tags: {
+                type: 'ARRAY',
+                items: {
+                  type: 'STRING',
+                  description: 'Single word or short phrase lowercase tags without hashes'
+                }
+              }
+            },
+            required: ['caption', 'tags']
+          }
+        }
+      })
+
+      const result = await model.generateContent(content)
+      const rawText = result.response.text().trim()
+      const parsed = JSON.parse(rawText)
+      console.log(`✅ generateMetaSuggestions: Success with model "${modelName}"`)
+      return parsed
+    } catch (err) {
+      lastError = err
+      const errMsg = err.message || ''
+      const shouldFallback = errMsg.includes('429')
+        || errMsg.includes('quota')
+        || errMsg.includes('Too Many Requests')
+        || errMsg.includes('404')
+        || errMsg.includes('not found')
+        || errMsg.includes('503')
+        || errMsg.includes('500')
+        || errMsg.includes('high demand')
+        || errMsg.includes('overloaded')
+      if (shouldFallback) {
+        console.warn(`⚠️ generateMetaSuggestions: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`)
+        continue
+      }
+      throw err
+    }
+  }
+
+  console.error('❌ generateMetaSuggestions: Tất cả model đều bị rate-limited!')
   throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
 }
 

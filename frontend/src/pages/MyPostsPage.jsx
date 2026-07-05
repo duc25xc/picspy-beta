@@ -27,9 +27,12 @@ import toast from 'react-hot-toast'
 import api from '../api/api'
 import { useSettings } from '../context/SettingsContext'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
-import { ImageDropZone, SourceHistoryPanel, ModelSlot } from './UploadComponents.jsx'
+import {
+  ImageDropZone,
+  SourceHistoryPanel,
+  ModelSlot,
+} from './UploadComponents.jsx'
 import { deduplicateByPublicId, fileToPreview } from './uploadConstants.js'
-
 
 // ─── Constants ─────────────────────────────────────────────
 const STATUS_CONFIG = {
@@ -65,16 +68,16 @@ const STATUS_CONFIG = {
 
 // ── Fallback categories (khi API chưa load xong) ───────────────
 const FALLBACK_CATEGORIES = [
-  { slug: 'nature',   name: '🌿 Thiên nhiên' },
-  { slug: 'anime',    name: '🎌 Anime' },
-  { slug: 'minimal',  name: '◻️ Minimal' },
+  { slug: 'nature', name: '🌿 Thiên nhiên' },
+  { slug: 'anime', name: '🎌 Anime' },
+  { slug: 'minimal', name: '◻️ Minimal' },
   { slug: 'abstract', name: '🎨 Abstract' },
-  { slug: 'city',     name: '🌃 Thành phố' },
-  { slug: 'space',    name: '🚀 Vũ trụ' },
-  { slug: 'dark',     name: '🌑 Dark' },
-  { slug: 'light',    name: '☀️ Light' },
+  { slug: 'city', name: '🌃 Thành phố' },
+  { slug: 'space', name: '🚀 Vũ trụ' },
+  { slug: 'dark', name: '🌑 Dark' },
+  { slug: 'light', name: '☀️ Light' },
   { slug: 'gradient', name: '🌈 Gradient' },
-  { slug: 'other',    name: '✨ Khác' },
+  { slug: 'other', name: '✨ Khác' },
 ]
 
 // ─── Skeleton Card ──────────────────────────────────────────
@@ -105,55 +108,101 @@ const StatusBadge = ({ status }) => {
   )
 }
 
+// ─── Post Type Badge ───────────────────────────────────────
+const POST_TYPE_LABELS = {
+  ai: {
+    label: '✦ AI',
+    cls: 'bg-violet-500/15 text-violet-300 border-violet-500/30',
+  },
+  'digital-raw': {
+    label: '📷 RAW',
+    cls: 'bg-sky-500/15 text-sky-300 border-sky-500/30',
+  },
+  'digital-normal': {
+    label: 'Ảnh Digital',
+    cls: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+  },
+}
+const PostTypeBadge = ({ postType }) => {
+  const cfg = POST_TYPE_LABELS[postType]
+  if (!cfg) return null
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border ${cfg.cls}`}
+    >
+      {cfg.label}
+    </span>
+  )
+}
+
 // ─── Edit Modal ─────────────────────────────────────────────
 const AI_TOOL_OPTIONS = [
-  'midjourney','dalle-3','stable-diffusion','flux',
-  'gemini-nano-banana-pro','gemini-nano-banana-2',
-  'chatgpt','seedream','grok',
+  'midjourney',
+  'dalle-3',
+  'stable-diffusion',
+  'flux',
+  'gemini-nano-banana-pro',
+  'gemini-nano-banana-2',
+  'chatgpt',
+  'seedream',
+  'grok',
 ]
 
-const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) => {
-  const [tab, setTab]     = useState('info')   // 'info' | 'ai' | 'images' | 'pricing'
-  const [form, setForm]   = useState({
+const EditModal = ({
+  post,
+  onClose,
+  onSave,
+  categories = FALLBACK_CATEGORIES,
+}) => {
+  const [tab, setTab] = useState('info') // 'info' | 'ai' | 'images' | 'pricing'
+  const [form, setForm] = useState({
     // Info tab
-    caption:        post.caption        || '',
-    category:       post.category       || '',
-    tags:           post.tags           || [],
+    caption: post.caption || '',
+    category: post.category || '',
+    tags: post.tags || [],
     // AI tab
-    prompt:         post.prompt         || '',
+    prompt: post.prompt || '',
     negativePrompt: post.negativePrompt || '',
-    aiTool:         post.aiTool         || '',
-    aiModel:        post.aiModel        || '',
-    parameters:     post.parameters     || '',
+    aiTool: post.aiTool || '',
+    aiModel: post.aiModel || '',
+    parameters: post.parameters || '',
     // Pricing tab
-    isPremium:       post.isPremium       || false,
-    priceInVnd:      post.priceInVnd      || 20000,
+    isPremium: post.isPremium || false,
+    priceInVnd: post.priceInVnd || 20000,
   })
-  const [tag, setTag]       = useState('')
+  const [tag, setTag] = useState('')
   const [saving, setSaving] = useState(false)
+  const [maxLimit, setMaxLimit] = useState(() => {
+    const price = post.priceInVnd || 20000
+    if (price > 5000000) return 10000000
+    if (price > 1000000) return 5000000
+    return 1000000
+  })
 
   // ── States cho ảnh trong EditModal ──────────────────────────────────
-  const [multiModelMode, setMultiModelMode] = useState(post.isMultiModel || false)
+  const [multiModelMode, setMultiModelMode] = useState(
+    post.isMultiModel || false
+  )
 
   // Khởi tạo sourceImages cũ từ post.sourceImages
   const [sourceImages, setSourceImages] = useState(() => {
-    return (post.sourceImages || []).map(img => ({
+    return (post.sourceImages || []).map((img) => ({
       id: img.publicId || Math.random().toString(),
       preview: img.url,
       url: img.url,
       publicId: img.publicId,
-      isOld: true
+      isOld: true,
     }))
   })
 
   // Khởi tạo genImages cũ từ post.generatedImages
   const [genImages, setGenImages] = useState(() => {
-    return (post.generatedImages || []).map(img => ({
+    return (post.generatedImages || []).map((img) => ({
       id: img.publicId || Math.random().toString(),
       preview: img.url,
       url: img.url,
       publicId: img.publicId,
-      isOld: true
+      isOld: true,
     }))
   })
 
@@ -161,12 +210,14 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   const [modelSlots, setModelSlots] = useState(() => {
     if (post.isMultiModel) {
       // Kiểm tra xem post.modelComparisons[0] có trùng với post.generatedImages[0] không
-      const firstCompImg = post.modelComparisons?.[0]?.generatedImages?.[0];
-      const firstGenImg = post.generatedImages?.[0];
-      const isSlot0Included = firstCompImg && firstGenImg && (
-        (firstCompImg.publicId && firstCompImg.publicId === firstGenImg.publicId) ||
-        (firstCompImg.url && firstCompImg.url === firstGenImg.url)
-      );
+      const firstCompImg = post.modelComparisons?.[0]?.generatedImages?.[0]
+      const firstGenImg = post.generatedImages?.[0]
+      const isSlot0Included =
+        firstCompImg &&
+        firstGenImg &&
+        ((firstCompImg.publicId &&
+          firstCompImg.publicId === firstGenImg.publicId) ||
+          (firstCompImg.url && firstCompImg.url === firstGenImg.url))
 
       if (isSlot0Included) {
         // Đã bao gồm slot 0, chỉ cần map trực tiếp modelComparisons
@@ -174,60 +225,60 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
           id: `slot-${idx}-${Date.now()}-${Math.random()}`,
           aiTool: s.aiTool || '',
           aiModel: s.aiModel || '',
-          genImages: (s.generatedImages || []).map(img => ({
+          genImages: (s.generatedImages || []).map((img) => ({
             id: img.publicId || Math.random().toString(),
             preview: img.url,
             url: img.url,
             publicId: img.publicId,
-            isOld: true
-          }))
-        }));
+            isOld: true,
+          })),
+        }))
       } else {
         // Chưa bao gồm slot 0, tạo slot 0 từ generatedImages/aiTool/aiModel chính
         const slot0 = {
           id: `slot-0-${Date.now()}-${Math.random()}`,
           aiTool: post.aiTool || '',
           aiModel: post.aiModel || '',
-          genImages: (post.generatedImages || []).map(img => ({
+          genImages: (post.generatedImages || []).map((img) => ({
             id: img.publicId || Math.random().toString(),
             preview: img.url,
             url: img.url,
             publicId: img.publicId,
-            isOld: true
-          }))
-        };
+            isOld: true,
+          })),
+        }
 
         const otherSlots = (post.modelComparisons || []).map((s, idx) => ({
           id: `slot-${idx + 1}-${Date.now()}-${Math.random()}`,
           aiTool: s.aiTool || '',
           aiModel: s.aiModel || '',
-          genImages: (s.generatedImages || []).map(img => ({
+          genImages: (s.generatedImages || []).map((img) => ({
             id: img.publicId || Math.random().toString(),
             preview: img.url,
             url: img.url,
             publicId: img.publicId,
-            isOld: true
-          }))
-        }));
+            isOld: true,
+          })),
+        }))
 
-        return [slot0, ...otherSlots];
+        return [slot0, ...otherSlots]
       }
     }
-    
+
     // Fallback slot nếu post cũ là single model nhưng user chuyển sang multi-model
     return [
       {
         id: `slot-0-${Date.now()}-${Math.random()}`,
         aiTool: post.aiTool || '',
         aiModel: post.aiModel || '',
-        genImages: (post.generatedImages || []).map(img => ({
+        genImages: (post.generatedImages || []).map((img) => ({
           id: img.publicId || Math.random().toString(),
           preview: img.url,
           url: img.url,
           publicId: img.publicId,
-          isOld: true
-        }))
-      }
+          isOld: true,
+        })),
+      },
     ]
   })
 
@@ -236,49 +287,59 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   const [historyLoading, setHistoryLoading] = useState(false)
   const [sourceTab, setSourceTab] = useState('upload') // 'upload' | 'history'
 
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }))
+  const set = (k, v) => setForm((f) => ({ ...f, [k]: v }))
 
   const addTag = () => {
-    const t = tag.toLowerCase().trim().replace(/[^a-z0-9_]/g, '')
-    if (t && !form.tags.includes(t) && form.tags.length < 10) set('tags', [...form.tags, t])
+    const t = tag
+      .toLowerCase()
+      .trim()
+      .replace(/[^a-z0-9_]/g, '')
+    if (t && !form.tags.includes(t) && form.tags.length < 10)
+      set('tags', [...form.tags, t])
     setTag('')
   }
 
   // ── Image handlers ──────────────────────────────────────────────────
-  const addSourceImages = useCallback((files) => {
-    const totalCount = sourceImages.length + selectedHistoryIds.size
-    const remaining = 5 - totalCount
-    if (remaining <= 0) return toast.error('Tối đa 5 ảnh tham khảo')
-    const toAdd = files.slice(0, remaining).map(fileToPreview)
-    setSourceImages(prev => [...prev, ...toAdd])
-  }, [sourceImages.length, selectedHistoryIds.size])
+  const addSourceImages = useCallback(
+    (files) => {
+      const totalCount = sourceImages.length + selectedHistoryIds.size
+      const remaining = 5 - totalCount
+      if (remaining <= 0) return toast.error('Tối đa 5 ảnh tham khảo')
+      const toAdd = files.slice(0, remaining).map(fileToPreview)
+      setSourceImages((prev) => [...prev, ...toAdd])
+    },
+    [sourceImages.length, selectedHistoryIds.size]
+  )
 
   const removeSourceImage = useCallback((id) => {
-    setSourceImages(prev => {
-      const img = prev.find(i => i.id === id)
+    setSourceImages((prev) => {
+      const img = prev.find((i) => i.id === id)
       if (img && !img.isOld) URL.revokeObjectURL(img.preview)
-      return prev.filter(i => i.id !== id)
+      return prev.filter((i) => i.id !== id)
     })
   }, [])
 
-  const addGenImages = useCallback((files) => {
-    const remaining = 5 - genImages.length
-    if (remaining <= 0) return toast.error('Tối đa 5 ảnh kết quả')
-    const toAdd = files.slice(0, remaining).map(fileToPreview)
-    setGenImages(prev => [...prev, ...toAdd])
-  }, [genImages.length])
+  const addGenImages = useCallback(
+    (files) => {
+      const remaining = 5 - genImages.length
+      if (remaining <= 0) return toast.error('Tối đa 5 ảnh kết quả')
+      const toAdd = files.slice(0, remaining).map(fileToPreview)
+      setGenImages((prev) => [...prev, ...toAdd])
+    },
+    [genImages.length]
+  )
 
   const removeGenImage = useCallback((id) => {
-    setGenImages(prev => {
-      const img = prev.find(i => i.id === id)
+    setGenImages((prev) => {
+      const img = prev.find((i) => i.id === id)
       if (img && !img.isOld) URL.revokeObjectURL(img.preview)
-      return prev.filter(i => i.id !== id)
+      return prev.filter((i) => i.id !== id)
     })
   }, [])
 
   const setGenImageAsPrimary = useCallback((id) => {
-    setGenImages(prev => {
-      const idx = prev.findIndex(img => img.id === id)
+    setGenImages((prev) => {
+      const idx = prev.findIndex((img) => img.id === id)
       if (idx <= 0) return prev
       const next = [...prev]
       const [target] = next.splice(idx, 1)
@@ -289,7 +350,7 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
   const setPrimarySlot = useCallback((slotIdx) => {
     if (slotIdx <= 0) return
-    setModelSlots(prev => {
+    setModelSlots((prev) => {
       const next = [...prev]
       const [target] = next.splice(slotIdx, 1)
       next.unshift(target)
@@ -298,60 +359,79 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
   }, [])
 
   const setPrimaryImageInSlot = useCallback((slotIdx, imgId) => {
-    setModelSlots(prev => {
+    setModelSlots((prev) => {
       const next = [...prev]
       const slot = next[slotIdx]
       if (!slot) return prev
-      const idx = slot.genImages.findIndex(img => img.id === imgId)
+      const idx = slot.genImages.findIndex((img) => img.id === imgId)
       if (idx <= 0) return prev
-      
+
       const newImages = [...slot.genImages]
       const [target] = newImages.splice(idx, 1)
       newImages.unshift(target)
-      
+
       next[slotIdx] = { ...slot, genImages: newImages }
       return next
     })
   }, [])
 
-  const updateModelSlot = useCallback((i, updated) => setModelSlots(prev => prev.map((s, idx) => idx === i ? updated : s)), [])
-  const removeModelSlot = useCallback((i) => setModelSlots(prev => {
-    prev[i].genImages?.forEach(img => {
-      if (!img.isOld) URL.revokeObjectURL(img.preview)
-    })
-    return prev.filter((_, idx) => idx !== i)
-  }), [])
+  const updateModelSlot = useCallback(
+    (i, updated) =>
+      setModelSlots((prev) => prev.map((s, idx) => (idx === i ? updated : s))),
+    []
+  )
+  const removeModelSlot = useCallback(
+    (i) =>
+      setModelSlots((prev) => {
+        prev[i].genImages?.forEach((img) => {
+          if (!img.isOld) URL.revokeObjectURL(img.preview)
+        })
+        return prev.filter((_, idx) => idx !== i)
+      }),
+    []
+  )
   const addModelSlot = useCallback(() => {
     if (modelSlots.length >= 5) return toast.error('Tối đa 5 model')
-    setModelSlots(prev => [...prev, { id: `slot-${Date.now()}`, aiTool: '', aiModel: '', genImages: [] }])
+    setModelSlots((prev) => [
+      ...prev,
+      { id: `slot-${Date.now()}`, aiTool: '', aiModel: '', genImages: [] },
+    ])
   }, [modelSlots.length])
 
-  const toggleHistoryImage = useCallback((img) => {
-    setSelectedHistoryIds(prev => {
-      const next = new Set(prev)
-      if (next.has(img.publicId)) {
-        next.delete(img.publicId)
-      } else {
-        const totalCount = sourceImages.length + next.size
-        if (totalCount >= 5) {
-          toast.error('Tối đa 5 ảnh tham khảo')
-          return prev
+  const toggleHistoryImage = useCallback(
+    (img) => {
+      setSelectedHistoryIds((prev) => {
+        const next = new Set(prev)
+        if (next.has(img.publicId)) {
+          next.delete(img.publicId)
+        } else {
+          const totalCount = sourceImages.length + next.size
+          if (totalCount >= 5) {
+            toast.error('Tối đa 5 ảnh tham khảo')
+            return prev
+          }
+          next.add(img.publicId)
         }
-        next.add(img.publicId)
-      }
-      return next
-    })
-  }, [sourceImages.length])
+        return next
+      })
+    },
+    [sourceImages.length]
+  )
 
   // Tải lịch sử ảnh tham khảo
   useEffect(() => {
-    if (tab === 'images' && sourceTab === 'history' && sourceHistory.length === 0) {
+    if (
+      tab === 'images' &&
+      sourceTab === 'history' &&
+      sourceHistory.length === 0
+    ) {
       setHistoryLoading(true)
-      api.get('/posts/me', { params: { limit: 50 } })
+      api
+        .get('/posts/me', { params: { limit: 50 } })
         .then(({ data }) => {
           const allSrcs = (data.posts || [])
-            .flatMap(p => p.sourceImages || [])
-            .filter(img => img && img.publicId)
+            .flatMap((p) => p.sourceImages || [])
+            .filter((img) => img && img.publicId)
           setSourceHistory(deduplicateByPublicId(allSrcs))
         })
         .catch(() => toast.error('Không thể tải lịch sử ảnh'))
@@ -361,9 +441,17 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
   // Revoke preview URLs khi đóng modal
   const handleClose = () => {
-    sourceImages.forEach(img => { if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview) })
-    genImages.forEach(img => { if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview) })
-    modelSlots.forEach(s => s.genImages?.forEach(img => { if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview) }))
+    sourceImages.forEach((img) => {
+      if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview)
+    })
+    genImages.forEach((img) => {
+      if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview)
+    })
+    modelSlots.forEach((s) =>
+      s.genImages?.forEach((img) => {
+        if (!img.isOld && img.preview) URL.revokeObjectURL(img.preview)
+      })
+    )
     onClose()
   }
 
@@ -374,7 +462,8 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     const JUNK_CHARS = /[%$^*+=\[\]{}<>|\\\/~`]/g
     const PROMPT_JUNK_CHARS = /[%$^|~`]/g // Cho phép các ký tự { } [ ] < > = + * \ / phục vụ bôi đen keyword
 
-    const stripJunk = (text) => text.replace(JUNK_CHARS, '').replace(/\s+/g, ' ').trim()
+    const stripJunk = (text) =>
+      text.replace(JUNK_CHARS, '').replace(/\s+/g, ' ').trim()
     const hasJunk = (text) => JUNK_CHARS.test(text)
     const hasJunkPrompt = (text) => PROMPT_JUNK_CHARS.test(text)
 
@@ -382,83 +471,133 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
       if (!text) return false
       const currentJunk = isPrompt ? PROMPT_JUNK_CHARS : JUNK_CHARS
       // Strip spaces + natural punctuation, require ≥2 meaningful chars remain
-      const core = text.replace(/[\s.,!?;:'"()\-&@#_]+/g, '').replace(currentJunk, '')
+      const core = text
+        .replace(/[\s.,!?;:'"()\-&@#_]+/g, '')
+        .replace(currentJunk, '')
       return core.length >= 2
     }
 
     // ── Validate + sanitize Mô tả (caption) ─────────────────────
-    if (!form.caption.trim()) return toast.error('Vui lòng nhập Mô tả cho bài đăng.')
+    if (!form.caption.trim())
+      return toast.error('Vui lòng nhập Mô tả cho bài đăng.')
     if (hasJunk(form.caption)) {
-      return toast.error('Mô tả chứa ký tự không hợp lệ (%, $, ^, *, +, =, [, ], {, }, <, >, |, \\, /). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
+      return toast.error(
+        'Mô tả chứa ký tự không hợp lệ (%, $, ^, *, +, =, [, ], {, }, <, >, |, \\, /). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.'
+      )
     }
     if (!hasRealContent(form.caption, false)) {
-      return toast.error('Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+      return toast.error(
+        'Mô tả phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.'
+      )
     }
 
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
 
     // ── Detect AI post (hỗ trợ cả bài cũ không có postType) ─────
-    const isAiPost = post.postType === 'ai'
-      || !!post.aiTool
-      || (post.generatedImages?.length > 0)
+    const isAiPost =
+      post.postType === 'ai' ||
+      (post.postType == null &&
+        (!!post.aiTool || post.generatedImages?.length > 0))
 
     if (isAiPost) {
       if (!form.prompt.trim()) {
-        return toast.error('Bài đăng AI bắt buộc phải có Prompt. Vui lòng chuyển sang tab "✦ AI & Prompt" và nhập Prompt.')
+        return toast.error(
+          'Bài đăng AI bắt buộc phải có Prompt. Vui lòng chuyển sang tab "✦ AI & Prompt" và nhập Prompt.'
+        )
       }
       if (hasJunkPrompt(form.prompt)) {
-        return toast.error('Prompt chứa ký tự không hợp lệ (%, $, ^, |, ~, `). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.')
+        return toast.error(
+          'Prompt chứa ký tự không hợp lệ (%, $, ^, |, ~, `). Vui lòng chỉ sử dụng chữ cái, số và dấu câu thông thường.'
+        )
       }
       if (!hasRealContent(form.prompt, true)) {
-        return toast.error('Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.')
+        return toast.error(
+          'Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.'
+        )
       }
-      const effectiveAiTool = multiModelMode ? modelSlots[0]?.aiTool : form.aiTool
-      if (!effectiveAiTool) return toast.error('Bài đăng AI yêu cầu chọn Công cụ AI.')
+      const effectiveAiTool = multiModelMode
+        ? modelSlots[0]?.aiTool
+        : form.aiTool
+      if (!effectiveAiTool)
+        return toast.error('Bài đăng AI yêu cầu chọn Công cụ AI.')
     }
 
-    // Validate multi-model
-    if (multiModelMode) {
-      if (modelSlots.length < 2) return toast.error('Cần ít nhất 2 model để so sánh')
-      if (modelSlots.some(s => !s.aiTool)) return toast.error('Mỗi model so sánh cần chọn công cụ AI')
-      if (modelSlots.some(s => !s.genImages?.length)) return toast.error('Mỗi model cần ít nhất 1 ảnh kết quả')
-    } else if (isAiPost) {
-      if (genImages.length === 0) return toast.error('Cần ít nhất 1 ảnh kết quả AI')
+    // Validate multi-model (chỉ áp dụng cho AI post)
+    if (isAiPost && multiModelMode) {
+      if (modelSlots.length < 2)
+        return toast.error('Cần ít nhất 2 model để so sánh')
+      if (modelSlots.some((s) => !s.aiTool))
+        return toast.error('Mỗi model so sánh cần chọn công cụ AI')
+      if (modelSlots.some((s) => !s.genImages?.length))
+        return toast.error('Mỗi model cần ít nhất 1 ảnh kết quả')
+    } else if (isAiPost && !multiModelMode) {
+      if (genImages.length === 0)
+        return toast.error('Cần ít nhất 1 ảnh kết quả AI')
     }
 
     setSaving(true)
     try {
       const fd = new FormData()
-      
+
       // Append text fields (use cleaned values)
       fd.append('caption', stripJunk(form.caption))
       fd.append('category', form.category)
       fd.append('tags', JSON.stringify(form.tags))
       if (form.prompt.trim()) fd.append('prompt', stripJunk(form.prompt))
-      if (form.negativePrompt.trim()) fd.append('negativePrompt', form.negativePrompt.trim())
+      if (form.negativePrompt.trim())
+        fd.append('negativePrompt', form.negativePrompt.trim())
       // Only append aiTool if it has a valid value (avoid sending empty string that fails enum validation)
-      const aiToolValue = multiModelMode ? (modelSlots[0].aiTool || '') : form.aiTool
+      const aiToolValue = multiModelMode
+        ? modelSlots[0].aiTool || ''
+        : form.aiTool
       if (aiToolValue) fd.append('aiTool', aiToolValue)
-      if (!multiModelMode && form.aiModel.trim()) fd.append('aiModel', form.aiModel.trim())
-      if (form.parameters.trim()) fd.append('parameters', form.parameters.trim())
+      if (!multiModelMode && form.aiModel.trim())
+        fd.append('aiModel', form.aiModel.trim())
+      if (form.parameters.trim())
+        fd.append('parameters', form.parameters.trim())
       fd.append('isPremium', String(form.isPremium))
       fd.append('priceInVnd', String(Number(form.priceInVnd)))
 
       // ── Xử lý ảnh gốc (Source Images) ──
       // Cũ được giữ lại
-      const keepSourceImagePublicIds = sourceImages.filter(img => img.isOld).map(img => img.publicId)
-      fd.append('keepSourceImagePublicIds', JSON.stringify(keepSourceImagePublicIds))
-      
+      const keepSourceImagePublicIds = sourceImages
+        .filter((img) => img.isOld)
+        .map((img) => img.publicId)
+      fd.append(
+        'keepSourceImagePublicIds',
+        JSON.stringify(keepSourceImagePublicIds)
+      )
+
       // Mới upload
-      sourceImages.filter(img => !img.isOld).forEach(img => {
-        fd.append('sourceImages', img.file)
-      })
+      sourceImages
+        .filter((img) => !img.isOld)
+        .forEach((img) => {
+          fd.append('sourceImages', img.file)
+        })
 
       // Chọn từ lịch sử
       if (selectedHistoryIds.size > 0) {
-        const refs = sourceHistory.filter(img => selectedHistoryIds.has(img.publicId))
-          .map(({ url, publicId, width, height, fileSize, format, thumbnailUrl }) => ({
-            url, publicId, width, height, fileSize, format, thumbnailUrl
-          }))
+        const refs = sourceHistory
+          .filter((img) => selectedHistoryIds.has(img.publicId))
+          .map(
+            ({
+              url,
+              publicId,
+              width,
+              height,
+              fileSize,
+              format,
+              thumbnailUrl,
+            }) => ({
+              url,
+              publicId,
+              width,
+              height,
+              fileSize,
+              format,
+              thumbnailUrl,
+            })
+          )
         fd.append('sourceImageRefs', JSON.stringify(refs))
       }
 
@@ -468,28 +607,39 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
           aiTool: s.aiTool,
           aiModel: s.aiModel || undefined,
           slotIndex: idx,
-          keepImagePublicIds: s.genImages.filter(img => img.isOld).map(img => img.publicId)
+          keepImagePublicIds: s.genImages
+            .filter((img) => img.isOld)
+            .map((img) => img.publicId),
         }))
         fd.append('modelComparisons', JSON.stringify(comparisonsPayload))
-        
+
         // Append các file mới cho model slot
         modelSlots.forEach((s, idx) => {
-          s.genImages.filter(img => !img.isOld).forEach(img => {
-            fd.append(`compImages_${idx}`, img.file)
-          })
+          s.genImages
+            .filter((img) => !img.isOld)
+            .forEach((img) => {
+              fd.append(`compImages_${idx}`, img.file)
+            })
         })
       } else {
-        const keepGeneratedImagePublicIds = genImages.filter(img => img.isOld).map(img => img.publicId)
-        fd.append('keepGeneratedImagePublicIds', JSON.stringify(keepGeneratedImagePublicIds))
-        
+        const keepGeneratedImagePublicIds = genImages
+          .filter((img) => img.isOld)
+          .map((img) => img.publicId)
+        fd.append(
+          'keepGeneratedImagePublicIds',
+          JSON.stringify(keepGeneratedImagePublicIds)
+        )
+
         // Append các file mới
-        genImages.filter(img => !img.isOld).forEach(img => {
-          fd.append('generatedImages', img.file)
-        })
+        genImages
+          .filter((img) => !img.isOld)
+          .forEach((img) => {
+            fd.append('generatedImages', img.file)
+          })
       }
 
       const { data } = await api.put(`/posts/${post._id}`, fd, {
-        headers: { 'Content-Type': 'multipart/form-data' }
+        headers: { 'Content-Type': 'multipart/form-data' },
       })
       toast.success('Đã cập nhật bài đăng ✓')
       onSave(data.post)
@@ -501,10 +651,15 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     }
   }
 
+  const isAiPost =
+    post.postType === 'ai' ||
+    (post.postType == null &&
+      (!!post.aiTool || post.generatedImages?.length > 0))
+
   const TABS = [
-    { id: 'info',    label: '📋 Thông tin' },
-    { id: 'ai',      label: '✦ AI & Prompt' },
-    { id: 'images',  label: '🖼️ Hình ảnh' },
+    { id: 'info', label: '📋 Thông tin' },
+    ...(isAiPost ? [{ id: 'ai', label: '✦ AI & Prompt' }] : []),
+    { id: 'images', label: '🖼️ Hình ảnh' },
     { id: 'pricing', label: '💎 Giá' },
   ]
 
@@ -513,11 +668,17 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
     if (multiModelMode) {
       const firstSlotImg = modelSlots[0]?.genImages?.[0]
       if (firstSlotImg?.preview) return firstSlotImg.preview
-      const remoteUrl = firstSlotImg?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+      const remoteUrl =
+        firstSlotImg?.url ||
+        post.generatedImages?.[0]?.url ||
+        post.images?.[0]?.url
       return getOptimizedWebpUrl(remoteUrl, 600)
     }
     if (genImages[0]?.preview) return genImages[0].preview
-    const remoteUrl = genImages[0]?.url || post.generatedImages?.[0]?.url || post.images?.[0]?.url
+    const remoteUrl =
+      genImages[0]?.url ||
+      post.generatedImages?.[0]?.url ||
+      post.images?.[0]?.url
     return getOptimizedWebpUrl(remoteUrl, 600)
   }
 
@@ -562,7 +723,10 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                   letterSpacing: '0.03em',
                 }}
               >
-                <Pencil size={11} className="text-white/60 group-hover/leftpreview:text-white transition-colors" />
+                <Pencil
+                  size={11}
+                  className="text-white/60 group-hover/leftpreview:text-white transition-colors"
+                />
                 Đổi ảnh preview
               </button>
             </div>
@@ -583,7 +747,9 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
             </div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] text-white/30 w-12">Ngày</span>
-              <span className="text-xs text-white/40">{new Date(post.createdAt).toLocaleDateString('vi-VN')}</span>
+              <span className="text-xs text-white/40">
+                {new Date(post.createdAt).toLocaleDateString('vi-VN')}
+              </span>
             </div>
           </div>
         </div>
@@ -599,11 +765,16 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
               <div>
                 <h3 className="font-bold text-base">Chỉnh sửa bài đăng</h3>
                 <p className="text-[11px] text-white/30 mt-0.5 truncate max-w-[220px]">
-                  {post.caption || post.prompt?.slice(0, 40) || 'Không có tiêu đề'}
+                  {post.caption ||
+                    post.prompt?.slice(0, 40) ||
+                    'Không có tiêu đề'}
                 </p>
               </div>
             </div>
-            <button onClick={handleClose} className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0">
+            <button
+              onClick={handleClose}
+              className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors shrink-0"
+            >
               <X size={16} />
             </button>
           </div>
@@ -617,11 +788,13 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
             >
               <img
                 src={getPrimaryPreviewUrl()}
-                alt="" className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110"
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover blur-xl opacity-30 scale-110"
               />
               <img
                 src={getPrimaryPreviewUrl()}
-                alt={post.caption} className="relative z-10 h-full w-full object-contain"
+                alt={post.caption}
+                className="relative z-10 h-full w-full object-contain"
               />
               <div className="absolute inset-0 z-20 bg-black/20 flex items-center justify-center">
                 <span
@@ -640,14 +813,16 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
           {/* Tabs */}
           <div className="flex gap-0.5 px-5 pt-3 shrink-0">
-            {TABS.map(t => (
+            {TABS.map((t) => (
               <button
                 key={t.id}
                 onClick={() => setTab(t.id)}
                 className={`px-3 py-2 text-xs font-medium rounded-t-lg transition-all border-b-2 -mb-px
-                  ${tab === t.id
-                    ? 'border-brand-500 text-brand-400'
-                    : 'border-transparent text-white/40 hover:text-white/70'}`}
+                  ${
+                    tab === t.id
+                      ? 'border-brand-500 text-brand-400'
+                      : 'border-transparent text-white/40 hover:text-white/70'
+                  }`}
               >
                 {t.label}
               </button>
@@ -657,99 +832,181 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
 
           {/* Scrollable content */}
           <div className="p-5 space-y-4 overflow-y-auto flex-1">
-
             {/* ── INFO TAB ── */}
-            {tab === 'info' && (<>
-              <div>
-                <label className="input-label">Mô tả</label>
-                <textarea className="input resize-none" rows={3} maxLength={500}
-                  value={form.caption} onChange={e => set('caption', e.target.value)}
-                  placeholder="Mô tả bức ảnh..."
-                />
-                <p className="text-xs text-white/30 text-right mt-1">{form.caption.length}/500</p>
-              </div>
-
-              <div>
-                <label className="input-label">Danh mục *</label>
-                <div className="flex flex-wrap gap-2 mt-1">
-                  {categories.map(cat => (
-                    <button key={cat.slug} type="button" onClick={() => set('category', cat.slug)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border
-                        ${form.category === cat.slug
-                          ? 'bg-brand-600 border-brand-500 text-white'
-                          : 'bg-surface-100 border-white/10 text-white/60 hover:border-brand-500/50'}`}
-                    >{cat.name}</button>
-                  ))}
+            {tab === 'info' && (
+              <>
+                <div>
+                  <label className="input-label">Mô tả</label>
+                  <textarea
+                    className="input resize-none"
+                    rows={3}
+                    maxLength={500}
+                    value={form.caption}
+                    onChange={(e) => set('caption', e.target.value)}
+                    placeholder="Mô tả bức ảnh..."
+                  />
+                  <p className="text-xs text-white/30 text-right mt-1">
+                    {form.caption.length}/500
+                  </p>
                 </div>
-              </div>
 
-              <div>
-                <label className="input-label">Tags ({form.tags.length}/10)</label>
-                <div className="flex gap-2 mb-2">
-                  <div className="relative flex-1">
-                    <Tag size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" />
-                    <input className="input pl-8 text-sm" placeholder="Nhập tag rồi nhấn Enter..."
-                      value={tag} onChange={e => setTag(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); addTag() } }}
-                    />
-                  </div>
-                  <button type="button" onClick={addTag} className="btn-secondary px-3 text-sm">Thêm</button>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <AnimatePresence>
-                    {form.tags.map(t => (
-                      <motion.span key={t} initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-                        className="flex items-center gap-1 badge-brand text-xs px-2.5 py-1"
+                <div>
+                  <label className="input-label">Danh mục *</label>
+                  <div className="flex flex-wrap gap-2 mt-1">
+                    {categories.map((cat) => (
+                      <button
+                        key={cat.slug}
+                        type="button"
+                        onClick={() => set('category', cat.slug)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border
+                        ${
+                          form.category === cat.slug
+                            ? 'bg-brand-600 border-brand-500 text-white'
+                            : 'bg-surface-100 border-white/10 text-white/60 hover:border-brand-500/50'
+                        }`}
                       >
-                        #{t}
-                        <button onClick={() => set('tags', form.tags.filter(x => x !== t))}><X size={10} /></button>
-                      </motion.span>
+                        {cat.name}
+                      </button>
                     ))}
-                  </AnimatePresence>
+                  </div>
                 </div>
-              </div>
-            </>)}
+
+                <div>
+                  <label className="input-label">
+                    Tags ({form.tags.length}/10)
+                  </label>
+                  <div className="flex gap-2 mb-2">
+                    <div className="relative flex-1">
+                      <Tag
+                        size={14}
+                        className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30"
+                      />
+                      <input
+                        className="input pl-8 text-sm"
+                        placeholder="Nhập tag rồi nhấn Enter..."
+                        value={tag}
+                        onChange={(e) => setTag(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ',') {
+                            e.preventDefault()
+                            addTag()
+                          }
+                        }}
+                      />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={addTag}
+                      className="btn-secondary px-3 text-sm"
+                    >
+                      Thêm
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <AnimatePresence>
+                      {form.tags.map((t) => (
+                        <motion.span
+                          key={t}
+                          initial={{ scale: 0 }}
+                          animate={{ scale: 1 }}
+                          exit={{ scale: 0 }}
+                          className="flex items-center gap-1 badge-brand text-xs px-2.5 py-1"
+                        >
+                          #{t}
+                          <button
+                            onClick={() =>
+                              set(
+                                'tags',
+                                form.tags.filter((x) => x !== t)
+                              )
+                            }
+                          >
+                            <X size={10} />
+                          </button>
+                        </motion.span>
+                      ))}
+                    </AnimatePresence>
+                  </div>
+                </div>
+              </>
+            )}
 
             {/* ── AI TAB ── */}
-            {tab === 'ai' && (<>
-              <div>
-                <label className="input-label">Prompt *</label>
-                <textarea className="input resize-none font-mono text-sm" rows={5} maxLength={2000}
-                  value={form.prompt} onChange={e => set('prompt', e.target.value)}
-                  placeholder="Nhập prompt đã dùng để tạo ảnh..."
-                />
-                <p className="text-xs text-white/30 text-right mt-1">{form.prompt.length}/2000</p>
-              </div>
-
-              <div>
-                <label className="input-label">Negative Prompt <span className="text-white/30 font-normal">(tuỳ chọn)</span></label>
-                <textarea className="input resize-none font-mono text-sm" rows={3} maxLength={1000}
-                  value={form.negativePrompt} onChange={e => set('negativePrompt', e.target.value)}
-                  placeholder="ugly, blurry, low quality..."
-                />
-              </div>
-
-              {!multiModelMode && (
+            {tab === 'ai' && (
+              <>
                 <div>
-                  <label className="input-label">Công cụ AI</label>
-                  <div className="relative">
-                    <select className="input appearance-none pr-8 text-sm" value={form.aiTool} onChange={e => set('aiTool', e.target.value)}>
-                      <option value="">-- Chọn --</option>
-                      {AI_TOOL_OPTIONS.map(v => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                    <ChevronDown size={13} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none" />
-                  </div>
+                  <label className="input-label">Prompt *</label>
+                  <textarea
+                    className="input resize-none font-mono text-sm"
+                    rows={5}
+                    maxLength={2000}
+                    value={form.prompt}
+                    onChange={(e) => set('prompt', e.target.value)}
+                    placeholder="Nhập prompt đã dùng để tạo ảnh..."
+                  />
+                  <p className="text-xs text-white/30 text-right mt-1">
+                    {form.prompt.length}/2000
+                  </p>
                 </div>
-              )}
 
-              <div>
-                <label className="input-label">Parameters <span className="text-white/30 font-normal">(tuỳ chọn)</span></label>
-                <textarea className="input resize-none font-mono text-sm" rows={2}
-                  value={form.parameters} onChange={e => set('parameters', e.target.value)}
-                  placeholder="--ar 9:16 --v 6 --seed 12345..."
-                />
-              </div>
-            </>)}
+                <div>
+                  <label className="input-label">
+                    Negative Prompt{' '}
+                    <span className="text-white/30 font-normal">
+                      (tuỳ chọn)
+                    </span>
+                  </label>
+                  <textarea
+                    className="input resize-none font-mono text-sm"
+                    rows={3}
+                    maxLength={1000}
+                    value={form.negativePrompt}
+                    onChange={(e) => set('negativePrompt', e.target.value)}
+                    placeholder="ugly, blurry, low quality..."
+                  />
+                </div>
+
+                {!multiModelMode && (
+                  <div>
+                    <label className="input-label">Công cụ AI</label>
+                    <div className="relative">
+                      <select
+                        className="input appearance-none pr-8 text-sm"
+                        value={form.aiTool}
+                        onChange={(e) => set('aiTool', e.target.value)}
+                      >
+                        <option value="">-- Chọn --</option>
+                        {AI_TOOL_OPTIONS.map((v) => (
+                          <option key={v} value={v}>
+                            {v}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown
+                        size={13}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 pointer-events-none"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <label className="input-label">
+                    Parameters{' '}
+                    <span className="text-white/30 font-normal">
+                      (tuỳ chọn)
+                    </span>
+                  </label>
+                  <textarea
+                    className="input resize-none font-mono text-sm"
+                    rows={2}
+                    value={form.parameters}
+                    onChange={(e) => set('parameters', e.target.value)}
+                    placeholder="--ar 9:16 --v 6 --seed 12345..."
+                  />
+                </div>
+              </>
+            )}
 
             {/* ── IMAGES TAB ── */}
             {tab === 'images' && (
@@ -757,13 +1014,17 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 {/* 1. Phần Ảnh gốc / Ảnh tham khảo */}
                 <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
                   <div className="flex justify-between items-center">
-                    <label className="input-label font-bold text-sm">Ảnh tham khảo / Ảnh gốc</label>
+                    <label className="input-label font-bold text-sm">
+                      Ảnh tham khảo / Ảnh gốc
+                    </label>
                     <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
                       <button
                         type="button"
                         onClick={() => setSourceTab('upload')}
                         className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                          sourceTab === 'upload' ? 'bg-brand-600 text-white shadow-sm' : 'text-white/40 hover:text-white/70'
+                          sourceTab === 'upload'
+                            ? 'bg-brand-600 text-white shadow-sm'
+                            : 'text-white/40 hover:text-white/70'
                         }`}
                       >
                         Upload mới
@@ -772,7 +1033,9 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                         type="button"
                         onClick={() => setSourceTab('history')}
                         className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                          sourceTab === 'history' ? 'bg-brand-600 text-white shadow-sm' : 'text-white/40 hover:text-white/70'
+                          sourceTab === 'history'
+                            ? 'bg-brand-600 text-white shadow-sm'
+                            : 'text-white/40 hover:text-white/70'
                         }`}
                       >
                         Từ lịch sử
@@ -808,7 +1071,9 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                       ảnh tham khảo
                     </span>
                     {selectedHistoryIds.size > 0 && (
-                      <span className="text-brand-300">({selectedHistoryIds.size} từ lịch sử)</span>
+                      <span className="text-brand-300">
+                        ({selectedHistoryIds.size} từ lịch sử)
+                      </span>
                     )}
                   </div>
                 </div>
@@ -816,25 +1081,29 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                 {/* 2. Phần Ảnh kết quả AI */}
                 <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
                   <div className="flex justify-between items-center">
-                    <label className="input-label font-bold text-sm">Ảnh kết quả AI</label>
-                    
+                    <label className="input-label font-bold text-sm">
+                      Ảnh kết quả AI
+                    </label>
+
                     <button
                       type="button"
-                      onClick={() => setMultiModelMode(v => !v)}
+                      onClick={() => setMultiModelMode((v) => !v)}
                       className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all border
-                        ${multiModelMode
-                          ? 'bg-purple-600/25 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10'
-                          : 'bg-white/5 border-white/10 text-white/40 hover:border-purple-500/30 hover:text-purple-300'}`}
+                        ${
+                          multiModelMode
+                            ? 'bg-purple-600/25 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10'
+                            : 'bg-white/5 border-white/10 text-white/40 hover:border-purple-500/30 hover:text-purple-300'
+                        }`}
                     >
-                      <GitCompare size={13} />
-                      « So sánh nhiều model »
+                      <GitCompare size={13} />« So sánh nhiều model »
                     </button>
                   </div>
 
                   {multiModelMode ? (
                     <div className="space-y-3">
                       <p className="text-xs text-white/35">
-                        Thêm ít nhất 2 model — mỗi card có công cụ AI và ảnh riêng để người dùng dễ so sánh.
+                        Thêm ít nhất 2 model — mỗi card có công cụ AI và ảnh
+                        riêng để người dùng dễ so sánh.
                       </p>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -861,7 +1130,9 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
                             className="card p-4 border-2 border-dashed border-white/8 hover:border-white/20 flex flex-col items-center justify-center gap-2 h-[156px] text-white/40 hover:text-white/80 transition-colors"
                           >
                             <Plus size={20} />
-                            <span className="text-xs font-semibold">Thêm model</span>
+                            <span className="text-xs font-semibold">
+                              Thêm model
+                            </span>
                           </motion.button>
                         )}
                       </div>
@@ -883,72 +1154,188 @@ const EditModal = ({ post, onClose, onSave, categories = FALLBACK_CATEGORIES }) 
             )}
 
             {/* ── PRICING TAB ── */}
-            {tab === 'pricing' && (<>
-              <div>
-                <label className="input-label">Loại bài đăng</label>
-                <div className="flex gap-3 mt-2">
-                  {[
-                    { val: false, label: '🆓 Miễn phí', desc: 'Ai cũng tải được' },
-                    { val: true,  label: '💎 Premium',  desc: 'Dùng token để tải' },
-                  ].map(opt => (
-                    <button key={String(opt.val)} type="button" onClick={() => set('isPremium', opt.val)}
-                      className={`flex-1 p-3 rounded-xl border text-left transition-all
-                        ${form.isPremium === opt.val
-                          ? 'border-brand-500 bg-brand-500/10'
-                          : 'border-white/10 bg-surface-100 hover:border-white/20'}`}
-                    >
-                      <p className={`text-sm font-bold ${form.isPremium === opt.val ? 'text-brand-300' : 'text-white/70'}`}>{opt.label}</p>
-                      <p className="text-xs text-white/30 mt-0.5">{opt.desc}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {form.isPremium && (
-                <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}>
-                  <label className="input-label">Giá bán (VNĐ)</label>
-                  <div className="flex items-center gap-3 mt-2">
-                    <input type="range" min={1000} max={200000} step={5000}
-                      value={form.priceInVnd} onChange={e => set('priceInVnd', Number(e.target.value))}
-                      className="flex-1 accent-brand-500"
-                    />
-                    <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-100 border border-white/10 min-w-[100px] justify-center">
-                      <span className="text-emerald-400 text-sm">đ</span>
-                      <span className="font-bold text-sm">{form.priceInVnd?.toLocaleString()}</span>
-                    </div>
+            {tab === 'pricing' && (
+              <>
+                <div>
+                  <label className="input-label">Loại bài đăng</label>
+                  <div className="flex gap-3 mt-2">
+                    {[
+                      {
+                        val: false,
+                        label: '🆓 Miễn phí',
+                        desc: 'Ai cũng tải được',
+                      },
+                      {
+                        val: true,
+                        label: '💎 Premium',
+                        desc: 'Dùng tiền trong ví để tải',
+                      },
+                    ].map((opt) => (
+                      <button
+                        key={String(opt.val)}
+                        type="button"
+                        onClick={() => set('isPremium', opt.val)}
+                        className={`flex-1 p-3 rounded-xl border text-left transition-all
+                        ${
+                          form.isPremium === opt.val
+                            ? 'border-brand-500 bg-brand-500/10'
+                            : 'border-white/10 bg-surface-100 hover:border-white/20'
+                        }`}
+                      >
+                        <p
+                          className={`text-sm font-bold ${form.isPremium === opt.val ? 'text-brand-300' : 'text-white/70'}`}
+                        >
+                          {opt.label}
+                        </p>
+                        <p className="text-xs text-white/30 mt-0.5">
+                          {opt.desc}
+                        </p>
+                      </button>
+                    ))}
                   </div>
-                  <div className="flex justify-between text-xs text-white/25 mt-1 px-1">
-                    <span>1.000đ</span><span>100.000đ</span><span>200.000đ</span>
-                  </div>
-                </motion.div>
-              )}
-
-              <div className="rounded-xl bg-surface-50 border border-white/5 p-4 space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-white/40">Trạng thái</span>
-                  <span className={form.isPremium ? 'text-yellow-400 font-medium' : 'text-green-400 font-medium'}>
-                    {form.isPremium ? '💎 Premium' : '🆓 Miễn phí'}
-                  </span>
                 </div>
+
                 {form.isPremium && (
-                  <div className="flex justify-between">
-                    <span className="text-white/40">Giá niêm yết</span>
-                    <span className="font-bold">{form.priceInVnd?.toLocaleString()} VNĐ</span>
-                  </div>
+                  <motion.div
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="space-y-4"
+                  >
+                    <div>
+                      <label className="input-label">Giá bán (VNĐ)</label>
+
+                      {/* Slider row */}
+                      <div className="flex items-center gap-3 mt-2">
+                        <input
+                          type="range"
+                          min={1000}
+                          max={maxLimit}
+                          step={1000}
+                          value={Math.min(form.priceInVnd, maxLimit)}
+                          onChange={(e) =>
+                            set('priceInVnd', Number(e.target.value))
+                          }
+                          className="flex-1 accent-brand-500"
+                        />
+                        <div className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-surface-100 border border-white/10 min-w-[100px] justify-center">
+                          <span className="text-emerald-400 text-sm">đ</span>
+                          <span className="font-bold text-sm">
+                            {form.priceInVnd?.toLocaleString()}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Slider ticks */}
+                      <div className="flex justify-between text-xs text-white/25 px-1 mt-1">
+                        <span>1.000đ</span>
+                        {maxLimit === 1000000 ? (
+                          <>
+                            <span>250.000đ</span>
+                            <span>500.000đ</span>
+                            <span>1.000.000đ</span>
+                          </>
+                        ) : maxLimit === 5000000 ? (
+                          <>
+                            <span>1.500.000đ</span>
+                            <span>3.000.000đ</span>
+                            <span>5.000.000đ</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>3.000.000đ</span>
+                            <span>6.000.000đ</span>
+                            <span>10.000.000đ</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Limit options buttons */}
+                    <div className="space-y-2">
+                      <span className="text-[11px] text-white/35">Hạn mức thanh kéo:</span>
+                      <div className="flex gap-2">
+                        {[
+                          { val: 1000000, label: 'Tối đa 1 Triệu' },
+                          { val: 5000000, label: 'Tối đa 5 Triệu' },
+                          { val: 10000000, label: 'Tối đa 10 Triệu' },
+                        ].map((opt) => (
+                          <button
+                            key={opt.val}
+                            type="button"
+                            onClick={() => {
+                              setMaxLimit(opt.val)
+                              if (form.priceInVnd > opt.val) {
+                                set('priceInVnd', opt.val)
+                              }
+                            }}
+                            className={`flex-1 py-1.5 rounded-lg text-xs font-semibold border transition-all duration-150
+                              ${
+                                maxLimit === opt.val
+                                  ? 'bg-brand-600/30 border-brand-500/60 text-brand-300'
+                                  : 'bg-white/3 border-white/5 text-white/40 hover:border-white/20'
+                              }`}
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </motion.div>
                 )}
-              </div>
-            </>)}
+
+                <div className="rounded-xl bg-surface-50 border border-white/5 p-4 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-white/40">Trạng thái</span>
+                    <span
+                      className={
+                        form.isPremium
+                          ? 'text-yellow-400 font-medium'
+                          : 'text-green-400 font-medium'
+                      }
+                    >
+                      {form.isPremium ? '💎 Premium' : '🆓 Miễn phí'}
+                    </span>
+                  </div>
+                  {form.isPremium && (
+                    <div className="flex justify-between">
+                      <span className="text-white/40">Giá niêm yết</span>
+                      <span className="font-bold">
+                        {form.priceInVnd?.toLocaleString()} VNĐ
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Footer */}
           <div className="flex gap-3 p-5 border-t border-white/10 shrink-0">
-            <button onClick={handleClose} className="btn-secondary flex-1" disabled={saving}>Hủy</button>
-            <button onClick={handleSave} disabled={saving}
+            <button
+              onClick={handleClose}
+              className="btn-secondary flex-1"
+              disabled={saving}
+            >
+              Hủy
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
               className="btn-primary flex-1 flex items-center justify-center gap-2"
             >
-              {saving
-                ? <motion.div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full" animate={{ rotate: 360 }} transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }} />
-                : '💾 Lưu thay đổi'}
+              {saving ? (
+                <motion.div
+                  className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                  animate={{ rotate: 360 }}
+                  transition={{
+                    duration: 0.8,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
+                />
+              ) : (
+                '💾 Lưu thay đổi'
+              )}
             </button>
           </div>
         </div>
@@ -1044,8 +1431,8 @@ const postCardVariants = {
   exit: {
     opacity: 0,
     scale: 0.95,
-    transition: { duration: 0.2, ease: 'easeOut' }
-  }
+    transition: { duration: 0.2, ease: 'easeOut' },
+  },
 }
 
 // ─── Post Card ──────────────────────────────────────────────
@@ -1063,8 +1450,9 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
       exit="exit"
       whileHover={{
         y: -6,
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-        borderColor: 'rgba(255, 255, 255, 0.12)'
+        boxShadow:
+          '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
       }}
       className="group relative rounded-2xl bg-surface-50 overflow-hidden border border-white/5 transition-colors duration-300"
     >
@@ -1109,7 +1497,9 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
         {/* Premium badge */}
         {post.isPremium && (
           <div className="absolute top-2.5 left-2.5">
-            <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium">💎 Premium</span>
+            <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium">
+              💎 Premium
+            </span>
           </div>
         )}
 
@@ -1117,7 +1507,10 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
         <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none">
           <div className="flex items-center gap-2">
             <span className="flex items-center gap-1 bg-black/55 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/8">
-              <Heart size={11} className="text-red-400 fill-red-400 flex-shrink-0" />
+              <Heart
+                size={11}
+                className="text-red-400 fill-red-400 flex-shrink-0"
+              />
               <span className="text-[11px] font-semibold text-white tabular-nums leading-none">
                 {(post.stats?.likesCount || 0).toLocaleString()}
               </span>
@@ -1134,8 +1527,11 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
 
       {/* Info */}
       <div className="p-3">
-        <div className="flex items-center justify-between gap-2">
-          <StatusBadge status={post.status} />
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <StatusBadge status={post.status} />
+            <PostTypeBadge postType={post.postType} />
+          </div>
           <span className="text-xs text-white/30 font-medium">
             {new Date(post.createdAt).toLocaleDateString('vi-VN')}
           </span>
@@ -1159,7 +1555,10 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
 const StatsSkeletonRow = () => (
   <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
     {Array.from({ length: 5 }).map((_, i) => (
-      <div key={i} className="card p-3 text-center flex flex-col items-center justify-center h-[76px] space-y-1.5">
+      <div
+        key={i}
+        className="card p-3 text-center flex flex-col items-center justify-center h-[76px] space-y-1.5"
+      >
         <div className="h-7 skeleton rounded-lg w-10" />
         <div className="h-3.5 skeleton rounded w-16" />
       </div>
@@ -1218,13 +1617,16 @@ const MyPostsPage = () => {
   const { myPostsSkeletonMs } = useSettings()
 
   useEffect(() => {
-    api.get('/categories')
+    api
+      .get('/categories')
       .then(({ data }) => {
         if (data.categories?.length > 0) {
-          setCategories(data.categories.map(c => ({
-            slug: c.slug,
-            name: `${c.emoji || ''} ${c.name}`.trim(),
-          })))
+          setCategories(
+            data.categories.map((c) => ({
+              slug: c.slug,
+              name: `${c.emoji || ''} ${c.name}`.trim(),
+            }))
+          )
         }
       })
       .catch(() => {})
@@ -1273,10 +1675,17 @@ const MyPostsPage = () => {
   const fetchPosts = useCallback(
     async ({ reset = false } = {}) => {
       const requestedStatus = activeStatus
-      console.log("[MyPosts] fetchPosts start:", { reset, requestedStatus, cursor, hasMore })
+      console.log('[MyPosts] fetchPosts start:', {
+        reset,
+        requestedStatus,
+        cursor,
+        hasMore,
+      })
 
       if (!reset && !hasMore && posts.length > 0) {
-        console.log("[MyPosts] fetchPosts skipped - no reset and no more posts.")
+        console.log(
+          '[MyPosts] fetchPosts skipped - no reset and no more posts.'
+        )
         return
       }
 
@@ -1290,21 +1699,31 @@ const MyPostsPage = () => {
         if (!reset && cursor) params.cursor = cursor
         if (activeStatus !== 'all') params.status = activeStatus
 
-        console.log("[MyPosts] API fetching posts with params:", params)
+        console.log('[MyPosts] API fetching posts with params:', params)
         const { data } = await api.get('/posts/me', { params })
 
-        console.log(`[MyPosts] API response received, starting ${myPostsSkeletonMs}ms skeleton delay...`)
+        console.log(
+          `[MyPosts] API response received, starting ${myPostsSkeletonMs}ms skeleton delay...`
+        )
         if (myPostsSkeletonMs > 0) {
           await new Promise((resolve) => setTimeout(resolve, myPostsSkeletonMs))
         }
         console.log(`[MyPosts] Skeleton delay finished.`)
 
         if (activeStatusRef.current !== requestedStatus) {
-          console.warn("[MyPosts] fetchPosts response IGNORED - activeStatus changed from " + requestedStatus + " to " + activeStatusRef.current)
+          console.warn(
+            '[MyPosts] fetchPosts response IGNORED - activeStatus changed from ' +
+              requestedStatus +
+              ' to ' +
+              activeStatusRef.current
+          )
           return
         }
 
-        console.log("[MyPosts] Updating states with fetched posts count:", data.posts?.length)
+        console.log(
+          '[MyPosts] Updating states with fetched posts count:',
+          data.posts?.length
+        )
         if (reset) {
           setPosts(data.posts)
         } else {
@@ -1315,7 +1734,7 @@ const MyPostsPage = () => {
         setHasMore(data.pagination.hasMore)
         setCursor(data.pagination.nextCursor)
       } catch (err) {
-        console.error("[MyPosts] fetchPosts error:", err)
+        console.error('[MyPosts] fetchPosts error:', err)
         toast.error(err.response?.data?.message || 'Không thể tải ảnh')
       } finally {
         if (activeStatusRef.current === requestedStatus) {
@@ -1323,7 +1742,7 @@ const MyPostsPage = () => {
           setIsTabChanging(false)
           setRefreshing(false)
           setInitialLoaded(true)
-          console.log("[MyPosts] fetchPosts loading states set to false.")
+          console.log('[MyPosts] fetchPosts loading states set to false.')
         }
       }
     },
@@ -1332,33 +1751,43 @@ const MyPostsPage = () => {
 
   const fetchSourceHistory = useCallback(async () => {
     const requestedStatus = 'history'
-    console.log("[MyPosts] fetchSourceHistory start.")
+    console.log('[MyPosts] fetchSourceHistory start.')
     setHistoryLoading(true)
     try {
       const { data } = await api.get('/posts/me/source-history')
 
-      console.log(`[MyPosts] History API response received, starting ${myPostsSkeletonMs}ms skeleton delay...`)
+      console.log(
+        `[MyPosts] History API response received, starting ${myPostsSkeletonMs}ms skeleton delay...`
+      )
       if (myPostsSkeletonMs > 0) {
         await new Promise((resolve) => setTimeout(resolve, myPostsSkeletonMs))
       }
       console.log(`[MyPosts] Skeleton delay finished.`)
 
       if (activeStatusRef.current !== requestedStatus) {
-        console.warn("[MyPosts] fetchSourceHistory response IGNORED - activeStatus changed from " + requestedStatus + " to " + activeStatusRef.current)
+        console.warn(
+          '[MyPosts] fetchSourceHistory response IGNORED - activeStatus changed from ' +
+            requestedStatus +
+            ' to ' +
+            activeStatusRef.current
+        )
         return
       }
 
-      console.log("[MyPosts] Updating sourceHistory state with count:", data.sourceHistory?.length)
+      console.log(
+        '[MyPosts] Updating sourceHistory state with count:',
+        data.sourceHistory?.length
+      )
       setSourceHistory(data.sourceHistory || [])
     } catch (err) {
-      console.error("[MyPosts] fetchSourceHistory error:", err)
+      console.error('[MyPosts] fetchSourceHistory error:', err)
       toast.error('Không thể tải lịch sử ảnh gốc')
     } finally {
       if (activeStatusRef.current === requestedStatus) {
         setHistoryLoading(false)
         setRefreshing(false)
         setInitialLoaded(true)
-        console.log("[MyPosts] fetchSourceHistory loading states set to false.")
+        console.log('[MyPosts] fetchSourceHistory loading states set to false.')
       }
     }
   }, [])
@@ -1502,7 +1931,8 @@ const MyPostsPage = () => {
                   </div>
                   <p className="text-white/40 mb-2">Chưa có ảnh gốc nào</p>
                   <p className="text-white/20 text-sm">
-                    Lịch sử tải lên tự động lưu lại các ảnh gốc bạn dùng làm tham khảo khi đăng bài.
+                    Lịch sử tải lên tự động lưu lại các ảnh gốc bạn dùng làm
+                    tham khảo khi đăng bài.
                   </p>
                 </motion.div>
               ) : (
@@ -1520,7 +1950,9 @@ const MyPostsPage = () => {
                           img={img}
                           index={i}
                           onDeleteSuccess={(deletedId) => {
-                            setSourceHistory((prev) => prev.filter((item) => item.publicId !== deletedId))
+                            setSourceHistory((prev) =>
+                              prev.filter((item) => item.publicId !== deletedId)
+                            )
                           }}
                         />
                       ))}
@@ -1654,7 +2086,7 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
     setShowDeleteConfirm(false)
     try {
       const { data } = await api.delete('/posts/me/source-history', {
-        params: { publicId: img.publicId }
+        params: { publicId: img.publicId },
       })
       toast.success(data.message || 'Đã gỡ ảnh thành công')
       onDeleteSuccess(img.publicId)
@@ -1683,8 +2115,9 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
       exit="exit"
       whileHover={{
         y: -6,
-        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
-        borderColor: 'rgba(255, 255, 255, 0.12)'
+        boxShadow:
+          '0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5)',
+        borderColor: 'rgba(255, 255, 255, 0.12)',
       }}
       className="group relative rounded-2xl bg-surface-50 border border-white/5 overflow-hidden flex flex-col transition-colors duration-300"
     >
@@ -1695,7 +2128,7 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
           alt="Source preview"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
         />
-        
+
         {/* Hover overlay actions */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 p-3 flex flex-col justify-between z-10">
           <div className="flex justify-end gap-1.5">
@@ -1704,9 +2137,13 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
               title="Sao chép liên kết"
               className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center text-white transition-colors backdrop-blur-md cursor-pointer"
             >
-              {copied ? <Check size={14} className="text-green-400" /> : <Copy size={14} />}
+              {copied ? (
+                <Check size={14} className="text-green-400" />
+              ) : (
+                <Copy size={14} />
+              )}
             </button>
-            
+
             <button
               onClick={(e) => {
                 e.stopPropagation()
@@ -1722,7 +2159,9 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
 
           {/* Kích thước / Chiều dài rộng */}
           <div className="text-[10px] text-white/60 font-mono flex items-center justify-between">
-            <span>{img.width}x{img.height}</span>
+            <span>
+              {img.width}x{img.height}
+            </span>
             <span>{formatSize(img.fileSize)}</span>
           </div>
         </div>
@@ -1734,7 +2173,7 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
           <span className="font-mono uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded text-[10px] border border-white/5 font-semibold text-white/70">
             {img.format || 'jpg'}
           </span>
-          
+
           {/* Linked posts trigger */}
           <div className="relative">
             <button
@@ -1775,8 +2214,13 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
                           rel="noopener noreferrer"
                           className="block p-1.5 rounded-lg hover:bg-white/5 text-white/80 hover:text-white transition-all text-xs truncate flex items-center justify-between"
                         >
-                          <span className="truncate mr-2 font-medium">{post.caption}</span>
-                          <ExternalLink size={10} className="text-white/30 flex-shrink-0" />
+                          <span className="truncate mr-2 font-medium">
+                            {post.caption}
+                          </span>
+                          <ExternalLink
+                            size={10}
+                            className="text-white/30 flex-shrink-0"
+                          />
                         </a>
                       ))}
                     </div>
@@ -1801,10 +2245,14 @@ const SourceHistoryCard = ({ img, onDeleteSuccess, index }) => {
               <div className="w-12 h-12 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mx-auto mb-4 text-red-500">
                 <Trash2 size={22} />
               </div>
-              <h4 className="text-lg font-bold text-white mb-2">Gỡ bỏ ảnh gốc?</h4>
+              <h4 className="text-lg font-bold text-white mb-2">
+                Gỡ bỏ ảnh gốc?
+              </h4>
               <p className="text-sm text-white/50 mb-6 leading-relaxed">
-                Ảnh gốc này đang liên kết với <span className="font-semibold text-white">{img.useCount}</span> bài viết. 
-                Hành động này sẽ gỡ ảnh gốc khỏi toàn bộ bài viết này và xóa vĩnh viễn tệp trên hệ thống.
+                Ảnh gốc này đang liên kết với{' '}
+                <span className="font-semibold text-white">{img.useCount}</span>{' '}
+                bài viết. Hành động này sẽ gỡ ảnh gốc khỏi toàn bộ bài viết này
+                và xóa vĩnh viễn tệp trên hệ thống.
               </p>
               <div className="flex gap-2">
                 <button

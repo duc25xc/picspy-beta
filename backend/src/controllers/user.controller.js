@@ -9,9 +9,11 @@ import { uploadBuffer } from '../config/cloudinary.js'
 export const getMe = async (req, res, next) => {
   try {
     const user = await User.findById(req.user._id)
-      .select('-passwordHash -emailVerifyToken -passwordResetToken -stripeCustomerId')
+      .select('+passwordHash -emailVerifyToken -passwordResetToken -stripeCustomerId')
       .lean()
     if (!user) return next(new AppError('NOT_FOUND', 'User không tồn tại', 404))
+    user.hasPassword = !!user.passwordHash
+    delete user.passwordHash
     res.json({ user })
   } catch (err) {
     next(err)
@@ -40,10 +42,17 @@ export const updateMe = async (req, res, next) => {
       throw new AppError('VALIDATION_ERROR', 'Bio tối đa 200 ký tự', 422)
     }
 
-    const user = await User.findByIdAndUpdate(req.user._id, updates, {
+    const userDoc = await User.findByIdAndUpdate(req.user._id, updates, {
       new: true,
       runValidators: true,
-    })
+    }).select('+passwordHash')
+
+    if (!userDoc) return next(new AppError('NOT_FOUND', 'User không tồn tại', 404))
+
+    const user = userDoc.toObject()
+    user.hasPassword = !!user.passwordHash
+    delete user.passwordHash
+
     res.json({ user })
   } catch (err) {
     next(err)
@@ -87,10 +96,10 @@ export const uploadAvatar = async (req, res, next) => {
 export const changePassword = async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body
-    if (!currentPassword || !newPassword) {
+    if (!newPassword) {
       throw new AppError(
         'VALIDATION_ERROR',
-        'Vui lòng nhập đầy đủ thông tin',
+        'Vui lòng nhập mật khẩu mới',
         400
       )
     }
@@ -103,27 +112,30 @@ export const changePassword = async (req, res, next) => {
     }
 
     const user = await User.findById(req.user._id).select('+passwordHash')
-    if (!user.passwordHash) {
-      throw new AppError(
-        'FORBIDDEN',
-        'Tài khoản Google không thể đổi mật khẩu',
-        403
-      )
+    
+    // Nếu tài khoản đã có mật khẩu thì bắt buộc nhập mật khẩu cũ để xác minh
+    if (user.passwordHash) {
+      if (!currentPassword) {
+        throw new AppError(
+          'VALIDATION_ERROR',
+          'Vui lòng nhập mật khẩu hiện tại',
+          400
+        )
+      }
+      const isMatch = await user.comparePassword(currentPassword)
+      if (!isMatch)
+        throw new AppError(
+          'INVALID_CREDENTIALS',
+          'Mật khẩu hiện tại không đúng',
+          401
+        )
     }
-
-    const isMatch = await user.comparePassword(currentPassword)
-    if (!isMatch)
-      throw new AppError(
-        'INVALID_CREDENTIALS',
-        'Mật khẩu hiện tại không đúng',
-        401
-      )
 
     const bcrypt = await import('bcryptjs')
     user.passwordHash = await bcrypt.default.hash(newPassword, 12)
     await user.save()
 
-    res.json({ message: 'Đổi mật khẩu thành công' })
+    res.json({ message: 'Đặt mật khẩu thành công' })
   } catch (err) {
     next(err)
   }
@@ -226,7 +238,27 @@ export const getFollowers = async (req, res, next) => {
       .skip(skip)
       .limit(parseInt(limit))
 
-    res.json({ followers: follows.map((f) => f.followerId) })
+    const users = follows.map((f) => f.followerId).filter(Boolean)
+    let followedSet = new Set()
+
+    if (req.user && users.length > 0) {
+      const targetIds = users.map(u => u._id)
+      const myFollows = await Follow.find({
+        followerId: req.user._id,
+        followingId: { $in: targetIds }
+      }).lean()
+      followedSet = new Set(myFollows.map(f => f.followingId.toString()))
+    }
+
+    const result = users.map(u => {
+      const obj = u.toObject ? u.toObject() : u
+      return {
+        ...obj,
+        isFollowing: followedSet.has(u._id.toString())
+      }
+    })
+
+    res.json({ followers: result })
   } catch (err) {
     next(err)
   }
@@ -250,7 +282,27 @@ export const getFollowing = async (req, res, next) => {
       .skip(skip)
       .limit(parseInt(limit))
 
-    res.json({ following: follows.map((f) => f.followingId) })
+    const users = follows.map((f) => f.followingId).filter(Boolean)
+    let followedSet = new Set()
+
+    if (req.user && users.length > 0) {
+      const targetIds = users.map(u => u._id)
+      const myFollows = await Follow.find({
+        followerId: req.user._id,
+        followingId: { $in: targetIds }
+      }).lean()
+      followedSet = new Set(myFollows.map(f => f.followingId.toString()))
+    }
+
+    const result = users.map(u => {
+      const obj = u.toObject ? u.toObject() : u
+      return {
+        ...obj,
+        isFollowing: followedSet.has(u._id.toString())
+      }
+    })
+
+    res.json({ following: result })
   } catch (err) {
     next(err)
   }

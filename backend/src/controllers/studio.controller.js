@@ -2,6 +2,7 @@ import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import TokenTransaction from '../models/TokenTransaction.model.js'
 import VndTransaction from '../models/VndTransaction.model.js'
+import Interaction from '../models/Interaction.model.js'
 import AppError from '../utils/AppError.js'
 
 /**
@@ -40,12 +41,71 @@ export const getOverview = async (req, res, next) => {
       { views: 0, likes: 0, downloads: 0, comments: 0, bookmarks: 0 }
     )
 
+    // Tính tương tác hôm nay vs hôm qua
+    const postIds = allPosts.map(p => p._id)
+    const startOfToday = new Date()
+    startOfToday.setHours(0, 0, 0, 0)
+    
+    const startOfYesterday = new Date(startOfToday)
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+    const endOfYesterday = new Date(startOfToday)
+
+    let todayInteractions = []
+    let yesterdayInteractions = []
+
+    if (postIds.length > 0) {
+      const [todayIn, yesterdayIn] = await Promise.all([
+        Interaction.find({
+          postId: { $in: postIds },
+          createdAt: { $gte: startOfToday },
+        }).select('type').lean(),
+        Interaction.find({
+          postId: { $in: postIds },
+          createdAt: { $gte: startOfYesterday, $lt: endOfYesterday },
+        }).select('type').lean(),
+      ])
+      todayInteractions = todayIn
+      yesterdayInteractions = yesterdayIn
+    }
+
+    const todayStats = { views: 0, downloads: 0, likes: 0 }
+    todayInteractions.forEach((i) => {
+      if (i.type === 'view') todayStats.views++
+      else if (i.type === 'download') todayStats.downloads++
+      else if (i.type === 'like') todayStats.likes++
+    })
+
+    const yesterdayStats = { views: 0, downloads: 0, likes: 0 }
+    yesterdayInteractions.forEach((i) => {
+      if (i.type === 'view') yesterdayStats.views++
+      else if (i.type === 'download') yesterdayStats.downloads++
+      else if (i.type === 'like') yesterdayStats.likes++
+    })
+
+    const calcChange = (today, yesterday) => {
+      const diff = today - yesterday
+      const pct = yesterday > 0 ? (diff / yesterday) * 100 : (today > 0 ? 100 : 0)
+      return {
+        diff,
+        pct: parseFloat(pct.toFixed(1))
+      }
+    }
+
+    const viewsChange = calcChange(todayStats.views, yesterdayStats.views)
+    const downloadsChange = calcChange(todayStats.downloads, yesterdayStats.downloads)
+    const likesChange = calcChange(todayStats.likes, yesterdayStats.likes)
+
     // Earnings 30 ngày
     const earnLast30 = earningsLast30.reduce((s, t) => s + (t.amount || 0), 0)
 
     res.json({
       totalPosts: allPosts.length,
       stats: totals,
+      today: {
+        views: { count: todayStats.views, diff: viewsChange.diff, pct: viewsChange.pct },
+        downloads: { count: todayStats.downloads, diff: downloadsChange.diff, pct: downloadsChange.pct },
+        likes: { count: todayStats.likes, diff: likesChange.diff, pct: likesChange.pct },
+      },
       earnings: {
         totalEarned: user?.totalEarned || 0,
         totalWithdrawn: user?.totalWithdrawn || 0,
@@ -164,8 +224,40 @@ export const getStudioPosts = async (req, res, next) => {
       Post.countDocuments({ authorId: userId, status: 'approved' }),
     ])
 
+    // Lấy stats hôm nay của từng post
+    const postIdsInPage = posts.map(p => p._id)
+    const todayPostStatsMap = {}
+
+    postIdsInPage.forEach(id => {
+      todayPostStatsMap[id.toString()] = { views: 0, downloads: 0, likes: 0 }
+    })
+
+    if (postIdsInPage.length > 0) {
+      const startOfToday = new Date()
+      startOfToday.setHours(0, 0, 0, 0)
+
+      const todayPostInteractions = await Interaction.find({
+        postId: { $in: postIdsInPage },
+        createdAt: { $gte: startOfToday }
+      }).select('postId type').lean()
+
+      todayPostInteractions.forEach(i => {
+        const pid = i.postId.toString()
+        if (todayPostStatsMap[pid]) {
+          if (i.type === 'view') todayPostStatsMap[pid].views++
+          else if (i.type === 'download') todayPostStatsMap[pid].downloads++
+          else if (i.type === 'like') todayPostStatsMap[pid].likes++
+        }
+      })
+    }
+
+    const postsWithTodayStats = posts.map(p => ({
+      ...p,
+      todayStats: todayPostStatsMap[p._id.toString()] || { views: 0, downloads: 0, likes: 0 }
+    }))
+
     res.json({
-      posts,
+      posts: postsWithTodayStats,
       total,
       page: Number(page),
       totalPages: Math.ceil(total / Number(limit)),
@@ -193,7 +285,7 @@ export const getEarningsHistory = async (req, res, next) => {
         .populate('relatedPostId', 'caption generatedImages')
         .lean(),
       VndTransaction.countDocuments({ userId }),
-      User.findById(userId).select('totalEarned totalWithdrawn vndBalance bankAccount').lean(),
+      User.findById(userId).select('totalEarned totalWithdrawn vndBalance holdingBalance bankAccount').lean(),
     ])
 
     res.json({
@@ -205,6 +297,7 @@ export const getEarningsHistory = async (req, res, next) => {
         totalEarned: user?.totalEarned || 0,
         totalWithdrawn: user?.totalWithdrawn || 0,
         currentBalance: user?.vndBalance || 0,
+        holdingBalance: user?.holdingBalance || 0,
       },
       bankAccount: user?.bankAccount || null
     })

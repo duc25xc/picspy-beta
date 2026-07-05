@@ -4,7 +4,7 @@ import User from '../models/User.model.js'
 import PostAnalysis from '../models/PostAnalysis.model.js'
 import UserUnlock from '../models/UserUnlock.model.js'
 import TokenTransaction from '../models/TokenTransaction.model.js'
-import { analyzeLensSpy, extractPromptArguments } from '../services/ai.service.js'
+import { analyzeLensSpy, extractPromptArguments, generateMetaSuggestions } from '../services/ai.service.js'
 
 const LENSSPY_COST = 2 // Token
 
@@ -208,6 +208,81 @@ export const extractArguments = async (req, res, next) => {
       formatted_prompt: aiResult.formatted_prompt,
       variables: aiResult.variables,
       tokensCost: EXTRACT_COST,
+      remainingTokens,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+export const suggestMeta = async (req, res, next) => {
+  try {
+    const { imageBase64, style } = req.body
+    if (!imageBase64 || imageBase64.trim().length === 0) {
+      throw new AppError('BAD_REQUEST', 'Vui lòng cung cấp hình ảnh để phân tích', 400)
+    }
+
+    let base64Data = imageBase64
+    let mimeType = 'image/jpeg'
+    if (imageBase64.startsWith('data:')) {
+      const parts = imageBase64.split(';base64,')
+      mimeType = parts[0].split(':')[1]
+      base64Data = parts[1]
+    }
+
+    const chosenStyle = style || 'gioi_tre_y2k'
+    const userId = req.user._id
+    const isUltimate = req.user.subscriptionTier === 'ultimate'
+    const META_COST = isUltimate ? 0 : 2
+
+    // 1. Kiểm tra số dư xu
+    const user = await User.findById(userId).select('tokenBalance')
+    if (!isUltimate && (!user || user.tokenBalance < META_COST)) {
+      throw new AppError(
+        'INSUFFICIENT_TOKENS',
+        `Bạn cần ít nhất ${META_COST} token để tự động gợi ý mô tả và tags`,
+        402
+      )
+    }
+
+    // 2. Gọi Gemini Vision AI
+    let aiSuggestions
+    try {
+      aiSuggestions = await generateMetaSuggestions(base64Data, chosenStyle, mimeType)
+    } catch (aiErr) {
+      console.error('generateMetaSuggestions error:', aiErr)
+      throw new AppError('AI_ERROR', 'Không thể gợi ý mô tả và tags lúc này. Vui lòng thử lại sau.', 503)
+    }
+
+    // 3. Trừ xu + Ghi nhận Transaction
+    let remainingTokens = user?.tokenBalance || 0
+    if (!isUltimate && META_COST > 0) {
+      const updatedUser = await User.findOneAndUpdate(
+        { _id: userId, tokenBalance: { $gte: META_COST } },
+        { $inc: { tokenBalance: -META_COST } },
+        { returnDocument: 'after', select: 'tokenBalance' }
+      )
+
+      if (!updatedUser) {
+        throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
+      }
+      remainingTokens = updatedUser.tokenBalance
+
+      // Ghi nhận lịch sử giao dịch xu
+      await TokenTransaction.create({
+        userId,
+        type: 'spend_lensspy',
+        amount: -META_COST,
+        balanceBefore: user.tokenBalance,
+        balanceAfter: remainingTokens,
+        description: `Tự động gợi ý mô tả và tags (Style: ${chosenStyle}) bằng AI`,
+      }).catch(err => console.error('Failed to log TokenTransaction for suggestMeta:', err))
+    }
+
+    return res.json({
+      success: true,
+      caption: aiSuggestions.caption,
+      tags: aiSuggestions.tags,
+      tokensCost: META_COST,
       remainingTokens,
     })
   } catch (err) {

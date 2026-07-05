@@ -183,7 +183,7 @@ const PostThumb = ({ post }) => {
 const PostRow = ({ post, rank }) => (
   <Link
     to={`/posts/${post._id}`}
-    className="grid grid-cols-[20px_44px_1fr_80px_80px_80px] items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] -mx-3 px-3 rounded-lg transition-colors block cursor-pointer"
+    className="grid grid-cols-[20px_44px_1fr_80px_80px_80px_80px] items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] -mx-3 px-3 rounded-lg transition-colors block cursor-pointer"
   >
     <span className="text-[11px] font-bold text-white/20 tabular-nums text-right">{rank}</span>
     <PostThumb post={post} />
@@ -195,11 +195,27 @@ const PostRow = ({ post, rank }) => (
     </div>
     <div className="text-right">
       <p className="text-xs font-semibold text-white/70 tabular-nums">{(post.stats?.viewsCount || 0).toLocaleString()}</p>
-      <p className="text-[9px] text-white/30 font-medium">views</p>
+      <p className="text-[9px] text-white/30 font-medium">
+        {post.todayStats?.views > 0 ? (
+          <span className="text-brand-400 font-bold">+{post.todayStats.views} nay</span>
+        ) : 'views'}
+      </p>
     </div>
     <div className="text-right">
       <p className="text-xs font-semibold text-white/70 tabular-nums">{(post.stats?.downloadsCount || 0).toLocaleString()}</p>
-      <p className="text-[9px] text-white/30 font-medium">tải xuống</p>
+      <p className="text-[9px] text-white/30 font-medium">
+        {post.todayStats?.downloads > 0 ? (
+          <span className="text-cyan-400 font-bold">+{post.todayStats.downloads} nay</span>
+        ) : 'tải xuống'}
+      </p>
+    </div>
+    <div className="text-right">
+      <p className="text-xs font-semibold text-white/70 tabular-nums">{(post.stats?.likesCount || 0).toLocaleString()}</p>
+      <p className="text-[9px] text-white/30 font-medium">
+        {post.todayStats?.likes > 0 ? (
+          <span className="text-pink-400 font-bold">+{post.todayStats.likes} nay</span>
+        ) : 'thích'}
+      </p>
     </div>
     <div className="text-right">
       <p className="text-xs font-semibold text-emerald-400 tabular-nums">{(post.totalTokensEarned || 0).toLocaleString()}</p>
@@ -443,22 +459,38 @@ const StudioPage = () => {
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { icon: Eye,      label: 'Tổng lượt xem',  value: fmt(overview?.stats?.views),     sub: 'mọi thời gian',          accent: 'text-violet-400' },
-          { icon: Download, label: 'Lượt tải xuống', value: fmt(overview?.stats?.downloads), sub: 'premium + free',          accent: 'text-cyan-400' },
-          { icon: Heart,    label: 'Lượt thích',      value: fmt(overview?.stats?.likes),     sub: 'tất cả bài đăng',        accent: 'text-pink-400' },
-          { icon: Coins,    label: 'Thu nhập 30 ngày', value: `+${fmt(overview?.earnings?.last30Days)}`, sub: `tổng: ${fmt(overview?.earnings?.totalEarned)}`, accent: 'text-amber-400' },
-        ].map(({ icon: Icon, label, value, sub, accent }, i) => (
+          { icon: Eye,      label: 'Tổng lượt xem',  value: fmt(overview?.stats?.views),     sub: 'mọi thời gian',          accent: 'text-violet-400', today: overview?.today?.views },
+          { icon: Download, label: 'Lượt tải xuống', value: fmt(overview?.stats?.downloads), sub: 'premium + free',          accent: 'text-cyan-400', today: overview?.today?.downloads },
+          { icon: Heart,    label: 'Lượt thích',      value: fmt(overview?.stats?.likes),     sub: 'tất cả bài đăng',        accent: 'text-pink-400', today: overview?.today?.likes },
+          { icon: Coins,    label: 'Thu nhập 30 ngày', value: `+${fmt(overview?.earnings?.last30Days)}`, sub: `tổng: ${fmt(overview?.earnings?.totalEarned)}`, accent: 'text-amber-400', today: null },
+        ].map(({ icon: Icon, label, value, sub, accent, today }, i) => (
           <motion.div
             key={i}
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: i * 0.04 }}
-            className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-4 hover:border-white/12 transition-colors"
+            className="bg-white/[0.025] border border-white/[0.07] rounded-2xl p-4 hover:border-white/12 transition-colors flex flex-col justify-between"
           >
-            <Icon size={14} className={`${accent} mb-3 opacity-80`} />
-            <p className={`text-xl font-bold tabular-nums ${accent}`}>{value}</p>
-            <p className="text-[11px] text-white/55 font-medium mt-0.5 leading-tight">{label}</p>
-            <p className="text-[10px] text-white/25 mt-0.5">{sub}</p>
+            <div>
+              <Icon size={14} className={`${accent} mb-3 opacity-80`} />
+              <p className={`text-xl font-bold tabular-nums ${accent}`}>{value}</p>
+              <p className="text-[11px] text-white/55 font-medium mt-0.5 leading-tight">{label}</p>
+            </div>
+            <div className="mt-2.5">
+              {today && (
+                <p className="text-[10px] font-bold flex items-center gap-1">
+                  <span className={today.count > 0 ? 'text-emerald-400' : 'text-white/30'}>
+                    +{today.count} hôm nay
+                  </span>
+                  {today.pct !== 0 && (
+                    <span className={today.diff > 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                      ({today.diff > 0 ? `tăng ${today.pct}%` : `giảm ${Math.abs(today.pct)}%`})
+                    </span>
+                  )}
+                </p>
+              )}
+              <p className="text-[10px] text-white/25 mt-0.5">{sub}</p>
+            </div>
           </motion.div>
         ))}
       </div>
@@ -543,12 +575,13 @@ const StudioPage = () => {
             </div>
 
             <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-3">
-              <div className="grid grid-cols-[20px_44px_1fr_80px_80px_80px] items-center gap-3 pb-2 mb-1 border-b border-white/[0.05]">
+              <div className="grid grid-cols-[20px_44px_1fr_80px_80px_80px_80px] items-center gap-3 pb-2 mb-1 border-b border-white/[0.05]">
                 <span className="text-[9px] font-bold text-white/20 uppercase text-right">#</span>
                 <span />
                 <span className="text-[9px] font-bold text-white/20 uppercase">Bài đăng</span>
                 <span className="text-[9px] font-bold text-white/20 uppercase text-right">View</span>
                 <span className="text-[9px] font-bold text-white/20 uppercase text-right">Tải xuống</span>
+                <span className="text-[9px] font-bold text-white/20 uppercase text-right">Thích</span>
                 <span className="text-[9px] font-bold text-white/20 uppercase text-right">Token</span>
               </div>
 
@@ -567,18 +600,19 @@ const StudioPage = () => {
         {activeTab === 'earnings' && (
           <motion.div key="earnings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
             {/* Summary cards */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Tổng thu nhập', value: earnings?.summary?.totalEarned, accent: 'text-amber-400' },
-                { label: 'Đã rút tiền mặt', value: earnings?.summary?.totalWithdrawn, accent: 'text-rose-400' },
-                { label: 'Số dư khả dụng', value: earnings?.summary?.currentBalance, accent: 'text-emerald-400' },
+                { label: 'Tổng doanh thu', value: earnings?.summary?.totalEarned, accent: 'text-amber-400', sub: 'views + bán ảnh' },
+                { label: 'Đang tạm giữ', value: earnings?.summary?.holdingBalance, accent: 'text-yellow-400', sub: 'đối soát 3 ngày' },
+                { label: 'Số dư khả dụng', value: earnings?.summary?.currentBalance, accent: 'text-emerald-400', sub: 'có thể rút' },
+                { label: 'Đã rút tiền mặt', value: earnings?.summary?.totalWithdrawn, accent: 'text-rose-400', sub: 'về ngân hàng' },
               ].map((s, i) => (
                 <div key={i} className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4">
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">{s.label}</p>
-                  <p className={`text-2xl font-black tabular-nums ${s.accent}`}>
+                  <p className={`text-xl font-black tabular-nums leading-tight ${s.accent}`}>
                     {(s.value || 0).toLocaleString('vi-VN')}đ
                   </p>
-                  <p className="text-[9px] text-white/20 mt-1 uppercase tracking-wide">Tiền mặt VNĐ</p>
+                  <p className="text-[9px] text-white/20 mt-1 uppercase tracking-wide">{s.sub}</p>
                 </div>
               ))}
             </div>
@@ -743,10 +777,18 @@ const StudioPage = () => {
                               return { emoji: '📥', color: 'bg-red-500/10 text-red-400', txt: 'Tải ảnh Premium' }
                             case 'earn_purchase':
                               return { emoji: '🎨', color: 'bg-teal-500/10 text-teal-400', txt: 'Bán ảnh Premium' }
+                            case 'earn_hold':
+                              return { emoji: '⏳', color: 'bg-yellow-500/10 text-yellow-400', txt: 'Tạm nhận (Đối soát)' }
+                            case 'release_hold':
+                              return { emoji: '✅', color: 'bg-emerald-500/10 text-emerald-400', txt: 'Giải ngân ví khả dụng' }
+                            case 'refund_creator_hold':
+                              return { emoji: '↩️', color: 'bg-orange-500/10 text-orange-400', txt: 'Thu hồi tạm giữ (Hoàn tiền)' }
                             case 'earn_views':
                               return { emoji: '👁️', color: 'bg-indigo-500/10 text-indigo-400', txt: 'Quyết toán views' }
                             case 'withdraw_request':
-                              return { emoji: '⏳', color: 'bg-amber-500/10 text-amber-400', txt: 'Yêu cầu rút tiền' }
+                              return { emoji: '🏦', color: 'bg-amber-500/10 text-amber-400', txt: 'Yêu cầu rút tiền' }
+                            case 'refund':
+                              return { emoji: '↩️', color: 'bg-orange-500/10 text-orange-400', txt: 'Hoàn tiền' }
                             default:
                               return { emoji: '💸', color: 'bg-white/10 text-white/60', txt: 'Giao dịch' }
                           }

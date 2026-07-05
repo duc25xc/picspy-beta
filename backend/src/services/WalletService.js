@@ -186,7 +186,12 @@ class WalletService {
 
           await User.findOneAndUpdate(
             { _id: post.authorId },
-            { $inc: { holdingBalance: authorShare } },
+            { 
+              $inc: { 
+                holdingBalance: authorShare,
+                totalEarned: authorShare
+              } 
+            },
             { new: true, session }
           )
 
@@ -267,7 +272,6 @@ class WalletService {
             $inc: {
               holdingBalance: -holdTxn.amount,
               vndBalance: holdTxn.amount,
-              totalEarned: holdTxn.amount,
             }
           },
           { new: true, session }
@@ -377,7 +381,12 @@ class WalletService {
 
           await User.findOneAndUpdate(
             { _id: holdTxn.userId },
-            { $inc: { holdingBalance: -holdTxn.amount } },
+            { 
+              $inc: { 
+                holdingBalance: -holdTxn.amount,
+                totalEarned: -holdTxn.amount
+              } 
+            },
             { new: true, session }
           )
 

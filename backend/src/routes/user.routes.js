@@ -36,8 +36,8 @@ router.get('/me/transactions', authenticate, getVndTransactions)
 // Public
 router.get('/leaderboard', optionalAuth, getLeaderboard)
 router.get('/:username', optionalAuth, getPublicProfile)
-router.get('/:id/followers', getFollowers)
-router.get('/:id/following', getFollowing)
+router.get('/:id/followers', optionalAuth, getFollowers)
+router.get('/:id/following', optionalAuth, getFollowing)
 
 // Protected — follow/unfollow
 router.post('/:id/follow', authenticate, toggleFollow)
