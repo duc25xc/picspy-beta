@@ -154,6 +154,13 @@ const EditModal = ({
   onSave,
   categories = FALLBACK_CATEGORIES,
 }) => {
+  const isAiPost =
+    post.postType === 'ai' ||
+    (post.postType == null &&
+      (!!post.aiTool || post.generatedImages?.length > 0))
+
+  const hasLut = !isAiPost && (post.sourceImages && post.sourceImages.length > 0)
+
   const [tab, setTab] = useState('info') // 'info' | 'ai' | 'images' | 'pricing'
   const [form, setForm] = useState({
     // Info tab
@@ -321,12 +328,13 @@ const EditModal = ({
 
   const addGenImages = useCallback(
     (files) => {
-      const remaining = 5 - genImages.length
-      if (remaining <= 0) return toast.error('Tối đa 5 ảnh kết quả')
+      const maxCount = isAiPost ? 5 : (hasLut ? 1 : 10)
+      const remaining = maxCount - genImages.length
+      if (remaining <= 0) return toast.error(`Tối đa ${maxCount} ảnh kết quả`)
       const toAdd = files.slice(0, remaining).map(fileToPreview)
       setGenImages((prev) => [...prev, ...toAdd])
     },
-    [genImages.length]
+    [genImages.length, isAiPost, hasLut]
   )
 
   const removeGenImage = useCallback((id) => {
@@ -557,6 +565,9 @@ const EditModal = ({
         fd.append('parameters', form.parameters.trim())
       fd.append('isPremium', String(form.isPremium))
       fd.append('priceInVnd', String(Number(form.priceInVnd)))
+      if (!isAiPost) {
+        fd.append('isCollection', String(!hasLut))
+      }
 
       // ── Xử lý ảnh gốc (Source Images) ──
       // Cũ được giữ lại
@@ -651,10 +662,6 @@ const EditModal = ({
     }
   }
 
-  const isAiPost =
-    post.postType === 'ai' ||
-    (post.postType == null &&
-      (!!post.aiTool || post.generatedImages?.length > 0))
 
   const TABS = [
     { id: 'info', label: '📋 Thông tin' },
@@ -1011,95 +1018,102 @@ const EditModal = ({
             {/* ── IMAGES TAB ── */}
             {tab === 'images' && (
               <div className="space-y-6">
-                {/* 1. Phần Ảnh gốc / Ảnh tham khảo */}
-                <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
-                  <div className="flex justify-between items-center">
-                    <label className="input-label font-bold text-sm">
-                      Ảnh tham khảo / Ảnh gốc
-                    </label>
-                    <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
-                      <button
-                        type="button"
-                        onClick={() => setSourceTab('upload')}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                          sourceTab === 'upload'
-                            ? 'bg-brand-600 text-white shadow-sm'
-                            : 'text-white/40 hover:text-white/70'
-                        }`}
-                      >
-                        Upload mới
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setSourceTab('history')}
-                        className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
-                          sourceTab === 'history'
-                            ? 'bg-brand-600 text-white shadow-sm'
-                            : 'text-white/40 hover:text-white/70'
-                        }`}
-                      >
-                        Từ lịch sử
-                      </button>
+                {/* 1. Phần Ảnh gốc / Ảnh tham khảo (chỉ hiển thị nếu là AI post hoặc Digital post có LUT) */}
+                {(isAiPost || hasLut) && (
+                  <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
+                    <div className="flex justify-between items-center">
+                      <label className="input-label font-bold text-sm">
+                        {isAiPost ? 'Ảnh tham khảo / Ảnh gốc' : 'Ảnh gốc (Chưa chỉnh sửa)'}
+                      </label>
+                      {isAiPost && (
+                        <div className="flex bg-white/5 p-0.5 rounded-lg border border-white/10">
+                          <button
+                            type="button"
+                            onClick={() => setSourceTab('upload')}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                              sourceTab === 'upload'
+                                ? 'bg-brand-600 text-white shadow-sm'
+                                : 'text-white/40 hover:text-white/70'
+                            }`}
+                          >
+                            Upload mới
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setSourceTab('history')}
+                            className={`px-3 py-1 rounded-md text-xs font-semibold transition-all ${
+                              sourceTab === 'history'
+                                ? 'bg-brand-600 text-white shadow-sm'
+                                : 'text-white/40 hover:text-white/70'
+                            }`}
+                          >
+                            Từ lịch sử
+                          </button>
+                        </div>
+                      )}
                     </div>
-                  </div>
 
-                  {sourceTab === 'upload' ? (
-                    <ImageDropZone
-                      images={sourceImages}
-                      onAdd={addSourceImages}
-                      onRemove={removeSourceImage}
-                      max={5 - selectedHistoryIds.size}
-                      label="Kéo thả ảnh tham khảo vào đây"
-                      hint="Hỗ trợ tối đa 5 ảnh để AI học bố cục, phong cách"
-                    />
-                  ) : (
-                    <SourceHistoryPanel
-                      images={sourceHistory}
-                      selectedIds={selectedHistoryIds}
-                      onToggle={toggleHistoryImage}
-                      loading={historyLoading}
-                    />
-                  )}
+                    {isAiPost && sourceTab === 'history' ? (
+                      <SourceHistoryPanel
+                        images={sourceHistory}
+                        selectedIds={selectedHistoryIds}
+                        onToggle={toggleHistoryImage}
+                        loading={historyLoading}
+                      />
+                    ) : (
+                      <ImageDropZone
+                        images={sourceImages}
+                        onAdd={addSourceImages}
+                        onRemove={removeSourceImage}
+                        max={isAiPost ? (5 - selectedHistoryIds.size) : 1}
+                        label={isAiPost ? 'Kéo thả ảnh tham khảo vào đây' : 'Kéo thả ảnh gốc chưa áp preset/LUT'}
+                        hint={isAiPost ? 'Hỗ trợ tối đa 5 ảnh để AI học bố cục, phong cách' : 'Chỉ chấp nhận 1 ảnh gốc'}
+                      />
+                    )}
 
-                  {/* Hiển thị số ảnh tham khảo hiện tại */}
-                  <div className="text-xs text-white/35 flex items-center justify-between pt-1">
-                    <span>
-                      Đã chuẩn bị:{' '}
-                      <span className="text-brand-400 font-semibold">
-                        {sourceImages.length + selectedHistoryIds.size} / 5
-                      </span>{' '}
-                      ảnh tham khảo
-                    </span>
-                    {selectedHistoryIds.size > 0 && (
-                      <span className="text-brand-300">
-                        ({selectedHistoryIds.size} từ lịch sử)
-                      </span>
+                    {isAiPost && (
+                      <div className="text-xs text-white/35 flex items-center justify-between pt-1">
+                        <span>
+                          Đã chuẩn bị:{' '}
+                          <span className="text-brand-400 font-semibold">
+                            {sourceImages.length + selectedHistoryIds.size} / 5
+                          </span>{' '}
+                          ảnh tham khảo
+                        </span>
+                        {selectedHistoryIds.size > 0 && (
+                          <span className="text-brand-300">
+                            ({selectedHistoryIds.size} từ lịch sử)
+                          </span>
+                        )}
+                      </div>
                     )}
                   </div>
-                </div>
+                )}
 
-                {/* 2. Phần Ảnh kết quả AI */}
+                {/* 2. Phần Ảnh kết quả */}
                 <div className="card p-4 space-y-4 border border-white/5 bg-surface-100/30">
                   <div className="flex justify-between items-center">
                     <label className="input-label font-bold text-sm">
-                      Ảnh kết quả AI
+                      {isAiPost ? 'Ảnh kết quả AI' : (hasLut ? 'Ảnh kết quả (Sau khi áp LUT)' : 'Hình ảnh tác phẩm (Bộ sưu tập)')}
                     </label>
 
-                    <button
-                      type="button"
-                      onClick={() => setMultiModelMode((v) => !v)}
-                      className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all border
-                        ${
-                          multiModelMode
-                            ? 'bg-purple-600/25 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10'
-                            : 'bg-white/5 border-white/10 text-white/40 hover:border-purple-500/30 hover:text-purple-300'
-                        }`}
-                    >
-                      <GitCompare size={13} />« So sánh nhiều model »
-                    </button>
+                    {isAiPost && (
+                      <button
+                        type="button"
+                        onClick={() => setMultiModelMode((v) => !v)}
+                        className={`flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-semibold transition-all border
+                          ${
+                            multiModelMode
+                              ? 'bg-purple-600/25 border-purple-500/50 text-purple-300 shadow-lg shadow-purple-500/10'
+                              : 'bg-white/5 border-white/10 text-white/40 hover:border-purple-500/30 hover:text-purple-300'
+                          }`}
+                      >
+                        <GitCompare size={13} />« So sánh nhiều model »
+                      </button>
+                    )}
                   </div>
 
-                  {multiModelMode ? (
+                  {isAiPost && multiModelMode ? (
                     <div className="space-y-3">
                       <p className="text-xs text-white/35">
                         Thêm ít nhất 2 model — mỗi card có công cụ AI và ảnh
@@ -1143,9 +1157,9 @@ const EditModal = ({
                       onAdd={addGenImages}
                       onRemove={removeGenImage}
                       onSetPrimary={setGenImageAsPrimary}
-                      max={5}
-                      label="Kéo thả ảnh kết quả AI của bạn vào đây"
-                      hint="Upload 1–5 ảnh kết quả tốt nhất của bạn"
+                      max={isAiPost ? 5 : (hasLut ? 1 : 10)}
+                      label={isAiPost ? 'Kéo thả ảnh kết quả AI của bạn vào đây' : (hasLut ? 'Kéo thả ảnh sau khi áp LUT màu' : 'Hình ảnh tác phẩm')}
+                      hint={isAiPost ? 'Upload 1–5 ảnh kết quả tốt nhất của bạn' : (hasLut ? 'Chỉ chấp nhận 1 ảnh kết quả' : 'Tải lên tối đa 10 ảnh. Ảnh đầu tiên sẽ làm ảnh đại diện.')}
                       required
                     />
                   )}
@@ -1494,14 +1508,19 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
           </motion.button>
         </div>
 
-        {/* Premium badge */}
-        {post.isPremium && (
-          <div className="absolute top-2.5 left-2.5">
+        {/* Top-left badges */}
+        <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start">
+          {post.isPremium && (
             <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium">
               💎 Premium
             </span>
-          </div>
-        )}
+          )}
+          {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
+            <span className="text-xs px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 backdrop-blur-md rounded-lg font-medium">
+              🖼 Bộ sưu tập ({post.generatedImages.length})
+            </span>
+          )}
+        </div>
 
         {/* Bottom stats on hover — opacity only, no translate to avoid layout shift */}
         <div className="absolute bottom-0 left-0 right-0 px-3 py-2.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] pointer-events-none">
@@ -1531,6 +1550,11 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
           <div className="flex items-center gap-1.5 flex-wrap">
             <StatusBadge status={post.status} />
             <PostTypeBadge postType={post.postType} />
+            {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-bold border bg-indigo-500/15 text-indigo-300 border-indigo-500/30">
+                🖼 Bộ sưu tập ({post.generatedImages.length})
+              </span>
+            )}
           </div>
           <span className="text-xs text-white/30 font-medium">
             {new Date(post.createdAt).toLocaleDateString('vi-VN')}

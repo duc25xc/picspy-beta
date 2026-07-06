@@ -73,6 +73,7 @@ export default function UploadPage() {
 
   const [uploadType, setUploadType] = useState('ai') // 'ai' or 'digital'
   const [hasLut, setHasLut] = useState(false)
+  const [isCollection, setIsCollection] = useState(false)
   const [rawFile, setRawFile] = useState(null)
   const [colorFile, setColorFile] = useState(null)
   const [exifInfo, setExifInfo] = useState(null)
@@ -455,16 +456,25 @@ export default function UploadPage() {
   const addGenImages = useCallback(
     (files) => {
       if (uploadType === 'digital') {
-        const fileObj = fileToPreview(files[0])
-        setGenImages([fileObj])
-        handleReadExif(files[0])
+        if (isCollection) {
+          const remaining = 10 - genImages.length
+          const toAdd = files.slice(0, remaining).map(fileToPreview)
+          setGenImages((prev) => [...prev, ...toAdd])
+          if (!exifInfo && files[0]) {
+            handleReadExif(files[0])
+          }
+        } else {
+          const fileObj = fileToPreview(files[0])
+          setGenImages([fileObj])
+          handleReadExif(files[0])
+        }
       } else {
         const remaining = 5 - genImages.length
         const toAdd = files.slice(0, remaining).map(fileToPreview)
         setGenImages((prev) => [...prev, ...toAdd])
       }
     },
-    [genImages.length, uploadType]
+    [genImages.length, uploadType, isCollection, exifInfo]
   )
 
   const removeSourceImage = useCallback(
@@ -485,8 +495,22 @@ export default function UploadPage() {
   const removeGenImage = useCallback(
     (id) => {
       if (uploadType === 'digital') {
-        setGenImages([])
-        setExifInfo(null)
+        if (isCollection) {
+          setGenImages((prev) => {
+            const img = prev.find((i) => i.id === id)
+            if (img) URL.revokeObjectURL(img.preview)
+            const remaining = prev.filter((i) => i.id !== id)
+            if (remaining.length > 0) {
+              handleReadExif(remaining[0].file)
+            } else {
+              setExifInfo(null)
+            }
+            return remaining
+          })
+        } else {
+          setGenImages([])
+          setExifInfo(null)
+        }
       } else {
         setGenImages((prev) => {
           const img = prev.find((i) => i.id === id)
@@ -495,7 +519,7 @@ export default function UploadPage() {
         })
       }
     },
-    [uploadType]
+    [uploadType, isCollection]
   )
 
   // ── Navigation ─────────────────────────────────────────────────
@@ -672,6 +696,10 @@ export default function UploadPage() {
     fd.append('category', form.category)
     fd.append('isPremium', String(form.isPremium))
     fd.append('priceInVnd', String(Number(form.priceInVnd)))
+    if (uploadType === 'digital') {
+      fd.append('isCollection', String(isCollection))
+    }
+
 
     if (dims.resolution) fd.append('resolution', dims.resolution)
     if (dims.orientation) fd.append('orientation', dims.orientation)
@@ -773,6 +801,7 @@ export default function UploadPage() {
     setDone(false)
     setProgress(0)
     setHasLut(false)
+    setIsCollection(false)
     setRawFile(null)
     setColorFile(null)
     setExifInfo(null)
@@ -992,10 +1021,12 @@ export default function UploadPage() {
                       sourceImages={sourceImages}
                       hasLut={hasLut}
                       setHasLut={setHasLut}
+                      isCollection={isCollection}
+                      setIsCollection={setIsCollection}
                       onAddGen={addGenImages}
-                      onRemoveGen={() => removeGenImage()}
+                      onRemoveGen={removeGenImage}
                       onAddSource={addSourceImages}
-                      onRemoveSource={() => removeSourceImage()}
+                      onRemoveSource={removeSourceImage}
                       exifInfo={exifInfo}
                     />
                   )}
@@ -2677,6 +2708,8 @@ function Step1DigitalImage({
   sourceImages,
   hasLut,
   setHasLut,
+  isCollection,
+  setIsCollection,
   onAddGen,
   onRemoveGen,
   onAddSource,
@@ -2692,28 +2725,49 @@ function Step1DigitalImage({
         subtitle="Kéo thả ảnh chụp kỹ thuật số (JPG/PNG). EXIF máy ảnh sẽ được đọc tự động."
       />
 
-      {/* LUT Option Switch */}
-      <div className="flex items-center justify-between p-4 rounded-xl bg-white/3 border border-white/8">
-        <div className="flex items-center gap-3">
-          <GitCompare size={18} className="text-brand-400" />
-          <div>
-            <p className="text-sm font-semibold">Tác phẩm có áp dụng LUT màu</p>
-            <p className="text-xs text-white/40">
-              Cho phép người dùng so sánh ảnh gốc (RAW) và ảnh sau chỉnh sửa
-            </p>
-          </div>
+      {/* Upload Mode Selector */}
+      <div className="space-y-2">
+        <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">Chế độ hiển thị ảnh</label>
+        <div className="grid grid-cols-3 gap-2 p-1 bg-white/5 border border-white/8 rounded-2xl">
+          <button
+            type="button"
+            onClick={() => {
+              setHasLut(false)
+              setIsCollection(false)
+            }}
+            className={`py-2.5 px-3 rounded-xl font-bold text-[11px] sm:text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all
+              ${!hasLut && !isCollection ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/20' : 'text-white/50 hover:text-white/80'}`}
+          >
+            <ImageIcon size={13} />
+            <span>Một ảnh duy nhất</span>
+          </button>
+          
+          <button
+            type="button"
+            onClick={() => {
+              setHasLut(true)
+              setIsCollection(false)
+            }}
+            className={`py-2.5 px-3 rounded-xl font-bold text-[11px] sm:text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all
+              ${hasLut ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/20' : 'text-white/50 hover:text-white/80'}`}
+          >
+            <GitCompare size={13} />
+            <span>So sánh LUT màu</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setHasLut(false)
+              setIsCollection(true)
+            }}
+            className={`py-2.5 px-3 rounded-xl font-bold text-[11px] sm:text-xs flex flex-col sm:flex-row items-center justify-center gap-1.5 transition-all
+              ${isCollection ? 'bg-brand-600 text-white shadow-lg shadow-brand-900/20' : 'text-white/50 hover:text-white/80'}`}
+          >
+            <LayoutGrid size={13} />
+            <span>Bộ sưu tập</span>
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={() => setHasLut(!hasLut)}
-          className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
-            ${hasLut ? 'bg-brand-600' : 'bg-white/15'}`}
-        >
-          <div
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
-            ${hasLut ? 'translate-x-6' : 'translate-x-1'}`}
-          />
-        </button>
       </div>
 
       {hasLut ? (
@@ -2742,6 +2796,18 @@ function Step1DigitalImage({
               subtitle="Ảnh kết quả hoàn thiện cuối cùng"
             />
           </div>
+        </div>
+      ) : isCollection ? (
+        <div className="space-y-2">
+          <ImageDropZone
+            images={images}
+            onAdd={onAddGen}
+            onRemove={onRemoveGen}
+            max={10}
+            label="Hình ảnh tác phẩm (Bộ sưu tập)"
+            hint="Tải lên tối đa 10 ảnh. Ảnh đầu tiên sẽ làm ảnh đại diện cho bộ sưu tập."
+            required
+          />
         </div>
       ) : (
         <div className="space-y-2">

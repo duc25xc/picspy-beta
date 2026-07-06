@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Download, Lock, Loader2, Coins, CheckCircle2 } from 'lucide-react'
+import { Download, Lock, Loader2, CheckCircle2, Images, Package } from 'lucide-react'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
 import toast from 'react-hot-toast'
@@ -42,6 +42,16 @@ const DownloadButton = ({
   const isOwner = !!user && !!post?.authorId &&
     (user._id === post.authorId || user._id === post.authorId?._id)
 
+  // ── Collection detection ─────────────────────────────────────
+  const isCollection = !!post?.isCollection && (post?.generatedImages?.length || 0) > 1
+  const collectionImages = isCollection ? (post.generatedImages || []) : []
+  const collectionCount = collectionImages.length
+
+  // Bundle price: price * count * 0.7, rounded to nearest 1000
+  const bundlePrice = isCollection
+    ? Math.round((priceInVnd * collectionCount * 0.7) / 1000) * 1000
+    : priceInVnd
+
   const hasAttachments =
     !!post?.rawFile ||
     !!post?.colorFile ||
@@ -49,6 +59,13 @@ const DownloadButton = ({
     (post?.modelComparisons && post.modelComparisons.length > 0)
 
   const getAvailableFileTypes = () => {
+    if (isCollection) {
+      // For collections: each image is gen_0, gen_1, ..., plus 'bundle'
+      return [
+        ...collectionImages.map((_, idx) => `gen_${idx}`),
+        'bundle',
+      ]
+    }
     const types = ['original']
     if (post?.modelComparisons?.length) {
       const primaryImg = post.generatedImages?.[0]
@@ -72,23 +89,60 @@ const DownloadButton = ({
 
   const availableTypes = getAvailableFileTypes()
   const purchasedTypes = post?.purchasedFileTypes || []
+
+  // Check if a specific fileType is purchased
+  const isTypePurchased = (ft) => {
+    if (isOwner) return true
+    if (purchasedTypes.includes('bundle')) return true // bundle covers all
+    return purchasedTypes.includes(ft)
+  }
+
   // Owner always treated as having purchased everything
   const isAllPurchased =
     isOwner ||
-    (isPremium && availableTypes.every((type) => purchasedTypes.includes(type)))
+    (isPremium && (
+      isCollection
+        ? purchasedTypes.includes('bundle')
+        : availableTypes.every((type) => purchasedTypes.includes(type))
+    ))
 
+  // ── Download individual file ─────────────────────────────────
   const doDownload = async (fileType = selectedFileType) => {
     setShowConfirm(false)
     setLoading(true)
     try {
       const { data } = await api.post(`/posts/${postId}/download`, { fileType })
 
+      // ─── Bundle: download multiple files sequentially ──────────
+      if (data.isBundle && data.downloadItems) {
+        toast.success(`Đang tải ${data.downloadItems.length} ảnh...`, { duration: 3000 })
+        for (const item of data.downloadItems) {
+          await downloadFile(item.downloadUrl, item.filename)
+          await new Promise((r) => setTimeout(r, 300)) // small delay between downloads
+        }
+        setDone(true)
+        setTimeout(() => setDone(false), 4000)
+        if (data.vndSpent > 0) {
+          toast.success(
+            `Mua thành công cả bộ sưu tập! Đã trừ ${data.vndSpent.toLocaleString('vi-VN')}đ`,
+            { duration: 5000 }
+          )
+          await refreshMe()
+        } else {
+          toast.success(`Đã tải ${data.downloadItems.length} ảnh thành công!`)
+        }
+        onUnlock?.()
+        return
+      }
+
+      // ─── Single file download ──────────────────────────────────
       if (data.downloadUrl) {
         let filename = data.filename
         if (!filename) {
           filename = `picspy-${postId}`
-          if (fileType === 'original') {
-            const img = post?.generatedImages?.[0]
+          if (fileType === 'original' || fileType.startsWith('gen_')) {
+            const idx = fileType.startsWith('gen_') ? parseInt(fileType.replace('gen_', '')) : 0
+            const img = post?.generatedImages?.[idx]
             filename += img?.format ? `.${img.format}` : '.jpg'
           } else if (fileType.startsWith('comp_')) {
             const compIdx = parseInt(fileType.replace('comp_', ''))
@@ -102,45 +156,15 @@ const DownloadButton = ({
           } else if (fileType === 'raw' && post?.rawFile?.originalName) {
             filename = post.rawFile.originalName
           } else if (fileType === 'raw') {
-            filename += post.rawFile?.format
-              ? `.${post.rawFile.format}`
-              : '.raw'
+            filename += post.rawFile?.format ? `.${post.rawFile.format}` : '.raw'
           } else if (fileType === 'color' && post?.colorFile?.originalName) {
             filename = post.colorFile.originalName
           } else if (fileType === 'color') {
-            filename += post.colorFile?.format
-              ? `.${post.colorFile.format}`
-              : '.lut'
+            filename += post.colorFile?.format ? `.${post.colorFile.format}` : '.lut'
           }
         }
 
-        const a = document.createElement('a')
-        try {
-          // Fetch the file as a Blob to bypass CORS limitations on the a.download attribute
-          const response = await fetch(data.downloadUrl)
-          if (!response.ok)
-            throw new Error('Network error or CORS restriction fetching file')
-          const blob = await response.blob()
-          const blobUrl = URL.createObjectURL(blob)
-          a.href = blobUrl
-          a.download = filename
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-          setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
-        } catch (fetchErr) {
-          console.error(
-            'Blob download failed, falling back to direct link',
-            fetchErr
-          )
-          a.href = data.downloadUrl
-          a.download = filename
-          a.target = '_blank'
-          document.body.appendChild(a)
-          a.click()
-          document.body.removeChild(a)
-        }
-
+        await downloadFile(data.downloadUrl, filename)
         setDone(true)
         setTimeout(() => setDone(false), 3000)
 
@@ -189,6 +213,30 @@ const DownloadButton = ({
     }
   }
 
+  const downloadFile = async (url, filename) => {
+    const a = document.createElement('a')
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error('Network error or CORS restriction fetching file')
+      const blob = await response.blob()
+      const blobUrl = URL.createObjectURL(blob)
+      a.href = blobUrl
+      a.download = filename
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
+    } catch (fetchErr) {
+      console.error('Blob download failed, falling back to direct link', fetchErr)
+      a.href = url
+      a.download = filename
+      a.target = '_blank'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+    }
+  }
+
   const handleInitiateDownload = (fileType) => {
     if (!isLoggedIn) {
       toast('Đăng nhập để tải tệp 💜', { icon: '🔒' })
@@ -197,13 +245,13 @@ const DownloadButton = ({
 
     setSelectedFileType(fileType)
 
-    const isPurchased = isOwner || post?.purchasedFileTypes?.includes(fileType)
-
-    if (isPremium && !isPurchased) {
+    const purchased = isTypePurchased(fileType)
+    if (isPremium && !purchased) {
+      const price = fileType === 'bundle' ? bundlePrice : priceInVnd
       const balance = user?.vndBalance || 0
-      if (balance < priceInVnd) {
+      if (balance < price) {
         toast.error(
-          `Không đủ số dư ví! Cần ${priceInVnd.toLocaleString('vi-VN')}đ, số dư hiện tại của bạn là ${balance.toLocaleString('vi-VN')}đ.`
+          `Không đủ số dư ví! Cần ${price.toLocaleString('vi-VN')}đ, số dư hiện tại: ${balance.toLocaleString('vi-VN')}đ.`
         )
         return
       }
@@ -219,45 +267,124 @@ const DownloadButton = ({
       toast('Đăng nhập để tải tệp 💜', { icon: '🔒' })
       return
     }
-    if (hasAttachments) {
+    if (isCollection || hasAttachments) {
       setDropdownOpen((prev) => !prev)
     } else {
       handleInitiateDownload('original')
     }
   }
 
-  const renderDropdownItem = (label, fileType, mediaItem) => {
-    const isPurchased = isOwner || post?.purchasedFileTypes?.includes(fileType)
+  // ── Render dropdown item (generic) ──────────────────────────
+  const renderDropdownItem = (label, fileType, mediaItem, price) => {
+    const purchased = isTypePurchased(fileType)
+    const isBundleType = fileType === 'bundle'
     return (
       <button
+        key={fileType}
         onClick={() => {
           setDropdownOpen(false)
           handleInitiateDownload(fileType)
         }}
-        className="flex items-center justify-between gap-3 w-full px-3 py-2 rounded-xl text-xs text-white/80 hover:text-white hover:bg-white/5 transition-colors text-left group"
+        className={`flex items-center justify-between gap-3 w-full px-3 py-2 rounded-xl text-xs text-white/80 hover:text-white transition-colors text-left group
+          ${isBundleType ? 'border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 mt-1' : 'hover:bg-white/5'}`}
       >
         <div className="flex items-center gap-2 truncate">
-          <Download
-            size={14}
-            className="text-white/40 flex-shrink-0 group-hover:text-white/60"
-          />
-          <span className="truncate">{formatItemText(label, mediaItem)}</span>
+          {isBundleType ? (
+            <Package size={14} className="text-amber-400 flex-shrink-0" />
+          ) : (
+            <Download size={14} className="text-white/40 flex-shrink-0 group-hover:text-white/60" />
+          )}
+          <span className={`truncate ${isBundleType ? 'text-amber-300 font-semibold' : ''}`}>
+            {formatItemText(label, mediaItem)}
+          </span>
         </div>
-        {isPremium &&
-          (isPurchased ? (
+        {isPremium && (
+          purchased ? (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-semibold flex-shrink-0">
               Đã mua
             </span>
           ) : (
-            <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 font-semibold flex-shrink-0">
-              {priceInVnd.toLocaleString('vi-VN')}đ
+            <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0
+              ${isBundleType
+                ? 'bg-amber-500/20 text-amber-300'
+                : 'bg-white/10 text-white/60'}`}>
+              {(price || priceInVnd).toLocaleString('vi-VN')}đ
             </span>
-          ))}
+          )
+        )}
       </button>
     )
   }
 
+  // ── Render collection dropdown ───────────────────────────────
+  const renderCollectionDropdown = () => {
+    const bundlePurchased = isTypePurchased('bundle')
+    return (
+      <AnimatePresence>
+        {dropdownOpen && (
+          <>
+            {/* Click outside overlay */}
+            <div
+              className="fixed inset-0 z-40"
+              onClick={() => setDropdownOpen(false)}
+            />
+            <motion.div
+              initial={{ opacity: 0, y: 8, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 8, scale: 0.95 }}
+              transition={{ duration: 0.15 }}
+              className="absolute right-0 bottom-full mb-2 bg-[#1a1a2e]/98 backdrop-blur border border-white/10 rounded-2xl p-2 shadow-2xl min-w-[300px] z-50 flex flex-col gap-0.5"
+            >
+              {/* Header */}
+              <div className="flex items-center gap-2 px-2 py-1.5 mb-1">
+                <Images size={13} className="text-brand-400" />
+                <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider">
+                  Bộ sưu tập · {collectionCount} ảnh
+                </span>
+              </div>
+
+              {/* Bundle option (mua cả bộ) */}
+              {isPremium && !isOwner && (
+                <div className="px-1 mb-1">
+                  {renderDropdownItem(
+                    `Mua cả bộ sưu tập (tiết kiệm 30%)`,
+                    'bundle',
+                    null,
+                    bundlePrice
+                  )}
+                  {!bundlePurchased && (
+                    <div className="text-[10px] text-white/30 px-3 pb-1.5 mt-0.5">
+                      {priceInVnd.toLocaleString('vi-VN')}đ × {collectionCount} ảnh × 70% = <span className="text-amber-400 font-bold">{bundlePrice.toLocaleString('vi-VN')}đ</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Divider */}
+              {isPremium && !isOwner && (
+                <div className="border-t border-white/5 mx-1 mb-1" />
+              )}
+
+              {/* Individual images */}
+              <div className="flex flex-col gap-0.5 max-h-[240px] overflow-y-auto px-1">
+                {collectionImages.map((img, idx) =>
+                  renderDropdownItem(
+                    `Ảnh ${idx + 1}`,
+                    `gen_${idx}`,
+                    img,
+                    priceInVnd
+                  )
+                )}
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    )
+  }
+
   const renderDropdown = () => {
+    if (isCollection) return renderCollectionDropdown()
     return (
       <AnimatePresence>
         {dropdownOpen && (
@@ -326,6 +453,23 @@ const DownloadButton = ({
     )
   }
 
+  // ── Button label logic ────────────────────────────────────────
+  const getButtonLabel = () => {
+    if (done) return 'Đã tải!'
+    if (isCollection) {
+      if (isOwner) return `Tải bộ sưu tập (${collectionCount} ảnh)`
+      if (dropdownOpen) return 'Đóng menu'
+      if (isPremium && !isAllPurchased)
+        return `Sở hữu bộ sưu tập · ${bundlePrice.toLocaleString('vi-VN')}đ`
+      return `Tải bộ sưu tập (${collectionCount} ảnh)`
+    }
+    if (hasAttachments && dropdownOpen) return 'Đóng menu'
+    if (hasAttachments) return isAllPurchased ? 'Đã sở hữu' : 'Tải xuống...'
+    if (isPremium && !isAllPurchased)
+      return `Sở hữu Premium · ${priceInVnd.toLocaleString('vi-VN')}đ`
+    return isAllPurchased ? 'Đã sở hữu' : 'Tải miễn phí'
+  }
+
   // ─── Compact variant (dùng trong modal toolbar) ──────────
   if (variant === 'compact') {
     return (
@@ -345,6 +489,8 @@ const DownloadButton = ({
             <Loader2 size={16} className="animate-spin" />
           ) : done ? (
             <CheckCircle2 size={16} className="text-green-400" />
+          ) : isCollection ? (
+            <Images size={16} />
           ) : isPremium && !isOwner ? (
             <Lock size={16} />
           ) : (
@@ -356,8 +502,10 @@ const DownloadButton = ({
 
         <ConfirmModal
           open={showConfirm}
-          price={priceInVnd}
+          price={selectedFileType === 'bundle' ? bundlePrice : priceInVnd}
           balance={user?.vndBalance || 0}
+          isBundle={selectedFileType === 'bundle'}
+          collectionCount={collectionCount}
           onConfirm={() => doDownload(selectedFileType)}
           onCancel={() => setShowConfirm(false)}
         />
@@ -365,7 +513,7 @@ const DownloadButton = ({
     )
   }
 
-  // ─── Detail variant (dùng trong detail page) ──────────────
+  // ─── Detail variant (dùng trong detail page) ──────────────────
   if (variant === 'detail') {
     return (
       <div className="relative w-full">
@@ -394,33 +542,25 @@ const DownloadButton = ({
             />
           ) : done ? (
             <CheckCircle2 size={16} />
+          ) : isCollection ? (
+            <Images size={16} />
           ) : isPremium && !isAllPurchased ? (
             <Lock size={16} className="stroke-[2.5]" />
           ) : (
             <Download size={16} />
           )}
 
-          {done
-            ? 'Đã tải!'
-            : hasAttachments && dropdownOpen
-              ? 'Đóng menu'
-              : hasAttachments
-                ? isAllPurchased
-                  ? 'Đã sở hữu'
-                  : 'Tải xuống...'
-                : isPremium && !isAllPurchased
-                  ? `Sở hữu Premium • ${priceInVnd.toLocaleString('vi-VN')}đ`
-                  : isAllPurchased
-                    ? 'Đã sở hữu'
-                    : 'Tải miễn phí'}
+          {getButtonLabel()}
         </motion.button>
 
         {renderDropdown()}
 
         <ConfirmModal
           open={showConfirm}
-          price={priceInVnd}
+          price={selectedFileType === 'bundle' ? bundlePrice : priceInVnd}
           balance={user?.vndBalance || 0}
+          isBundle={selectedFileType === 'bundle'}
+          collectionCount={collectionCount}
           onConfirm={() => doDownload(selectedFileType)}
           onCancel={() => setShowConfirm(false)}
         />
@@ -451,6 +591,8 @@ const DownloadButton = ({
           <Loader2 size={14} className="animate-spin" />
         ) : done ? (
           <CheckCircle2 size={14} />
+        ) : isCollection ? (
+          <Images size={14} />
         ) : isPremium && !isAllPurchased ? (
           <Lock size={14} className="stroke-[2.5]" />
         ) : (
@@ -458,23 +600,33 @@ const DownloadButton = ({
         )}
         {done
           ? 'Đã tải!'
-          : hasAttachments
-            ? isAllPurchased
-              ? 'Đã sở hữu'
-              : 'Tải xuống'
-            : isPremium && !isAllPurchased
-              ? `Sở hữu • ${priceInVnd.toLocaleString('vi-VN')}đ`
+          : isCollection
+            ? isOwner
+              ? `Bộ sưu tập (${collectionCount} ảnh)`
               : isAllPurchased
+                ? `Đã sở hữu (${collectionCount} ảnh)`
+                : isPremium
+                  ? `Sở hữu · ${bundlePrice.toLocaleString('vi-VN')}đ`
+                  : `Tải (${collectionCount} ảnh)`
+            : hasAttachments
+              ? isAllPurchased
                 ? 'Đã sở hữu'
-                : 'Tải miễn phí'}
+                : 'Tải xuống'
+              : isPremium && !isAllPurchased
+                ? `Sở hữu · ${priceInVnd.toLocaleString('vi-VN')}đ`
+                : isAllPurchased
+                  ? 'Đã sở hữu'
+                  : 'Tải miễn phí'}
       </motion.button>
 
       {renderDropdown()}
 
       <ConfirmModal
         open={showConfirm}
-        price={priceInVnd}
+        price={selectedFileType === 'bundle' ? bundlePrice : priceInVnd}
         balance={user?.vndBalance || 0}
+        isBundle={selectedFileType === 'bundle'}
+        collectionCount={collectionCount}
         onConfirm={() => doDownload(selectedFileType)}
         onCancel={() => setShowConfirm(false)}
       />
@@ -483,7 +635,7 @@ const DownloadButton = ({
 }
 
 /* ─── Confirm Purchase Dialog ───────────────────────────────── */
-const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
+const ConfirmModal = ({ open, price, balance, onConfirm, onCancel, isBundle, collectionCount }) => (
   <AnimatePresence>
     {open && (
       <motion.div
@@ -500,16 +652,31 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel }) => (
           className="relative bg-[#121225]/95 border border-white/10 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl noise"
         >
           <div className="text-center mb-5">
-            <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20 flex items-center justify-center mx-auto mb-4 text-amber-400">
-              <Lock size={24} className="stroke-[2]" />
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4
+              ${isBundle ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'}`}>
+              {isBundle ? <Package size={24} className="stroke-[2]" /> : <Lock size={24} className="stroke-[2]" />}
             </div>
-            <h3 className="text-lg font-bold text-white mb-1">Xác nhận sở hữu</h3>
-            <p className="text-white/40 text-xs">Mở khóa tệp chất lượng gốc</p>
+            <h3 className="text-lg font-bold text-white mb-1">
+              {isBundle ? 'Mua cả bộ sưu tập' : 'Xác nhận sở hữu'}
+            </h3>
+            <p className="text-white/40 text-xs">
+              {isBundle
+                ? `Sở hữu ${collectionCount} ảnh với giá ưu đãi 30%`
+                : 'Mở khóa tệp chất lượng gốc'}
+            </p>
           </div>
 
           <div className="space-y-2 mb-6 bg-white/[0.02] border border-white/5 rounded-2xl p-4">
-            <div className="flex justify-between items-center py-1.5">
-              <span className="text-white/50 text-xs">Giá sở hữu</span>
+            {isBundle && (
+              <div className="flex justify-between items-center py-1.5">
+                <span className="text-white/50 text-xs">Số ảnh</span>
+                <span className="text-white/80 font-bold text-xs">{collectionCount} ảnh</span>
+              </div>
+            )}
+            <div className="flex justify-between items-center py-1.5 border-t border-white/5 first:border-0">
+              <span className="text-white/50 text-xs">
+                {isBundle ? 'Giá bộ sưu tập (ưu đãi 30%)' : 'Giá sở hữu'}
+              </span>
               <span className="text-amber-400 font-extrabold text-sm">
                 {price.toLocaleString('vi-VN')}đ
               </span>

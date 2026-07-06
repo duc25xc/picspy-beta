@@ -491,13 +491,25 @@ const ProfilePage = () => {
                     </div>
                   </div>
 
-                  {/* AI badge */}
-                  {post.isAI && (
-                    <div className="absolute top-2 left-2 text-[10px] px-2 py-0.5 rounded-full font-bold"
-                      style={{ background: 'rgba(121,134,235,0.85)', color: '#fff' }}>
-                      ✦ AI
-                    </div>
-                  )}
+                  {/* TOP Badges */}
+                  <div className="absolute top-2 left-2 flex gap-1 z-10 flex-wrap">
+                    {post.isPremium && (
+                      <div className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/90 text-white backdrop-blur-sm">
+                        💎
+                      </div>
+                    )}
+                    {(post.postType === 'ai' || post.isAI) && (
+                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                        style={{ background: 'rgba(121,134,235,0.85)', color: '#fff' }}>
+                        ✦ AI
+                      </div>
+                    )}
+                    {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
+                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm">
+                        🖼 {post.generatedImages.length}
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               ))}
             </div>

@@ -446,12 +446,19 @@ const PostCard = ({
             ✨ {post.aiTool}
           </span>
         )}
+        {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
+          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm"
+            style={{ background: 'rgba(99,102,241,0.6)', color: 'rgba(199,210,254,0.95)' }}>
+            🖼 {post.generatedImages.length}
+          </span>
+        )}
         {post.similarityScore !== undefined && (
           <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-600/90 text-white backdrop-blur-sm">
             🎯 {post.similarityScore}%
           </span>
         )}
       </div>
+
 
       <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
         <div className="flex items-center justify-between">

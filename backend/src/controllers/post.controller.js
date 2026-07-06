@@ -324,6 +324,7 @@ export const createPost = async (req, res, next) => {
       catch { body.tags = body.tags.split(',').map(t => t.trim()).filter(Boolean) }
     }
     if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+    if (typeof body.isCollection === 'string') body.isCollection = body.isCollection === 'true'
     if (body.priceInVnd) body.priceInVnd = parseInt(body.priceInVnd)
 
     // ── Multi-model mode detection ──────────────────────────────
@@ -344,8 +345,8 @@ export const createPost = async (req, res, next) => {
     if (primaryFiles.length === 0) {
       throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh tải lên', 400)
     }
-    if (primaryFiles.length > 5) {
-      throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả', 400)
+    if (primaryFiles.length > 10) {
+      throw new AppError('VALIDATION_ERROR', 'Tối đa 10 ảnh kết quả', 400)
     }
 
     // ── Source images ────────────────────────────────────────────
@@ -522,6 +523,8 @@ export const createPost = async (req, res, next) => {
       // Multi-model
       isMultiModel: finalPostType === 'ai' ? isMultiModel : false,
       modelComparisons: finalPostType === 'ai' ? modelComparisons : [],
+      // Collection
+      isCollection: finalPostType !== 'ai' ? (body.isCollection === true) : false,
       status: 'pending',
     })
 
@@ -1036,6 +1039,7 @@ export const updatePost = async (req, res, next) => {
       }
     }
     if (typeof body.isPremium === 'string') body.isPremium = body.isPremium === 'true'
+    if (typeof body.isCollection === 'string') body.isCollection = body.isCollection === 'true'
     if (body.priceInVnd) body.priceInVnd = parseInt(body.priceInVnd)
 
     // Validate textual data qua Zod
@@ -1219,8 +1223,8 @@ export const updatePost = async (req, res, next) => {
       if (finalGeneratedImages.length === 0) {
         throw new AppError('VALIDATION_ERROR', 'Cần ít nhất 1 ảnh kết quả AI', 400)
       }
-      if (finalGeneratedImages.length > 5) {
-        throw new AppError('VALIDATION_ERROR', 'Tối đa 5 ảnh kết quả AI', 400)
+      if (finalGeneratedImages.length > 10) {
+        throw new AppError('VALIDATION_ERROR', 'Tối đa 10 ảnh kết quả', 400)
       }
       finalModelComparisons = []
     }
@@ -1265,6 +1269,7 @@ export const updatePost = async (req, res, next) => {
     post.category = data.category !== undefined ? data.category : post.category
     post.isPremium = data.isPremium !== undefined ? data.isPremium : post.isPremium
     post.priceInVnd = data.priceInVnd !== undefined ? data.priceInVnd : post.priceInVnd
+    post.isCollection = activePostType !== 'ai' ? (body.isCollection === true) : false
     
     // Resolution, orientation, aspectRatio
     if (data.resolution) post.resolution = data.resolution
@@ -1504,9 +1509,13 @@ export const searchByImage = async (req, res, next) => {
     }
 
     // 2. Query approved posts with histograms, filtering by postType if specified
+    // Dùng $or để match cả posts cũ (chỉ có histogram root) lẫn posts mới (có histograms array)
     const queryConditions = {
       status: 'approved',
-      'histogram.r': { $exists: true, $not: { $size: 0 } }
+      $or: [
+        { 'histogram.r': { $exists: true, $not: { $size: 0 } } },
+        { histograms: { $exists: true, $not: { $size: 0 } } },
+      ]
     }
     if (postType && postType !== 'all') {
       if (postType === 'digital') {
@@ -1517,9 +1526,10 @@ export const searchByImage = async (req, res, next) => {
     }
 
     const postsWithHist = await Post.find(queryConditions)
-      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram histograms colorPalette')
+      .select('_id caption prompt tags generatedImages images stats authorId isPremium aiTool resolution colors createdAt histogram histograms colorPalette isCollection postType')
       .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
       .lean()
+
 
     // Lọc HSL màu sắc trước nếu có tham số color được truyền lên
     let candidates = postsWithHist

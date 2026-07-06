@@ -35,17 +35,22 @@ const fetchImageAsBase64 = async (imageUrl) => {
 
 /** Build EXIF context string để inject vào prompt */
 const buildExifContext = (exifData = {}) => {
-  if (!exifData || Object.keys(exifData).length === 0) return '(Không có dữ liệu EXIF)'
+  if (!exifData || Object.keys(exifData).length === 0)
+    return '(Không có dữ liệu EXIF)'
   const parts = []
-  if (exifData.camera)       parts.push(`Máy: ${exifData.camera}`)
-  if (exifData.lensModel)    parts.push(`Ống kính: ${exifData.lensModel}`)
-  if (exifData.focalLength)  parts.push(`Tiêu cự: ${exifData.focalLength}`)
-  if (exifData.aperture)     parts.push(`Khẩu độ: ${exifData.aperture}`)
-  if (exifData.shutterSpeed) parts.push(`Tốc cửa trập: ${exifData.shutterSpeed}`)
-  if (exifData.iso)          parts.push(`ISO: ${exifData.iso}`)
+  if (exifData.camera) parts.push(`Máy: ${exifData.camera}`)
+  if (exifData.lensModel) parts.push(`Ống kính: ${exifData.lensModel}`)
+  if (exifData.focalLength) parts.push(`Tiêu cự: ${exifData.focalLength}`)
+  if (exifData.aperture) parts.push(`Khẩu độ: ${exifData.aperture}`)
+  if (exifData.shutterSpeed)
+    parts.push(`Tốc cửa trập: ${exifData.shutterSpeed}`)
+  if (exifData.iso) parts.push(`ISO: ${exifData.iso}`)
   if (exifData.ev !== undefined) parts.push(`EV: ${exifData.ev}`)
-  if (exifData.dateTaken)    parts.push(`Ngày chụp: ${new Date(exifData.dateTaken).toLocaleString('vi-VN')}`)
-  if (exifData.software)     parts.push(`Hậu kỳ: ${exifData.software}`)
+  if (exifData.dateTaken)
+    parts.push(
+      `Ngày chụp: ${new Date(exifData.dateTaken).toLocaleString('vi-VN')}`
+    )
+  if (exifData.software) parts.push(`Hậu kỳ: ${exifData.software}`)
   return parts.join(' | ')
 }
 
@@ -62,12 +67,12 @@ const buildExifContext = (exifData = {}) => {
 // ❌ gemini-2.0-flash* → hết quota free tier
 // ❌ gemini-1.5-flash* → đã bị remove khỏi API này
 const MODEL_CHAIN = [
-  'gemini-2.5-flash',  
-  'gemini-3.1-flash-lite-preview',    
-  'gemini-flash-latest',   
-  'gemini-2.5-flash-lite', 
+  'gemini-2.5-flash',
+  'gemini-3.1-flash-lite-preview',
+  'gemini-flash-latest',
+  'gemini-2.5-flash-lite',
   'gemini-2.0-flash-lite',
-  'gemini-2.0-flash-lite'
+  'gemini-2.0-flash-lite',
 ]
 
 export const analyzeLensSpy = async (imageUrl, exifData = {}) => {
@@ -165,17 +170,20 @@ TRẢ VỀ DUY NHẤT JSON SAU ĐÂY (KHÔNG có markdown, KHÔNG có text xung 
       lastError = err
       const errMsg = err.message || ''
       // Skip sang model tiếp nếu: rate-limited (429) HOẶC model không tồn tại (404)
-      const shouldFallback = errMsg.includes('429')
-        || errMsg.includes('quota')
-        || errMsg.includes('Too Many Requests')
-        || errMsg.includes('404')
-        || errMsg.includes('not found')
-        || errMsg.includes('503')
-        || errMsg.includes('500')
-        || errMsg.includes('high demand')
-        || errMsg.includes('overloaded')
+      const shouldFallback =
+        errMsg.includes('429') ||
+        errMsg.includes('quota') ||
+        errMsg.includes('Too Many Requests') ||
+        errMsg.includes('404') ||
+        errMsg.includes('not found') ||
+        errMsg.includes('503') ||
+        errMsg.includes('500') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('overloaded')
       if (shouldFallback) {
-        console.warn(`⚠️ LensSpy: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`)
+        console.warn(
+          `⚠️ LensSpy: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`
+        )
         continue
       }
       // Lỗi khác (network, auth...) → throw luôn
@@ -185,7 +193,10 @@ TRẢ VỀ DUY NHẤT JSON SAU ĐÂY (KHÔNG có markdown, KHÔNG có text xung 
 
   // Tất cả model đều bị rate-limited
   console.error('❌ LensSpy: Tất cả model đều bị rate-limited!')
-  throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+  throw (
+    lastError ||
+    new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+  )
 }
 
 export const extractPromptArguments = async (promptText) => {
@@ -203,7 +214,7 @@ Hãy trả về kết quả dưới định dạng JSON bao gồm:
 
   const content = [
     { text: systemPrompt },
-    { text: `Đoạn prompt cần phân tích: "${promptText}"` }
+    { text: `Đoạn prompt cần phân tích: "${promptText}"` },
   ]
 
   let lastError = null
@@ -221,44 +232,56 @@ Hãy trả về kết quả dưới định dạng JSON bao gồm:
             properties: {
               formatted_prompt: {
                 type: 'STRING',
-                description: 'The original prompt text with customized keywords wrapped as {argument name="variable_name" default="original_value"}'
+                description:
+                  'The original prompt text with customized keywords wrapped as {argument name="variable_name" default="original_value"}',
               },
               variables: {
                 type: 'ARRAY',
                 items: {
                   type: 'OBJECT',
                   properties: {
-                    name: { type: 'STRING', description: 'English name of the variable in snake_case' },
-                    default: { type: 'STRING', description: 'Original text value of the variable' }
+                    name: {
+                      type: 'STRING',
+                      description: 'English name of the variable in snake_case',
+                    },
+                    default: {
+                      type: 'STRING',
+                      description: 'Original text value of the variable',
+                    },
                   },
-                  required: ['name', 'default']
-                }
-              }
+                  required: ['name', 'default'],
+                },
+              },
             },
-            required: ['formatted_prompt', 'variables']
-          }
-        }
+            required: ['formatted_prompt', 'variables'],
+          },
+        },
       })
 
       const result = await model.generateContent(content)
       const rawText = result.response.text().trim()
       const parsed = JSON.parse(rawText)
-      console.log(`✅ extractPromptArguments: Success with model "${modelName}"`)
+      console.log(
+        `✅ extractPromptArguments: Success with model "${modelName}"`
+      )
       return parsed
     } catch (err) {
       lastError = err
       const errMsg = err.message || ''
-      const shouldFallback = errMsg.includes('429')
-        || errMsg.includes('quota')
-        || errMsg.includes('Too Many Requests')
-        || errMsg.includes('404')
-        || errMsg.includes('not found')
-        || errMsg.includes('503')
-        || errMsg.includes('500')
-        || errMsg.includes('high demand')
-        || errMsg.includes('overloaded')
+      const shouldFallback =
+        errMsg.includes('429') ||
+        errMsg.includes('quota') ||
+        errMsg.includes('Too Many Requests') ||
+        errMsg.includes('404') ||
+        errMsg.includes('not found') ||
+        errMsg.includes('503') ||
+        errMsg.includes('500') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('overloaded')
       if (shouldFallback) {
-        console.warn(`⚠️ extractPromptArguments: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`)
+        console.warn(
+          `⚠️ extractPromptArguments: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`
+        )
         continue
       }
       throw err
@@ -266,7 +289,10 @@ Hãy trả về kết quả dưới định dạng JSON bao gồm:
   }
 
   console.error('❌ extractPromptArguments: Tất cả model đều bị rate-limited!')
-  throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+  throw (
+    lastError ||
+    new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+  )
 }
 
 const STYLE_MAP = {
@@ -282,7 +308,7 @@ const STYLE_MAP = {
   tinh_ban: 'Tình Bạn - Gia Đình - Hôn Nhân',
   do_an: 'Đăng Ảnh Đồ Ăn',
   du_lich: 'Du Lịch',
-  tieng_anh: 'Tiếng Anh Song Ngữ'
+  tieng_anh: 'Tiếng Anh Song Ngữ',
 }
 
 const getStyleCorpus = (styleKey) => {
@@ -292,9 +318,28 @@ const getStyleCorpus = (styleKey) => {
 
     // Candidate file paths for robust resolution
     const candidates = [
-      path.join(__dirname, '..', '..', '..', 'memories', 'captions', 'caption-tha-thinh-tong-hop_pro.md'),
-      path.join(process.cwd(), 'memories', 'captions', 'caption-tha-thinh-tong-hop_pro.md'),
-      path.join(process.cwd(), '..', 'memories', 'captions', 'caption-tha-thinh-tong-hop_pro.md'),
+      path.join(
+        __dirname,
+        '..',
+        '..',
+        '..',
+        'memories',
+        'captions',
+        'caption-tha-thinh-tong-hop_pro.md'
+      ),
+      path.join(
+        process.cwd(),
+        'memories',
+        'captions',
+        'caption-tha-thinh-tong-hop_pro.md'
+      ),
+      path.join(
+        process.cwd(),
+        '..',
+        'memories',
+        'captions',
+        'caption-tha-thinh-tong-hop_pro.md'
+      ),
       path.join(process.cwd(), 'caption-tha-thinh-tong-hop_pro.md'),
     ]
 
@@ -307,7 +352,9 @@ const getStyleCorpus = (styleKey) => {
     }
 
     if (!filePath) {
-      console.warn('⚠️ getStyleCorpus: Không tìm thấy file corpus tại bất kỳ đường dẫn nào.')
+      console.warn(
+        '⚠️ getStyleCorpus: Không tìm thấy file corpus tại bất kỳ đường dẫn nào.'
+      )
       return ''
     }
 
@@ -315,7 +362,9 @@ const getStyleCorpus = (styleKey) => {
 
     // Phân tách nội dung file dựa trên ký tự phân đoạn Markdown '## '
     const sections = fileContent.split('\n## ')
-    const targetSection = sections.find(sec => sec.trim().startsWith(targetHeading))
+    const targetSection = sections.find((sec) =>
+      sec.trim().startsWith(targetHeading)
+    )
 
     if (!targetSection) return ''
 
@@ -346,9 +395,9 @@ const getStyleCorpus = (styleKey) => {
     const sampled = shuffled.slice(0, maxCaptions)
 
     return (
-      headerLines.join('\n') + 
-      '\n\n' + 
-      sampled.join('\n') + 
+      headerLines.join('\n') +
+      '\n\n' +
+      sampled.join('\n') +
       `\n... (Đã trích xuất ngẫu nhiên ${maxCaptions}/${captionLines.length} mẫu tiêu biểu để tối ưu hóa xử lý)`
     )
   } catch (error) {
@@ -357,8 +406,11 @@ const getStyleCorpus = (styleKey) => {
   }
 }
 
-
-export const generateMetaSuggestions = async (imageBase64, styleKey = 'gioi_tre_y2k', imageMimeType = 'image/jpeg') => {
+export const generateMetaSuggestions = async (
+  imageBase64,
+  styleKey = 'gioi_tre_y2k',
+  imageMimeType = 'image/jpeg'
+) => {
   const styleName = STYLE_MAP[styleKey] || 'Tổng hợp'
   const styleCorpus = getStyleCorpus(styleKey)
 
@@ -391,14 +443,16 @@ ${styleCorpus}
 
   const content = [
     { text: systemPrompt },
-    { inlineData: { data: imageBase64, mimeType: imageMimeType } }
+    { inlineData: { data: imageBase64, mimeType: imageMimeType } },
   ]
 
   let lastError = null
 
   for (const modelName of MODEL_CHAIN) {
     try {
-      console.log(`🤖 generateMetaSuggestions: Trying model "${modelName}" with style "${styleKey}"...`)
+      console.log(
+        `🤖 generateMetaSuggestions: Trying model "${modelName}" with style "${styleKey}"...`
+      )
       const model = genAI.getGenerativeModel({
         model: modelName,
         generationConfig: {
@@ -408,40 +462,47 @@ ${styleCorpus}
             properties: {
               caption: {
                 type: 'STRING',
-                description: 'Attractive customized style caption in Vietnamese, max 500 chars'
+                description:
+                  'Attractive customized style caption in Vietnamese, max 500 chars',
               },
               tags: {
                 type: 'ARRAY',
                 items: {
                   type: 'STRING',
-                  description: 'Single word or short phrase lowercase tags without hashes'
-                }
-              }
+                  description:
+                    'Single word or short phrase lowercase tags without hashes',
+                },
+              },
             },
-            required: ['caption', 'tags']
-          }
-        }
+            required: ['caption', 'tags'],
+          },
+        },
       })
 
       const result = await model.generateContent(content)
       const rawText = result.response.text().trim()
       const parsed = JSON.parse(rawText)
-      console.log(`✅ generateMetaSuggestions: Success with model "${modelName}"`)
+      console.log(
+        `✅ generateMetaSuggestions: Success with model "${modelName}"`
+      )
       return parsed
     } catch (err) {
       lastError = err
       const errMsg = err.message || ''
-      const shouldFallback = errMsg.includes('429')
-        || errMsg.includes('quota')
-        || errMsg.includes('Too Many Requests')
-        || errMsg.includes('404')
-        || errMsg.includes('not found')
-        || errMsg.includes('503')
-        || errMsg.includes('500')
-        || errMsg.includes('high demand')
-        || errMsg.includes('overloaded')
+      const shouldFallback =
+        errMsg.includes('429') ||
+        errMsg.includes('quota') ||
+        errMsg.includes('Too Many Requests') ||
+        errMsg.includes('404') ||
+        errMsg.includes('not found') ||
+        errMsg.includes('503') ||
+        errMsg.includes('500') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('overloaded')
       if (shouldFallback) {
-        console.warn(`⚠️ generateMetaSuggestions: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`)
+        console.warn(
+          `⚠️ generateMetaSuggestions: Model "${modelName}" lỗi (${errMsg.includes('404') ? '404 Not Found' : 'Rate Limited'}), thử model tiếp theo...`
+        )
         continue
       }
       throw err
@@ -449,6 +510,8 @@ ${styleCorpus}
   }
 
   console.error('❌ generateMetaSuggestions: Tất cả model đều bị rate-limited!')
-  throw lastError || new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+  throw (
+    lastError ||
+    new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
+  )
 }
-

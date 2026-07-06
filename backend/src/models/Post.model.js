@@ -164,14 +164,17 @@ const postSchema = new mongoose.Schema(
       default: 'image',
     },
 
-    // === GENERATED IMAGES (kết quả AI, 1–5 ảnh) ===
+    // === GENERATED IMAGES (kết quả AI hoặc bộ sưu tập digital, 1–10 ảnh) ===
     generatedImages: {
       type: [imageSchema],
       validate: [
-        (arr) => arr.length >= 1 && arr.length <= 5,
-        'Cần 1–5 ảnh kết quả AI',
+        (arr) => arr.length >= 1 && arr.length <= 10,
+        'Cần 1–10 ảnh kết quả',
       ],
     },
+
+    // === COLLECTION (bộ sưu tập digital nhiều ảnh, không có ảnh gốc) ===
+    isCollection: { type: Boolean, default: false },
 
     // === MULTI-MODEL COMPARISON (optional) ===
     // Khi isMultiModel=true, mỗi entry chứa kết quả từ 1 AI model khác nhau

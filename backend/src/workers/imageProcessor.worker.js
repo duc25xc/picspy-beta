@@ -127,14 +127,17 @@ const getAllPostImages = (post) => {
  *   - generatedCount: số ảnh kết quả (1-5)
  *
  * Pipeline:
+ *   0. Fetch postDoc sớm (để dùng cho collection images)
  *   1. Download generatedImages[0]
  *   2. Resize → thumbnail (400px) + preview (1200px) cho generatedImages[0]
  *   3. Color palette (từ generatedImages[0])
- *   4. Histogram 64-bin (từ generatedImages[0])
+ *   4. Histogram 64-bin (từ tất cả generatedImages)
  *   5. BlurHash placeholder
  *   6. NSFW detection
- *   7. Update Post document
- *   8. Socket.io notification
+ *   7. Xử lý WebP cho generatedImages[1..n] (collection secondary)
+ *   8. Xử lý WebP cho modelComparisons (multi-model)
+ *   9. Update Post document
+ *  10. Socket.io notification
  *
  * LƯU Ý: EXIF đã được extract tại controller (từ sourceImages[0]),
  *         worker KHÔNG extract EXIF từ generatedImages (AI ảnh không có EXIF).
@@ -146,6 +149,9 @@ const imageWorker = new Worker(
     console.log(`🔄 Processing AI content for post: ${postId}`)
 
     try {
+      // 0. Fetch postDoc sớm để dùng cho histogram secondary images (collection)
+      const postDoc = await Post.findById(postId)
+
       // 1. Download ảnh chính (generatedImages[0]) và ảnh nguồn (sourceImages[0]) nếu có
       await job.updateProgress(10)
       const downloadTasks = [
@@ -310,8 +316,7 @@ const imageWorker = new Worker(
       // - autoApprove BẬT   → approved ngay
       // - autoApprove TẮT   → pending, admin duyệt thủ công
       // Quyết định status:
-      // - Lấy post hiện tại để kiểm tra status cũ
-      const postDoc = await Post.findById(postId)
+      // - Lấy post hiện tại để kiểm tra status cũ (postDoc đã fetch từ đầu)
       const currentStatus = postDoc?.status || 'pending'
 
       // - NSFW rõ ràng (>0.8) → luôn reject
@@ -354,7 +359,57 @@ const imageWorker = new Worker(
         updateFields['sourceImages.0.previewUrl'] = sourcePreviewResult.secure_url
       }
 
+      // ── Process secondary generatedImages (collection ảnh 1..n) ─────
+      // Ảnh đầu (index 0) đã được xử lý ở bước 2-3.
+      // Với collection posts, các ảnh phía sau vẫn là JPG/PNG gốc → cần convert sang WebP
+      // để: (1) tối ưu tốc độ load, (2) ngăn user chuột phải tải ảnh gốc
+      if (postDoc && postDoc.generatedImages && postDoc.generatedImages.length > 1) {
+        for (let i = 1; i < postDoc.generatedImages.length; i++) {
+          const secImg = postDoc.generatedImages[i]
+          if (!secImg?.url) continue
+
+          // Bỏ qua nếu đã có thumbnailUrl webp (tránh re-process)
+          if (secImg.thumbnailUrl && secImg.previewUrl) continue
+
+          try {
+            console.log(`🖼 Processing secondary collection image [${i}]: ${secImg.url}`)
+            const dlRes = await axios.get(secImg.url, { responseType: 'arraybuffer', timeout: 30000 })
+            const secBuf = Buffer.from(dlRes.data)
+
+            const [secThumbBuf, secPrevBuf] = await Promise.all([
+              sharp(secBuf)
+                .rotate()
+                .resize(400, null, { withoutEnlargement: true })
+                .webp({ quality: 80 })
+                .toBuffer(),
+              sharp(secBuf)
+                .rotate()
+                .resize(1200, null, { withoutEnlargement: true })
+                .webp({ quality: 85 })
+                .toBuffer(),
+            ])
+
+            // publicId: dùng publicId gốc nếu có, fallback tạo tên từ postId + index
+            const secBaseName = secImg.publicId
+              ? secImg.publicId.split('/').pop()
+              : `col_${postId.toString().slice(-8)}_${i}`
+
+            const [secThumbUp, secPrevUp] = await Promise.all([
+              uploadBuffer(secThumbBuf, 'picspy/posts/thumbnails', `${secBaseName}_thumb`, { format: 'webp' }),
+              uploadBuffer(secPrevBuf, 'picspy/posts/previews', `${secBaseName}_preview`, { format: 'webp' }),
+            ])
+
+            updateFields[`generatedImages.${i}.thumbnailUrl`] = secThumbUp.secure_url
+            updateFields[`generatedImages.${i}.previewUrl`] = secPrevUp.secure_url
+            console.log(`✅ Secondary image [${i}] WebP done: thumb=${secThumbUp.secure_url}`)
+          } catch (secErr) {
+            console.error(`⚠️ Failed to process secondary image [${i}]: ${secErr.message}`)
+          }
+        }
+      }
+
       // ── Process Multi-model Comparison images ───────────────────
+
       if (postDoc && postDoc.isMultiModel && postDoc.modelComparisons && postDoc.modelComparisons.length > 0) {
         for (let i = 0; i < postDoc.modelComparisons.length; i++) {
           const comp = postDoc.modelComparisons[i]

@@ -842,6 +842,14 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
             ✨ AI
           </span>
         )}
+        {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
+          <span
+            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj"
+            style={{ background: 'rgba(99,102,241,0.35)', color: 'rgba(199,210,254,0.95)', backdropFilter: 'blur(6px)' }}
+          >
+            🖼 {post.generatedImages.length} ảnh
+          </span>
+        )}
         {post.resolution && (
           <span
             className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
@@ -851,6 +859,7 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
           </span>
         )}
       </div>
+
 
       {/* Author strip — always for hero/tall, slide-up for std/wide */}
       <div

@@ -111,14 +111,19 @@ class WalletService {
         throw new AppError('BAD_REQUEST', 'Bài đăng này hoàn toàn miễn phí', 400)
       }
 
-      const price = post.priceInVnd || 20000
+      let price = post.priceInVnd || 20000
+      if (fileType === 'bundle') {
+        const count = post.generatedImages?.length || 1
+        const total = price * count * 0.7 // 30% off
+        price = Math.round(total / 1000) * 1000
+      }
 
       // 3. Kiểm tra xem người dùng đã mua ảnh cụ thể này của bài viết chưa
       const priorPurchase = await VndTransaction.findOne({
         userId: buyerId,
         type: 'purchase_post',
         relatedPostId: postId,
-        fileType: fileType
+        fileType: fileType === 'bundle' ? 'bundle' : { $in: [fileType, 'bundle'] }
       }).session(session)
 
       if (priorPurchase) {
