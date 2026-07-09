@@ -113,8 +113,16 @@ class WalletService {
 
       let price = post.priceInVnd || 20000
       if (fileType === 'bundle') {
-        const count = post.generatedImages?.length || 1
-        const total = price * count * 0.7 // 30% off
+        const totalImages = post.generatedImages?.length || 1
+        // Tìm các ảnh lẻ mà user đã mua trước đó
+        const purchasedLites = await VndTransaction.find({
+          userId: buyerId,
+          type: 'purchase_post',
+          relatedPostId: postId,
+          fileType: { $regex: /^gen_/ }
+        }).session(session)
+        const unownedCount = Math.max(0, totalImages - purchasedLites.length)
+        const total = price * unownedCount * 0.7 // 30% off cho các ảnh chưa sở hữu
         price = Math.round(total / 1000) * 1000
       }
 

@@ -1105,7 +1105,7 @@ const HomePage = () => {
             <span className="block text-white">
               Kiếm tiền từ{' '}
               <span className="relative inline-block">
-                <span class="hero-gradient-text inline-block pr-[2px]">
+                <span className="hero-gradient-text inline-block pr-[2px]">
                   đam mê
                 </span>
                 <motion.span

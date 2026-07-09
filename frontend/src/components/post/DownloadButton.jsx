@@ -47,10 +47,21 @@ const DownloadButton = ({
   const collectionImages = isCollection ? (post.generatedImages || []) : []
   const collectionCount = collectionImages.length
 
-  // Bundle price: price * count * 0.7, rounded to nearest 1000
+  const purchasedTypes = post?.purchasedFileTypes || []
+
+  // Count unowned images in collection
+  const unownedImages = collectionImages.filter((_, idx) => {
+    if (isOwner) return false
+    return !purchasedTypes.includes(`gen_${idx}`)
+  })
+  const unownedCount = unownedImages.length
+
+  // Bundle price: price * unownedCount * 0.7, rounded to nearest 1000
   const bundlePrice = isCollection
-    ? Math.round((priceInVnd * collectionCount * 0.7) / 1000) * 1000
+    ? Math.round((priceInVnd * unownedCount * 0.7) / 1000) * 1000
     : priceInVnd
+
+  const originalPriceOfUnowned = priceInVnd * unownedCount
 
   const hasAttachments =
     !!post?.rawFile ||
@@ -88,12 +99,14 @@ const DownloadButton = ({
   }
 
   const availableTypes = getAvailableFileTypes()
-  const purchasedTypes = post?.purchasedFileTypes || []
 
   // Check if a specific fileType is purchased
   const isTypePurchased = (ft) => {
     if (isOwner) return true
     if (purchasedTypes.includes('bundle')) return true // bundle covers all
+    if (ft === 'bundle') {
+      return purchasedTypes.includes('bundle') || (collectionCount > 0 && collectionImages.every((_, idx) => purchasedTypes.includes(`gen_${idx}`)))
+    }
     return purchasedTypes.includes(ft)
   }
 
@@ -102,7 +115,7 @@ const DownloadButton = ({
     isOwner ||
     (isPremium && (
       isCollection
-        ? purchasedTypes.includes('bundle')
+        ? isTypePurchased('bundle')
         : availableTypes.every((type) => purchasedTypes.includes(type))
     ))
 
@@ -343,19 +356,59 @@ const DownloadButton = ({
                 </span>
               </div>
 
-              {/* Bundle option (mua cả bộ) */}
+              {/* Bundle option (mua cả bộ hoặc tải cả bộ đã sở hữu) */}
               {isPremium && !isOwner && (
                 <div className="px-1 mb-1">
-                  {renderDropdownItem(
-                    `Mua cả bộ sưu tập (tiết kiệm 30%)`,
-                    'bundle',
-                    null,
-                    bundlePrice
-                  )}
-                  {!bundlePurchased && (
-                    <div className="text-[10px] text-white/30 px-3 pb-1.5 mt-0.5">
-                      {priceInVnd.toLocaleString('vi-VN')}đ × {collectionCount} ảnh × 70% = <span className="text-amber-400 font-bold">{bundlePrice.toLocaleString('vi-VN')}đ</span>
-                    </div>
+                  {bundlePurchased || unownedCount === 0 ? (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        handleInitiateDownload('bundle')
+                      }}
+                      className="flex items-center justify-between gap-3 w-full px-3 py-2.5 rounded-xl border border-green-500/20 hover:border-green-500/40 bg-green-500/5 hover:bg-green-500/10 mt-1 transition-all text-left group"
+                    >
+                      <div className="flex items-center gap-2 truncate">
+                        <Package size={14} className="text-green-400 flex-shrink-0" />
+                        <span className="text-green-300 font-bold text-xs truncate">
+                          Tải toàn bộ sưu tập
+                        </span>
+                      </div>
+                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-semibold flex-shrink-0">
+                        Đã mua
+                      </span>
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => {
+                        setDropdownOpen(false)
+                        handleInitiateDownload('bundle')
+                      }}
+                      className="flex flex-col gap-1 w-full px-3 py-2.5 rounded-xl border border-amber-500/20 hover:border-amber-500/40 bg-amber-500/5 hover:bg-amber-500/10 mt-1 transition-all text-left group"
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2 truncate">
+                          <Package size={14} className="text-amber-400 flex-shrink-0" />
+                          <span className="text-amber-300 font-bold text-xs">
+                            Mua cả bộ sưu tập (tiết kiệm 30%)
+                          </span>
+                        </div>
+                        <div className="flex flex-col items-end flex-shrink-0">
+                          <span className="text-[10px] text-white/40 line-through">
+                            {originalPriceOfUnowned.toLocaleString('vi-VN')}đ
+                          </span>
+                          <span className="text-[11px] font-extrabold text-amber-400">
+                            {bundlePrice.toLocaleString('vi-VN')}đ
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="text-[9px] text-white/35 flex items-center gap-1 mt-0.5">
+                        <span>Chi tiết:</span>
+                        <span className="font-medium text-white/50">
+                          {priceInVnd.toLocaleString('vi-VN')}đ × {unownedCount} ảnh chưa mua × 70%
+                        </span>
+                      </div>
+                    </button>
                   )}
                 </div>
               )}
@@ -508,6 +561,7 @@ const DownloadButton = ({
           collectionCount={collectionCount}
           onConfirm={() => doDownload(selectedFileType)}
           onCancel={() => setShowConfirm(false)}
+          loading={loading}
         />
       </div>
     )
@@ -563,6 +617,7 @@ const DownloadButton = ({
           collectionCount={collectionCount}
           onConfirm={() => doDownload(selectedFileType)}
           onCancel={() => setShowConfirm(false)}
+          loading={loading}
         />
       </div>
     )
@@ -629,26 +684,29 @@ const DownloadButton = ({
         collectionCount={collectionCount}
         onConfirm={() => doDownload(selectedFileType)}
         onCancel={() => setShowConfirm(false)}
+        loading={loading}
       />
     </div>
   )
 }
 
 /* ─── Confirm Purchase Dialog ───────────────────────────────── */
-const ConfirmModal = ({ open, price, balance, onConfirm, onCancel, isBundle, collectionCount }) => (
+const ConfirmModal = ({ open, price, balance, onConfirm, onCancel, isBundle, collectionCount, loading }) => (
   <AnimatePresence>
     {open && (
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
+        transition={{ duration: 0.25, ease: 'easeOut' }}
         className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md"
-        onClick={(e) => e.target === e.currentTarget && onCancel()}
+        onClick={(e) => e.target === e.currentTarget && !loading && onCancel()}
       >
         <motion.div
           initial={{ scale: 0.95, y: 15 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.95, y: 15 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
           className="relative bg-[#121225]/95 border border-white/10 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl noise"
         >
           <div className="text-center mb-5">
@@ -700,16 +758,19 @@ const ConfirmModal = ({ open, price, balance, onConfirm, onCancel, isBundle, col
           <div className="flex gap-3">
             <button
               onClick={onCancel}
-              className="w-1/2 py-2.5 px-4 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer"
+              disabled={loading}
+              className="w-1/2 py-2.5 px-4 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs font-bold uppercase tracking-wider cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Hủy
             </button>
             <motion.button
               whileTap={{ scale: 0.97 }}
               onClick={onConfirm}
-              className="w-1/2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:from-amber-400 hover:to-yellow-400 transition-all cursor-pointer"
+              disabled={loading}
+              className="w-1/2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:from-amber-400 hover:to-yellow-400 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Xác nhận
+              {loading && <Loader2 size={13} className="animate-spin text-neutral-950" />}
+              <span>Xác nhận</span>
             </motion.button>
           </div>
         </motion.div>

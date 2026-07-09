@@ -434,11 +434,13 @@ ${styleCorpus}
    - Hãy phân tích xem chủ thể chính trong bức ảnh là nam, nữ, một cặp đôi (nam & nữ/đồng giới), một nhóm người hay là phong cảnh/đồ vật/đồ ăn.
    - Hãy THAY THẾ linh hoạt đại từ nhân xưng (anh/em/ta/tôi) trong caption mẫu cho phù hợp. Ví dụ: Nếu ảnh là một chàng trai (nam), caption không được dùng đại từ xưng hô tự gọi mình là "em" (ví dụ: "Em vụng về..." phải đổi thành "Anh vụng về..." hoặc xưng hô cho tự nhiên với nam giới). Nếu là phong cảnh/đồ ăn, hãy viết mô tả hướng tới trải nghiệm, vibe, hoặc chill.
 2. Tiêu chuẩn Caption:
-   - Độ dài tối đa 500 ký tự. Viết hoàn toàn bằng tiếng Việt văn phong tự nhiên, lôi cuốn, mang tính viral cao, đúng phong cách "${styleName}" đã chọn.
-   - Tránh copy y hệt rập khuôn từ kho ngữ liệu mẫu nếu bối cảnh ảnh hoàn toàn không khớp. Hãy chế tác lại một cách khéo léo để vừa giữ được tone vừa khớp với nội dung bức ảnh.
+   - Hãy tạo ra một câu caption ngắn gọn, súc tích và đúng trọng tâm nhất, chắt lọc ra ý hay nhất liên quan đến bối cảnh ảnh từ Kho ngữ liệu.
+   - Độ dài: Giới hạn nghiêm ngặt chỉ từ 15-18 từ (tối đa không quá 25 từ đối với các bối cảnh phức tạp/khó diễn tả). Hãy làm cho caption thật sắc sảo, cô đọng.
+   - Viết hoàn toàn bằng tiếng Việt văn phong tự nhiên, lôi cuốn, mang tính viral cao, đúng phong cách "${styleName}" đã chọn.
 3. Tiêu chuẩn Tags:
-   - Trả về một mảng chứa từ 5 đến 10 từ khóa (tiếng Anh hoặc tiếng Việt) viết thường, không chứa dấu thăng (#).
-   - Tag phải bám sát vào chủ thể, trang phục (outfit), mood (tâm trạng), màu sắc hoặc phong cách được nhận diện trong ảnh.
+   - Trả về một mảng chứa chính xác từ 3 đến 5 từ khóa (tags).
+   - BẮT BUỘC sử dụng tiếng Anh hoàn toàn (English) viết thường để tối ưu hóa SEO toàn cầu và phân loại hình ảnh.
+   - Thẻ tag không được chứa dấu thăng (#) và dấu cách (dùng dấu gạch ngang nếu là cụm từ, ví dụ: street-style). Tag phải bám sát vào chủ thể, trang phục (outfit), mood (tâm trạng), màu sắc hoặc phong cách được nhận diện trong ảnh.
 `.trim()
 
   const content = [

@@ -345,8 +345,9 @@ const PostDetailModal = ({
   }
 
   return (
-    <AnimatePresence>
+    <>
       <motion.div
+        key="post-detail-modal-backdrop"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
@@ -771,7 +772,7 @@ const PostDetailModal = ({
         type="danger"
         zIndex={300}
       />
-    </AnimatePresence>
+    </>
   )
 }
 

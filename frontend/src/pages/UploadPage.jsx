@@ -2375,13 +2375,23 @@ function Step4Meta({
                 >
                   Dùng ngay
                 </button>
-                <button
-                  type="button"
-                  onClick={handleRetryStyle}
-                  className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold text-white/70 transition-all"
-                >
-                  Đổi phong cách khác
-                </button>
+                {previewResult && selectedStyle !== previewResult.styleKey ? (
+                  <button
+                    type="button"
+                    onClick={() => handleAiSuggestMeta(selectedStyle)}
+                    className="flex-1 py-2 rounded-xl bg-brand-600/20 border border-brand-500/30 hover:bg-brand-600/30 text-xs font-bold text-brand-300 transition-all"
+                  >
+                    Tạo mô tả mới
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={handleRetryStyle}
+                    className="flex-1 py-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold text-white/70 transition-all"
+                  >
+                    Đổi phong cách khác
+                  </button>
+                )}
               </div>
             </div>
           )}

@@ -40,8 +40,16 @@ export const downloadPost = async (req, res, next) => {
 
       let purchaseCompleted = false
       const basePrice = post.priceInVnd || 20000
-      const count = collectionImages.length
-      const bundlePrice = Math.round((basePrice * count * 0.7) / 1000) * 1000 // 30% off
+
+      const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+      const purchasedLites = await VndTransaction.find({
+        userId,
+        type: 'purchase_post',
+        relatedPostId: postId,
+        fileType: { $regex: /^gen_/ }
+      })
+      const unownedCount = Math.max(0, collectionImages.length - purchasedLites.length)
+      const bundlePrice = Math.round((basePrice * unownedCount * 0.7) / 1000) * 1000 // 30% off cho các ảnh chưa sở hữu
 
       if (post.isPremium && !isOwner) {
         const WalletService = (await import('../services/WalletService.js')).default
@@ -49,7 +57,6 @@ export const downloadPost = async (req, res, next) => {
         const user = await User.findById(userId)
         if (!user) throw new AppError('UNAUTHORIZED', 'Người dùng không tồn tại', 401)
 
-        const VndTransaction = (await import('../models/VndTransaction.model.js')).default
         const priorPurchase = await VndTransaction.findOne({
           userId,
           type: 'purchase_post',
@@ -57,29 +64,32 @@ export const downloadPost = async (req, res, next) => {
           fileType: 'bundle'
         })
 
-        if (!priorPurchase && user.vndBalance < bundlePrice) {
-          return res.status(402).json({
-            error: 'INSUFFICIENT_FUNDS',
-            message: `Cần ${bundlePrice.toLocaleString('vi-VN')}đ để mua cả bộ sưu tập. Số dư: ${user.vndBalance.toLocaleString('vi-VN')}đ.`,
-            required: bundlePrice,
-            balance: user.vndBalance,
+        // Chỉ tính tiền và trừ số dư nếu chưa mua bundle trước đó và vẫn còn ảnh chưa sở hữu lẻ
+        if (!priorPurchase && unownedCount > 0) {
+          if (user.vndBalance < bundlePrice) {
+            return res.status(402).json({
+              error: 'INSUFFICIENT_FUNDS',
+              message: `Cần ${bundlePrice.toLocaleString('vi-VN')}đ để mua cả bộ sưu tập. Số dư: ${user.vndBalance.toLocaleString('vi-VN')}đ.`,
+              required: bundlePrice,
+              balance: user.vndBalance,
+            })
+          }
+
+          const ip = req.ip
+          const userAgent = req.headers['user-agent']
+          const idempotencyKey = req.body.idempotencyKey
+          const result = await WalletService.purchasePremiumPost({
+            buyerId: userId,
+            postId,
+            fileType: 'bundle',
+            idempotencyKey,
+            ip,
+            userAgent
           })
-        }
 
-        const ip = req.ip
-        const userAgent = req.headers['user-agent']
-        const idempotencyKey = req.body.idempotencyKey
-        const result = await WalletService.purchasePremiumPost({
-          buyerId: userId,
-          postId,
-          fileType: 'bundle',
-          idempotencyKey,
-          ip,
-          userAgent
-        })
-
-        if (result && !result.alreadyPurchased && !result.alreadyProcessed) {
-          purchaseCompleted = true
+          if (result && !result.alreadyPurchased && !result.alreadyProcessed) {
+            purchaseCompleted = true
+          }
         }
       }
 
