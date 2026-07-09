@@ -678,7 +678,7 @@ export const updateSettings = async (req, res, next) => {
       'categoryStyle', 'categoriesPageStyle', 'heroBannerMode', 'heroBannerImage',
       'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs', 'myPostsSkeletonMs', 'postLoadingDelayMs',
       'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee', 'blurPremiumImages',
-      'postDetailLayout'
+      'postDetailLayout', 'trendingCarouselInterval'
     ]
     const updates = {}
     allowed.forEach(key => {

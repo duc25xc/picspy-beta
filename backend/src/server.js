@@ -141,6 +141,7 @@ app.get('/v1/settings', async (req, res, next) => {
       blurPremiumImages: settings.blurPremiumImages !== undefined ? settings.blurPremiumImages : false,
       postDetailLayout: settings.postDetailLayout || 'left-image',
       categoriesPageStyle: settings.categoriesPageStyle || 'style-2',
+      trendingCarouselInterval: settings.trendingCarouselInterval ?? 5000,
     })
   } catch (err) {
     next(err)

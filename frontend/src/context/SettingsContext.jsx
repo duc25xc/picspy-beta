@@ -127,6 +127,7 @@ export const SettingsProvider = ({ children }) => {
   const [blurPremiumImages, setBlurPremiumImages] = useState(false);
   const [postDetailLayout, setPostDetailLayout] = useState('left-image');
   const [categoriesPageStyle, setCategoriesPageStyle] = useState('style-2');
+  const [trendingCarouselInterval, setTrendingCarouselInterval] = useState(5000);
 
   const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
@@ -181,6 +182,9 @@ export const SettingsProvider = ({ children }) => {
         }
         if (data?.categoriesPageStyle) {
           setCategoriesPageStyle(data.categoriesPageStyle);
+        }
+        if (data?.trendingCarouselInterval !== undefined) {
+          setTrendingCarouselInterval(data.trendingCarouselInterval);
         }
       })
       .catch((err) => {
@@ -255,7 +259,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, postLoadingDelayMs, setPostLoadingDelayMs, blurPremiumImages, setBlurPremiumImages, postDetailLayout, setPostDetailLayout, categoriesPageStyle, setCategoriesPageStyle }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, postLoadingDelayMs, setPostLoadingDelayMs, blurPremiumImages, setBlurPremiumImages, postDetailLayout, setPostDetailLayout, categoriesPageStyle, setCategoriesPageStyle, trendingCarouselInterval, setTrendingCarouselInterval }}>
       {children}
     </SettingsContext.Provider>
   );

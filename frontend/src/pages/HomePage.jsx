@@ -582,31 +582,23 @@ const TrendingCard = ({ post, index, delay, onClick }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
   const displayUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
   const author = post.authorId
-  const glowColor = post.colors?.[0]?.hex || '#7c3aed'
-  const isCenter = index === 1
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 24 }}
+      initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      transition={{ delay, duration: 0.6, ease: [0.23, 1, 0.32, 1] }}
+      transition={{ delay, duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
       onClick={onClick}
-      className={`group relative rounded-2xl overflow-hidden cursor-pointer border transition-all duration-500 min-h-[220px] md:min-h-[260px]
-        ${
-          isCenter
-            ? 'scale-105 border-brand-500/30 z-15 shadow-2xl'
-            : 'scale-95 opacity-80 border-white/5 hover:opacity-100 hover:scale-[0.98]'
-        }`}
-      style={isCenter ? { boxShadow: `0 15px 45px -10px ${glowColor}50` } : {}}
+      className="group relative rounded-2xl overflow-hidden cursor-pointer border border-white/5 hover:border-brand-500/30 transition-all duration-500 min-h-[220px] md:min-h-[260px] w-full md:w-[calc(50%-12px)] lg:w-[calc(33.333%-16px)] flex-shrink-0 shadow-lg hover:shadow-[0_8px_32px_rgba(124,58,237,0.12)]"
     >
       <img
         src={displayUrl}
         alt={post.caption || 'Trending Art'}
-        className="w-full h-full object-cover absolute inset-0 group-hover:scale-105 transition-transform duration-700"
+        className="w-full h-full object-cover absolute inset-0 group-hover:scale-[1.03] transition-transform duration-700"
         loading="lazy"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent pointer-events-none" />
 
       {/* Prompt copy button on top-right */}
       {post.prompt && (
@@ -627,34 +619,40 @@ const TrendingCard = ({ post, index, delay, onClick }) => {
       )}
 
       {/* Hover info overlay at the bottom */}
-      <div className="absolute inset-x-0 bottom-0 p-4 z-10">
-        <div className="liquid-glass rounded-xl px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+      <div className="absolute inset-x-0 bottom-0 p-3 z-10">
+        <div className="liquid-glass rounded-xl px-3 py-2.5 flex items-center justify-between">
+          <div className="flex items-center gap-2">
             {author?.avatar ? (
               <img
                 src={author.avatar}
                 alt={author.displayName}
-                className="w-8 h-8 rounded-full object-cover border border-white/10"
+                className="w-7 h-7 rounded-full object-cover border border-white/10"
               />
             ) : (
-              <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-black pj">
+              <div className="w-7 h-7 rounded-full bg-gradient-brand flex items-center justify-center text-white text-[10px] font-black pj">
                 {(author?.displayName || author?.username || 'U')
                   .slice(0, 2)
                   .toUpperCase()}
               </div>
             )}
-            <div>
-              <p className="font-bold text-xs text-foreground pj">
+            <div className="min-w-0">
+              <p className="font-bold text-[11px] text-foreground pj truncate max-w-[80px] sm:max-w-[120px]">
                 {author?.displayName || author?.username || 'Nghệ sĩ'}
               </p>
-              <p className="text-[9px] text-foreground/60 pj line-clamp-1 w-28 md:w-36">
+              <p className="text-[9px] text-foreground/50 pj truncate max-w-[80px] sm:max-w-[120px]">
                 {post.caption || post.prompt || 'Tác phẩm'}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 text-xs text-foreground/80">
-            <Heart size={12} className="fill-red-400 text-red-400" />
-            <span className="font-bold pj">{post.stats?.likesCount || 0}</span>
+          <div className="flex items-center gap-2.5 text-[10px] text-foreground/80 font-bold shrink-0">
+            <div className="flex items-center gap-1">
+              <Heart size={11} className="fill-red-400 text-red-400" />
+              <span className="pj">{post.stats?.likesCount || 0}</span>
+            </div>
+            <div className="flex items-center gap-1" title="Lượt tải">
+              <Download size={11} className="text-blue-400" />
+              <span className="pj">{post.stats?.downloadsCount || 0}</span>
+            </div>
           </div>
         </div>
       </div>
@@ -1692,6 +1690,32 @@ const HomePage = () => {
   const [freeDownloadsInput, setFreeDownloadsInput] = useState(500)
   const [selectedPostId, setSelectedPostId] = useState(null)
 
+  // Carousel Trending Community
+  const [trendingIndex, setTrendingIndex] = useState(0)
+  const [visibleCards, setVisibleCards] = useState(3)
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) setVisibleCards(3)
+      else if (window.innerWidth >= 768) setVisibleCards(2)
+      else setVisibleCards(1)
+    }
+    handleResize()
+    window.addEventListener('resize', handleResize)
+    return () => window.removeEventListener('resize', handleResize)
+  }, [])
+
+  const trendingList = homepageData?.trending || []
+  const maxTrendingIndex = Math.max(0, trendingList.length - visibleCards)
+
+  const handleTrendingNext = () => {
+    setTrendingIndex((prev) => (prev >= maxTrendingIndex ? 0 : prev + 1))
+  }
+
+  const handleTrendingPrev = () => {
+    setTrendingIndex((prev) => (prev === 0 ? maxTrendingIndex : prev - 1))
+  }
+
   // Leaderboard states
   const [leaderboard, setLeaderboard] = useState([])
   const [leaderboardLoading, setLeaderboardLoading] = useState(false)
@@ -1704,7 +1728,18 @@ const HomePage = () => {
   const [modalPeriod, setModalPeriod] = useState('all')
   const [modalType, setModalType] = useState('followers')
 
-  const { splashExtraMs } = useSettings()
+  const { splashExtraMs, trendingCarouselInterval } = useSettings()
+
+  // Autoplay for community trending carousel
+  useEffect(() => {
+    if (!trendingCarouselInterval || trendingCarouselInterval <= 0 || trendingList.length === 0) return
+
+    const timer = setInterval(() => {
+      setTrendingIndex((prev) => (prev >= maxTrendingIndex ? 0 : prev + 1))
+    }, trendingCarouselInterval)
+
+    return () => clearInterval(timer)
+  }, [trendingCarouselInterval, trendingList.length, maxTrendingIndex])
 
   const fetchLeaderboard = useCallback(
     async (period, type, limit = 4, target = 'local') => {
@@ -2336,34 +2371,46 @@ const HomePage = () => {
             </div>
             <div className="flex gap-2">
               <button
-                className="w-12 h-12 rounded-full liquid-glass flex items-center justify-center
-                text-foreground/50 hover:text-foreground transition-colors"
+                onClick={handleTrendingPrev}
+                className="w-11 h-11 rounded-full liquid-glass flex items-center justify-center
+                text-foreground/50 hover:text-foreground hover:scale-105 active:scale-95 transition-all cursor-pointer border border-white/5"
               >
-                <ChevronLeft size={20} />
+                <ChevronLeft size={18} />
               </button>
               <button
-                className="w-12 h-12 rounded-full liquid-glass flex items-center justify-center
-                text-foreground/50 hover:text-foreground transition-colors"
+                onClick={handleTrendingNext}
+                className="w-11 h-11 rounded-full liquid-glass flex items-center justify-center
+                text-foreground/50 hover:text-foreground hover:scale-105 active:scale-95 transition-all cursor-pointer border border-white/5"
               >
-                <ChevronRight size={20} />
+                <ChevronRight size={18} />
               </button>
             </div>
           </div>
 
-          {/* 3-col grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {homepageData?.trending?.map((post, i) => (
-              <TrendingCard
-                key={post._id}
-                post={post}
-                index={i}
-                delay={i * 0.1}
-                onClick={() => setSelectedPostId(post._id)}
-              />
-            )) || (
-              <div className="col-span-3 text-center text-white/40 py-10">
+          {/* Sliding Carousel viewport */}
+          <div className="overflow-hidden w-full py-4 -my-4">
+            {trendingList.length === 0 ? (
+              <div className="text-center text-white/40 py-12 pj">
                 Đang tải xu hướng...
               </div>
+            ) : (
+              <motion.div
+                className="flex gap-6 w-full"
+                animate={{
+                  x: `calc(-${(trendingIndex * 100) / visibleCards}% - ${(trendingIndex * 24) / visibleCards}px)`
+                }}
+                transition={{ type: 'spring', damping: 28, stiffness: 150 }}
+              >
+                {trendingList.map((post, i) => (
+                  <TrendingCard
+                    key={post._id}
+                    post={post}
+                    index={i}
+                    delay={i * 0.05}
+                    onClick={() => setSelectedPostId(post._id)}
+                  />
+                ))}
+              </motion.div>
             )}
           </div>
         </div>

@@ -128,6 +128,12 @@ const settingsSchema = new mongoose.Schema(
       enum: ['left-image', 'right-image'],
       default: 'left-image', // 'left-image' matches original default (ảnh bên trái | thông tin bên phải)
     },
+    trendingCarouselInterval: {
+      type: Number,
+      default: 5000, // 5s autoplay
+      min: 0,
+      max: 60000,
+    },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,

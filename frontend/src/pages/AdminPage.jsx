@@ -1430,6 +1430,8 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [savingBlur, setSavingBlur] = useState(false)
   const [postDetailLayout, setPostDetailLayout] = useState('left-image')
   const [savingLayout, setSavingLayout] = useState(false)
+  const [trendingCarouselInterval, setTrendingCarouselInterval] = useState(5000)
+  const [trendingCarouselSaving, setTrendingCarouselSaving] = useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -1495,6 +1497,7 @@ const SettingsTab = ({ onDirtyChange }) => {
         setPostLoadingDelayMs(data.settings?.postLoadingDelayMs ?? 0)
         setBlurPremiumImages(data.settings?.blurPremiumImages || false)
         setPostDetailLayout(data.settings?.postDetailLayout || 'left-image')
+        setTrendingCarouselInterval(data.settings?.trendingCarouselInterval ?? 5000)
         setSavedColors({ primary, gradient, opacity, blur, enableGradient: gradientEnabled, shadowStyle: sStyle })
 
         // Check if saved colors match any preset
@@ -1705,6 +1708,22 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi khi lưu cấu hình ảnh bìa')
     } finally {
       setHeroBannerSaving(false)
+    }
+  }
+
+  const handleSaveTrendingCarouselInterval = async () => {
+    setTrendingCarouselSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        trendingCarouselInterval: Number(trendingCarouselInterval)
+      })
+      setSettings(data.settings)
+      setTrendingCarouselInterval(data.settings?.trendingCarouselInterval ?? 5000)
+      toast.success('⏱️ Đã lưu cấu hình tự động chuyển Carousel!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu cấu hình Carousel')
+    } finally {
+      setTrendingCarouselSaving(false)
     }
   }
 
@@ -2892,6 +2911,126 @@ const SettingsTab = ({ onDirtyChange }) => {
                       }}
                       className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer
                         ${postLoadingDelayMs === p.value
+                          ? 'bg-brand-500/10 border-brand-500/40 text-brand-300 shadow-sm'
+                          : 'bg-white/[0.02] border-white/5 text-white/50 hover:bg-white/[0.06] hover:text-white'}`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* ── Trending Carousel Autoplay Interval ─── */}
+              <div className="card p-6 border border-white/10 space-y-4 bg-white/[0.01]">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <Timer size={16} className="text-brand-400" /> Tự động chuyển Carousel Xu hướng (Autoplay)
+                    </h3>
+                    <p className="text-[11px] text-white/40 mt-0.5">
+                      Cài đặt thời gian tự động chuyển tiếp ảnh trong hàng "Xu hướng cộng đồng" ngoài trang chủ.
+                    </p>
+                  </div>
+                  {trendingCarouselSaving && (
+                    <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold animate-pulse">
+                      Đang lưu...
+                    </span>
+                  )}
+                </div>
+
+                <div className="flex items-baseline gap-2 pt-2">
+                  <span className="text-3xl font-black tabular-nums tracking-tight" style={{ color: 'hsla(var(--color-brand-h), var(--color-brand-s), 65%, 1)' }}>
+                    {trendingCarouselInterval === 0 ? 'Tắt' : (trendingCarouselInterval / 1000).toFixed(1)}
+                  </span>
+                  <span className="text-sm font-bold text-white/40">
+                    {trendingCarouselInterval === 0 ? '' : 'giây'}
+                  </span>
+                </div>
+
+                <div className="relative pt-1 pb-2">
+                  <input
+                    type="range"
+                    min={0}
+                    max={15000}
+                    step={500}
+                    value={trendingCarouselInterval}
+                    onChange={(e) => setTrendingCarouselInterval(Number(e.target.value))}
+                    onMouseUp={() => handleSaveTrendingCarouselInterval()}
+                    onTouchEnd={() => handleSaveTrendingCarouselInterval()}
+                    className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                    style={{
+                      background: `linear-gradient(to right, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) 0%, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) ${(trendingCarouselInterval / 15000) * 100}%, rgba(255,255,255,0.08) ${(trendingCarouselInterval / 15000) * 100}%, rgba(255,255,255,0.08) 100%)`,
+                    }}
+                  />
+                  <div className="relative w-full h-5 mt-2">
+                    {[0, 2000, 3000, 5000, 8000, 10000, 15000].map(v => {
+                      const pct = (v / 15000) * 100
+                      const isLeftBound = v === 0
+                      const isRightBound = v === 15000
+
+                      let transformStyle = 'translateX(-50%)'
+                      let leftStyle = `${pct}%`
+                      if (isLeftBound) {
+                        leftStyle = '0%'
+                        transformStyle = 'none'
+                      } else if (isRightBound) {
+                        leftStyle = 'auto'
+                        transformStyle = 'none'
+                      }
+
+                      return (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => {
+                            setTrendingCarouselInterval(v)
+                            setTimeout(() => {
+                              api.put('/admin/settings', { trendingCarouselInterval: v })
+                                .then(({ data }) => {
+                                  setSettings(data.settings)
+                                  toast.success('⏱️ Đã lưu cấu hình tự động chuyển Carousel!')
+                                })
+                                .catch(() => toast.error('Không thể lưu cấu hình'))
+                            }, 50)
+                          }}
+                          className={`absolute text-[9px] font-mono transition-colors cursor-pointer hover:text-brand-300 ${
+                            trendingCarouselInterval === v ? 'text-brand-400 font-bold' : 'text-white/25'
+                          }`}
+                          style={{
+                            left: leftStyle,
+                            right: isRightBound ? '0%' : 'auto',
+                            transform: transformStyle,
+                          }}
+                        >
+                          {v === 0 ? 'Tắt' : `${v / 1000}s`}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {[
+                    { label: 'Tắt', value: 0 },
+                    { label: 'Nhanh (3s)', value: 3000 },
+                    { label: 'Vừa (5s)', value: 5000 },
+                    { label: 'Chậm (8s)', value: 8000 },
+                    { label: 'Rất chậm (12s)', value: 12000 },
+                  ].map((p) => (
+                    <button
+                      key={p.value}
+                      type="button"
+                      onClick={() => {
+                        setTrendingCarouselInterval(p.value)
+                        api.put('/admin/settings', { trendingCarouselInterval: p.value })
+                          .then(({ data }) => {
+                            setSettings(data.settings)
+                            toast.success('⏱️ Đã lưu cấu hình tự động chuyển Carousel!')
+                          })
+                          .catch(() => toast.error('Không thể lưu cấu hình'))
+                      }}
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all border cursor-pointer
+                        ${trendingCarouselInterval === p.value
                           ? 'bg-brand-500/10 border-brand-500/40 text-brand-300 shadow-sm'
                           : 'bg-white/[0.02] border-white/5 text-white/50 hover:bg-white/[0.06] hover:text-white'}`}
                     >

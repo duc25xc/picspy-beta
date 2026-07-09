@@ -1858,7 +1858,7 @@ export const getHomepageData = async (req, res, next) => {
         },
       },
       { $sort: { hotScore: -1, _id: -1 } },
-      { $limit: 3 },
+      { $limit: 12 },
       {
         $lookup: {
           from: 'users',
