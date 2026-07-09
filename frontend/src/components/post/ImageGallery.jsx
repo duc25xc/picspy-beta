@@ -9,6 +9,7 @@ import {
   Layers,
   Camera,
 } from 'lucide-react'
+import { IoDiamond } from 'react-icons/io5'
 import { AI_TOOLS } from '../../pages/uploadConstants'
 import { getOptimizedWebpUrl } from '../../utils/imageUrl'
 import { useSettings } from '../../context/SettingsContext'
@@ -338,7 +339,7 @@ export default function ImageGallery({
               className="rounded-2xl p-6 text-center border border-white/10 backdrop-blur-sm mx-6"
               style={{ background: 'rgba(10,9,14,0.75)' }}
             >
-              <span className="text-3xl block mb-2">💎</span>
+              <IoDiamond size={32} className="text-amber-400 mx-auto mb-3" />
               <p
                 className="text-white font-semibold text-sm mb-1"
                 style={{ fontFamily: 'Outfit, sans-serif' }}

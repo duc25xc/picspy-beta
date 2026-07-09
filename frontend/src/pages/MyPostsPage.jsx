@@ -23,6 +23,7 @@ import {
   Copy,
   Check,
 } from 'lucide-react'
+import { IoDiamond, IoImages, IoSparkles } from 'react-icons/io5'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import { useSettings } from '../context/SettingsContext'
@@ -1298,16 +1299,24 @@ const EditModal = ({
                 )}
 
                 <div className="rounded-xl bg-surface-50 border border-white/5 p-4 space-y-2 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex justify-between items-center">
                     <span className="text-white/40">Trạng thái</span>
                     <span
-                      className={
-                        form.isPremium
-                          ? 'text-yellow-400 font-medium'
-                          : 'text-green-400 font-medium'
-                      }
+                      className={`font-medium flex items-center gap-1 ${
+                        form.isPremium ? 'text-yellow-400' : 'text-green-400'
+                      }`}
                     >
-                      {form.isPremium ? '💎 Premium' : '🆓 Miễn phí'}
+                      {form.isPremium ? (
+                        <>
+                          <IoDiamond size={12} className="text-amber-400" />
+                          <span>Premium</span>
+                        </>
+                      ) : (
+                        <>
+                          <IoSparkles size={12} className="text-green-400" />
+                          <span>Miễn phí</span>
+                        </>
+                      )}
                     </span>
                   </div>
                   {form.isPremium && (
@@ -1511,13 +1520,15 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
         {/* Top-left badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start">
           {post.isPremium && (
-            <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium">
-              💎 Premium
+            <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium flex items-center gap-1">
+              <IoDiamond size={11} className="text-amber-300" />
+              <span>Premium</span>
             </span>
           )}
           {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
-            <span className="text-xs px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 backdrop-blur-md rounded-lg font-medium">
-              🖼 Bộ sưu tập ({post.generatedImages.length})
+            <span className="text-xs px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 backdrop-blur-md rounded-lg font-medium flex items-center gap-1">
+              <IoImages size={11} className="text-indigo-300" />
+              <span>Bộ sưu tập ({post.generatedImages.length})</span>
             </span>
           )}
         </div>

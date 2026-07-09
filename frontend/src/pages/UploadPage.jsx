@@ -28,6 +28,21 @@ import {
 import { useDropzone } from 'react-dropzone'
 import exifr from 'exifr'
 import toast from 'react-hot-toast'
+import {
+  IoFlash,
+  IoRose,
+  IoChatbubbleEllipses,
+  IoFlame,
+  IoLeaf,
+  IoWater,
+  IoGift,
+  IoBook,
+  IoBriefcase,
+  IoHeart,
+  IoPizza,
+  IoAirplane,
+  IoLanguage,
+} from 'react-icons/io5'
 import api from '../api/api'
 import useTierAccess from '../hooks/useTierAccess'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
@@ -1959,58 +1974,58 @@ function Step3Generated({
 
 // ── STYLE OPTIONS CONSTANT FOR METADATA SUGGESTIONS ────────────────
 const STYLE_OPTIONS = [
-  { key: 'gioi_tre_y2k', label: 'Giới trẻ Y2K', shortLabel: 'Y2K', icon: '⚡' },
+  { key: 'gioi_tre_y2k', label: 'Giới trẻ Y2K', shortLabel: 'Y2K', icon: <IoFlash className="text-yellow-400" size={13} /> },
   {
     key: 'tho_mong',
     label: 'Thơ mộng thả thính',
     shortLabel: 'Thơ mộng',
-    icon: '🌸',
+    icon: <IoRose className="text-pink-400" size={13} />,
   },
   {
     key: 'hai_huoc',
     label: 'Hài hước xoáy sâu',
     shortLabel: 'Hài hước',
-    icon: '🤪',
+    icon: <IoChatbubbleEllipses className="text-sky-400" size={13} />,
   },
-  { key: 'ngau', label: 'Ngầu cá tính', shortLabel: 'Ngầu', icon: '🔥' },
+  { key: 'ngau', label: 'Ngầu cá tính', shortLabel: 'Ngầu', icon: <IoFlame className="text-orange-500" size={13} /> },
   {
     key: 'sau_lang',
     label: 'Sâu lắng sâu sắc',
     shortLabel: 'Sâu sắc',
-    icon: '🍃',
+    icon: <IoLeaf className="text-emerald-400" size={13} />,
   },
-  { key: 'buon', label: 'Buồn - Cô đơn', shortLabel: 'Buồn', icon: '💧' },
-  { key: 'tet_le', label: 'Tết - Lễ - Noel', shortLabel: 'Tết/Lễ', icon: '🎉' },
+  { key: 'buon', label: 'Buồn - Cô đơn', shortLabel: 'Buồn', icon: <IoWater className="text-blue-400" size={13} /> },
+  { key: 'tet_le', label: 'Tết - Lễ - Noel', shortLabel: 'Tết/Lễ', icon: <IoGift className="text-red-400" size={13} /> },
   {
     key: 'dong_luc',
     label: 'Động lực học tập',
     shortLabel: 'Động lực',
-    icon: '📚',
+    icon: <IoBook className="text-violet-400" size={13} />,
   },
   {
     key: 'cong_viec',
     label: 'Công việc - Đi làm',
     shortLabel: 'Đi làm',
-    icon: '💼',
+    icon: <IoBriefcase className="text-zinc-400" size={13} />,
   },
   {
     key: 'tinh_ban',
     label: 'Tình bạn - Gia đình',
     shortLabel: 'Tình bạn',
-    icon: '❤️',
+    icon: <IoHeart className="text-red-500" size={13} />,
   },
-  { key: 'do_an', label: 'Đăng ảnh đồ ăn', shortLabel: 'Đồ ăn', icon: '🍕' },
+  { key: 'do_an', label: 'Đăng ảnh đồ ăn', shortLabel: 'Đồ ăn', icon: <IoPizza className="text-amber-500" size={13} /> },
   {
     key: 'du_lich',
     label: 'Du lịch dã ngoại',
     shortLabel: 'Du lịch',
-    icon: '✈️',
+    icon: <IoAirplane className="text-cyan-400" size={13} />,
   },
   {
     key: 'tieng_anh',
     label: 'Tiếng Anh song ngữ',
     shortLabel: 'Song ngữ',
-    icon: '🇬🇧',
+    icon: <IoLanguage className="text-indigo-400" size={13} />,
   },
 ]
 
@@ -2241,8 +2256,9 @@ function Step4Meta({
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all"
                   title="Thay đổi phong cách viết"
                 >
-                  <span>
-                    {currentStyleOption.icon} {currentStyleOption.label}
+                  <span className="flex items-center gap-1.5">
+                    {currentStyleOption.icon}
+                    <span>{currentStyleOption.label}</span>
                   </span>
                   <ChevronDown
                     size={12}

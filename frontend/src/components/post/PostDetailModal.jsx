@@ -14,6 +14,7 @@ import {
   UserCheck,
   Maximize2,
 } from 'lucide-react'
+import { IoDiamond, IoSparkles } from 'react-icons/io5'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
@@ -573,15 +574,17 @@ const PostDetailModal = ({
                 )}
                 {post.aiTool && (
                   <span
-                    className="text-xs font-medium"
+                    className="text-xs font-medium flex items-center gap-1"
                     style={{ color: '#7986eb' }}
                   >
-                    ✨ {post.aiTool}
+                    <IoSparkles size={11} className="text-[#7986eb]" />
+                    {post.aiTool}
                   </span>
                 )}
                 {post.isPremium && (
-                  <span className="text-xs text-amber-400 font-medium">
-                    💎 Premium
+                  <span className="text-xs text-amber-400 font-medium flex items-center gap-1">
+                    <IoDiamond size={11} className="text-amber-400" />
+                    Premium
                   </span>
                 )}
                 <div className="flex flex-col gap-0.5 text-[11px] text-white/40 font-medium">

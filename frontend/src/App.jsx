@@ -58,6 +58,7 @@ const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const UploadPage = lazy(() => import('./pages/UploadPage'))
 const MyPostsPage = lazy(() => import('./pages/MyPostsPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
+const CategoriesPage = lazy(() => import('./pages/CategoriesPage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const GoogleAuthSuccess = lazy(() => import('./pages/GoogleAuthSuccess'))
 const PostDeepLinkPage = lazy(() => import('./pages/PostDeepLinkPage'))
@@ -167,6 +168,16 @@ export default function App() {
                 <MainLayout>
                   <PageTransition>
                     <SearchPage />
+                  </PageTransition>
+                </MainLayout>
+              }
+            />
+            <Route
+              path="/categories"
+              element={
+                <MainLayout>
+                  <PageTransition>
+                    <CategoriesPage />
                   </PageTransition>
                 </MainLayout>
               }

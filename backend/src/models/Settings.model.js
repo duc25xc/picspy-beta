@@ -47,6 +47,11 @@ const settingsSchema = new mongoose.Schema(
       enum: ['style-1', 'style-2', 'style-3', 'style-4'],
       default: 'style-1',
     },
+    categoriesPageStyle: {
+      type: String,
+      enum: ['style-1', 'style-2', 'style-3', 'style-4'],
+      default: 'style-2',
+    },
     heroBannerMode: {
       type: String,
       enum: ['auto', 'manual'],

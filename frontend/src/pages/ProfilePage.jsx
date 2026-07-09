@@ -6,6 +6,7 @@ import {
   Zap, Crown, Star, Settings, ChevronRight,
   ImageOff, Loader2, Camera, Film,
 } from 'lucide-react'
+import { IoDiamond, IoImages, IoSparkles } from 'react-icons/io5'
 import useAuthStore from '../store/auth.store'
 import api from '../api/api'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
@@ -494,19 +495,21 @@ const ProfilePage = () => {
                   {/* TOP Badges */}
                   <div className="absolute top-2 left-2 flex gap-1 z-10 flex-wrap">
                     {post.isPremium && (
-                      <div className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/90 text-white backdrop-blur-sm">
-                        💎
+                      <div className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/90 text-white backdrop-blur-sm flex items-center justify-center">
+                        <IoDiamond size={10} className="text-white" />
                       </div>
                     )}
                     {(post.postType === 'ai' || post.isAI) && (
-                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold"
+                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5"
                         style={{ background: 'rgba(121,134,235,0.85)', color: '#fff' }}>
-                        ✦ AI
+                        <IoSparkles size={9} className="text-white" />
+                        <span>AI</span>
                       </div>
                     )}
                     {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
-                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm">
-                        🖼 {post.generatedImages.length}
+                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm flex items-center gap-0.5">
+                        <IoImages size={10} className="text-indigo-150" />
+                        <span>{post.generatedImages.length}</span>
                       </div>
                     )}
                   </div>

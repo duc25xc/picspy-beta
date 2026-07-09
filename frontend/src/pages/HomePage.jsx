@@ -845,7 +845,11 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
         {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
           <span
             className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj"
-            style={{ background: 'rgba(99,102,241,0.35)', color: 'rgba(199,210,254,0.95)', backdropFilter: 'blur(6px)' }}
+            style={{
+              background: 'rgba(99,102,241,0.35)',
+              color: 'rgba(199,210,254,0.95)',
+              backdropFilter: 'blur(6px)',
+            }}
           >
             🖼 {post.generatedImages.length} ảnh
           </span>
@@ -859,7 +863,6 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
           </span>
         )}
       </div>
-
 
       {/* Author strip — always for hero/tall, slide-up for std/wide */}
       <div
@@ -2286,7 +2289,7 @@ const HomePage = () => {
               </p>
             </div>
             <Link
-              to="/search"
+              to="/categories"
               className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-white
                 font-bold transition-colors group text-sm shrink-0 pj"
             >

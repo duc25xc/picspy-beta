@@ -13,25 +13,56 @@ import {
   Camera,
   Check,
 } from 'lucide-react'
+import {
+  IoDiamond,
+  IoSparkles,
+  IoImages,
+  IoLeafOutline,
+  IoPlanetOutline,
+  IoSquareOutline,
+  IoColorPaletteOutline,
+  IoBusinessOutline,
+  IoRocketOutline,
+  IoMoonOutline,
+  IoSunnyOutline,
+  IoColorWandOutline,
+  IoEllipsisHorizontalOutline,
+} from 'react-icons/io5'
+import { TbTarget } from 'react-icons/tb'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import PostDetailModal from '../components/post/PostDetailModal'
+import { useSearchParams } from 'react-router-dom'
 import useModalUrl from '../hooks/useModalUrl'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 
 // ── Fallback categories ─────────────────────────────────────────
 const FALLBACK_CATEGORIES = [
-  { key: 'nature', label: '🌿 Thiên nhiên' },
-  { key: 'anime', label: '🎌 Anime' },
-  { key: 'minimal', label: '◻️ Minimal' },
-  { key: 'abstract', label: '🎨 Abstract' },
-  { key: 'city', label: '🌃 Thành phố' },
-  { key: 'space', label: '🚀 Vũ trụ' },
-  { key: 'dark', label: '🌑 Dark' },
-  { key: 'light', label: '☀️ Light' },
-  { key: 'gradient', label: '🌈 Gradient' },
-  { key: 'other', label: '✨ Khác' },
+  { key: 'nature', label: 'Thiên nhiên' },
+  { key: 'anime', label: 'Anime' },
+  { key: 'minimal', label: 'Minimal' },
+  { key: 'abstract', label: 'Abstract' },
+  { key: 'city', label: 'Thành phố' },
+  { key: 'space', label: 'Vũ trụ' },
+  { key: 'dark', label: 'Dark' },
+  { key: 'light', label: 'Light' },
+  { key: 'gradient', label: 'Gradient' },
+  { key: 'other', label: 'Khác' },
 ]
+
+const CATEGORY_ICONS = {
+  all: <IoSparkles className="text-yellow-400" size={14} />,
+  nature: <IoLeafOutline className="text-emerald-400" size={14} />,
+  anime: <IoPlanetOutline className="text-pink-400" size={14} />,
+  minimal: <IoSquareOutline className="text-zinc-400" size={14} />,
+  abstract: <IoColorPaletteOutline className="text-violet-400" size={14} />,
+  city: <IoBusinessOutline className="text-sky-400" size={14} />,
+  space: <IoRocketOutline className="text-amber-400" size={14} />,
+  dark: <IoMoonOutline className="text-indigo-400" size={14} />,
+  light: <IoSunnyOutline className="text-yellow-400" size={14} />,
+  gradient: <IoColorWandOutline className="text-fuchsia-400" size={14} />,
+  other: <IoEllipsisHorizontalOutline className="text-teal-400" size={14} />,
+}
 
 // ── Color presets for Color Search ──────────────────────────────
 const COLOR_PRESETS = [
@@ -437,24 +468,28 @@ const PostCard = ({
 
       <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
         {post.isPremium && (
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/80 text-white backdrop-blur-sm">
-            💎
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/85 text-white backdrop-blur-sm shadow-md">
+            <IoDiamond size={10} className="text-amber-300" />
+            PREMIUM
           </span>
         )}
         {post.aiTool && (
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600/80 text-white backdrop-blur-sm">
-            ✨ {post.aiTool}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600/85 text-white backdrop-blur-sm shadow-md">
+            <IoSparkles size={9} className="text-violet-200" />
+            {post.aiTool}
           </span>
         )}
         {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm"
-            style={{ background: 'rgba(99,102,241,0.6)', color: 'rgba(199,210,254,0.95)' }}>
-            🖼 {post.generatedImages.length}
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm shadow-md"
+            style={{ background: 'rgba(99,102,241,0.7)', color: 'rgba(235,240,255,0.95)' }}>
+            <IoImages size={10} className="text-indigo-200" />
+            {post.generatedImages.length}
           </span>
         )}
         {post.similarityScore !== undefined && (
-          <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-600/90 text-white backdrop-blur-sm">
-            🎯 {post.similarityScore}%
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-green-600/85 text-white backdrop-blur-sm shadow-md">
+            <TbTarget size={11} className="text-green-200" />
+            {post.similarityScore}%
           </span>
         )}
       </div>
@@ -483,13 +518,35 @@ const PostCard = ({
 
 // ── Main SearchPage ─────────────────────────────────────────────
 const SearchPage = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState('')
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [activeCategory, setActiveCategory] = useState(() => searchParams.get('category') || 'all')
   const [activeSort, setActiveSort] = useState('new')
   const [isAIOnly, setIsAIOnly] = useState(false)
   const [activeColor, setActiveColor] = useState(null) // hex string
   const [colorThreshold, setColorThreshold] = useState(12) // strict match = 12, fuzzy match = 30
   const [showColorPanel, setShowColorPanel] = useState(false)
+
+  // Đồng bộ activeCategory lên URL
+  useEffect(() => {
+    const categoryParam = searchParams.get('category') || 'all'
+    if (activeCategory !== categoryParam) {
+      if (activeCategory === 'all') {
+        searchParams.delete('category')
+      } else {
+        searchParams.set('category', activeCategory)
+      }
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [activeCategory, searchParams, setSearchParams])
+
+  // Đồng bộ từ URL xuống activeCategory
+  useEffect(() => {
+    const categoryParam = searchParams.get('category') || 'all'
+    if (categoryParam !== activeCategory) {
+      setActiveCategory(categoryParam)
+    }
+  }, [searchParams])
 
   // Reset ngưỡng màu sắc về chính xác (12) bất cứ khi nào đổi màu chọn
   useEffect(() => {
@@ -969,14 +1026,15 @@ const SearchPage = () => {
               <button
                 key={key}
                 onClick={() => setActiveCategory(key)}
-                className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border flex-shrink-0
+                className={`whitespace-nowrap px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 border flex-shrink-0 flex items-center gap-1.5
                   ${
                     activeCategory === key
                       ? 'bg-brand-600 border-brand-500 text-white'
                       : 'bg-surface-50 border-white/10 text-white/60 hover:border-brand-500/50 hover:text-white/80'
                   }`}
               >
-                {label}
+                {CATEGORY_ICONS[key] || null}
+                <span>{label.replace(/^[\s\p{Emoji}]+/u, '').trim()}</span>
               </button>
             ))}
           </div>

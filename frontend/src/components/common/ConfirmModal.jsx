@@ -1,4 +1,5 @@
 import { motion, AnimatePresence } from 'framer-motion'
+import { IoAlertCircle, IoWarning, IoInformationCircle } from 'react-icons/io5'
 
 const ConfirmModal = ({
   isOpen,
@@ -20,9 +21,9 @@ const ConfirmModal = ({
   }
 
   const iconGlyphs = {
-    danger: '⚠️',
-    warning: '⚠️',
-    info: '💡',
+    danger: <IoAlertCircle size={22} />,
+    warning: <IoWarning size={20} />,
+    info: <IoInformationCircle size={22} />,
   }
 
   const confirmBtnColors = {

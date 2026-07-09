@@ -87,6 +87,57 @@ const MiniBarChart = ({ data = [], dataKey = 'posts', color = '#7c3aed', label =
   )
 }
 
+// ─── Style Preview Mockup Component ─────────────────────────────
+const StylePreview = ({ styleKey }) => {
+  return (
+    <div className="w-full h-24 bg-black/40 rounded-lg border border-white/5 p-1 flex flex-col justify-between mt-3 overflow-hidden relative group-hover:border-white/10 transition-colors">
+      {/* Visual representation */}
+      {styleKey === 'style-1' && (
+        <div className="w-full h-full rounded-md bg-gradient-to-br from-brand-600/30 to-violet-500/10 relative overflow-hidden">
+          <div className="absolute inset-0 bg-white/5 blur-[2px]" />
+          {/* Label mockup */}
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 h-3 bg-white/10 border border-white/10 rounded-sm" />
+        </div>
+      )}
+
+      {styleKey === 'style-2' && (
+        <div className="w-full h-full grid grid-cols-2 gap-0.5 bg-white/[0.02]">
+          <div className="flex flex-col gap-0.5 h-full">
+            <div className="flex-[3] bg-gradient-to-br from-brand-600/40 to-violet-500/20 rounded-[2px]" />
+            <div className="flex-[2] bg-gradient-to-br from-blue-600/30 to-sky-500/15 rounded-[2px]" />
+          </div>
+          <div className="flex flex-col gap-0.5 h-full">
+            <div className="flex-[2] bg-gradient-to-br from-fuchsia-600/30 to-pink-500/15 rounded-[2px]" />
+            <div className="flex-[3] bg-gradient-to-br from-indigo-600/40 to-purple-500/20 rounded-[2px]" />
+          </div>
+          {/* Label mockup */}
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 h-3 bg-white/10 border border-white/10 rounded-sm z-10" />
+        </div>
+      )}
+
+      {styleKey === 'style-3' && (
+        <div className="w-full h-full flex items-center justify-center relative overflow-hidden bg-white/[0.02]">
+          <div className="absolute w-[80%] h-[80%] bg-gradient-to-br from-brand-600/40 to-violet-500/20 rounded shadow-lg z-10" />
+          <div className="absolute w-[70%] h-[70%] bg-gradient-to-br from-blue-600/20 to-sky-500/10 rounded translate-x-2 -translate-y-1 rotate-[2deg] opacity-70" />
+          <div className="absolute w-[70%] h-[70%] bg-gradient-to-br from-fuchsia-600/20 to-pink-500/10 rounded -translate-x-2 -translate-y-1 -rotate-[2deg] opacity-70" />
+          {/* Label mockup */}
+          <div className="absolute bottom-1.5 left-1.5 right-1.5 h-3 bg-white/15 border border-white/10 rounded-sm z-20" />
+        </div>
+      )}
+
+      {styleKey === 'style-4' && (
+        <div className="w-full h-full flex gap-0.5 bg-white/[0.02]">
+          <div className="h-full flex-1 bg-gradient-to-br from-blue-600/30 to-sky-500/15 rounded-[2px] transition-all" />
+          <div className="h-full flex-[2.5] bg-gradient-to-br from-brand-600/40 to-violet-500/25 rounded-[2px] border border-brand-500/20 relative">
+            <div className="absolute inset-x-0.5 bottom-0.5 h-2 bg-white/20 rounded-[1px]" />
+          </div>
+          <div className="h-full flex-1 bg-gradient-to-br from-fuchsia-600/30 to-pink-500/15 rounded-[2px] transition-all" />
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════
 // TAB: DASHBOARD
 // ══════════════════════════════════════════════════════════════════
@@ -1245,6 +1296,7 @@ const SettingsTab = ({ onDirtyChange }) => {
 
   // Category Style state
   const [categoryStyle, setCategoryStyle] = useState('style-1')
+  const [categoriesPageStyle, setCategoriesPageStyle] = useState('style-2')
   const [categorySaving, setCategorySaving] = useState(false)
   const [activeSubTab, setActiveSubTab] = useState('general')
   const [selectedConfigPage, setSelectedConfigPage] = useState('home')
@@ -1318,6 +1370,7 @@ const SettingsTab = ({ onDirtyChange }) => {
 
         // Category style load
         setCategoryStyle(data.settings?.categoryStyle || 'style-1')
+        setCategoriesPageStyle(data.settings?.categoriesPageStyle || 'style-2')
         setHeroBannerMode(data.settings?.heroBannerMode || 'auto')
         setHeroBannerImage(data.settings?.heroBannerImage || 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85')
         setHeroCollageMode(data.settings?.heroCollageMode || 'auto')
@@ -1506,6 +1559,20 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.success('🎨 Đã cập nhật giao diện danh mục nổi bật!')
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi khi lưu giao diện danh mục')
+    } finally {
+      setCategorySaving(false)
+    }
+  }
+
+  const handleSaveCategoriesPageStyle = async (newStyle) => {
+    setCategorySaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { categoriesPageStyle: newStyle })
+      setSettings(data.settings)
+      setCategoriesPageStyle(data.settings?.categoriesPageStyle || 'style-2')
+      toast.success('🎨 Đã cập nhật giao diện trang danh mục!')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi lưu giao diện trang danh mục')
     } finally {
       setCategorySaving(false)
     }
@@ -2363,6 +2430,7 @@ const SettingsTab = ({ onDirtyChange }) => {
                   className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-brand-500 cursor-pointer pr-10 appearance-none min-w-[200px]"
                 >
                   <option value="home" className="bg-[#121214]">🏠 Trang chủ (Home Page)</option>
+                  <option value="categories" className="bg-[#121214]">📁 Trang danh mục (Categories Page)</option>
                   <option value="search" className="bg-[#121214]">🔍 Trang khám phá (Search Page)</option>
                   <option value="profile" className="bg-[#121214]">👤 Trang cá nhân (Profile Page)</option>
                   <option value="post-detail" className="bg-[#121214]">💎 Trang chi tiết (Post Detail)</option>
@@ -2424,11 +2492,14 @@ const SettingsTab = ({ onDirtyChange }) => {
                           ? 'border-brand-500 bg-brand-500/5 shadow-md shadow-brand-500/5'
                           : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'}`}
                     >
-                      <div>
-                        <p className={`text-xs font-bold transition-colors ${categoryStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
-                          {styleOpt.title}
-                        </p>
-                        <p className="text-[10px] text-white/50 mt-2 leading-relaxed">{styleOpt.desc}</p>
+                      <div className="flex-1 flex flex-col justify-between">
+                        <div>
+                          <p className={`text-xs font-bold transition-colors ${categoryStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
+                            {styleOpt.title}
+                          </p>
+                          <p className="text-[10px] text-white/50 mt-2 leading-relaxed">{styleOpt.desc}</p>
+                        </div>
+                        <StylePreview styleKey={styleOpt.key} />
                       </div>
                       <div className="flex justify-end mt-4">
                         <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border
@@ -2718,6 +2789,77 @@ const SettingsTab = ({ onDirtyChange }) => {
                 </div>
               </div>
             </>
+          )}
+
+          {/* Render Categories Page Config */}
+          {selectedConfigPage === 'categories' && (
+            <div className="card p-6 border border-white/5 space-y-5 bg-white/[0.01]">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div>
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Palette size={16} className="text-brand-400" /> Cấu hình Giao diện Trang danh mục
+                  </h3>
+                  <p className="text-[11px] text-white/40">Chọn kiểu hiển thị cho các danh mục trên trang /categories</p>
+                </div>
+                {categorySaving && (
+                  <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold">
+                    <Loader2 size={12} className="animate-spin" /> Đang cập nhật...
+                  </span>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {[
+                  {
+                    key: 'style-1',
+                    title: 'Style 1: Ảnh bìa Đơn (Cổ điển)',
+                    desc: 'Tự động lấy 1 ảnh nổi bật nhất có lượt xem cao nhất của danh mục làm ảnh bìa.'
+                  },
+                  {
+                    key: 'style-2',
+                    title: 'Style 2: Lưới 4 ảnh nghệ thuật',
+                    desc: 'Lấy top 4 ảnh nhiều views nhất sắp xếp dạng lưới Asymmetrical Staggered nghệ thuật.'
+                  },
+                  {
+                    key: 'style-3',
+                    title: 'Style 3: Slideshow tự xoay vòng',
+                    desc: 'Tự động xoay vòng 5-6 ảnh nổi bật nhất sau mỗi 2 giây bằng hiệu ứng mờ dần (Fade).'
+                  },
+                  {
+                    key: 'style-4',
+                    title: 'Style 4: Lát cắt dọc tương tác',
+                    desc: 'Chia card làm 3 cột dọc. Hover cột nào cột đó mở rộng (flex-grow) và hiển thị chi tiết prompt.'
+                  }
+                ].map((styleOpt) => (
+                  <div
+                    key={styleOpt.key}
+                    onClick={() => !categorySaving && handleSaveCategoriesPageStyle(styleOpt.key)}
+                    className={`p-4 rounded-xl border transition-all duration-300 cursor-pointer text-left flex flex-col justify-between group min-h-[160px]
+                      ${categoriesPageStyle === styleOpt.key
+                        ? 'border-brand-500 bg-brand-500/5 shadow-md shadow-brand-500/5'
+                        : 'border-white/10 bg-white/5 hover:border-white/20 hover:bg-white/10'}`}
+                  >
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <p className={`text-xs font-bold transition-colors ${categoriesPageStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}>
+                          {styleOpt.title}
+                        </p>
+                        <p className="text-[10px] text-white/50 mt-2 leading-relaxed">{styleOpt.desc}</p>
+                      </div>
+                      <StylePreview styleKey={styleOpt.key} />
+                    </div>
+                    <div className="flex justify-end mt-4">
+                      <span className={`text-[9px] font-bold px-2 py-0.5 rounded-md border
+                        ${categoriesPageStyle === styleOpt.key
+                          ? 'border-brand-500/30 bg-brand-500/10 text-brand-300'
+                          : 'border-white/10 text-white/30'}`}>
+                        {categoriesPageStyle === styleOpt.key ? 'Đang hoạt động' : 'Kích hoạt'}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           )}
 
           {/* Render other pages placeholder */}

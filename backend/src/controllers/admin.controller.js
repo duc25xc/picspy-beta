@@ -436,6 +436,77 @@ export const getPublicCategories = async (req, res, next) => {
   } catch (err) { next(err) }
 }
 
+/** GET /v1/categories/details — Public: trả về thông tin chi tiết danh mục kèm top posts */
+export const getPublicCategoriesDetails = async (req, res, next) => {
+  try {
+    await seedCategories()
+    const categories = await Category.find({ isActive: true }).lean()
+
+    const categoriesData = await Promise.all(
+      categories.map(async (cat) => {
+        const count = await Post.countDocuments({ status: 'approved', category: cat.slug })
+
+        // Tính tổng views và downloads của danh mục để phục vụ lọc Trending
+        const stats = await Post.aggregate([
+          { $match: { status: 'approved', category: cat.slug } },
+          {
+            $group: {
+              _id: null,
+              totalViews: { $sum: { $ifNull: ['$stats.viewsCount', 0] } },
+              totalDownloads: { $sum: { $ifNull: ['$stats.downloadsCount', 0] } }
+            }
+          }
+        ])
+        const totalViews = stats[0]?.totalViews || 0
+        const totalDownloads = stats[0]?.totalDownloads || 0
+
+        // Lấy top 6 posts nhiều tương tác nhất để hiển thị giao diện đa dạng style
+        const topPosts = await Post.aggregate([
+          { $match: { status: 'approved', category: cat.slug } },
+          {
+            $addFields: {
+              popularityScore: {
+                $add: [
+                  { $ifNull: ['$stats.viewsCount', 0] },
+                  { $multiply: [{ $ifNull: ['$stats.likesCount', 0] }, 3] },
+                  { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 5] }
+                ]
+              }
+            }
+          },
+          { $sort: { popularityScore: -1, _id: -1 } },
+          { $limit: 6 },
+          {
+            $project: {
+              _id: 1,
+              generatedImages: 1,
+              images: 1,
+              caption: 1,
+              prompt: 1,
+              tags: 1,
+              stats: 1
+            }
+          }
+        ])
+
+        return {
+          _id: cat._id,
+          key: cat.slug,
+          label: cat.name,
+          emoji: cat.emoji,
+          createdAt: cat.createdAt,
+          count,
+          totalViews,
+          totalDownloads,
+          posts: topPosts
+        }
+      })
+    )
+
+    res.json({ categories: categoriesData })
+  } catch (err) { next(err) }
+}
+
 /** POST /admin/categories */
 export const createCategory = async (req, res, next) => {
   try {
@@ -553,7 +624,7 @@ export const updateSettings = async (req, res, next) => {
       'autoApprove', 'autoApproveDelayMs', 'primaryColor', 'gradientColor', 
       'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
       'announcementText', 'announcementLink', 'announcementEnabled',
-      'categoryStyle', 'heroBannerMode', 'heroBannerImage',
+      'categoryStyle', 'categoriesPageStyle', 'heroBannerMode', 'heroBannerImage',
       'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs', 'myPostsSkeletonMs', 'postLoadingDelayMs',
       'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee', 'blurPremiumImages',
       'postDetailLayout'

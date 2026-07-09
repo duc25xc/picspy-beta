@@ -25,6 +25,7 @@ import subscriptionRoutes from './routes/subscription.routes.js'
 import studioRoutes from './routes/studio.routes.js'
 import {
   getPublicCategories,
+  getPublicCategoriesDetails,
   seedCategories,
 } from './controllers/admin.controller.js'
 import { seedSubscriptionPlans } from './models/SubscriptionPlan.model.js'
@@ -117,6 +118,7 @@ app.use('/v1/subscriptions', subscriptionRoutes)
 app.use('/v1/studio', studioRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
+app.get('/v1/categories/details', getPublicCategoriesDetails)
 
 // Public settings (để lấy mã màu chính của website)
 app.get('/v1/settings', async (req, res, next) => {
@@ -138,6 +140,7 @@ app.get('/v1/settings', async (req, res, next) => {
       postLoadingDelayMs: settings.postLoadingDelayMs ?? 0,
       blurPremiumImages: settings.blurPremiumImages !== undefined ? settings.blurPremiumImages : false,
       postDetailLayout: settings.postDetailLayout || 'left-image',
+      categoriesPageStyle: settings.categoriesPageStyle || 'style-2',
     })
   } catch (err) {
     next(err)

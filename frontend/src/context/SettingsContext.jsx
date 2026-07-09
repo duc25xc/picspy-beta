@@ -126,6 +126,7 @@ export const SettingsProvider = ({ children }) => {
   const [postLoadingDelayMs, setPostLoadingDelayMs] = useState(0);
   const [blurPremiumImages, setBlurPremiumImages] = useState(false);
   const [postDetailLayout, setPostDetailLayout] = useState('left-image');
+  const [categoriesPageStyle, setCategoriesPageStyle] = useState('style-2');
 
   const updateBrandColors = (primary, gradient, opacity = 1, blur = 0, enableGradient = true, shadowStyle = 'soft') => {
     setBrandColors({
@@ -177,6 +178,9 @@ export const SettingsProvider = ({ children }) => {
         }
         if (data?.postDetailLayout) {
           setPostDetailLayout(data.postDetailLayout);
+        }
+        if (data?.categoriesPageStyle) {
+          setCategoriesPageStyle(data.categoriesPageStyle);
         }
       })
       .catch((err) => {
@@ -251,7 +255,7 @@ export const SettingsProvider = ({ children }) => {
   const t = translations[language] || translations.vi;
 
   return (
-    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, postLoadingDelayMs, setPostLoadingDelayMs, blurPremiumImages, setBlurPremiumImages, postDetailLayout, setPostDetailLayout }}>
+    <SettingsContext.Provider value={{ theme, language, changeTheme, changeLanguage, isThemeTransitioning, t, brandColors, updateBrandColors, announcement, setAnnouncement, globalLoaderType, setGlobalLoaderType, splashExtraMs, setSplashExtraMs, myPostsSkeletonMs, setMyPostsSkeletonMs, postLoadingDelayMs, setPostLoadingDelayMs, blurPremiumImages, setBlurPremiumImages, postDetailLayout, setPostDetailLayout, categoriesPageStyle, setCategoriesPageStyle }}>
       {children}
     </SettingsContext.Provider>
   );
