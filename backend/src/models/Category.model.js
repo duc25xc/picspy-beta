@@ -15,6 +15,7 @@ const categorySchema = new mongoose.Schema(
     isActive: { type: Boolean, default: true },
     sortOrder: { type: Number, default: 0 },
     createdBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    searchCount: { type: Number, default: 0 },
   },
   { timestamps: true, versionKey: false }
 )

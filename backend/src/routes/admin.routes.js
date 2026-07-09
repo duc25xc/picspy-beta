@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { authenticate, requireAdmin } from '../middlewares/authenticate.js'
 import {
-  getAllPosts, updatePostStatus, bulkUpdatePosts,
+  getAllPosts, updatePostStatus, bulkUpdatePosts, buffPostStats,
   getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
@@ -23,6 +23,7 @@ router.get('/audit-logs', getAuditLogs)
 router.get('/posts', getAllPosts)
 router.patch('/posts/:id/status', updatePostStatus)
 router.post('/posts/bulk', bulkUpdatePosts)
+router.post('/posts/:id/buff', buffPostStats)
 
 // ── Users management ─────────────────────────────────────────
 router.get('/users', getAllUsers)

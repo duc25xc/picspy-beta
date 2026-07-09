@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import exifr from 'exifr'
 import Post, { AI_TOOLS } from '../models/Post.model.js'
+import Category from '../models/Category.model.js'
 import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
 import { imageQueue } from '../config/bullmq.js'
@@ -687,7 +688,11 @@ export const getApprovedPosts = async (req, res, next) => {
       }
     }
 
-    if (category && category !== 'all') baseMatch.category = category
+    if (category && category !== 'all') {
+      baseMatch.category = category
+      // Tăng lượt tìm kiếm/lọc cho danh mục này
+      Category.updateOne({ slug: category }, { $inc: { searchCount: 1 } }).catch(() => {})
+    }
     if (aiTool) baseMatch.aiTool = aiTool
     if (contentType) baseMatch.contentType = contentType
     if (orientation) baseMatch.orientation = orientation
@@ -1698,38 +1703,54 @@ export const getHomepageData = async (req, res, next) => {
     // 3. Featured Categories
     const Category = (await import('../models/Category.model.js')).default
     const activeCategories = await Category.find({ isActive: true }).lean()
-    const activeSlugs = activeCategories.map(cat => cat.slug)
 
-    // Sum views of approved posts grouped by category
-    const categoryViewsAgg = await Post.aggregate([
-      { $match: { status: 'approved', category: { $in: activeSlugs } } },
-      {
-        $group: {
-          _id: '$category',
-          totalViews: { $sum: { $ifNull: ['$stats.viewsCount', 0] } }
+    const categoriesWithScores = await Promise.all(activeCategories.map(async (cat) => {
+      // Tính views, downloads, likes, bookmarks
+      const stats = await Post.aggregate([
+        { $match: { status: 'approved', category: cat.slug } },
+        {
+          $group: {
+            _id: null,
+            views: { $sum: { $ifNull: ['$stats.viewsCount', 0] } },
+            downloads: { $sum: { $ifNull: ['$stats.downloadsCount', 0] } },
+            likes: { $sum: { $ifNull: ['$stats.likesCount', 0] } },
+            bookmarks: { $sum: { $ifNull: ['$stats.bookmarksCount', 0] } }
+          }
         }
-      }
-    ])
+      ])
+      const views = stats[0]?.views || 0
+      const downloads = stats[0]?.downloads || 0
+      const likes = stats[0]?.likes || 0
+      const bookmarks = stats[0]?.bookmarks || 0
 
-    const categoryViewsMap = {}
-    categoryViewsAgg.forEach(item => {
-      if (item._id) {
-        categoryViewsMap[item._id] = item.totalViews
-      }
-    })
+      // Tính Growth 7 ngày
+      const growth7d = await Post.countDocuments({
+        status: 'approved',
+        category: cat.slug,
+        createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+      })
 
-    const categoriesWithViews = activeCategories.map(cat => ({
-      ...cat,
-      views: categoryViewsMap[cat.slug] || 0
+      // Trending Score = View + Download*2 + Favorite*3 + Search Count*2 + Growth 7 ngày + Bookmark*3
+      const trendingScore = views + downloads * 2 + likes * 3 + (cat.searchCount || 0) * 2 + growth7d + bookmarks * 3
+
+      return {
+        ...cat,
+        views,
+        downloads,
+        likes,
+        bookmarks,
+        growth7d,
+        trendingScore
+      }
     }))
 
-    // Sắp xếp theo tổng số views giảm dần, nếu bằng nhau thì theo sortOrder
-    categoriesWithViews.sort((a, b) => {
-      if (b.views !== a.views) return b.views - a.views
+    // Sắp xếp theo trendingScore giảm dần, nếu bằng nhau thì theo sortOrder
+    categoriesWithScores.sort((a, b) => {
+      if (b.trendingScore !== a.trendingScore) return b.trendingScore - a.trendingScore
       return (a.sortOrder || 0) - (b.sortOrder || 0)
     })
 
-    const top6Categories = categoriesWithViews.slice(0, 6)
+    const top6Categories = categoriesWithScores.slice(0, 6)
     const activeCategoriesList = activeCategories.map(cat => ({
       key: cat.slug,
       label: cat.name,
@@ -1828,9 +1849,10 @@ export const getHomepageData = async (req, res, next) => {
         $addFields: {
           hotScore: {
             $add: [
-              { $multiply: ['$stats.viewsCount', 1] },
-              { $multiply: ['$stats.likesCount', 3] },
-              { $multiply: ['$stats.downloadsCount', 5] },
+              { $ifNull: ['$stats.viewsCount', 0] },
+              { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 2] },
+              { $multiply: [{ $ifNull: ['$stats.likesCount', 0] }, 3] },
+              { $multiply: [{ $ifNull: ['$stats.bookmarksCount', 0] }, 3] }
             ],
           },
         },

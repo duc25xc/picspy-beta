@@ -264,11 +264,8 @@ const CategoriesPage = () => {
         return items.sort((a, b) => a.count - b.count)
       case 'trending':
       default:
-        // Trending: view + downloads desc
-        return items.sort(
-          (a, b) =>
-            b.totalViews + b.totalDownloads * 2 - (a.totalViews + a.totalDownloads * 2)
-        )
+        // Trending: sử dụng điểm trendingScore được backend tính toán sẵn
+        return items.sort((a, b) => b.trendingScore - a.trendingScore)
     }
   }, [categories, activeSort])
 

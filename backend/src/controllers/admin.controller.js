@@ -156,6 +156,38 @@ export const bulkUpdatePosts = async (req, res, next) => {
   } catch (err) { next(err) }
 }
 
+/** POST /admin/posts/:id/buff — Buff stats cho post */
+export const buffPostStats = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { views = 0, downloads = 0, likes = 0, bookmarks = 0 } = req.body
+
+    const post = await Post.findById(id)
+    if (!post) throw new AppError('NOT_FOUND', 'Không tìm thấy bài viết', 404)
+
+    if (!post.stats) {
+      post.stats = { viewsCount: 0, likesCount: 0, downloadsCount: 0, commentsCount: 0, bookmarksCount: 0 }
+    }
+
+    post.stats.viewsCount = (post.stats.viewsCount || 0) + Number(views)
+    post.stats.downloadsCount = (post.stats.downloadsCount || 0) + Number(downloads)
+    post.stats.likesCount = (post.stats.likesCount || 0) + Number(likes)
+    post.stats.bookmarksCount = (post.stats.bookmarksCount || 0) + Number(bookmarks)
+
+    await post.save()
+
+    // Ghi log hành động admin
+    await logAdminAction(req.user._id, 'POST_STATS_BUFF', post._id, 'Post', {
+      viewsAdded: Number(views),
+      downloadsAdded: Number(downloads),
+      likesAdded: Number(likes),
+      bookmarksAdded: Number(bookmarks),
+    })
+
+    res.json({ message: 'Đã buff chỉ số bài viết thành công', post })
+  } catch (err) { next(err) }
+}
+
 // =============================================
 // USER MANAGEMENT
 // =============================================
@@ -446,19 +478,33 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
       categories.map(async (cat) => {
         const count = await Post.countDocuments({ status: 'approved', category: cat.slug })
 
-        // Tính tổng views và downloads của danh mục để phục vụ lọc Trending
+        // Tính tổng views, downloads, likes, bookmarks của danh mục
         const stats = await Post.aggregate([
           { $match: { status: 'approved', category: cat.slug } },
           {
             $group: {
               _id: null,
               totalViews: { $sum: { $ifNull: ['$stats.viewsCount', 0] } },
-              totalDownloads: { $sum: { $ifNull: ['$stats.downloadsCount', 0] } }
+              totalDownloads: { $sum: { $ifNull: ['$stats.downloadsCount', 0] } },
+              totalLikes: { $sum: { $ifNull: ['$stats.likesCount', 0] } },
+              totalBookmarks: { $sum: { $ifNull: ['$stats.bookmarksCount', 0] } }
             }
           }
         ])
         const totalViews = stats[0]?.totalViews || 0
         const totalDownloads = stats[0]?.totalDownloads || 0
+        const totalLikes = stats[0]?.totalLikes || 0
+        const totalBookmarks = stats[0]?.totalBookmarks || 0
+
+        // Tính Growth 7 ngày (tổng số post mới trong 7 ngày)
+        const growth7d = await Post.countDocuments({
+          status: 'approved',
+          category: cat.slug,
+          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+        })
+
+        // Trending Score = View + Download*2 + Favorite*3 + Search Count*2 + Growth 7 ngày + Bookmark*3
+        const trendingScore = totalViews + totalDownloads * 2 + totalLikes * 3 + (cat.searchCount || 0) * 2 + growth7d + totalBookmarks * 3
 
         // Lấy top 6 posts nhiều tương tác nhất để hiển thị giao diện đa dạng style
         const topPosts = await Post.aggregate([
@@ -498,6 +544,11 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
           count,
           totalViews,
           totalDownloads,
+          totalLikes,
+          totalBookmarks,
+          growth7d,
+          searchCount: cat.searchCount || 0,
+          trendingScore,
           posts: topPosts
         }
       })

@@ -277,6 +277,52 @@ const PostsTab = () => {
   const [selected, setSelected] = useState(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
 
+  // Buff stats state
+  const [buffModal, setBuffModal] = useState(null)
+  const [buffViews, setBuffViews] = useState(0)
+  const [buffDownloads, setBuffDownloads] = useState(0)
+  const [buffLikes, setBuffLikes] = useState(0)
+  const [buffBookmarks, setBuffBookmarks] = useState(0)
+  const [buffLoading, setBuffLoading] = useState(false)
+
+  const handleBuffStats = async () => {
+    if (!buffModal) return
+    setBuffLoading(true)
+    try {
+      const { data } = await api.post(`/admin/posts/${buffModal._id}/buff`, {
+        views: buffViews,
+        downloads: buffDownloads,
+        likes: buffLikes,
+        bookmarks: buffBookmarks,
+      })
+      toast.success(data.message || '✅ Đã buff chỉ số thành công!')
+      setPosts(prev => prev.map(p => {
+        if (p._id === buffModal._id) {
+          return {
+            ...p,
+            stats: {
+              ...p.stats,
+              viewsCount: (p.stats?.viewsCount || 0) + Number(buffViews),
+              downloadsCount: (p.stats?.downloadsCount || 0) + Number(buffDownloads),
+              likesCount: (p.stats?.likesCount || 0) + Number(buffLikes),
+              bookmarksCount: (p.stats?.bookmarksCount || 0) + Number(buffBookmarks),
+            }
+          }
+        }
+        return p
+      }))
+      setBuffModal(null)
+      setBuffViews(0)
+      setBuffDownloads(0)
+      setBuffLikes(0)
+      setBuffBookmarks(0)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi buff chỉ số')
+    } finally {
+      setBuffLoading(false)
+    }
+  }
+
   const STATUS_TABS = [
     { key: 'pending',  label: 'Chờ duyệt', color: 'text-yellow-400' },
     { key: 'approved', label: 'Đã duyệt',  color: 'text-green-400' },
@@ -462,11 +508,19 @@ const PostsTab = () => {
                     </p>
                     {post.rejectionReason && <p className="text-xs text-red-400/70 italic">⚠ {post.rejectionReason}</p>}
 
+                    {/* Stats display */}
+                    <div className="flex items-center gap-3 text-[10px] text-white/40 border-t border-white/5 pt-2">
+                      <span title="Lượt xem">👁 {post.stats?.viewsCount || 0}</span>
+                      <span title="Lượt tải">⬇ {post.stats?.downloadsCount || 0}</span>
+                      <span title="Yêu thích">❤ {post.stats?.likesCount || 0}</span>
+                      <span title="Bookmarks">🔖 {post.stats?.bookmarksCount || 0}</span>
+                    </div>
+
                     {/* Actions */}
-                    <div className="flex gap-2 pt-1">
+                    <div className="flex gap-1.5 pt-1">
                       {post.status !== 'approved' && (
                         <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStatus(post._id, 'approved')} disabled={isActing}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all text-xs font-semibold disabled:opacity-50">
+                          className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all text-xs font-semibold disabled:opacity-50">
                           <CheckCircle size={13} /> Duyệt
                         </motion.button>
                       )}
@@ -478,14 +532,26 @@ const PostsTab = () => {
                       )}
                       {post.status !== 'hidden' && (
                         <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleStatus(post._id, 'hidden')} disabled={isActing}
-                          className="flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white/60 transition-all text-xs disabled:opacity-50"
+                          className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl bg-white/5 border border-white/10 text-white/40 hover:text-white/60 transition-all text-xs disabled:opacity-50"
                           title="Ẩn bài đăng"
                         >
                           <EyeOff size={13} />
                         </motion.button>
                       )}
+                      <motion.button whileTap={{ scale: 0.95 }} onClick={() => {
+                        setBuffModal(post)
+                        setBuffViews(0)
+                        setBuffDownloads(0)
+                        setBuffLikes(0)
+                        setBuffBookmarks(0)
+                      }} disabled={isActing}
+                        className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl bg-yellow-600/10 border border-yellow-500/20 text-yellow-400 hover:bg-yellow-600/20 transition-all text-xs disabled:opacity-50"
+                        title="Buff chỉ số"
+                      >
+                        <Zap size={13} />
+                      </motion.button>
                       <motion.button whileTap={{ scale: 0.95 }} onClick={() => handleDeletePost(post._id)} disabled={isActing}
-                        className="flex items-center justify-center gap-1 py-2 px-3 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600/20 transition-all text-xs disabled:opacity-50"
+                        className="flex items-center justify-center gap-1 py-2 px-2.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600/20 transition-all text-xs disabled:opacity-50"
                         title="Xóa vĩnh viễn"
                       >
                         <Trash2 size={13} />
@@ -506,6 +572,52 @@ const PostsTab = () => {
           </button>
         </div>
       )}
+
+      {/* Buff stats modal */}
+      <AnimatePresence>
+        {buffModal && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+            onClick={e => e.target === e.currentTarget && setBuffModal(null)}>
+            <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9 }}
+              className="card p-6 max-w-sm w-full space-y-4">
+              <div>
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                  <Zap size={18} className="text-yellow-400" /> Buff Chỉ Số Tác Phẩm
+                </h3>
+                <p className="text-xs text-white/40 mt-1">Cộng thêm số lượng ảo để thử nghiệm logic Trending</p>
+              </div>
+
+              <div className="space-y-3">
+                <div>
+                  <label className="text-xs text-white/60 font-semibold block mb-1">Cộng thêm lượt xem (Views)</label>
+                  <input type="number" className="input" value={buffViews} onChange={e => setBuffViews(Math.max(0, parseInt(e.target.value) || 0))} />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 font-semibold block mb-1">Cộng thêm lượt tải (Downloads)</label>
+                  <input type="number" className="input" value={buffDownloads} onChange={e => setBuffDownloads(Math.max(0, parseInt(e.target.value) || 0))} />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 font-semibold block mb-1">Cộng thêm lượt tim (Likes)</label>
+                  <input type="number" className="input" value={buffLikes} onChange={e => setBuffLikes(Math.max(0, parseInt(e.target.value) || 0))} />
+                </div>
+                <div>
+                  <label className="text-xs text-white/60 font-semibold block mb-1">Cộng thêm bookmark</label>
+                  <input type="number" className="input" value={buffBookmarks} onChange={e => setBuffBookmarks(Math.max(0, parseInt(e.target.value) || 0))} />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button onClick={() => setBuffModal(null)} className="btn-secondary flex-1" disabled={buffLoading}>Hủy</button>
+                <button onClick={handleBuffStats} disabled={buffLoading}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-yellow-600 hover:bg-yellow-500 text-white font-bold text-sm transition-colors flex items-center justify-center gap-1">
+                  {buffLoading ? <Loader2 size={14} className="animate-spin" /> : 'Xác nhận Buff'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Reject modal */}
       <AnimatePresence>
