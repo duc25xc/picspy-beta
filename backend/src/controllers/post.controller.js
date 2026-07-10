@@ -3,6 +3,7 @@ import exifr from 'exifr'
 import mongoose from 'mongoose'
 import Post, { AI_TOOLS } from '../models/Post.model.js'
 import Category from '../models/Category.model.js'
+import Interaction from '../models/Interaction.model.js'
 import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
 import { imageQueue } from '../config/bullmq.js'
@@ -1976,12 +1977,86 @@ export const getHomepageData = async (req, res, next) => {
       { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } }
     ])
 
-    // 6. New Collections (8 newest approved posts)
-    const newCollections = await Post.find({ status: 'approved' })
-      .sort({ createdAt: -1 })
-      .limit(8)
+    // 6. Top ảnh tuần này (Score = Views * 1 + Downloads * 4 + Likes * 2 + Bookmarks * 3 trong 7 ngày qua)
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+
+    const weeklyTopPostStats = await Interaction.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: oneWeekAgo },
+          type: { $in: ['view', 'like', 'download', 'bookmark'] }
+        }
+      },
+      {
+        $group: {
+          _id: '$postId',
+          views: { $sum: { $cond: [{ $eq: ['$type', 'view'] }, 1, 0] } },
+          likes: { $sum: { $cond: [{ $eq: ['$type', 'like'] }, 1, 0] } },
+          downloads: { $sum: { $cond: [{ $eq: ['$type', 'download'] }, 1, 0] } },
+          bookmarks: { $sum: { $cond: [{ $eq: ['$type', 'bookmark'] }, 1, 0] } }
+        }
+      },
+      {
+        $addFields: {
+          score: {
+            $add: [
+              { $multiply: ['$views', 1] },
+              { $multiply: ['$downloads', 4] },
+              { $multiply: ['$likes', 2] },
+              { $multiply: ['$bookmarks', 3] }
+            ]
+          }
+        }
+      },
+      { $sort: { score: -1 } },
+      { $limit: 30 }
+    ])
+
+    const weeklyTopPostIds = weeklyTopPostStats.map(s => s._id)
+
+    let rawWeeklyPosts = await Post.find({
+      _id: { $in: weeklyTopPostIds },
+      status: 'approved'
+    })
       .populate('authorId', 'username displayName avatar isVerified')
       .lean()
+
+    const weeklyPostsMap = new Map(rawWeeklyPosts.map(p => [p._id.toString(), p]))
+    let newCollections = []
+    for (const stat of weeklyTopPostStats) {
+      if (!stat._id) continue
+      const p = weeklyPostsMap.get(stat._id.toString())
+      if (p) {
+        newCollections.push(p)
+        if (newCollections.length >= 8) break
+      }
+    }
+
+    // Fallback: nếu tuần này có ít hơn 8 ảnh tương tác, bổ sung từ all-time top dựa trên cùng công thức tính score
+    if (newCollections.length < 8) {
+      const existingIds = newCollections.map(p => p._id.toString())
+      const fallbackPosts = await Post.find({
+        status: 'approved',
+        _id: { $nin: existingIds }
+      })
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+
+      const scoredFallback = fallbackPosts.map(p => {
+        const views = p.stats?.viewsCount || 0
+        const downloads = p.stats?.downloadsCount || 0
+        const likes = p.stats?.likesCount || 0
+        const bookmarks = p.stats?.bookmarksCount || 0
+        const score = (views * 1) + (downloads * 4) + (likes * 2) + (bookmarks * 3)
+        return { post: p, score }
+      })
+
+      scoredFallback.sort((a, b) => b.score - a.score)
+
+      const needed = 8 - newCollections.length
+      const added = scoredFallback.slice(0, needed).map(item => item.post)
+      newCollections = [...newCollections, ...added]
+    }
 
     // 7. Leaderboard (top 4 creators with followersCount desc)
     const leaderboardCreators = await User.find({

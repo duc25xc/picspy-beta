@@ -709,9 +709,16 @@ const MasonryCard = ({ post, index, onClick }) => {
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/70 text-xs pj font-semibold">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 opacity-80">
-              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-            </svg> {formatViews} views
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 24 24"
+              fill="currentColor"
+              className="shrink-0 opacity-80"
+            >
+              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
+            </svg>{' '}
+            {formatViews} views
           </div>
           <div className="flex items-center gap-1 text-white/70 text-xs hover:text-red-400 transition-colors">
             <Heart size={12} className="fill-red-400 text-red-400" />
@@ -901,15 +908,24 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
               {(post.stats?.likesCount || 0).toLocaleString()}
             </span>
             <span className="flex items-center gap-0.5" title="Lượt xem">
-              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-blue-300 shrink-0">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              <svg
+                width="9"
+                height="9"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="text-blue-300 shrink-0"
+              >
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
               </svg>
               {(post.stats?.viewsCount || 0).toLocaleString()}
             </span>
             {index < 3 && (
               <>
                 <span className="flex items-center gap-0.5" title="Lượt lưu">
-                  <Bookmark size={9} className="text-amber-400 fill-amber-400" />
+                  <Bookmark
+                    size={9}
+                    className="text-amber-400 fill-amber-400"
+                  />
                   {(post.stats?.bookmarksCount || 0).toLocaleString()}
                 </span>
                 <span className="flex items-center gap-0.5" title="Lượt tải">
@@ -2478,14 +2494,14 @@ const HomePage = () => {
             >
               <div>
                 <p className="text-amber-400 text-[11px] font-bold tracking-widest uppercase mb-2 pj">
-                  ✨ Mới nhất
+                  🏆 Nổi bật
                 </p>
                 <h2 className="text-3xl md:text-4xl font-black tracking-tight pj">
-                  Bộ sưu tập mới
+                  Top ảnh tuần này
                 </h2>
               </div>
               <span className="text-foreground/45 dark:text-white/30 text-sm font-bold pj flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse inline-block" />{' '}
+                <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse inline-block" />{' '}
                 Live Feed
               </span>
             </motion.div>
@@ -2500,7 +2516,7 @@ const HomePage = () => {
                 />
               )) || (
                 <div className="text-center text-white/40 py-10">
-                  Đang tải bộ sưu tập mới...
+                  Đang tải top ảnh tuần...
                 </div>
               )}
             </div>
@@ -2984,7 +3000,7 @@ const HomePage = () => {
                 links: [
                   'Gallery cộng đồng',
                   'Bảng xếp hạng',
-                  'Bộ sưu tập mới',
+                  'Top ảnh tuần này',
                   'Creator PRO',
                 ],
               },
@@ -3117,18 +3133,18 @@ const LeaderboardModal = ({
 
     const prev = {
       position: body.style.position,
-      top:      body.style.top,
-      width:    body.style.width,
+      top: body.style.top,
+      width: body.style.width,
     }
 
     body.style.position = 'fixed'
-    body.style.top      = `-${scrollY}px`
-    body.style.width    = `${lockedWidth}px`
+    body.style.top = `-${scrollY}px`
+    body.style.width = `${lockedWidth}px`
 
     return () => {
       body.style.position = prev.position
-      body.style.top      = prev.top
-      body.style.width    = prev.width
+      body.style.top = prev.top
+      body.style.width = prev.width
       window.scrollTo({ top: scrollY, behavior: 'instant' })
     }
   }, [open])

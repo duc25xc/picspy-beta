@@ -46,5 +46,8 @@ interactionSchema.index({ postId: 1, type: 1 })
 // Query: lịch sử của user (bookmark list, liked list)
 interactionSchema.index({ userId: 1, type: 1, createdAt: -1 })
 
+// Query: tìm top ảnh tuần (aggregate theo thời gian gần đây)
+interactionSchema.index({ createdAt: 1 })
+
 const Interaction = mongoose.model('Interaction', interactionSchema)
 export default Interaction
