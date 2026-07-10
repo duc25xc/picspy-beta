@@ -81,12 +81,23 @@
 
   html {
     @apply scroll-smooth;
+    /* overflow-y:scroll permanently reserves the scrollbar rail.
+     * This is the ONLY guarantee against layout shift:
+     *   - When page scrolls: real scrollbar shown in the reserved space
+     *   - When body is position:fixed (modal open): html still has
+     *     overflow-y:scroll → scrollbar rail still drawn → gutter never
+     *     moves → NO layout shift on body or any child element.
+     * scrollbar-gutter:stable is kept as a belt-and-suspenders measure. */
+    overflow-y: scroll;
+    overflow-x: hidden;
+    scrollbar-gutter: stable;
   }
 
   body {
     @apply bg-surface text-foreground font-sans antialiased;
-    /* Prevent horizontal scroll on mobile */
-    overflow-x: hidden;
+    /* overflow managed on html above.
+     * Do NOT set overflow-y or scrollbar-gutter here — body is not the
+     * scroll container. Modifying body overflow causes the layout shift. */
   }
 
   svg {
@@ -108,6 +119,35 @@
   ::-webkit-scrollbar-thumb:hover {
     @apply bg-brand-500;
   }
+}
+
+/* ─── PostDetailModal classes (formerly injected at runtime via FontStyle) ─── */
+/* Defined here so they're available on first paint without a runtime <style>   */
+/* injection that could cause reflow / FOUT on background ExplorePage elements. */
+.modal-glass {
+  background: rgba(10, 9, 14, 0.97);
+  backdrop-filter: blur(40px) saturate(180%);
+  -webkit-backdrop-filter: blur(40px) saturate(180%);
+}
+
+.img-panel {
+  background: #07060b;
+}
+
+@keyframes ambient-pulse {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.04);
+  }
+}
+
+.ambient-layer {
+  animation: ambient-pulse 5s ease-in-out infinite;
 }
 
 @layer components {

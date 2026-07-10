@@ -358,11 +358,22 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
             </button>
           )}
 
-          {!loading && comments.length === 0 && (
-            <p className="text-center text-sm text-white/25 py-4">
-              Chưa có bình luận nào. Hãy là người đầu tiên! ✨
-            </p>
-          )}
+          <AnimatePresence mode="wait">
+            {!loading && comments.length === 0 && (
+              <motion.div
+                key="empty-comment"
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.3, ease: 'easeOut' }}
+                className="text-center py-8 space-y-1.5"
+              >
+                <p className="text-2xl select-none">✨</p>
+                <p className="text-sm text-white/30 font-medium">Chưa có bình luận nào.</p>
+                <p className="text-xs text-white/20">Hãy là người đầu tiên!</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
     </div>

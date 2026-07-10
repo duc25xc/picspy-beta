@@ -32,7 +32,10 @@ const ThemeTransitionOverlay = () => {
           {/* Radial glow */}
           <div
             className="absolute w-[280px] h-[280px] rounded-full blur-[110px] pointer-events-none"
-            style={{ backgroundColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)' }}
+            style={{
+              backgroundColor:
+                'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.2)',
+            }}
           />
           {/* Logo — đồng bộ với globalLoaderType do admin cài đặt */}
           <motion.div
@@ -59,6 +62,7 @@ const UploadPage = lazy(() => import('./pages/UploadPage'))
 const MyPostsPage = lazy(() => import('./pages/MyPostsPage'))
 const SearchPage = lazy(() => import('./pages/SearchPage'))
 const CategoriesPage = lazy(() => import('./pages/CategoriesPage'))
+const ExplorePage = lazy(() => import('./pages/ExplorePage'))
 const NotFoundPage = lazy(() => import('./pages/NotFoundPage'))
 const GoogleAuthSuccess = lazy(() => import('./pages/GoogleAuthSuccess'))
 const PostDeepLinkPage = lazy(() => import('./pages/PostDeepLinkPage'))
@@ -67,7 +71,6 @@ const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
 // PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
-
 
 // Animation wrapper cho page transitions
 const PageTransition = ({ children }) => (
@@ -86,7 +89,9 @@ const MainLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
     <AnnouncementBanner />
     <Header />
-    <main className="flex-1 pb-20 md:pb-0">{children}</main>
+    <main className="flex-1 pb-20 md:pb-0">
+      {children}
+    </main>
     <BottomNav />
   </div>
 )
@@ -178,6 +183,16 @@ export default function App() {
                 <MainLayout>
                   <PageTransition>
                     <CategoriesPage />
+                  </PageTransition>
+                </MainLayout>
+              }
+            />
+            <Route
+              path="/explore"
+              element={
+                <MainLayout>
+                  <PageTransition>
+                    <ExplorePage />
                   </PageTransition>
                 </MainLayout>
               }

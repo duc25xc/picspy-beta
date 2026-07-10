@@ -915,7 +915,42 @@ export const getApprovedPosts = async (req, res, next) => {
       })
     }
 
-    // ─── NEW & TOP: Cursor-based pagination ─────────────────
+    // ─── RANDOM: Sample aggregation ──────────────────────────
+    if (sort === 'random') {
+      const pipeline = [
+        { $match: baseMatch },
+        { $sample: { size: parseInt(limit) } },
+        {
+          $lookup: {
+            from: 'users',
+            localField: 'authorId',
+            foreignField: '_id',
+            pipeline: [
+              {
+                $project: {
+                  username: 1,
+                  displayName: 1,
+                  avatar: 1,
+                  isVerified: 1,
+                  subscriptionTier: 1,
+                },
+              },
+            ],
+            as: 'authorId',
+          },
+        },
+        { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } }
+      ]
+      const posts = await Post.aggregate(pipeline)
+      return res.json({
+        posts,
+        pagination: { hasMore: false, nextCursor: null, count: posts.length },
+        sortMode: 'random',
+        stats,
+      })
+    }
+
+    // ─── NEW, TOP & RECOMMENDED: Cursor-based pagination ─────
     const query = { ...baseMatch }
     if (cursor) {
       if (sort === 'top') {
@@ -932,8 +967,12 @@ export const getApprovedPosts = async (req, res, next) => {
       }
     }
 
-    const sortObj =
-      sort === 'top' ? { 'stats.likesCount': -1, _id: -1 } : { _id: -1 } // 'new' mặc định
+    let sortObj = { _id: -1 } // 'new' mặc định
+    if (sort === 'top') {
+      sortObj = { 'stats.likesCount': -1, _id: -1 }
+    } else if (sort === 'recommended') {
+      sortObj = { isFeatured: -1, 'stats.viewsCount': -1, _id: -1 }
+    }
 
     const posts = await Post.find(query)
       .sort(sortObj)

@@ -36,6 +36,7 @@ import {
   Copy,
   Check,
   X,
+  Flame,
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
 import ConfirmModal from '../components/common/ConfirmModal'
@@ -1019,21 +1020,24 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
 const FEED_TABS = [
   {
     key: 'new',
-    label: '✨ Mới nhất',
+    label: 'Mới nhất',
+    icon: Sparkles,
     endpoint: '/posts',
     params: { sort: 'new' },
     needAuth: false,
   },
   {
     key: 'hot',
-    label: '🔥 Hot',
+    label: 'Xu hướng',
+    icon: Flame,
     endpoint: '/posts',
     params: { sort: 'hot' },
     needAuth: false,
   },
   {
     key: 'following',
-    label: '💜 Following',
+    label: 'Đang theo dõi',
+    icon: Heart,
     endpoint: '/posts/following',
     params: {},
     needAuth: true,
@@ -1324,11 +1328,11 @@ const CommunityGallerySection = () => {
 
             {/* Feed Tabs */}
             <div className="flex gap-1.5 bg-surface-50 p-1 rounded-2xl border border-[var(--color-border)] self-start md:self-auto">
-              {FEED_TABS.map(({ key, label, needAuth }) => (
+              {FEED_TABS.map(({ key, label, icon: TabIcon, needAuth }) => (
                 <button
                   key={key}
                   onClick={() => handleTabChange(key)}
-                  className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 pj
+                  className={`relative px-4 py-2 rounded-xl text-sm font-semibold transition-colors flex-shrink-0 pj flex items-center gap-1.5
                     ${
                       activeTab === key
                         ? 'bg-brand-600 text-white shadow-md'
@@ -1337,6 +1341,7 @@ const CommunityGallerySection = () => {
                     ${needAuth && !isLoggedIn ? 'opacity-60' : ''}
                   `}
                 >
+                  <TabIcon size={13} />
                   {label}
                   {needAuth && !isLoggedIn && (
                     <span className="ml-1 text-[9px] opacity-40">🔒</span>
@@ -1351,7 +1356,7 @@ const CommunityGallerySection = () => {
             {/* Row 1: Post Type Tabs */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div
-                className="flex gap-2 p-1 bg-[#1a172e]/30 dark:bg-[#1a172e]/50 backdrop-blur-md rounded-2xl border overflow-x-auto hide-scrollbar max-w-full"
+                className="flex gap-2 p-1 bg-[#1a172e]/30 dark:bg-[#1a172e]/50 backdrop-blur-md rounded-2xl border overflow-x-auto no-scrollbar max-w-full"
                 style={{
                   borderColor:
                     'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
@@ -1645,7 +1650,7 @@ const CommunityGallerySection = () => {
           {!loading && posts.length > 0 && (
             <div className="flex justify-end mt-6">
               <Link
-                to="/search"
+                to="/explore"
                 className="flex items-center gap-2 text-brand-600 hover:text-brand-500 dark:text-brand-400 dark:hover:text-white font-bold transition-colors group text-sm shrink-0 pj"
               >
                 Xem tất cả
@@ -1732,7 +1737,12 @@ const HomePage = () => {
 
   // Autoplay for community trending carousel
   useEffect(() => {
-    if (!trendingCarouselInterval || trendingCarouselInterval <= 0 || trendingList.length === 0) return
+    if (
+      !trendingCarouselInterval ||
+      trendingCarouselInterval <= 0 ||
+      trendingList.length === 0
+    )
+      return
 
     const timer = setInterval(() => {
       setTrendingIndex((prev) => (prev >= maxTrendingIndex ? 0 : prev + 1))
@@ -2196,7 +2206,7 @@ const HomePage = () => {
                 Bắt đầu ngay <ArrowRight size={18} />
               </motion.button>
             </Link>
-            <Link to="/search">
+            <Link to="/explore">
               <motion.button
                 whileHover={{ scale: 1.04 }}
                 whileTap={{ scale: 0.96 }}
@@ -2397,7 +2407,7 @@ const HomePage = () => {
               <motion.div
                 className="flex gap-6 w-full"
                 animate={{
-                  x: `calc(-${(trendingIndex * 100) / visibleCards}% - ${(trendingIndex * 24) / visibleCards}px)`
+                  x: `calc(-${(trendingIndex * 100) / visibleCards}% - ${(trendingIndex * 24) / visibleCards}px)`,
                 }}
                 transition={{ type: 'spring', damping: 28, stiffness: 150 }}
               >
@@ -3063,21 +3073,31 @@ const LeaderboardModal = ({
   setType,
   onFollow,
 }) => {
-  // Prevent background scroll when modal is open
+  // Body-scroll-lock: freeze body in place without layout shift
   useEffect(() => {
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
+    if (!open) return
+    const body = document.body
+    const scrollY = window.scrollY
+    // Must use exact measured width — NOT '100%'.
+    // position:fixed + '100%' = full viewport width (scrollbar included),
+    // which is wider than the body was → content shifts left.
+    const lockedWidth = body.getBoundingClientRect().width
 
-    if (open) {
-      document.body.style.overflow = 'hidden'
-      document.documentElement.style.overflow = 'hidden'
-    } else {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
+    const prev = {
+      position: body.style.position,
+      top:      body.style.top,
+      width:    body.style.width,
     }
+
+    body.style.position = 'fixed'
+    body.style.top      = `-${scrollY}px`
+    body.style.width    = `${lockedWidth}px`
+
     return () => {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
+      body.style.position = prev.position
+      body.style.top      = prev.top
+      body.style.width    = prev.width
+      window.scrollTo({ top: scrollY, behavior: 'instant' })
     }
   }, [open])
 

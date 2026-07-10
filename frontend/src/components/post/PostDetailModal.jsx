@@ -61,25 +61,15 @@ const formatDate = (dateInput) => {
   return `${day}/${month}/${year}`
 }
 
-/* ─── Font & inline styles ────────────────────────────────────── */
-const FontStyle = () => (
-  <style>{`
-    .pj { font-family: 'Plus Jakarta Sans', sans-serif; }
-    .modal-glass {
-      background: rgba(10,9,14,0.97);
-      backdrop-filter: blur(40px) saturate(180%);
-      -webkit-backdrop-filter: blur(40px) saturate(180%);
-    }
-    .img-panel { background: #07060b; }
-    @keyframes ambient-pulse {
-      0%,100% { opacity: 0.55; transform: scale(1); }
-      50%      { opacity: 0.75; transform: scale(1.04); }
-    }
-    .ambient-layer {
-      animation: ambient-pulse 5s ease-in-out infinite;
-    }
-  `}</style>
-)
+/* ─── NOTE: FontStyle component removed ─────────────────────────
+   Plus Jakarta Sans is loaded globally in index.html.
+   Injecting a <style> tag at runtime (when modal opens) caused:
+   1. FOUT / reflow → background text sizes jumped
+   2. The .pj class re-cascade changed font metrics on ExplorePage
+      elements (header, tabs, description) that also use .pj
+   Instead, .modal-glass / .img-panel / .ambient-layer are defined
+   once in index.css (see @layer components block).
+───────────────────────────────────────────────────────────────── */
 
 /* ─── Avatar ──────────────────────────────────────────────────── */
 const AuthorAvatar = ({ user, size = 10 }) => {
@@ -211,8 +201,6 @@ const PostDetailModal = ({
     if (!postId) return
     fetchPost(postId)
     trackView(postId) // debounced — chỉ tính khi dừng lại >= 800ms
-    // URL được quản lý bởi useModalUrl ở parent component (HomePage/SearchPage)
-    // hoặc PostDeepLinkPage — không push/restore ở đây để tránh conflict
   }, [postId]) // eslint-disable-line
 
   /* Keyboard nav */
@@ -232,17 +220,41 @@ const PostDetailModal = ({
     return () => window.removeEventListener('keydown', handleKey)
   }, [onClose, onPrev, onNext, hasPrev, hasNext])
 
-  /* Lock body scroll */
+  /* ─── Body-scroll-lock — ZERO layout shift ────────────────────
+   *
+   * The shift happens because:
+   *   `position:fixed + width:100%` makes body as wide as the VIEWPORT
+   *   (e.g. 1024px) instead of the content area (1024 - scrollbar = 1009px).
+   *   That extra ~15px expansion pushes centered content LEFT.
+   *
+   * Fix: measure body.clientWidth RIGHT NOW (the true content width)
+   *   then pin that exact pixel value on the fixed body.
+   */
   useEffect(() => {
-    const originalBodyOverflow = document.body.style.overflow
-    const originalHtmlOverflow = document.documentElement.style.overflow
+    const body = document.body
+    const scrollY = window.scrollY
+    // Snapshot the body's actual layout width BEFORE any changes.
+    // We CANNOT use '100%' here: position:fixed resolves 100% against the
+    // VIEWPORT (e.g. 1024px), but the body was previously narrower by the
+    // scrollbar width (e.g. 1024 - 6 = 1018px). That extra expansion is what
+    // pushes centered content to the LEFT.
+    const lockedWidth = body.getBoundingClientRect().width
 
-    document.body.style.overflow = 'hidden'
-    document.documentElement.style.overflow = 'hidden'
+    const prev = {
+      position: body.style.position,
+      top: body.style.top,
+      width: body.style.width,
+    }
+
+    body.style.position = 'fixed'
+    body.style.top = `-${scrollY}px`
+    body.style.width = `${lockedWidth}px` // ← exact px, NOT '100%'
 
     return () => {
-      document.body.style.overflow = originalBodyOverflow
-      document.documentElement.style.overflow = originalHtmlOverflow
+      body.style.position = prev.position
+      body.style.top = prev.top
+      body.style.width = prev.width
+      window.scrollTo({ top: scrollY, behavior: 'instant' })
     }
   }, [])
 
@@ -357,7 +369,7 @@ const PostDetailModal = ({
         style={{ backgroundColor: 'rgba(0,0,0,0.92)' }}
         onClick={(e) => e.target === e.currentTarget && onClose()}
       >
-        <FontStyle />
+        {/* FontStyle removed — styles now live in index.css */}
 
         {/* Close */}
         <motion.button
