@@ -1,6 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Send, MessageCircle, CornerDownRight, Trash2, ChevronDown } from 'lucide-react'
+import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
+import {
+  Send,
+  MessageCircle,
+  CornerDownRight,
+  Trash2,
+  ChevronDown,
+} from 'lucide-react'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
 import toast from 'react-hot-toast'
@@ -38,7 +44,14 @@ const Avatar = ({ user, size = 8 }) => {
 }
 
 /* ─── Single Comment Row ─────────────────────────────────── */
-const CommentRow = ({ comment, currentUser, postId, onDelete, onReply, isReply = false }) => {
+const CommentRow = ({
+  comment,
+  currentUser,
+  postId,
+  onDelete,
+  onReply,
+  isReply = false,
+}) => {
   const isOwner = currentUser?._id === comment.authorId?._id
   const [deleting, setDeleting] = useState(false)
 
@@ -62,7 +75,10 @@ const CommentRow = ({ comment, currentUser, postId, onDelete, onReply, isReply =
       className={`flex gap-3 ${isReply ? 'ml-9 mt-2' : ''}`}
     >
       {isReply && (
-        <CornerDownRight size={12} className="text-white/20 mt-3 flex-shrink-0" />
+        <CornerDownRight
+          size={12}
+          className="text-white/20 mt-3 flex-shrink-0"
+        />
       )}
       <Avatar user={comment.authorId} size={isReply ? 6 : 8} />
       <div className="flex-1 min-w-0">
@@ -74,11 +90,15 @@ const CommentRow = ({ comment, currentUser, postId, onDelete, onReply, isReply =
           >
             {comment.authorId?.displayName || comment.authorId?.username}
           </Link>
-          <span className="text-[10px] text-white/30">{timeAgo(comment.createdAt)}</span>
+          <span className="text-[10px] text-white/30">
+            {timeAgo(comment.createdAt)}
+          </span>
         </div>
 
         {comment.isDeleted ? (
-          <p className="text-xs text-white/25 italic mt-0.5">[Bình luận đã bị xóa]</p>
+          <p className="text-xs text-white/25 italic mt-0.5">
+            [Bình luận đã bị xóa]
+          </p>
         ) : (
           <p className="text-sm text-white/70 mt-0.5 break-words leading-relaxed">
             {comment.content}
@@ -114,7 +134,13 @@ const CommentRow = ({ comment, currentUser, postId, onDelete, onReply, isReply =
 }
 
 /* ─── Comment Input ──────────────────────────────────────── */
-const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }) => {
+const CommentInput = ({
+  postId,
+  replyTo,
+  onCancelReply,
+  onSuccess,
+  currentUser,
+}) => {
   const [text, setText] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const inputRef = useRef(null)
@@ -148,7 +174,10 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
     return (
       <div className="flex items-center gap-2 p-3 rounded-xl bg-white/5 border border-white/10">
         <MessageCircle size={14} className="text-white/30" />
-        <Link to="/login" className="text-sm text-brand-400 hover:text-brand-300 transition-colors">
+        <Link
+          to="/login"
+          className="text-sm text-brand-400 hover:text-brand-300 transition-colors"
+        >
           Đăng nhập để bình luận
         </Link>
       </div>
@@ -160,7 +189,12 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
       {replyTo && (
         <div className="flex items-center gap-2 text-xs text-white/40 bg-white/5 rounded-lg px-3 py-1.5">
           <CornerDownRight size={11} />
-          <span>Đang trả lời <span className="text-brand-400 font-medium">@{replyTo.authorId?.username}</span></span>
+          <span>
+            Đang trả lời{' '}
+            <span className="text-brand-400 font-medium">
+              @{replyTo.authorId?.username}
+            </span>
+          </span>
           <button
             type="button"
             onClick={onCancelReply}
@@ -190,7 +224,8 @@ const CommentInput = ({ postId, replyTo, onCancelReply, onSuccess, currentUser }
             style={{ lineHeight: '1.5' }}
             onInput={(e) => {
               e.target.style.height = 'auto'
-              e.target.style.height = Math.min(e.target.scrollHeight, 100) + 'px'
+              e.target.style.height =
+                Math.min(e.target.scrollHeight, 100) + 'px'
             }}
           />
           <motion.button
@@ -226,13 +261,18 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
   const [cursor, setCursor] = useState(null)
   const [replyTo, setReplyTo] = useState(null)
   const [totalCount, setTotalCount] = useState(initialCount)
+  const [visibleIndex, setVisibleIndex] = useState(0)
 
   const fetchComments = async (reset = false) => {
-    if (reset) setLoading(true)
-    else setLoadingMore(true)
+    if (reset) {
+      setLoading(true)
+      setVisibleIndex(0)
+    } else {
+      setLoadingMore(true)
+    }
 
     try {
-      const params = { limit: 10 }
+      const params = { limit: 9 }
       if (!reset && cursor) params.cursor = cursor
 
       const { data } = await api.get(`/posts/${postId}/comments`, { params })
@@ -255,6 +295,37 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId])
 
+  const handleNextPage = async () => {
+    const nextIndex = visibleIndex + 3
+    if (nextIndex < comments.length) {
+      setVisibleIndex(nextIndex)
+    } else if (hasMore) {
+      setLoadingMore(true)
+      try {
+        const params = { limit: 9 }
+        if (cursor) params.cursor = cursor
+
+        const { data } = await api.get(`/posts/${postId}/comments`, { params })
+        const newComments = data.comments || []
+
+        if (newComments.length > 0) {
+          setComments((prev) => [...prev, ...newComments])
+          setVisibleIndex(nextIndex)
+        }
+        setHasMore(data.pagination?.hasMore || false)
+        setCursor(data.pagination?.nextCursor || null)
+      } catch {
+        toast.error('Không thể tải thêm bình luận')
+      } finally {
+        setLoadingMore(false)
+      }
+    }
+  }
+
+  const handlePrevPage = () => {
+    setVisibleIndex((prev) => Math.max(0, prev - 3))
+  }
+
   const handleNewComment = (comment, isReply) => {
     if (isReply) {
       // Thêm reply vào đúng parent
@@ -266,8 +337,9 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
         )
       )
     } else {
-      // Thêm top-level comment vào đầu
+      // Thêm top-level comment vào đầu và reset visibleIndex
       setComments((prev) => [{ ...comment, replies: [] }, ...prev])
+      setVisibleIndex(0)
     }
     setTotalCount((n) => n + 1)
   }
@@ -303,63 +375,23 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
         currentUser={isLoggedIn ? user : null}
       />
 
-      {/* List */}
-      {loading ? (
-        <div className="space-y-4 pt-2">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="flex gap-3 animate-pulse">
-              <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0" />
-              <div className="flex-1 space-y-2">
-                <div className="h-3 bg-white/10 rounded w-24" />
-                <div className="h-3 bg-white/10 rounded w-3/4" />
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
-        <div className="space-y-4 pt-1">
-          <AnimatePresence>
-            {comments.map((comment) => (
-              <div key={comment._id}>
-                <CommentRow
-                  comment={comment}
-                  currentUser={user}
-                  postId={postId}
-                  onDelete={handleDelete}
-                  onReply={setReplyTo}
-                />
-                {/* Replies */}
-                <AnimatePresence>
-                  {(comment.replies || []).map((reply) => (
-                    <CommentRow
-                      key={reply._id}
-                      comment={reply}
-                      currentUser={user}
-                      postId={postId}
-                      onDelete={handleDelete}
-                      onReply={setReplyTo}
-                      isReply
-                    />
-                  ))}
-                </AnimatePresence>
+      {/* Dynamic comments area - fully fixed height to prevent any UI jumping */}
+      <div className="h-[380px] flex flex-col justify-between">
+        {loading ? (
+          <div className="space-y-4 pt-2 flex-1 overflow-y-auto">
+            {[...Array(3)].map((_, i) => (
+              <div key={i} className="flex gap-3 animate-pulse">
+                <div className="w-8 h-8 rounded-full bg-white/10 flex-shrink-0" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3 bg-white/10 rounded w-24" />
+                  <div className="h-3 bg-white/10 rounded w-3/4" />
+                </div>
               </div>
             ))}
-          </AnimatePresence>
-
-          {/* Load more */}
-          {hasMore && (
-            <button
-              onClick={() => fetchComments(false)}
-              disabled={loadingMore}
-              className="flex items-center gap-1.5 text-xs text-white/40 hover:text-white/70 transition-colors mx-auto"
-            >
-              <ChevronDown size={14} />
-              {loadingMore ? 'Đang tải...' : 'Xem thêm bình luận'}
-            </button>
-          )}
-
-          <AnimatePresence mode="wait">
-            {!loading && comments.length === 0 && (
+          </div>
+        ) : comments.length === 0 ? (
+          <div className="flex-1 flex items-center justify-center">
+            <AnimatePresence mode="wait">
               <motion.div
                 key="empty-comment"
                 initial={{ opacity: 0, y: 6 }}
@@ -369,13 +401,99 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
                 className="text-center py-8 space-y-1.5"
               >
                 <p className="text-2xl select-none">✨</p>
-                <p className="text-sm text-white/30 font-medium">Chưa có bình luận nào.</p>
+                <p className="text-sm text-white/30 font-medium">
+                  Chưa có bình luận nào.
+                </p>
                 <p className="text-xs text-white/20">Hãy là người đầu tiên!</p>
               </motion.div>
+            </AnimatePresence>
+          </div>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Scrollable comments container to prevent form jumping */}
+            <div
+              className="flex-1 overflow-y-auto pr-1.5 space-y-4"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: 'rgba(255, 255, 255, 0.1) transparent',
+              }}
+            >
+              <AnimatePresence mode="wait">
+                {comments
+                  .slice(visibleIndex, visibleIndex + 3)
+                  .map((comment) => (
+                    <div key={comment._id} className="space-y-2">
+                      <CommentRow
+                        comment={comment}
+                        currentUser={user}
+                        postId={postId}
+                        onDelete={handleDelete}
+                        onReply={setReplyTo}
+                      />
+                      {/* Replies */}
+                      {comment.replies && comment.replies.length > 0 && (
+                        <div className="space-y-2">
+                          <AnimatePresence>
+                            {comment.replies.map((reply) => (
+                              <CommentRow
+                                key={reply._id}
+                                comment={reply}
+                                currentUser={user}
+                                postId={postId}
+                                onDelete={handleDelete}
+                                onReply={setReplyTo}
+                                isReply
+                              />
+                            ))}
+                          </AnimatePresence>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+              </AnimatePresence>
+            </div>
+
+            {/* Pagination controls with fixed centering layout */}
+            {(visibleIndex > 0 ||
+              visibleIndex + 3 < comments.length ||
+              hasMore) && (
+              <div className="grid grid-cols-3 items-center pt-4 border-t border-white/5 text-xs text-white/40 mt-3 shrink-0">
+                <div className="flex justify-start">
+                  {visibleIndex > 0 && (
+                    <button
+                      type="button"
+                      onClick={handlePrevPage}
+                      className="px-3 py-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.06] hover:text-white transition-all cursor-pointer"
+                    >
+                      ← Trước đó
+                    </button>
+                  )}
+                </div>
+
+                <span className="text-[11px] font-semibold text-white/35 text-center whitespace-nowrap">
+                  Trang {Math.floor(visibleIndex / 3) + 1} /{' '}
+                  {Math.ceil(totalCount / 3) || 1}
+                </span>
+
+                <div className="flex justify-end">
+                  {visibleIndex + 3 < comments.length || hasMore ? (
+                    <button
+                      type="button"
+                      onClick={handleNextPage}
+                      disabled={loadingMore}
+                      className="px-3 py-1.5 rounded-lg bg-white/[0.02] border border-white/5 hover:bg-white/[0.06] hover:text-white transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loadingMore ? 'Đang tải...' : 'Xem thêm →'}
+                    </button>
+                  ) : (
+                    <div />
+                  )}
+                </div>
+              </div>
             )}
-          </AnimatePresence>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -134,6 +134,18 @@ const settingsSchema = new mongoose.Schema(
       min: 0,
       max: 60000,
     },
+    discoveryAutoScrollInterval: {
+      type: Number,
+      default: 10000, // 10s autoplay
+      min: 0,
+      max: 60000,
+    },
+    discoveryAutoScrollStagger: {
+      type: Number,
+      default: 1000, // 1s cascade delay
+      min: 0,
+      max: 10000,
+    },
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,

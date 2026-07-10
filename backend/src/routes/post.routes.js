@@ -14,6 +14,7 @@ import {
   getHomepageData,
   getSourceHistory,
   deleteSourceHistoryImage,
+  getPostDiscovery,
 } from '../controllers/post.controller.js'
 import {
   getPostDetail,
@@ -96,6 +97,9 @@ router.post(
 // =====================
 // ROUTES CÓ :id (đặt SAU /me để tránh conflict)
 // =====================
+
+/** GET /posts/:id/discovery — Lấy các section Discovery (similar, color, creator, trending, gems, user recommendations) */
+router.get('/:id/discovery', optionalAuth, getPostDiscovery)
 
 /** GET /posts/:id — Chi tiết bài đăng (public, optionalAuth cho isLiked/isBookmarked) */
 router.get('/:id', optionalAuth, getPostDetail)

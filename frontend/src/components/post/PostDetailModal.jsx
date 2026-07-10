@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import {
   X,
   Share2,
@@ -397,7 +397,7 @@ const PostDetailModal = ({
   }
 
   const firstImg = post?.generatedImages?.[0] || post?.images?.[0]
-  const displayUrl = firstImg?.thumbnailUrl || firstImg?.url
+  const displayUrl = firstImg?.thumbnailUrl || firstImg?.url // eslint-disable-line no-unused-vars
   const isOwnPost = currentUser && post?.authorId?._id === currentUser._id
 
   const goToDetail = () => {
@@ -435,30 +435,26 @@ const PostDetailModal = ({
 
         {/* Prev/Next */}
         {hasPrev && (
-          <motion.button
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
+          <button
             onClick={onPrev}
             className="absolute left-4 top-1/2 -translate-y-1/2 z-50
               w-10 h-10 rounded-full bg-white/10 hover:bg-white/20
               backdrop-blur-md border border-white/10
-              flex items-center justify-center text-white transition-all hidden md:flex"
+              flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 hidden md:flex"
           >
             <ChevronLeft size={20} />
-          </motion.button>
+          </button>
         )}
         {hasNext && (
-          <motion.button
-            initial={{ opacity: 0, x: 10 }}
-            animate={{ opacity: 1, x: 0 }}
+          <button
             onClick={onNext}
             className="absolute right-4 top-1/2 -translate-y-1/2 z-50
               w-10 h-10 rounded-full bg-white/10 hover:bg-white/20
               backdrop-blur-md border border-white/10
-              flex items-center justify-center text-white transition-all hidden md:flex"
+              flex items-center justify-center text-white transition-all hover:scale-105 active:scale-95 hidden md:flex"
           >
             <ChevronRight size={20} />
-          </motion.button>
+          </button>
         )}
 
         {/* Modal container */}

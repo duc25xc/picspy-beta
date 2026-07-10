@@ -1,14 +1,29 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import {
-  ArrowLeft, Eye, Download, Share2,
-  Calendar, Tag, Zap, Crown, Camera, Flag, Check,
+  ArrowLeft,
+  Eye,
+  Download,
+  Share2,
+  Calendar,
+  Tag,
+  Zap,
+  Crown,
+  Camera,
+  Flag,
+  Check,
+  Sparkles,
+  Palette,
+  ChevronLeft,
+  ChevronRight,
+  Heart,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import useTierAccess from '../hooks/useTierAccess'
+import { useSettings } from '../context/SettingsContext'
 import { GiCutDiamond } from 'react-icons/gi'
 import DownloadButton from '../components/post/DownloadButton'
 import LikeButton from '../components/post/LikeButton'
@@ -22,10 +37,21 @@ import PromptBlock from '../components/post/PromptBlock'
 /* ─── Ambient gradient ──────────────────────────────────────────── */
 const buildAmbientGradient = (palette = []) => {
   if (!palette?.length) return null
-  const positions = ['15% 20%', '85% 15%', '50% 85%', '20% 65%', '80% 55%', '45% 35%']
-  return palette.slice(0, 6).map((hex, i) =>
-    `radial-gradient(ellipse 100% 90% at ${positions[i % positions.length]}, ${hex}55 0%, transparent 65%)`
-  ).join(', ')
+  const positions = [
+    '15% 20%',
+    '85% 15%',
+    '50% 85%',
+    '20% 65%',
+    '80% 55%',
+    '45% 35%',
+  ]
+  return palette
+    .slice(0, 6)
+    .map(
+      (hex, i) =>
+        `radial-gradient(ellipse 100% 90% at ${positions[i % positions.length]}, ${hex}55 0%, transparent 65%)`
+    )
+    .join(', ')
 }
 
 const extractColorsFromImg = (src, count = 4) =>
@@ -47,31 +73,48 @@ const extractColorsFromImg = (src, count = 4) =>
         const { data } = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const pixels = []
         for (let i = 0; i < data.length; i += 12) {
-          const [r, g, b, a] = [data[i], data[i+1], data[i+2], data[i+3]]
+          const [r, g, b, a] = [data[i], data[i + 1], data[i + 2], data[i + 3]]
           const br = r + g + b
           if (a > 180 && br > 40 && br < 720) pixels.push([r, g, b])
         }
-        if (!pixels.length) { resolve([]); return }
+        if (!pixels.length) {
+          resolve([])
+          return
+        }
         const quantize = (pts, depth) => {
           if (depth === 0 || pts.length < 2) {
-            const avg = pts.reduce((a, p) => [a[0]+p[0], a[1]+p[1], a[2]+p[2]], [0,0,0])
-              .map(v => Math.round(v / pts.length))
+            const avg = pts
+              .reduce(
+                (a, p) => [a[0] + p[0], a[1] + p[1], a[2] + p[2]],
+                [0, 0, 0]
+              )
+              .map((v) => Math.round(v / pts.length))
             return [avg]
           }
-          const ranges = [0,1,2].map(ch => {
-            const vals = pts.map(p => p[ch])
+          const ranges = [0, 1, 2].map((ch) => {
+            const vals = pts.map((p) => p[ch])
             return Math.max(...vals) - Math.min(...vals)
           })
           const ch = ranges.indexOf(Math.max(...ranges))
           pts.sort((a, b) => a[ch] - b[ch])
           const mid = Math.floor(pts.length / 2)
-          return [...quantize(pts.slice(0, mid), depth-1), ...quantize(pts.slice(mid), depth-1)]
+          return [
+            ...quantize(pts.slice(0, mid), depth - 1),
+            ...quantize(pts.slice(mid), depth - 1),
+          ]
         }
         const clusters = quantize([...pixels], Math.log2(count))
-        resolve(clusters.slice(0, count).map(([r,g,b]) =>
-          `#${r.toString(16).padStart(2,'0')}${g.toString(16).padStart(2,'0')}${b.toString(16).padStart(2,'0')}`
-        ))
-      } catch { resolve([]) }
+        resolve(
+          clusters
+            .slice(0, count)
+            .map(
+              ([r, g, b]) =>
+                `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`
+            )
+        )
+      } catch {
+        resolve([])
+      }
     }
     img.onerror = () => resolve([])
     img.src = s
@@ -79,12 +122,213 @@ const extractColorsFromImg = (src, count = 4) =>
 
 /* ─── Download Button Wrapper ───────────────────────────────── */
 const PostDownloadButton = ({ post, onUnlock }) => {
+  return <DownloadButton post={post} variant="detail" onUnlock={onUnlock} />
+}
+
+/* ─── Discovery Post Card ───────────────────────────────────── */
+const DiscoveryPostCard = ({ post, onClick }) => {
+  const img = post.generatedImages?.[0] || post.images?.[0]
+  const displayUrl = img?.thumbnailUrl || img?.url
+
   return (
-    <DownloadButton
-      post={post}
-      variant="detail"
-      onUnlock={onUnlock}
-    />
+    <motion.div
+      whileHover={{ y: -4 }}
+      transition={{ type: 'spring', stiffness: 300, damping: 20 }}
+      onClick={() => onClick?.(post._id)}
+      className="group relative flex-shrink-0 w-[240px] aspect-[3/4] overflow-hidden rounded-2xl bg-[#1a1a24] border border-white/5 cursor-pointer shadow-md select-none"
+      style={{ isolation: 'isolate' }}
+    >
+      {/* Image */}
+      {displayUrl ? (
+        <img
+          src={displayUrl}
+          alt={post.caption || 'Artwork'}
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          loading="lazy"
+        />
+      ) : (
+        <div className="w-full h-full bg-[#222230] flex items-center justify-center">
+          <Eye size={20} className="text-white/20" />
+        </div>
+      )}
+
+      {/* Cinematic gradient */}
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-60 group-hover:opacity-85 transition-opacity duration-300 pointer-events-none" />
+
+      {/* Hover border glow */}
+      <div
+        className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none"
+        style={{
+          boxShadow:
+            'inset 0 0 0 1.5px rgba(121, 134, 235, 0.4), 0 0 20px rgba(121, 134, 235, 0.1)',
+        }}
+      />
+
+      {/* Badges */}
+      <div className="absolute top-2 left-2 flex gap-1 flex-wrap pointer-events-none">
+        {post.isPremium && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/85 text-white backdrop-blur-sm shadow-md">
+            <GiCutDiamond size={10} className="text-amber-300" />
+            PREMIUM
+          </span>
+        )}
+        {post.aiTool && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-violet-600/85 text-white backdrop-blur-sm shadow-md">
+            {post.aiTool}
+          </span>
+        )}
+      </div>
+
+      {/* Info Overlay */}
+      <div className="absolute bottom-0 left-0 right-0 p-3 flex flex-col gap-1 pointer-events-none">
+        <p className="text-white/90 text-xs font-semibold truncate leading-tight">
+          {post.caption || 'Untitled'}
+        </p>
+        <div className="flex items-center justify-between text-[10px] text-white/50">
+          <span className="truncate mr-2">
+            @
+            {post.authorId?.displayName || post.authorId?.username || 'Creator'}
+          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="flex items-center gap-0.5">
+              <Eye size={10} className="opacity-70" />
+              {(post.stats?.viewsCount || 0).toLocaleString()}
+            </span>
+            <span className="flex items-center gap-0.5">
+              <Heart
+                size={10}
+                className="text-red-400 fill-red-400 opacity-80"
+              />
+              {(post.stats?.likesCount || 0).toLocaleString()}
+            </span>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+/* ─── Discovery Row ─────────────────────────────────────────── */
+const DiscoveryRow = ({
+  title,
+  icon: Icon,
+  posts = [],
+  onCardClick,
+  countText,
+  rowIndex = 0,
+  discoveryAutoScrollInterval = 10000,
+  discoveryAutoScrollStagger = 1000,
+}) => {
+  const rowRef = useRef(null)
+
+  const autoScroll = useCallback(() => {
+    if (!rowRef.current || posts.length <= 1) return
+    const el = rowRef.current
+    const isAtEnd = el.scrollLeft + el.clientWidth >= el.scrollWidth - 15
+    if (isAtEnd) {
+      el.scrollTo({ left: 0, behavior: 'smooth' })
+    } else {
+      el.scrollBy({ left: 256, behavior: 'smooth' })
+    }
+  }, [posts.length])
+
+  useEffect(() => {
+    if (
+      !discoveryAutoScrollInterval ||
+      discoveryAutoScrollInterval <= 0 ||
+      posts.length <= 1
+    )
+      return
+
+    const startDelay = rowIndex * (discoveryAutoScrollStagger ?? 1000)
+    let intervalId = null
+
+    const timeoutId = setTimeout(() => {
+      autoScroll()
+      intervalId = setInterval(() => {
+        autoScroll()
+      }, discoveryAutoScrollInterval)
+    }, startDelay)
+
+    return () => {
+      clearTimeout(timeoutId)
+      if (intervalId) clearInterval(intervalId)
+    }
+  }, [
+    rowIndex,
+    discoveryAutoScrollInterval,
+    discoveryAutoScrollStagger,
+    posts.length,
+    autoScroll,
+  ])
+
+  if (!posts?.length) return null
+
+  const scroll = (direction) => {
+    if (rowRef.current) {
+      const scrollAmount = direction === 'left' ? -300 : 300
+      rowRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+    }
+  }
+
+  return (
+    <div className="space-y-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2">
+          {Icon && <Icon className="text-[#7986eb]" size={20} />}
+          <h2 className="text-lg font-bold text-[#f5f3ff] leading-none tracking-tight">
+            {title}
+          </h2>
+          {countText && (
+            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white/30 border border-white/5 bg-white/[0.02]">
+              {countText}
+            </span>
+          )}
+        </div>
+
+        {/* Navigation Buttons */}
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => scroll('left')}
+            className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/5 text-white/40 hover:text-[#f5f3ff] hover:bg-white/[0.08] transition-all"
+          >
+            <ChevronLeft size={16} />
+          </button>
+          <button
+            onClick={() => scroll('right')}
+            className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/5 text-white/40 hover:text-[#f5f3ff] hover:bg-white/[0.08] transition-all"
+          >
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* Scrollable container */}
+      <div
+        ref={rowRef}
+        className="flex gap-4 overflow-x-auto py-2 px-4 -mx-4 pb-4 scrollbar-none scroll-smooth snap-x snap-mandatory scroll-px-4"
+        style={{
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
+          WebkitOverflowScrolling: 'touch',
+          scrollPaddingLeft: '16px',
+          scrollPaddingRight: '16px',
+        }}
+      >
+        {posts.map((post, i) => (
+          <div
+            key={post._id || i}
+            className="snap-start shrink-0"
+            style={{
+              marginRight: i === posts.length - 1 ? '-32px' : '0px',
+            }}
+          >
+            <DiscoveryPostCard post={post} onClick={onCardClick} />
+          </div>
+        ))}
+      </div>
+    </div>
   )
 }
 
@@ -92,60 +336,96 @@ const PostDownloadButton = ({ post, onUnlock }) => {
 const PostDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
-  const user = useAuthStore(s => s.user)
+  const user = useAuthStore((s) => s.user)
 
-  const [post, setPost]             = useState(null)
-  const [loading, setLoading]       = useState(true)
-  const [error, setError]           = useState(null)
+  const [post, setPost] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [shareLoading, setShareLoading] = useState(false)
-  const [palette, setPalette]       = useState([])
+  const [palette, setPalette] = useState([])
   const [ambientReady, setAmbientReady] = useState(false)
-  const [imgLoaded, setImgLoaded]   = useState(false)
+  const [imgLoaded, setImgLoaded] = useState(false)
 
   // Track which image is active in gallery — để show/hide ExifPanel
   const [activeIsSource, setActiveIsSource] = useState(false)
-  const [activeImg, setActiveImg]   = useState(null)
+  const [activeImg, setActiveImg] = useState(null) // eslint-disable-line no-unused-vars
 
   // Report & copy feedback states
   const [copied, setCopied] = useState(false)
   const [showReportDialog, setShowReportDialog] = useState(false)
   const [reportReason, setReportReason] = useState('')
   const [reporting, setReporting] = useState(false)
+  const [discoveryData, setDiscoveryData] = useState(null)
+  const [discoveryLoading, setDiscoveryLoading] = useState(false)
+  const [isScrolled, setIsScrolled] = useState(false)
 
   // Tier access — đặt ở đây để không vi phạm Rules of Hooks
   const tierAccess = useTierAccess()
+  const { discoveryAutoScrollInterval, discoveryAutoScrollStagger } =
+    useSettings()
 
   const fetchPost = useCallback(async () => {
     setLoading(true)
-    setPalette([]); setAmbientReady(false); setImgLoaded(false)
+    setPalette([])
+    setAmbientReady(false)
+    setImgLoaded(false)
     try {
       const { data } = await api.get(`/posts/${id}`)
       setPost({
         ...data.post,
-        purchasedFileTypes: data.purchasedFileTypes || []
+        purchasedFileTypes: data.purchasedFileTypes || [],
       })
       if (!data.post.isPremium) setIsUnlocked(true)
       if (data.post.colorPalette?.length) setPalette(data.post.colorPalette)
     } catch (err) {
       setError(err.response?.data?.message || 'Không tìm thấy bài đăng')
-    } finally { setLoading(false) }
+    } finally {
+      setLoading(false)
+    }
   }, [id])
+
+  const fetchDiscoveryData = useCallback(async () => {
+    setDiscoveryLoading(true)
+    try {
+      const { data } = await api.get(`/posts/${id}/discovery`)
+      setDiscoveryData(data)
+    } catch (err) {
+      console.error('Failed to fetch discovery:', err)
+    } finally {
+      setDiscoveryLoading(false)
+    }
+  }, [id])
+
+  const handleCardClick = (postId) => {
+    navigate(`/posts/${postId}`)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   useEffect(() => {
     fetchPost()
     api.post(`/posts/${id}/view`).catch(() => {})
-  }, [id]) // eslint-disable-line
+    fetchDiscoveryData()
+  }, [id, fetchPost, fetchDiscoveryData])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 80)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
 
   // Extract palette từ ảnh nếu server chưa có
   useEffect(() => {
     if (!post || palette.length > 0) return
-    const imgUrl = post.generatedImages?.[0]?.thumbnailUrl
-      || post.generatedImages?.[0]?.url
-      || post.images?.[0]?.thumbnailUrl
-      || post.images?.[0]?.url
+    const imgUrl =
+      post.generatedImages?.[0]?.thumbnailUrl ||
+      post.generatedImages?.[0]?.url ||
+      post.images?.[0]?.thumbnailUrl ||
+      post.images?.[0]?.url
     if (!imgUrl) return
-    extractColorsFromImg(imgUrl, 4).then(colors => {
+    extractColorsFromImg(imgUrl, 4).then((colors) => {
       if (colors.length > 0) setPalette(colors)
     })
   }, [post, palette.length])
@@ -157,22 +437,30 @@ const PostDetailPage = () => {
     }
   }, [imgLoaded, palette])
 
-  const ambientGradient = useMemo(() => buildAmbientGradient(palette), [palette])
+  const ambientGradient = useMemo(
+    () => buildAmbientGradient(palette),
+    [palette]
+  )
 
   const handleShare = async () => {
     setShareLoading(true)
     try {
-      await navigator.clipboard.writeText(`${window.location.origin}/posts/${id}`)
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/posts/${id}`
+      )
       setCopied(true)
       toast.success('Đã copy link!')
       setTimeout(() => setCopied(false), 1500)
-    } catch { toast.error('Không thể copy link') }
-    finally { setShareLoading(false) }
+    } catch {
+      toast.error('Không thể copy link')
+    } finally {
+      setShareLoading(false)
+    }
   }
 
   const handleReportSubmit = async (e) => {
     e.preventDefault()
-    if (!isLoggedIn) {
+    if (!user) {
       toast('Đăng nhập để báo cáo vi phạm 🔒')
       return
     }
@@ -202,7 +490,7 @@ const PostDetailPage = () => {
     // Extract palette từ ảnh mới nếu cần
     const url = img?.thumbnailUrl || img?.url
     if (url) {
-      extractColorsFromImg(url, 4).then(colors => {
+      extractColorsFromImg(url, 4).then((colors) => {
         if (colors.length > 0) setPalette(colors)
       })
     }
@@ -220,50 +508,78 @@ const PostDetailPage = () => {
   }
 
   /* ── Loading skeleton ──────────────────────────────── */
-  if (loading) return (
-    <div className="min-h-screen p-4 md:p-8" style={{ background: 'oklch(11% 0.012 285)' }}>
-      <div className="max-w-7xl mx-auto">
-        <div className="h-7 w-28 rounded-xl animate-pulse mb-8" style={{ background: 'oklch(19% 0.01 285)' }} />
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
-          <div className="rounded-2xl animate-pulse aspect-[4/3]" style={{ background: 'oklch(15% 0.01 285)' }} />
-          <div className="space-y-4">
-            {[20, 12, 10, 32, 16].map((h, i) => (
-              <div key={i} className={`h-${h} rounded-xl animate-pulse`} style={{ background: 'oklch(15% 0.01 285)' }} />
-            ))}
+  if (loading)
+    return (
+      <div
+        className="min-h-screen p-4 md:p-8"
+        style={{ background: 'oklch(11% 0.012 285)' }}
+      >
+        <div className="max-w-7xl mx-auto">
+          <div
+            className="h-7 w-28 rounded-xl animate-pulse mb-8"
+            style={{ background: 'oklch(19% 0.01 285)' }}
+          />
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8">
+            <div
+              className="rounded-2xl animate-pulse aspect-[4/3]"
+              style={{ background: 'oklch(15% 0.01 285)' }}
+            />
+            <div className="space-y-4">
+              {[20, 12, 10, 32, 16].map((h, i) => (
+                <div
+                  key={i}
+                  className={`h-${h} rounded-xl animate-pulse`}
+                  style={{ background: 'oklch(15% 0.01 285)' }}
+                />
+              ))}
+            </div>
           </div>
         </div>
       </div>
-    </div>
-  )
+    )
 
   /* ── Error ─────────────────────────────────────────── */
-  if (error) return (
-    <div className="min-h-screen flex items-center justify-center" style={{ background: 'oklch(11% 0.012 285)' }}>
-      <div className="text-center px-4">
-        <p className="text-5xl mb-4">😢</p>
-        <h2 className="text-xl font-bold text-[#f5f3ff] mb-2" style={{ fontFamily: 'Outfit, sans-serif' }}>
-          Không tìm thấy bài đăng
-        </h2>
-        <p className="text-white/40 text-sm mb-6" style={{ fontFamily: 'Outfit, sans-serif' }}>{error}</p>
-        <button
-          onClick={() => navigate('/')}
-          className="px-6 py-2.5 rounded-xl text-sm font-semibold text-[#f5f3ff] transition-all"
-          style={{
-            background: 'oklch(52% 0.28 285)',
-            boxShadow: 'inset 0 1.5px 0 rgba(255,255,255,0.24), 0 4px 16px rgba(109,40,217,0.4)',
-            fontFamily: 'Outfit, sans-serif',
-          }}
-        >
-          Về trang chủ
-        </button>
+  if (error)
+    return (
+      <div
+        className="min-h-screen flex items-center justify-center"
+        style={{ background: 'oklch(11% 0.012 285)' }}
+      >
+        <div className="text-center px-4">
+          <p className="text-5xl mb-4">😢</p>
+          <h2
+            className="text-xl font-bold text-[#f5f3ff] mb-2"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            Không tìm thấy bài đăng
+          </h2>
+          <p
+            className="text-white/40 text-sm mb-6"
+            style={{ fontFamily: 'Outfit, sans-serif' }}
+          >
+            {error}
+          </p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-[#f5f3ff] transition-all"
+            style={{
+              background: 'oklch(52% 0.28 285)',
+              boxShadow:
+                'inset 0 1.5px 0 rgba(255,255,255,0.24), 0 4px 16px rgba(109,40,217,0.4)',
+              fontFamily: 'Outfit, sans-serif',
+            }}
+          >
+            Về trang chủ
+          </button>
+        </div>
       </div>
-    </div>
-  )
+    )
 
   if (!post) return null
 
   const author = post.authorId
-  const isOwnPost = user && (post.authorId?._id === user._id || post.authorId === user._id)
+  const isOwnPost =
+    user && (post.authorId?._id === user._id || post.authorId === user._id)
   const genImages = post.generatedImages || []
   // Source images: mọi user đều xem được (chỉ gate download high-res, không gate view)
   const srcImages = post.sourceImages || []
@@ -273,7 +589,7 @@ const PostDetailPage = () => {
   const hasNegative = !!post.negativePrompt
   const hasParameters = !!post.parameters
   // JSON workflow: chỉ Ultimate có post.workflowJson
-  const hasJson = !!post.workflowJson && tierAccess.canExportJson
+
   const isAiPost = post.postType === 'ai'
 
   return (
@@ -292,13 +608,40 @@ const PostDetailPage = () => {
             animate={{ opacity: ambientReady ? 1 : 0 }}
             transition={{ duration: 1.8, ease: [0.22, 1, 0.36, 1] }}
             className="fixed inset-0 z-0 pointer-events-none"
-            style={{ background: ambientGradient, filter: 'blur(80px)', mixBlendMode: 'screen' }}
+            style={{
+              background: ambientGradient,
+              filter: 'blur(80px)',
+              mixBlendMode: 'screen',
+            }}
           />
         )}
       </AnimatePresence>
 
-      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:py-8">
+      {/* Floating Back Button */}
+      <AnimatePresence>
+        {isScrolled && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, x: -10 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: -10 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            onClick={() => navigate(-1)}
+            className="fixed top-[84px] left-4 md:left-8 z-50 w-10 h-10 rounded-xl flex items-center justify-center text-[#f5f3ff] hover:text-white shadow-xl cursor-pointer"
+            style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              backdropFilter: 'blur(28px) saturate(180%)',
+              border: '1px solid rgba(255, 255, 255, 0.09)',
+              boxShadow:
+                'inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.35)',
+            }}
+            title="Quay lại"
+          >
+            <ArrowLeft size={18} />
+          </motion.button>
+        )}
+      </AnimatePresence>
 
+      <div className="relative z-10 max-w-7xl mx-auto px-4 py-6 md:py-8">
         {/* Back */}
         <button
           onClick={() => navigate(-1)}
@@ -306,13 +649,15 @@ const PostDetailPage = () => {
             transition-colors duration-150 mb-7 group"
           style={{ fontFamily: 'Outfit, sans-serif' }}
         >
-          <ArrowLeft size={16} className="group-hover:-translate-x-0.5 transition-transform duration-150" />
+          <ArrowLeft
+            size={16}
+            className="group-hover:-translate-x-0.5 transition-transform duration-150"
+          />
           <span className="text-sm font-medium">Quay lại</span>
         </button>
 
         {/* ── Main grid: left gallery | right info ─── */}
         <div className="grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-8 items-start">
-
           {/* ─── LEFT: Image Gallery ─────────────────── */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -335,10 +680,22 @@ const PostDetailPage = () => {
             />
 
             {/* Mobile stats */}
-            <div className="flex items-center gap-5 mt-4 lg:hidden" style={{ fontFamily: 'Outfit, sans-serif' }}>
-              <div className="flex items-center gap-1.5 text-white/35 text-sm" title="Lượt xem">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
-                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            <div
+              className="flex items-center gap-5 mt-4 lg:hidden"
+              style={{ fontFamily: 'Outfit, sans-serif' }}
+            >
+              <div
+                className="flex items-center gap-1.5 text-white/35 text-sm"
+                title="Lượt xem"
+              >
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                  className="shrink-0"
+                >
+                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
                 </svg>
                 {(post.stats?.viewsCount || 0).toLocaleString()}
               </div>
@@ -353,14 +710,20 @@ const PostDetailPage = () => {
           <motion.div
             initial={{ opacity: 0, x: 16 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.35, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+            transition={{
+              duration: 0.35,
+              delay: 0.08,
+              ease: [0.22, 1, 0.36, 1],
+            }}
             className="space-y-6"
             style={{ fontFamily: 'Outfit, sans-serif' }}
           >
-
             {/* ── Author ──────────────────────────────── */}
             <div className="flex items-center gap-3">
-              <Link to={`/profile/${author?.username}`} className="flex items-center gap-3 group min-w-0">
+              <Link
+                to={`/profile/${author?.username}`}
+                className="flex items-center gap-3 group min-w-0"
+              >
                 {author?.avatar ? (
                   <img
                     src={author.avatar}
@@ -380,9 +743,13 @@ const PostDetailPage = () => {
                 <div className="min-w-0">
                   <p className="font-semibold text-[#f5f3ff] group-hover:text-[#7986eb] transition-colors duration-150 truncate">
                     {author?.displayName || author?.username}
-                    {author?.isVerified && <span className="ml-1.5 text-[#7986eb] text-xs">✓</span>}
+                    {author?.isVerified && (
+                      <span className="ml-1.5 text-[#7986eb] text-xs">✓</span>
+                    )}
                   </p>
-                  <p className="text-white/40 text-sm truncate">@{author?.username}</p>
+                  <p className="text-white/40 text-sm truncate">
+                    @{author?.username}
+                  </p>
                 </div>
               </Link>
             </div>
@@ -417,11 +784,15 @@ const PostDetailPage = () => {
                         className="w-7 h-7 rounded-lg border border-white/15 cursor-pointer
                           hover:scale-125 hover:ring-2 hover:ring-white/30 transition-all duration-200 shadow-lg"
                         style={{ backgroundColor: hex }}
-                        onClick={() => { navigator.clipboard?.writeText(hex) }}
+                        onClick={() => {
+                          navigator.clipboard?.writeText(hex)
+                        }}
                       />
-                      <span className="absolute -bottom-5 left-1/2 -translate-x-1/2
+                      <span
+                        className="absolute -bottom-5 left-1/2 -translate-x-1/2
                         text-[9px] text-white/40 opacity-0 group-hover:opacity-100
-                        transition-opacity whitespace-nowrap pointer-events-none">
+                        transition-opacity whitespace-nowrap pointer-events-none"
+                      >
                         {hex}
                       </span>
                     </motion.div>
@@ -433,7 +804,6 @@ const PostDetailPage = () => {
             {/* ── AI Prompt section (chỉ khi là AI post) ──── */}
             {isAiPost && (
               <div className="space-y-3">
-
                 {/* Tier badge — Founder */}
                 {tierAccess.isFounder && (
                   <div className="flex items-center gap-1.5 mb-1">
@@ -453,7 +823,12 @@ const PostDetailPage = () => {
 
                 {/* Main prompt */}
                 {post.prompt && (
-                  <PromptBlock text={post.prompt} variant="prompt" collapseAfter={6} parameters={post.parameters} />
+                  <PromptBlock
+                    text={post.prompt}
+                    variant="prompt"
+                    collapseAfter={6}
+                    parameters={post.parameters}
+                  />
                 )}
 
                 {/* Negative prompt — Pro gates ẩn/lock */}
@@ -485,14 +860,13 @@ const PostDetailPage = () => {
                     isLocked={!tierAccess.canExportJson}
                   />
                 )}
-
               </div>
             )}
 
             {/* ── Tags ────────────────────────────────── */}
             {post.tags?.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {post.tags.map(tag => (
+                {post.tags.map((tag) => (
                   <Link
                     key={tag}
                     to={`/search?q=${encodeURIComponent(tag)}`}
@@ -519,7 +893,10 @@ const PostDetailPage = () => {
                   exit={{ opacity: 0, y: 8 }}
                   transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
                   className="overflow-hidden rounded-xl"
-                  style={{ border: '1px solid rgba(255,255,255,0.07)', background: 'oklch(15% 0.01 285)' }}
+                  style={{
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    background: 'oklch(15% 0.01 285)',
+                  }}
                 >
                   <ExifPanel
                     exifData={post.exifData}
@@ -541,15 +918,21 @@ const PostDetailPage = () => {
               style={{ borderColor: 'rgba(255,255,255,0.07)' }}
             >
               {post.category && (
-                <span className="inline-flex items-center text-xs text-white/40 capitalize leading-none">{post.category}</span>
+                <span className="inline-flex items-center text-xs text-white/40 capitalize leading-none">
+                  {post.category}
+                </span>
               )}
               {post.resolution && (
-                <span className="inline-flex items-center text-xs font-bold uppercase leading-none" style={{ color: '#7986eb' }}>
+                <span
+                  className="inline-flex items-center text-xs font-bold uppercase leading-none"
+                  style={{ color: '#7986eb' }}
+                >
                   {post.resolution}
                 </span>
               )}
               {post.isPremium && (
-                <span className="group relative overflow-hidden inline-flex items-center gap-1.5
+                <span
+                  className="group relative overflow-hidden inline-flex items-center gap-1.5
                   px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide
                   bg-black/65 border border-amber-500/45 text-amber-400
                   backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.15)]
@@ -557,10 +940,15 @@ const PostDetailPage = () => {
                   hover:shadow-[0_0_18px_rgba(251,191,36,0.28)]"
                 >
                   {/* shimmer sweep */}
-                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                  <span
+                    className="absolute inset-0 -translate-x-full group-hover:translate-x-full
                     transition-transform duration-700 ease-out pointer-events-none
-                    bg-gradient-to-r from-transparent via-amber-300/25 to-transparent" />
-                  <GiCutDiamond size={10} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                    bg-gradient-to-r from-transparent via-amber-300/25 to-transparent"
+                  />
+                  <GiCutDiamond
+                    size={10}
+                    className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300"
+                  />
                   PREMIUM
                 </span>
               )}
@@ -574,7 +962,9 @@ const PostDetailPage = () => {
                 {post.exifData?.dateTaken && (
                   <div className="flex items-center gap-1.5">
                     <Camera size={11} className="text-white/30" />
-                    <span>Ngày chụp: {formatDate(post.exifData.dateTaken)}</span>
+                    <span>
+                      Ngày chụp: {formatDate(post.exifData.dateTaken)}
+                    </span>
                   </div>
                 )}
               </div>
@@ -587,15 +977,22 @@ const PostDetailPage = () => {
               </div>
               <div className="flex items-center gap-1.5 text-white/35 text-sm">
                 <Download size={14} />
-                <span>{(post.stats?.downloadsCount || 0).toLocaleString()}</span>
+                <span>
+                  {(post.stats?.downloadsCount || 0).toLocaleString()}
+                </span>
                 <span className="text-white/25 text-xs">tải về</span>
               </div>
             </div>
 
             {/* ── Actions ─────────────────────────────── */}
             <div className="space-y-3">
-              <PostDownloadButton post={post} onUnlock={() => setIsUnlocked(true)} />
-              <div className={`grid ${isOwnPost ? 'grid-cols-3' : 'grid-cols-4'} gap-2`}>
+              <PostDownloadButton
+                post={post}
+                onUnlock={() => setIsUnlocked(true)}
+              />
+              <div
+                className={`grid ${isOwnPost ? 'grid-cols-3' : 'grid-cols-4'} gap-2`}
+              >
                 <LikeButton
                   postId={post._id}
                   initialCount={post.stats?.likesCount || 0}
@@ -611,7 +1008,11 @@ const PostDetailPage = () => {
                 />
                 <motion.button
                   whileTap={{ scale: 0.95 }}
-                  animate={copied ? { scale: [1, 1.12, 0.95, 1], y: [0, -3, 0] } : { scale: 1, y: 0 }}
+                  animate={
+                    copied
+                      ? { scale: [1, 1.12, 0.95, 1], y: [0, -3, 0] }
+                      : { scale: 1, y: 0 }
+                  }
                   transition={{ duration: 0.45, ease: 'easeInOut' }}
                   onClick={handleShare}
                   disabled={shareLoading}
@@ -624,7 +1025,11 @@ const PostDetailPage = () => {
                     }`}
                 >
                   <motion.span
-                    animate={copied ? { rotate: [0, 360], scale: [1, 1.25, 1] } : { rotate: 0, scale: 1 }}
+                    animate={
+                      copied
+                        ? { rotate: [0, 360], scale: [1, 1.25, 1] }
+                        : { rotate: 0, scale: 1 }
+                    }
                     transition={{ duration: 0.4, ease: 'easeOut' }}
                     className="flex items-center justify-center shrink-0"
                   >
@@ -666,7 +1071,10 @@ const PostDetailPage = () => {
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   className="fixed inset-0 z-[350] flex items-center justify-center p-4"
-                  style={{ background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(10px)' }}
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.75)',
+                    backdropFilter: 'blur(10px)',
+                  }}
                 >
                   <motion.div
                     initial={{ scale: 0.9, y: 20 }}
@@ -679,10 +1087,13 @@ const PostDetailPage = () => {
                     <div className="absolute -top-10 -right-10 w-[150px] h-[150px] bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
 
                     <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                      <Flag className="text-red-400" size={20} /> Báo cáo bài viết
+                      <Flag className="text-red-400" size={20} /> Báo cáo bài
+                      viết
                     </h3>
                     <p className="text-xs text-white/50 mb-4 leading-relaxed">
-                      Giúp PicSpy giữ gìn môi trường nghệ thuật lành mạnh. Vui lòng chọn hoặc nhập lý do bài đăng này vi phạm tiêu chuẩn cộng đồng.
+                      Giúp PicSpy giữ gìn môi trường nghệ thuật lành mạnh. Vui
+                      lòng chọn hoặc nhập lý do bài đăng này vi phạm tiêu chuẩn
+                      cộng đồng.
                     </p>
 
                     <form onSubmit={handleReportSubmit} className="space-y-4">
@@ -705,7 +1116,12 @@ const PostDetailPage = () => {
                               checked={
                                 reportReason === preset ||
                                 (preset.startsWith('Lý do khác') &&
-                                  !['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                                  ![
+                                    'Nội dung nhạy cảm, người lớn (NSFW)',
+                                    'Bản quyền/Ăn cắp tác phẩm',
+                                    'Spam hoặc nội dung lừa đảo',
+                                    'Nội dung thù ghét, bạo lực',
+                                  ].includes(reportReason) &&
                                   reportReason.length > 0)
                               }
                               onChange={() => setReportReason(preset)}
@@ -717,18 +1133,28 @@ const PostDetailPage = () => {
                       </div>
 
                       {(reportReason.startsWith('Lý do khác') ||
-                        (!['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                        (![
+                          'Nội dung nhạy cảm, người lớn (NSFW)',
+                          'Bản quyền/Ăn cắp tác phẩm',
+                          'Spam hoặc nội dung lừa đảo',
+                          'Nội dung thù ghét, bạo lực',
+                        ].includes(reportReason) &&
                           reportReason.length > 0)) && (
                         <textarea
                           placeholder="Vui lòng nhập lý do cụ thể..."
                           rows={3}
                           onChange={(e) => setReportReason(e.target.value)}
                           value={
-                            ['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason)
+                            [
+                              'Nội dung nhạy cảm, người lớn (NSFW)',
+                              'Bản quyền/Ăn cắp tác phẩm',
+                              'Spam hoặc nội dung lừa đảo',
+                              'Nội dung thù ghét, bạo lực',
+                            ].includes(reportReason)
                               ? ''
                               : reportReason.startsWith('Lý do khác')
-                              ? ''
-                              : reportReason
+                                ? ''
+                                : reportReason
                           }
                           className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand-500/50 resize-none"
                           required
@@ -759,8 +1185,106 @@ const PostDetailPage = () => {
                 </motion.div>
               )}
             </AnimatePresence>
-
           </motion.div>
+        </div>
+
+        {/* ── DISCOVERY LOOP SECTIONS ────────────────── */}
+        <div className="mt-16 pt-12 border-t border-white/[0.05] space-y-12">
+          {discoveryLoading ? (
+            /* Discovery Loading Skeleton */
+            <div className="space-y-10 animate-pulse">
+              {[1, 2].map((row) => (
+                <div key={row} className="space-y-4">
+                  <div className="h-6 w-48 rounded bg-white/5" />
+                  <div className="flex gap-4 overflow-hidden">
+                    {[1, 2, 3, 4, 5].map((card) => (
+                      <div
+                        key={card}
+                        className="w-[240px] aspect-[3/4] rounded-2xl bg-white/5 shrink-0"
+                      />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : discoveryData ? (
+            <>
+              {/* 1. Ảnh tương tự (Category + Tag + Title) */}
+              <DiscoveryRow
+                title="Ảnh tương tự"
+                icon={Sparkles}
+                posts={discoveryData.similar}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.similar?.length || 0} ảnh`}
+                rowIndex={0}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 2. Theo màu (Fuzzy HSL matching) */}
+              <DiscoveryRow
+                title="Theo màu sắc"
+                icon={Palette}
+                posts={discoveryData.color}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.color?.length || 0} ảnh`}
+                rowIndex={1}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 3. Cùng Creator */}
+              <DiscoveryRow
+                title="Cùng Creator"
+                icon={Camera}
+                posts={discoveryData.creator}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.creator?.length || 0} ảnh`}
+                rowIndex={2}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 4. Trending */}
+              <DiscoveryRow
+                title="Trending tuần này"
+                icon={Zap}
+                posts={discoveryData.trending}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.trending?.length || 0} ảnh`}
+                rowIndex={3}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 5. Hidden Gems (Ngọc thô) */}
+              <DiscoveryRow
+                title="Hidden Gems (Ngọc thô)"
+                icon={GiCutDiamond}
+                posts={discoveryData.hiddenGems}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.hiddenGems?.length || 0} ảnh`}
+                rowIndex={4}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 6. Gợi ý cá nhân hóa (Personalized rows) */}
+              {discoveryData.recommendations?.map((rec, i) => (
+                <DiscoveryRow
+                  key={i}
+                  title={rec.title}
+                  icon={Heart}
+                  posts={rec.posts}
+                  onCardClick={handleCardClick}
+                  countText={`${rec.posts?.length || 0} ảnh`}
+                  rowIndex={5 + i}
+                  discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                  discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+                />
+              ))}
+            </>
+          ) : null}
         </div>
       </div>
     </motion.div>

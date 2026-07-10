@@ -2168,3 +2168,336 @@ export const deleteSourceHistoryImage = async (req, res, next) => {
     next(err)
   }
 }
+
+/**
+ * GET /posts/:id/discovery
+ * Lấy danh sách các bài viết cho phần Discovery của trang chi tiết
+ */
+export const getPostDiscovery = async (req, res, next) => {
+  try {
+    const currentPostId = req.params.id
+    const currentPost = await Post.findById(currentPostId).lean()
+    if (!currentPost) {
+      throw new AppError('NOT_FOUND', 'Không tìm thấy bài đăng', 404)
+    }
+
+    // 1. Cùng Creator (tối đa 8 ảnh, mới nhất)
+    const creatorPosts = await Post.find({
+      status: 'approved',
+      authorId: currentPost.authorId,
+      _id: { $ne: currentPost._id }
+    })
+      .sort({ createdAt: -1 })
+      .limit(8)
+      .populate('authorId', 'username displayName avatar isVerified')
+      .lean()
+
+    // 2. Ảnh tương tự (tối đa 12 ảnh)
+    // Cùng Category (+50đ), Trùng Tag (+15đ/tag), Trùng Keyword Title (+20đ/keyword)
+    const candidateSimilar = await Post.find({
+      status: 'approved',
+      _id: { $ne: currentPost._id },
+      $or: [
+        { category: currentPost.category },
+        { tags: { $in: currentPost.tags || [] } }
+      ]
+    })
+      .limit(100)
+      .populate('authorId', 'username displayName avatar isVerified')
+      .lean()
+
+    const currentTags = currentPost.tags || []
+    const currentTokens = (currentPost.caption || '').toLowerCase().split(/[\s,]+/).filter(Boolean)
+
+    const similarPosts = candidateSimilar.map(post => {
+      let score = 0
+      if (post.category === currentPost.category) {
+        score += 50
+      }
+      const overlappingTags = (post.tags || []).filter(t => currentTags.includes(t))
+      score += overlappingTags.length * 15
+
+      const postTokens = (post.caption || '').toLowerCase().split(/[\s,]+/).filter(Boolean)
+      const overlappingTokens = postTokens.filter(t => currentTokens.includes(t))
+      score += overlappingTokens.length * 20
+
+      return { ...post, similarityScore: score }
+    })
+
+    similarPosts.sort((a, b) => b.similarityScore - a.similarityScore || b.createdAt - a.createdAt)
+    const finalSimilar = similarPosts.slice(0, 12)
+
+    // 3. Theo màu (tối đa 12 ảnh) - dùng HSL distance
+    let finalColorPosts = []
+    if (currentPost.colorPalette && currentPost.colorPalette.length > 0) {
+      const targetHex = currentPost.colorPalette[0]
+      const allApprovedPosts = await Post.find({
+        status: 'approved',
+        _id: { $ne: currentPost._id },
+        colorPalette: { $exists: true, $not: { $size: 0 } }
+      })
+        .select('_id colorPalette createdAt stats authorId caption tags isPremium priceInVnd generatedImages images postType aiTool')
+        .lean()
+
+      const scoredColorPosts = allApprovedPosts.map(p => {
+        const minDist = Math.min(
+          ...p.colorPalette
+            .filter(hex => hex && hex.replace('#', '').length === 6)
+            .map(hex => colorDistance(hex, targetHex))
+        )
+        return { post: p, dist: minDist }
+      })
+
+      scoredColorPosts.sort((a, b) => a.dist - b.dist || b.post.createdAt - a.post.createdAt)
+      const top12ColorItems = scoredColorPosts.slice(0, 12).map(item => item.post)
+      
+      finalColorPosts = await Post.populate(top12ColorItems, {
+        path: 'authorId',
+        select: 'username displayName avatar isVerified'
+      })
+    }
+
+    // 4. Trending (tối đa 8 ảnh, công thức top tuần)
+    const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const weeklyTopPostStats = await Interaction.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: oneWeekAgo },
+          type: { $in: ['view', 'like', 'download', 'bookmark'] }
+        }
+      },
+      {
+        $group: {
+          _id: '$postId',
+          views: { $sum: { $cond: [{ $eq: ['$type', 'view'] }, 1, 0] } },
+          likes: { $sum: { $cond: [{ $eq: ['$type', 'like'] }, 1, 0] } },
+          downloads: { $sum: { $cond: [{ $eq: ['$type', 'download'] }, 1, 0] } },
+          bookmarks: { $sum: { $cond: [{ $eq: ['$type', 'bookmark'] }, 1, 0] } }
+        }
+      },
+      {
+        $addFields: {
+          score: {
+            $add: [
+              { $multiply: ['$views', 1] },
+              { $multiply: ['$downloads', 4] },
+              { $multiply: ['$likes', 2] },
+              { $multiply: ['$bookmarks', 3] }
+            ]
+          }
+        }
+      },
+      { $sort: { score: -1 } },
+      { $limit: 30 }
+    ])
+
+    const weeklyTopPostIds = weeklyTopPostStats.map(s => s._id).filter(id => id && id.toString() !== currentPost._id.toString())
+
+    let finalTrendingPosts = await Post.find({
+      _id: { $in: weeklyTopPostIds },
+      status: 'approved'
+    })
+      .populate('authorId', 'username displayName avatar isVerified')
+      .lean()
+
+    const trendingMap = new Map(finalTrendingPosts.map(p => [p._id.toString(), p]))
+    let orderedTrending = []
+    for (const stat of weeklyTopPostStats) {
+      if (stat._id && stat._id.toString() !== currentPost._id.toString()) {
+        const p = trendingMap.get(stat._id.toString())
+        if (p) {
+          orderedTrending.push(p)
+          if (orderedTrending.length >= 8) break
+        }
+      }
+    }
+
+    if (orderedTrending.length < 8) {
+      const existingIds = orderedTrending.map(p => p._id.toString())
+      existingIds.push(currentPost._id.toString())
+
+      const fallbackPosts = await Post.find({
+        status: 'approved',
+        _id: { $nin: existingIds }
+      })
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+
+      const scoredFallback = fallbackPosts.map(p => {
+        const views = p.stats?.viewsCount || 0
+        const downloads = p.stats?.downloadsCount || 0
+        const likes = p.stats?.likesCount || 0
+        const bookmarks = p.stats?.bookmarksCount || 0
+        const score = (views * 1) + (downloads * 4) + (likes * 2) + (bookmarks * 3)
+        return { post: p, score }
+      })
+
+      scoredFallback.sort((a, b) => b.score - a.score)
+      const needed = 8 - orderedTrending.length
+      const added = scoredFallback.slice(0, needed).map(item => item.post)
+      orderedTrending = [...orderedTrending, ...added]
+    }
+
+    // 5. Hidden Gems (tối đa 8 ảnh, view thấp + like cao + download cao)
+    const hiddenGems = await Post.aggregate([
+      {
+        $match: {
+          status: 'approved',
+          _id: { $ne: currentPost._id },
+          'stats.viewsCount': { $lt: 500 }
+        }
+      },
+      {
+        $addFields: {
+          gemScore: {
+            $divide: [
+              {
+                $add: [
+                  { $multiply: [{ $ifNull: ['$stats.likesCount', 0] }, 3] },
+                  { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 5] }
+                ]
+              },
+              { $add: [{ $ifNull: ['$stats.viewsCount', 0] }, 1] }
+            ]
+          }
+        }
+      },
+      { $sort: { gemScore: -1, _id: -1 } },
+      { $limit: 8 }
+    ])
+
+    const finalHiddenGems = await Post.populate(hiddenGems, {
+      path: 'authorId',
+      select: 'username displayName avatar isVerified'
+    })
+
+    // 6. Gợi ý cá nhân hóa cho User (recommendations)
+    let viewRecommendTitle = 'Gợi ý: Anime'
+    let viewRecommendQuery = { category: 'anime' }
+
+    let downloadRecommendTitle = 'Gợi ý: Girl'
+    let downloadRecommendQuery = { tags: 'girl' }
+
+    let likeRecommendTitle = 'Gợi ý: Black Outfit'
+    let likeRecommendQuery = { tags: 'black outfit' }
+
+    if (req.user) {
+      // Tìm bài viết đã xem gần nhất
+      const viewInteraction = await Interaction.findOne({
+        userId: req.user._id,
+        type: 'view',
+        postId: { $ne: currentPost._id }
+      })
+        .sort({ createdAt: -1 })
+        .populate('postId')
+        .lean()
+
+      if (viewInteraction && viewInteraction.postId) {
+        const lastView = viewInteraction.postId
+        viewRecommendTitle = `Vì bạn đã xem: ${lastView.category ? lastView.category.charAt(0).toUpperCase() + lastView.category.slice(1) : 'Thể loại tương tự'}`
+        viewRecommendQuery = { category: lastView.category }
+      }
+
+      // Tìm bài viết đã tải gần nhất
+      const downloadInteraction = await Interaction.findOne({
+        userId: req.user._id,
+        type: 'download',
+        postId: { $ne: currentPost._id }
+      })
+        .sort({ createdAt: -1 })
+        .populate('postId')
+        .lean()
+
+      if (downloadInteraction && downloadInteraction.postId) {
+        const lastDownload = downloadInteraction.postId
+        const tag = lastDownload.tags?.[0]
+        if (tag) {
+          downloadRecommendTitle = `Vì bạn đã tải: #${tag}`
+          downloadRecommendQuery = { tags: tag }
+        } else if (lastDownload.category) {
+          downloadRecommendTitle = `Vì bạn đã tải: ${lastDownload.category.charAt(0).toUpperCase() + lastDownload.category.slice(1)}`
+          downloadRecommendQuery = { category: lastDownload.category }
+        }
+      }
+
+      // Tìm bài viết đã thích gần nhất
+      const likeInteraction = await Interaction.findOne({
+        userId: req.user._id,
+        type: 'like',
+        postId: { $ne: currentPost._id }
+      })
+        .sort({ createdAt: -1 })
+        .populate('postId')
+        .lean()
+
+      if (likeInteraction && likeInteraction.postId) {
+        const lastLike = likeInteraction.postId
+        const tag = lastLike.tags?.[0]
+        if (tag) {
+          likeRecommendTitle = `Vì bạn đã thích: #${tag}`
+          likeRecommendQuery = { tags: tag }
+        } else if (lastLike.category) {
+          likeRecommendTitle = `Vì bạn đã thích: ${lastLike.category.charAt(0).toUpperCase() + lastLike.category.slice(1)}`
+          likeRecommendQuery = { category: lastLike.category }
+        }
+      }
+    }
+
+    const getRecommendationsForQuery = async (queryObj, limitNum = 8) => {
+      return await Post.find({
+        status: 'approved',
+        _id: { $ne: currentPost._id },
+        ...queryObj
+      })
+        .sort({ score: -1, createdAt: -1 })
+        .limit(limitNum)
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+    }
+
+    let viewPosts = await getRecommendationsForQuery(viewRecommendQuery, 8)
+    if (viewPosts.length < 4) {
+      viewRecommendTitle = 'Gợi ý: Anime'
+      viewPosts = await getRecommendationsForQuery({ category: 'anime' }, 8)
+    }
+
+    let downloadPosts = await getRecommendationsForQuery(downloadRecommendQuery, 8)
+    if (downloadPosts.length < 4) {
+      downloadRecommendTitle = 'Gợi ý: Girl'
+      downloadPosts = await getRecommendationsForQuery({ tags: 'girl' }, 8)
+    }
+
+    let likePosts = await getRecommendationsForQuery(likeRecommendQuery, 8)
+    if (likePosts.length < 4) {
+      likeRecommendTitle = 'Gợi ý: Black Outfit'
+      likePosts = await getRecommendationsForQuery({ tags: 'black outfit' }, 8)
+    }
+
+    res.json({
+      similar: finalSimilar,
+      color: finalColorPosts,
+      creator: creatorPosts,
+      trending: orderedTrending,
+      hiddenGems: finalHiddenGems,
+      recommendations: [
+        {
+          type: 'view',
+          title: viewRecommendTitle,
+          posts: viewPosts
+        },
+        {
+          type: 'download',
+          title: downloadRecommendTitle,
+          posts: downloadPosts
+        },
+        {
+          type: 'like',
+          title: likeRecommendTitle,
+          posts: likePosts
+        }
+      ]
+    })
+  } catch (err) {
+    next(err)
+  }
+}

@@ -142,6 +142,8 @@ app.get('/v1/settings', async (req, res, next) => {
       postDetailLayout: settings.postDetailLayout || 'left-image',
       categoriesPageStyle: settings.categoriesPageStyle || 'style-2',
       trendingCarouselInterval: settings.trendingCarouselInterval ?? 5000,
+      discoveryAutoScrollInterval: settings.discoveryAutoScrollInterval ?? 10000,
+      discoveryAutoScrollStagger: settings.discoveryAutoScrollStagger ?? 1000,
     })
   } catch (err) {
     next(err)

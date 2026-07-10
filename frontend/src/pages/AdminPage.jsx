@@ -1123,7 +1123,7 @@ const UsersTab = () => {
   const [roleLoading, setRoleLoading] = useState(false)
   // Detail modal
   const [detailModal, setDetailModal] = useState(null)
-  
+
   // CRUD states
   const [createModal, setCreateModal] = useState(false)
   const [createUserForm, setCreateUserForm] = useState({
@@ -1132,7 +1132,7 @@ const UsersTab = () => {
     displayName: '',
     password: '',
     role: 'user',
-    subscriptionTier: 'free'
+    subscriptionTier: 'free',
   })
   const [createUserLoading, setCreateUserLoading] = useState(false)
 
@@ -1144,7 +1144,7 @@ const UsersTab = () => {
     role: 'user',
     subscriptionTier: 'free',
     tokenBalance: 0,
-    vndBalance: 0
+    vndBalance: 0,
   })
   const [editUserLoading, setEditUserLoading] = useState(false)
 
@@ -1158,7 +1158,10 @@ const UsersTab = () => {
       return (
         <span className="text-[10px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-white/60 flex items-center gap-1">
           <Calendar size={11} className="text-violet-400" />
-          Tạo ngày: {user.createdAt ? new Date(user.createdAt).toLocaleDateString('vi-VN') : 'N/A'}
+          Tạo ngày:{' '}
+          {user.createdAt
+            ? new Date(user.createdAt).toLocaleDateString('vi-VN')
+            : 'N/A'}
         </span>
       )
     }
@@ -1172,11 +1175,19 @@ const UsersTab = () => {
     }
     if (sortBy === 'sub-expiring') {
       if (!user.subscriptionExpiry) return null
-      const daysLeft = Math.max(0, Math.ceil((new Date(user.subscriptionExpiry) - new Date()) / (1000 * 60 * 60 * 24)))
+      const daysLeft = Math.max(
+        0,
+        Math.ceil(
+          (new Date(user.subscriptionExpiry) - new Date()) /
+            (1000 * 60 * 60 * 24)
+        )
+      )
       return (
         <span className="text-[10px] px-2 py-0.5 rounded-md bg-red-600/10 border border-red-500/20 text-red-400 flex items-center gap-1 font-bold">
           <Hourglass size={11} className="text-red-400" />
-          Hết hạn: {new Date(user.subscriptionExpiry).toLocaleDateString('vi-VN')} ({daysLeft} ngày còn lại)
+          Hết hạn:{' '}
+          {new Date(user.subscriptionExpiry).toLocaleDateString('vi-VN')} (
+          {daysLeft} ngày còn lại)
         </span>
       )
     }
@@ -1235,7 +1246,7 @@ const UsersTab = () => {
         const { data } = await api.get('/admin/users', { params })
         setUsers(reset ? data.users : (u) => [...u, ...data.users])
         setHasMore(data.pagination.hasMore)
-        
+
         if (isCustomSort) {
           setPage(reset ? 1 : page + 1)
         } else {
@@ -1264,7 +1275,10 @@ const UsersTab = () => {
 
   useEffect(() => {
     const clickOutsideSort = (e) => {
-      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target)) {
+      if (
+        sortDropdownRef.current &&
+        !sortDropdownRef.current.contains(e.target)
+      ) {
         setIsSortDropdownOpen(false)
       }
     }
@@ -1274,7 +1288,14 @@ const UsersTab = () => {
 
   useEffect(() => {
     const isAnyModalOpen = !!(
-      detailModal || coinModal || vndModal || tierModal || banModal || roleModal || createModal || editModal
+      detailModal ||
+      coinModal ||
+      vndModal ||
+      tierModal ||
+      banModal ||
+      roleModal ||
+      createModal ||
+      editModal
     )
     const body = document.body
 
@@ -1286,7 +1307,7 @@ const UsersTab = () => {
           position: body.style.position,
           top: body.style.top,
           width: body.style.width,
-          scrollY
+          scrollY,
         }
         scrollLockRef.current = prev
         body.style.position = 'fixed'
@@ -1321,7 +1342,7 @@ const UsersTab = () => {
     !!banModal,
     !!roleModal,
     !!createModal,
-    !!editModal
+    !!editModal,
   ])
 
   const handleAdjustCoins = async () => {
@@ -1485,7 +1506,7 @@ const UsersTab = () => {
         displayName: '',
         password: '',
         role: 'user',
-        subscriptionTier: 'free'
+        subscriptionTier: 'free',
       })
       fetchUsers(true)
     } catch (err) {
@@ -1499,11 +1520,16 @@ const UsersTab = () => {
     e.preventDefault()
     setEditUserLoading(true)
     try {
-      const { data } = await api.put(`/admin/users/${editModal._id}`, editUserForm)
+      const { data } = await api.put(
+        `/admin/users/${editModal._id}`,
+        editUserForm
+      )
       toast.success(data.message)
       setEditModal(null)
       // Cập nhật danh sách user
-      setUsers(prev => prev.map(u => u._id === editModal._id ? data.user : u))
+      setUsers((prev) =>
+        prev.map((u) => (u._id === editModal._id ? data.user : u))
+      )
       // Cập nhật detail modal nếu đang xem
       if (detailModal && detailModal._id === editModal._id) {
         setDetailModal(data.user)
@@ -1516,20 +1542,23 @@ const UsersTab = () => {
   }
 
   const handleDeleteUser = async (user) => {
-    const confirm = window.confirm(`Bạn có chắc chắn muốn XÓA VĨNH VIỄN tài khoản @${user.username} và mọi bài đăng liên quan không? Hành động này không thể hoàn tác!`)
+    const confirm = window.confirm(
+      `Bạn có chắc chắn muốn XÓA VĨNH VIỄN tài khoản @${user.username} và mọi bài đăng liên quan không? Hành động này không thể hoàn tác!`
+    )
     if (!confirm) return
     try {
       const { data } = await api.delete(`/admin/users/${user._id}`)
       toast.success(data.message)
       setDetailModal(null)
       setEditModal(null)
-      setUsers(prev => prev.filter(u => u._id !== user._id))
+      setUsers((prev) => prev.filter((u) => u._id !== user._id))
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi xóa user')
     }
   }
 
-  const activeSort = SORT_OPTIONS.find(opt => opt.value === sortBy) || SORT_OPTIONS[0]
+  const activeSort =
+    SORT_OPTIONS.find((opt) => opt.value === sortBy) || SORT_OPTIONS[0]
   const ActiveIcon = activeSort.icon
 
   return (
@@ -1556,13 +1585,18 @@ const UsersTab = () => {
               className="input text-xs py-2 px-3.5 flex items-center justify-between gap-2.5 cursor-pointer min-w-[190px] sm:min-w-[210px] text-left hover:border-white/15 transition-all select-none"
             >
               <div className="flex items-center gap-2 truncate">
-                <ActiveIcon size={14} className="text-violet-400 flex-shrink-0" />
+                <ActiveIcon
+                  size={14}
+                  className="text-violet-400 flex-shrink-0"
+                />
                 <span className="truncate">{activeSort.label}</span>
               </div>
               <ChevronDown
                 size={14}
                 className="text-white/40 flex-shrink-0 transition-transform duration-200"
-                style={{ transform: isSortDropdownOpen ? 'rotate(180deg)' : 'none' }}
+                style={{
+                  transform: isSortDropdownOpen ? 'rotate(180deg)' : 'none',
+                }}
               />
             </button>
 
@@ -1591,7 +1625,10 @@ const UsersTab = () => {
                             : 'text-white/70 hover:bg-white/5 border border-transparent'
                         }`}
                       >
-                        <OptIcon size={13.5} className={`${isSelected ? 'text-violet-400' : 'text-white/30'} flex-shrink-0`} />
+                        <OptIcon
+                          size={13.5}
+                          className={`${isSelected ? 'text-violet-400' : 'text-white/30'} flex-shrink-0`}
+                        />
                         <span className="truncate">{opt.label}</span>
                       </button>
                     )
@@ -1609,7 +1646,7 @@ const UsersTab = () => {
                 displayName: '',
                 password: '',
                 role: 'user',
-                subscriptionTier: 'free'
+                subscriptionTier: 'free',
               })
               setCreateModal(true)
             }}
@@ -1679,7 +1716,8 @@ const UsersTab = () => {
                       style={{
                         background:
                           TIER_META[user.subscriptionTier || 'free']?.bg,
-                        color: TIER_META[user.subscriptionTier || 'free']?.color,
+                        color:
+                          TIER_META[user.subscriptionTier || 'free']?.color,
                         borderColor:
                           TIER_META[user.subscriptionTier || 'free']?.border,
                       }}
@@ -1689,7 +1727,9 @@ const UsersTab = () => {
                     </button>
                     {renderDynamicBadge(user)}
                   </div>
-                  <p className="text-xs text-white/40 truncate group-hover:text-white/60 transition-colors duration-300">{user.email}</p>
+                  <p className="text-xs text-white/40 truncate group-hover:text-white/60 transition-colors duration-300">
+                    {user.email}
+                  </p>
                 </div>
               </div>
               <div className="text-right flex-shrink-0">
@@ -2360,7 +2400,9 @@ const UsersTab = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[9999] flex items-center justify-center p-2 md:p-4 bg-black/85 backdrop-blur-sm overflow-hidden !mt-0"
-            onClick={(e) => e.target === e.currentTarget && setDetailModal(null)}
+            onClick={(e) =>
+              e.target === e.currentTarget && setDetailModal(null)
+            }
           >
             <motion.div
               initial={{ scale: 0.95, y: 15 }}
@@ -2393,8 +2435,14 @@ const UsersTab = () => {
                       </div>
                     )}
                     {detailModal.isVerified && (
-                      <span className="absolute -bottom-1 -right-1 bg-brand-500 text-white rounded-full p-1 border-2 border-zinc-950" title="Đã xác minh">
-                        <CheckCircle size={14} className="fill-white text-brand-600" />
+                      <span
+                        className="absolute -bottom-1 -right-1 bg-brand-500 text-white rounded-full p-1 border-2 border-zinc-950"
+                        title="Đã xác minh"
+                      >
+                        <CheckCircle
+                          size={14}
+                          className="fill-white text-brand-600"
+                        />
                       </span>
                     )}
                   </div>
@@ -2403,18 +2451,24 @@ const UsersTab = () => {
                     <div>
                       <h3 className="font-bold text-xl text-white flex flex-wrap items-center justify-center sm:justify-start gap-2 leading-none font-display">
                         {detailModal.displayName || detailModal.username}
-                        <span className="text-xs text-white/40 font-normal font-mono">@{detailModal.username}</span>
+                        <span className="text-xs text-white/40 font-normal font-mono">
+                          @{detailModal.username}
+                        </span>
                       </h3>
-                      <p className="text-xs text-white/40 mt-1">{detailModal.email}</p>
+                      <p className="text-xs text-white/40 mt-1">
+                        {detailModal.email}
+                      </p>
                     </div>
 
                     <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                       {/* Role badge */}
-                      <span className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
-                        detailModal.role === 'admin'
-                          ? 'bg-violet-600/10 border-violet-500/25 text-violet-400'
-                          : 'bg-white/5 border-white/10 text-white/50'
-                      }`}>
+                      <span
+                        className={`text-[10px] px-2.5 py-0.5 rounded-full font-bold border ${
+                          detailModal.role === 'admin'
+                            ? 'bg-violet-600/10 border-violet-500/25 text-violet-400'
+                            : 'bg-white/5 border-white/10 text-white/50'
+                        }`}
+                      >
                         {detailModal.role?.toUpperCase()}
                       </span>
 
@@ -2433,13 +2487,25 @@ const UsersTab = () => {
                       <span
                         className="text-[10px] px-2.5 py-0.5 rounded-full font-bold border"
                         style={{
-                          background: TIER_META[detailModal.subscriptionTier || 'free']?.bg,
-                          color: TIER_META[detailModal.subscriptionTier || 'free']?.color,
-                          borderColor: TIER_META[detailModal.subscriptionTier || 'free']?.border,
+                          background:
+                            TIER_META[detailModal.subscriptionTier || 'free']
+                              ?.bg,
+                          color:
+                            TIER_META[detailModal.subscriptionTier || 'free']
+                              ?.color,
+                          borderColor:
+                            TIER_META[detailModal.subscriptionTier || 'free']
+                              ?.border,
                         }}
                       >
-                        {TIER_META[detailModal.subscriptionTier || 'free']?.icon}{' '}
-                        {TIER_META[detailModal.subscriptionTier || 'free']?.label}
+                        {
+                          TIER_META[detailModal.subscriptionTier || 'free']
+                            ?.icon
+                        }{' '}
+                        {
+                          TIER_META[detailModal.subscriptionTier || 'free']
+                            ?.label
+                        }
                       </span>
                     </div>
                   </div>
@@ -2447,57 +2513,78 @@ const UsersTab = () => {
 
                 {/* Stats Counters Grid */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Thống kê hoạt động</h4>
+                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    Thống kê hoạt động
+                  </h4>
                   <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                     <div className="p-3 rounded-xl bg-white/[0.01] border border-white/5 text-center">
                       <p className="text-xl font-black text-white leading-none mb-1 tabular-nums">
                         {detailModal.stats?.postsCount || 0}
                       </p>
-                      <p className="text-[9px] font-bold text-white/40 uppercase">Bài đăng</p>
+                      <p className="text-[9px] font-bold text-white/40 uppercase">
+                        Bài đăng
+                      </p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/[0.01] border border-white/5 text-center">
                       <p className="text-xl font-black text-white leading-none mb-1 tabular-nums">
                         {detailModal.stats?.totalViews || 0}
                       </p>
-                      <p className="text-[9px] font-bold text-white/40 uppercase">Lượt xem</p>
+                      <p className="text-[9px] font-bold text-white/40 uppercase">
+                        Lượt xem
+                      </p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/[0.01] border border-white/5 text-center">
                       <p className="text-xl font-black text-white leading-none mb-1 tabular-nums">
                         {detailModal.stats?.totalDownloads || 0}
                       </p>
-                      <p className="text-[9px] font-bold text-white/40 uppercase">Lượt tải</p>
+                      <p className="text-[9px] font-bold text-white/40 uppercase">
+                        Lượt tải
+                      </p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/[0.01] border border-white/5 text-center">
                       <p className="text-xl font-black text-white leading-none mb-1 tabular-nums">
                         {detailModal.stats?.totalLikes || 0}
                       </p>
-                      <p className="text-[9px] font-bold text-white/40 uppercase">Yêu thích</p>
+                      <p className="text-[9px] font-bold text-white/40 uppercase">
+                        Yêu thích
+                      </p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/[0.01] border border-white/5 text-center">
                       <p className="text-xl font-black text-white leading-none mb-1 tabular-nums">
                         {detailModal.stats?.followersCount || 0}
                       </p>
-                      <p className="text-[9px] font-bold text-white/40 uppercase">Follower</p>
+                      <p className="text-[9px] font-bold text-white/40 uppercase">
+                        Follower
+                      </p>
                     </div>
                     <div className="p-3 rounded-xl bg-white/[0.01] border border-white/5 text-center">
                       <p className="text-xl font-black text-white leading-none mb-1 tabular-nums">
                         {detailModal.stats?.followingCount || 0}
                       </p>
-                      <p className="text-[9px] font-bold text-white/40 uppercase">Following</p>
+                      <p className="text-[9px] font-bold text-white/40 uppercase">
+                        Following
+                      </p>
                     </div>
                   </div>
                 </div>
 
                 {/* Financial Wallet Ledgers */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Số dư tài chính</h4>
+                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    Số dư tài chính
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     {/* Token Balance */}
                     <div className="p-3.5 rounded-xl bg-violet-600/5 border border-violet-500/15 flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-bold text-violet-400 uppercase leading-none mb-1">Số dư Token</p>
+                        <p className="text-[9px] font-bold text-violet-400 uppercase leading-none mb-1">
+                          Số dư Token
+                        </p>
                         <p className="text-xl font-black text-violet-300 leading-none tabular-nums">
-                          {detailModal.tokenBalance || 0} <span className="text-[10px] font-bold text-violet-400/70">token</span>
+                          {detailModal.tokenBalance || 0}{' '}
+                          <span className="text-[10px] font-bold text-violet-400/70">
+                            token
+                          </span>
                         </p>
                       </div>
                       <Coins size={18} className="text-violet-500/40" />
@@ -2506,9 +2593,14 @@ const UsersTab = () => {
                     {/* Available Balance */}
                     <div className="p-3.5 rounded-xl bg-emerald-600/5 border border-emerald-500/15 flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-bold text-emerald-400 uppercase leading-none mb-1">Ví khả dụng (VND)</p>
+                        <p className="text-[9px] font-bold text-emerald-400 uppercase leading-none mb-1">
+                          Ví khả dụng (VND)
+                        </p>
                         <p className="text-xl font-black text-emerald-300 leading-none tabular-nums">
-                          {(detailModal.vndBalance || 0).toLocaleString('vi-VN')}đ
+                          {(detailModal.vndBalance || 0).toLocaleString(
+                            'vi-VN'
+                          )}
+                          đ
                         </p>
                       </div>
                       <Wallet size={18} className="text-emerald-500/40" />
@@ -2517,9 +2609,14 @@ const UsersTab = () => {
                     {/* Holding Balance */}
                     <div className="p-3.5 rounded-xl bg-amber-600/5 border border-amber-500/15 flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-bold text-amber-400 uppercase leading-none mb-1">Tiền tạm giữ (Holding)</p>
+                        <p className="text-[9px] font-bold text-amber-400 uppercase leading-none mb-1">
+                          Tiền tạm giữ (Holding)
+                        </p>
                         <p className="text-xl font-black text-amber-300 leading-none tabular-nums">
-                          {(detailModal.holdingBalance || 0).toLocaleString('vi-VN')}đ
+                          {(detailModal.holdingBalance || 0).toLocaleString(
+                            'vi-VN'
+                          )}
+                          đ
                         </p>
                       </div>
                       <Clock size={18} className="text-amber-500/40" />
@@ -2528,9 +2625,14 @@ const UsersTab = () => {
                     {/* Locked Balance */}
                     <div className="p-3.5 rounded-xl bg-red-600/5 border border-red-500/15 flex items-center justify-between">
                       <div>
-                        <p className="text-[9px] font-bold text-red-400 uppercase leading-none mb-1">Đang khóa rút tiền</p>
+                        <p className="text-[9px] font-bold text-red-400 uppercase leading-none mb-1">
+                          Đang khóa rút tiền
+                        </p>
                         <p className="text-xl font-black text-red-300 leading-none tabular-nums">
-                          {(detailModal.lockedBalance || 0).toLocaleString('vi-VN')}đ
+                          {(detailModal.lockedBalance || 0).toLocaleString(
+                            'vi-VN'
+                          )}
+                          đ
                         </p>
                       </div>
                       <Shield size={18} className="text-red-500/40" />
@@ -2538,23 +2640,62 @@ const UsersTab = () => {
                   </div>
 
                   <div className="flex justify-between items-center text-xs text-white/40 bg-white/[0.01] border border-white/5 rounded-xl p-2.5">
-                    <span>Tổng thu nhập: <strong className="text-white">{(detailModal.totalEarned || 0).toLocaleString('vi-VN')}đ</strong></span>
+                    <span>
+                      Tổng thu nhập:{' '}
+                      <strong className="text-white">
+                        {(detailModal.totalEarned || 0).toLocaleString('vi-VN')}
+                        đ
+                      </strong>
+                    </span>
                     <span className="text-white/10">|</span>
-                    <span>Đã rút thành công: <strong className="text-white">{(detailModal.totalWithdrawn || 0).toLocaleString('vi-VN')}đ</strong></span>
+                    <span>
+                      Đã rút thành công:{' '}
+                      <strong className="text-white">
+                        {(detailModal.totalWithdrawn || 0).toLocaleString(
+                          'vi-VN'
+                        )}
+                        đ
+                      </strong>
+                    </span>
                   </div>
                 </div>
 
                 {/* Timeline Metadata */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">Dữ liệu & Thời gian</h4>
+                  <h4 className="text-[10px] font-bold text-white/40 uppercase tracking-widest">
+                    Dữ liệu & Thời gian
+                  </h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs text-white/50 bg-white/[0.01] border border-white/5 rounded-xl p-4">
                     <div className="flex justify-between border-b border-white/5 pb-2">
                       <span>Ngày tạo tài khoản:</span>
-                      <strong className="text-white">{detailModal.createdAt ? new Date(detailModal.createdAt).toLocaleDateString('vi-VN', { day: 'numeric', month: 'numeric', year: 'numeric' }) : 'N/A'}</strong>
+                      <strong className="text-white">
+                        {detailModal.createdAt
+                          ? new Date(detailModal.createdAt).toLocaleDateString(
+                              'vi-VN',
+                              {
+                                day: 'numeric',
+                                month: 'numeric',
+                                year: 'numeric',
+                              }
+                            )
+                          : 'N/A'}
+                      </strong>
                     </div>
                     <div className="flex justify-between border-b border-white/5 pb-2">
                       <span>Đăng nhập cuối:</span>
-                      <strong className="text-white">{detailModal.lastLoginAt ? new Date(detailModal.lastLoginAt).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: 'numeric', month: 'numeric' }) : 'Chưa đăng nhập'}</strong>
+                      <strong className="text-white">
+                        {detailModal.lastLoginAt
+                          ? new Date(detailModal.lastLoginAt).toLocaleString(
+                              'vi-VN',
+                              {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                day: 'numeric',
+                                month: 'numeric',
+                              }
+                            )
+                          : 'Chưa đăng nhập'}
+                      </strong>
                     </div>
                     <div className="flex justify-between sm:col-span-2 pt-1">
                       <span>Thời gian hết hạn gói:</span>
@@ -2609,7 +2750,7 @@ const UsersTab = () => {
                       role: detailModal.role || 'user',
                       subscriptionTier: detailModal.subscriptionTier || 'free',
                       tokenBalance: detailModal.tokenBalance || 0,
-                      vndBalance: detailModal.vndBalance || 0
+                      vndBalance: detailModal.vndBalance || 0,
                     })
                     setEditModal(detailModal)
                     setDetailModal(null)
@@ -2674,7 +2815,9 @@ const UsersTab = () => {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm !mt-0"
-            onClick={(e) => e.target === e.currentTarget && setCreateModal(false)}
+            onClick={(e) =>
+              e.target === e.currentTarget && setCreateModal(false)
+            }
           >
             <motion.div
               initial={{ scale: 0.95, y: 15 }}
@@ -2694,8 +2837,12 @@ const UsersTab = () => {
                   <Plus size={22} className="text-brand-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg font-display">Tạo tài khoản mới</h3>
-                  <p className="text-xs text-white/40">Cấp tài khoản trực tiếp làm việc trên PicSpy</p>
+                  <h3 className="font-bold text-lg font-display">
+                    Tạo tài khoản mới
+                  </h3>
+                  <p className="text-xs text-white/40">
+                    Cấp tài khoản trực tiếp làm việc trên PicSpy
+                  </p>
                 </div>
               </div>
 
@@ -2708,7 +2855,12 @@ const UsersTab = () => {
                     className="input text-xs"
                     placeholder="Nguyễn Văn A"
                     value={createUserForm.displayName}
-                    onChange={(e) => setCreateUserForm(prev => ({ ...prev, displayName: e.target.value }))}
+                    onChange={(e) =>
+                      setCreateUserForm((prev) => ({
+                        ...prev,
+                        displayName: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
@@ -2721,7 +2873,12 @@ const UsersTab = () => {
                       className="input text-xs"
                       placeholder="username"
                       value={createUserForm.username}
-                      onChange={(e) => setCreateUserForm(prev => ({ ...prev, username: e.target.value }))}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({
+                          ...prev,
+                          username: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                   <div>
@@ -2732,7 +2889,12 @@ const UsersTab = () => {
                       className="input text-xs"
                       placeholder="••••••••"
                       value={createUserForm.password}
-                      onChange={(e) => setCreateUserForm(prev => ({ ...prev, password: e.target.value }))}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({
+                          ...prev,
+                          password: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
@@ -2745,7 +2907,12 @@ const UsersTab = () => {
                     className="input text-xs"
                     placeholder="email@example.com"
                     value={createUserForm.email}
-                    onChange={(e) => setCreateUserForm(prev => ({ ...prev, email: e.target.value }))}
+                    onChange={(e) =>
+                      setCreateUserForm((prev) => ({
+                        ...prev,
+                        email: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
@@ -2755,10 +2922,19 @@ const UsersTab = () => {
                     <select
                       className="input text-xs py-2 pr-8 appearance-none cursor-pointer"
                       value={createUserForm.role}
-                      onChange={(e) => setCreateUserForm(prev => ({ ...prev, role: e.target.value }))}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({
+                          ...prev,
+                          role: e.target.value,
+                        }))
+                      }
                     >
-                      <option value="user" className="bg-[#121214]">👤 User (Thường)</option>
-                      <option value="admin" className="bg-[#121214]">🛡️ Admin (Quản trị)</option>
+                      <option value="user" className="bg-[#121214]">
+                        👤 User (Thường)
+                      </option>
+                      <option value="admin" className="bg-[#121214]">
+                        🛡️ Admin (Quản trị)
+                      </option>
                     </select>
                   </div>
                   <div>
@@ -2766,12 +2942,25 @@ const UsersTab = () => {
                     <select
                       className="input text-xs py-2 pr-8 appearance-none cursor-pointer"
                       value={createUserForm.subscriptionTier}
-                      onChange={(e) => setCreateUserForm(prev => ({ ...prev, subscriptionTier: e.target.value }))}
+                      onChange={(e) =>
+                        setCreateUserForm((prev) => ({
+                          ...prev,
+                          subscriptionTier: e.target.value,
+                        }))
+                      }
                     >
-                      <option value="free" className="bg-[#121214]">⭕ Miễn phí</option>
-                      <option value="pro" className="bg-[#121214]">💎 Gói Pro</option>
-                      <option value="ultimate" className="bg-[#121214]">👑 Gói Ultimate</option>
-                      <option value="founder" className="bg-[#121214]">⭐ Founder's Plan</option>
+                      <option value="free" className="bg-[#121214]">
+                        ⭕ Miễn phí
+                      </option>
+                      <option value="pro" className="bg-[#121214]">
+                        💎 Gói Pro
+                      </option>
+                      <option value="ultimate" className="bg-[#121214]">
+                        👑 Gói Ultimate
+                      </option>
+                      <option value="founder" className="bg-[#121214]">
+                        ⭐ Founder's Plan
+                      </option>
                     </select>
                   </div>
                 </div>
@@ -2789,7 +2978,11 @@ const UsersTab = () => {
                     disabled={createUserLoading}
                     className="btn-primary flex-1 flex items-center justify-center gap-1.5 font-display text-xs font-bold disabled:opacity-50 cursor-pointer"
                   >
-                    {createUserLoading ? <Loader2 size={14} className="animate-spin" /> : '✓ Tạo tài khoản'}
+                    {createUserLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      '✓ Tạo tài khoản'
+                    )}
                   </button>
                 </div>
               </form>
@@ -2829,8 +3022,12 @@ const UsersTab = () => {
                   <Pencil size={18} className="text-white/60" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg font-display">Chỉnh sửa thông tin</h3>
-                  <p className="text-xs text-white/40">Thay đổi thông tin cơ bản và số dư của @{editModal.username}</p>
+                  <h3 className="font-bold text-lg font-display">
+                    Chỉnh sửa thông tin
+                  </h3>
+                  <p className="text-xs text-white/40">
+                    Thay đổi thông tin cơ bản và số dư của @{editModal.username}
+                  </p>
                 </div>
               </div>
 
@@ -2843,7 +3040,12 @@ const UsersTab = () => {
                     className="input text-xs"
                     placeholder="Tên hiển thị"
                     value={editUserForm.displayName}
-                    onChange={(e) => setEditUserForm(prev => ({ ...prev, displayName: e.target.value }))}
+                    onChange={(e) =>
+                      setEditUserForm((prev) => ({
+                        ...prev,
+                        displayName: e.target.value,
+                      }))
+                    }
                   />
                 </div>
 
@@ -2856,7 +3058,12 @@ const UsersTab = () => {
                       className="input text-xs"
                       placeholder="username"
                       value={editUserForm.username}
-                      onChange={(e) => setEditUserForm(prev => ({ ...prev, username: e.target.value }))}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({
+                          ...prev,
+                          username: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                   <div>
@@ -2867,7 +3074,12 @@ const UsersTab = () => {
                       className="input text-xs"
                       placeholder="email@example.com"
                       value={editUserForm.email}
-                      onChange={(e) => setEditUserForm(prev => ({ ...prev, email: e.target.value }))}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
@@ -2881,7 +3093,12 @@ const UsersTab = () => {
                       min={0}
                       className="input text-xs"
                       value={editUserForm.tokenBalance}
-                      onChange={(e) => setEditUserForm(prev => ({ ...prev, tokenBalance: e.target.value }))}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({
+                          ...prev,
+                          tokenBalance: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                   <div>
@@ -2892,7 +3109,12 @@ const UsersTab = () => {
                       min={0}
                       className="input text-xs"
                       value={editUserForm.vndBalance}
-                      onChange={(e) => setEditUserForm(prev => ({ ...prev, vndBalance: e.target.value }))}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({
+                          ...prev,
+                          vndBalance: e.target.value,
+                        }))
+                      }
                     />
                   </div>
                 </div>
@@ -2904,10 +3126,19 @@ const UsersTab = () => {
                       className="input text-xs py-2 pr-8 appearance-none cursor-pointer disabled:opacity-40"
                       disabled={editModal._id === currentAdminId}
                       value={editUserForm.role}
-                      onChange={(e) => setEditUserForm(prev => ({ ...prev, role: e.target.value }))}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({
+                          ...prev,
+                          role: e.target.value,
+                        }))
+                      }
                     >
-                      <option value="user" className="bg-[#121214]">👤 User (Thường)</option>
-                      <option value="admin" className="bg-[#121214]">🛡️ Admin (Quản trị)</option>
+                      <option value="user" className="bg-[#121214]">
+                        👤 User (Thường)
+                      </option>
+                      <option value="admin" className="bg-[#121214]">
+                        🛡️ Admin (Quản trị)
+                      </option>
                     </select>
                   </div>
                   <div>
@@ -2915,12 +3146,25 @@ const UsersTab = () => {
                     <select
                       className="input text-xs py-2 pr-8 appearance-none cursor-pointer"
                       value={editUserForm.subscriptionTier}
-                      onChange={(e) => setEditUserForm(prev => ({ ...prev, subscriptionTier: e.target.value }))}
+                      onChange={(e) =>
+                        setEditUserForm((prev) => ({
+                          ...prev,
+                          subscriptionTier: e.target.value,
+                        }))
+                      }
                     >
-                      <option value="free" className="bg-[#121214]">⭕ Miễn phí</option>
-                      <option value="pro" className="bg-[#121214]">💎 Gói Pro</option>
-                      <option value="ultimate" className="bg-[#121214]">👑 Gói Ultimate</option>
-                      <option value="founder" className="bg-[#121214]">⭐ Founder's Plan</option>
+                      <option value="free" className="bg-[#121214]">
+                        ⭕ Miễn phí
+                      </option>
+                      <option value="pro" className="bg-[#121214]">
+                        💎 Gói Pro
+                      </option>
+                      <option value="ultimate" className="bg-[#121214]">
+                        👑 Gói Ultimate
+                      </option>
+                      <option value="founder" className="bg-[#121214]">
+                        ⭐ Founder's Plan
+                      </option>
                     </select>
                   </div>
                 </div>
@@ -2941,7 +3185,11 @@ const UsersTab = () => {
                     disabled={editUserLoading}
                     className="btn-primary flex-1 flex items-center justify-center gap-1.5 font-display text-xs font-bold disabled:opacity-50 cursor-pointer"
                   >
-                    {editUserLoading ? <Loader2 size={14} className="animate-spin" /> : '✓ Lưu thay đổi'}
+                    {editUserLoading ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      '✓ Lưu thay đổi'
+                    )}
                   </button>
                 </div>
               </form>
@@ -3399,6 +3647,12 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [savingLayout, setSavingLayout] = useState(false)
   const [trendingCarouselInterval, setTrendingCarouselInterval] = useState(5000)
   const [trendingCarouselSaving, setTrendingCarouselSaving] = useState(false)
+  const [discoveryAutoScrollInterval, setDiscoveryAutoScrollInterval] =
+    useState(10000)
+  const [discoveryAutoScrollStagger, setDiscoveryAutoScrollStagger] =
+    useState(1000)
+  const [savingDiscoveryAutoScroll, setSavingDiscoveryAutoScroll] =
+    useState(false)
 
   const [savedColors, setSavedColors] = useState({
     primary: '#7c3aed',
@@ -3513,6 +3767,12 @@ const SettingsTab = ({ onDirtyChange }) => {
         setPostDetailLayout(data.settings?.postDetailLayout || 'left-image')
         setTrendingCarouselInterval(
           data.settings?.trendingCarouselInterval ?? 5000
+        )
+        setDiscoveryAutoScrollInterval(
+          data.settings?.discoveryAutoScrollInterval ?? 10000
+        )
+        setDiscoveryAutoScrollStagger(
+          data.settings?.discoveryAutoScrollStagger ?? 1000
         )
         setSavedColors({
           primary,
@@ -3945,6 +4205,31 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi khi cập nhật bố cục')
     } finally {
       setSavingLayout(false)
+    }
+  }
+
+  const handleSaveDiscoveryAutoScrollSettings = async () => {
+    setSavingDiscoveryAutoScroll(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        discoveryAutoScrollInterval: Number(discoveryAutoScrollInterval),
+        discoveryAutoScrollStagger: Number(discoveryAutoScrollStagger),
+      })
+      setSettings(data.settings)
+      setDiscoveryAutoScrollInterval(
+        data.settings?.discoveryAutoScrollInterval ?? 10000
+      )
+      setDiscoveryAutoScrollStagger(
+        data.settings?.discoveryAutoScrollStagger ?? 1000
+      )
+      toast.success('💎 Đã cập nhật cài đặt tự động cuộn khám phá!')
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message ||
+          'Lỗi khi cập nhật cài đặt tự động cuộn khám phá'
+      )
+    } finally {
+      setSavingDiscoveryAutoScroll(false)
     }
   }
 
@@ -5618,6 +5903,85 @@ const SettingsTab = ({ onDirtyChange }) => {
                     </div>
                     <span className="text-xs font-semibold">Ảnh bên phải</span>
                   </button>
+                </div>
+              </div>
+
+              {/* Tự động cuộn phần Khám phá (Discovery Autoplay) */}
+              <div className="flex flex-col gap-3 p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <div className="flex items-center justify-between border-b border-white/5 pb-2 mb-1">
+                  <div>
+                    <h4 className="text-xs font-bold text-white mb-0.5 font-display">
+                      Tự động cuộn Khám phá (Autoplay Discovery)
+                    </h4>
+                    <p className="text-[11px] text-white/40">
+                      Tự động chuyển các hình ảnh trong mục Khám phá dưới chân
+                      trang chi tiết
+                    </p>
+                  </div>
+                  {savingDiscoveryAutoScroll && (
+                    <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold animate-pulse">
+                      Đang lưu...
+                    </span>
+                  )}
+                </div>
+
+                <div className="space-y-4">
+                  {/* Slider 1: Interval */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-white/50">
+                      <span>Thời gian chờ chuyển ảnh</span>
+                      <span className="text-brand-400 font-mono">
+                        {discoveryAutoScrollInterval === 0
+                          ? 'Tắt'
+                          : `${(discoveryAutoScrollInterval / 1000).toFixed(1)} giây`}
+                      </span>
+                    </div>
+                    <input type="input" style={{ display: 'none' }} />
+                    <input
+                      type="range"
+                      min={0}
+                      max={20000}
+                      step={1000}
+                      value={discoveryAutoScrollInterval}
+                      onChange={(e) =>
+                        setDiscoveryAutoScrollInterval(Number(e.target.value))
+                      }
+                      onMouseUp={handleSaveDiscoveryAutoScrollSettings}
+                      onTouchEnd={handleSaveDiscoveryAutoScrollSettings}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) 0%, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) ${(discoveryAutoScrollInterval / 20000) * 100}%, rgba(255,255,255,0.08) ${(discoveryAutoScrollInterval / 20000) * 100}%, rgba(255,255,255,0.08) 100%)`,
+                      }}
+                    />
+                  </div>
+
+                  {/* Slider 2: Stagger */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] font-semibold text-white/50">
+                      <span>
+                        Thời gian chuyển tiếp cách nhau giữa các mục (Stagger)
+                      </span>
+                      <span className="text-brand-400 font-mono">
+                        {(discoveryAutoScrollStagger / 1000).toFixed(1)} giây
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min={0}
+                      max={5000}
+                      step={500}
+                      value={discoveryAutoScrollStagger}
+                      onChange={(e) =>
+                        setDiscoveryAutoScrollStagger(Number(e.target.value))
+                      }
+                      onMouseUp={handleSaveDiscoveryAutoScrollSettings}
+                      onTouchEnd={handleSaveDiscoveryAutoScrollSettings}
+                      className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
+                      style={{
+                        background: `linear-gradient(to right, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) 0%, hsla(var(--color-brand-h), var(--color-brand-s), 55%, 1) ${(discoveryAutoScrollStagger / 5000) * 100}%, rgba(255,255,255,0.08) ${(discoveryAutoScrollStagger / 5000) * 100}%, rgba(255,255,255,0.08) 100%)`,
+                      }}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
