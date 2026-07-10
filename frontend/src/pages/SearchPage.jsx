@@ -1,3 +1,4 @@
+import { GiCutDiamond } from 'react-icons/gi'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -14,7 +15,7 @@ import {
   Check,
 } from 'lucide-react'
 import {
-  IoDiamond,
+
   IoSparkles,
   IoImages,
   IoLeafOutline,
@@ -469,7 +470,7 @@ const PostCard = ({
       <div className="absolute top-2 left-2 flex gap-1 flex-wrap">
         {post.isPremium && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/85 text-white backdrop-blur-sm shadow-md">
-            <IoDiamond size={10} className="text-amber-300" />
+            <GiCutDiamond size={10} className="text-amber-300" />
             PREMIUM
           </span>
         )}
@@ -519,13 +520,22 @@ const PostCard = ({
 // ── Main SearchPage ─────────────────────────────────────────────
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(() => searchParams.get('q') || '')
   const [activeCategory, setActiveCategory] = useState(() => searchParams.get('category') || 'all')
   const [activeSort, setActiveSort] = useState('new')
   const [isAIOnly, setIsAIOnly] = useState(false)
   const [activeColor, setActiveColor] = useState(null) // hex string
   const [colorThreshold, setColorThreshold] = useState(12) // strict match = 12, fuzzy match = 30
   const [showColorPanel, setShowColorPanel] = useState(false)
+
+  // Đồng bộ search query từ URL 'q' xuống state khi searchParams thay đổi
+  useEffect(() => {
+    const qParam = searchParams.get('q') || ''
+    if (qParam !== query) {
+      setQuery(qParam)
+      setDebouncedQuery?.(qParam)
+    }
+  }, [searchParams])
 
   // Đồng bộ activeCategory lên URL
   useEffect(() => {
@@ -579,7 +589,20 @@ const SearchPage = () => {
 
   const [selectedIndex, setSelectedIndex] = useState(null)
   const searchTimer = useRef(null)
-  const [debouncedQuery, setDebouncedQuery] = useState('')
+  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get('q') || '')
+
+  // Đồng bộ debouncedQuery lên URL 'q'
+  useEffect(() => {
+    const currentQ = searchParams.get('q') || ''
+    if (debouncedQuery !== currentQ) {
+      if (debouncedQuery.trim()) {
+        searchParams.set('q', debouncedQuery)
+      } else {
+        searchParams.delete('q')
+      }
+      setSearchParams(searchParams, { replace: true })
+    }
+  }, [debouncedQuery, searchParams, setSearchParams])
   const scrollContainerRef = useRef(null)
   const colorScrollRef = useRef(null)
 

@@ -11,7 +11,7 @@ import {
   ChevronDown,
   Sparkles,
 } from 'lucide-react'
-import { IoDiamond, IoImages, IoSparkles, IoLeafOutline, IoPlanetOutline, IoSquareOutline, IoColorPaletteOutline, IoBusinessOutline, IoRocketOutline, IoMoonOutline, IoSunnyOutline, IoColorWandOutline, IoEllipsisHorizontalOutline } from 'react-icons/io5'
+import { IoImages, IoSparkles, IoLeafOutline, IoPlanetOutline, IoSquareOutline, IoColorPaletteOutline, IoBusinessOutline, IoRocketOutline, IoMoonOutline, IoSunnyOutline, IoColorWandOutline, IoEllipsisHorizontalOutline } from 'react-icons/io5'
 import api from '../api/api'
 import { useSettings } from '../context/SettingsContext'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'

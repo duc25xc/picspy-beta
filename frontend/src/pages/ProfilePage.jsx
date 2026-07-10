@@ -6,7 +6,8 @@ import {
   Zap, Crown, Star, Settings, ChevronRight,
   ImageOff, Loader2, Camera, Film,
 } from 'lucide-react'
-import { IoDiamond, IoImages, IoSparkles } from 'react-icons/io5'
+import { IoImages, IoSparkles } from 'react-icons/io5'
+import { GiCutDiamond } from 'react-icons/gi'
 import useAuthStore from '../store/auth.store'
 import api from '../api/api'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
@@ -495,8 +496,15 @@ const ProfilePage = () => {
                   {/* TOP Badges */}
                   <div className="absolute top-2 left-2 flex gap-1 z-10 flex-wrap">
                     {post.isPremium && (
-                      <div className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-amber-500/90 text-white backdrop-blur-sm flex items-center justify-center">
-                        <IoDiamond size={10} className="text-white" />
+                      <div className="relative overflow-hidden text-[9px] px-2 py-0.5 rounded-full font-bold bg-black/60 border border-amber-500/35 text-amber-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
+                        {/* shimmer sweep on hover */}
+                        <span
+                          className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                          transition-transform duration-700
+                          bg-gradient-to-r from-transparent via-amber-300/20 to-transparent"
+                        />
+                        <GiCutDiamond size={10} className="text-amber-400 shrink-0" />
+                        <span>PREMIUM</span>
                       </div>
                     )}
                     {(post.postType === 'ai' || post.isAI) && (

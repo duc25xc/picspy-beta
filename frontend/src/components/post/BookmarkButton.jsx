@@ -65,8 +65,8 @@ const BookmarkButton = ({
       aria-label={bookmarked ? 'Bỏ lưu' : 'Lưu ảnh'}
     >
       <motion.div
-        animate={{ scale: bookmarked ? [1, 1.25, 1] : 1 }}
-        transition={{ duration: 0.25 }}
+        animate={{ scale: bookmarked ? [1, 1.45, 0.9, 1.1, 1] : 1 }}
+        transition={{ duration: 0.45, ease: [0.175, 0.885, 0.32, 1.275] }}
       >
         <Bookmark
           size={iconSize}

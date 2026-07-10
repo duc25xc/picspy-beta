@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import exifr from 'exifr'
+import mongoose from 'mongoose'
 import Post, { AI_TOOLS } from '../models/Post.model.js'
 import Category from '../models/Category.model.js'
 import AppError from '../utils/AppError.js'
@@ -915,10 +916,32 @@ export const getApprovedPosts = async (req, res, next) => {
       })
     }
 
-    // ─── RANDOM: Sample aggregation ──────────────────────────
+    // ─── RANDOM: Sample aggregation với infinite scroll ──────
+    // $sample không thể dùng cursor (vì mỗi lần sample là random mới).
+    // Strategy: client gửi excludeIds (các _id đã xem), server loại ra trước
+    // khi sample → không trùng lặp. hasMore luôn true miễn DB còn đủ posts.
     if (sort === 'random') {
+      // Parse excludeIds từ query: ?excludeIds=id1,id2,id3
+      let excludeIds = []
+      if (req.query.excludeIds) {
+        try {
+          excludeIds = req.query.excludeIds
+            .split(',')
+            .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .map(id => new mongoose.Types.ObjectId(id))
+        } catch { excludeIds = [] }
+      }
+
+      const randomMatch = { ...baseMatch }
+      if (excludeIds.length > 0) {
+        randomMatch._id = { $nin: excludeIds }
+      }
+
+      // Đếm tổng posts còn lại sau khi lọc excludeIds
+      const totalRemaining = await Post.countDocuments(randomMatch)
+
       const pipeline = [
-        { $match: baseMatch },
+        { $match: randomMatch },
         { $sample: { size: parseInt(limit) } },
         {
           $lookup: {
@@ -942,9 +965,11 @@ export const getApprovedPosts = async (req, res, next) => {
         { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } }
       ]
       const posts = await Post.aggregate(pipeline)
+      // hasMore = còn posts trong DB chưa được sample (chưa có trong excludeIds)
+      const hasMore = totalRemaining > parseInt(limit)
       return res.json({
         posts,
-        pagination: { hasMore: false, nextCursor: null, count: posts.length },
+        pagination: { hasMore, nextCursor: null, count: posts.length },
         sortMode: 'random',
         stats,
       })
@@ -954,6 +979,7 @@ export const getApprovedPosts = async (req, res, next) => {
     const query = { ...baseMatch }
     if (cursor) {
       if (sort === 'top') {
+        // Keyset 2 trường: (likesCount, _id) — tránh gap khi nhiều post có likes bằng nhau
         const cursorPost = await Post.findById(cursor)
         if (cursorPost) {
           const cursorLikes = cursorPost.stats?.likesCount || 0
@@ -962,7 +988,38 @@ export const getApprovedPosts = async (req, res, next) => {
             { 'stats.likesCount': cursorLikes, _id: { $lt: cursorPost._id } }
           ]
         }
+      } else if (sort === 'recommended') {
+        // Keyset 3 trường: (isFeatured, viewsCount, _id)
+        // Sort order: isFeatured DESC → viewsCount DESC → _id DESC
+        // Để đúng thứ tự, cần xét vị trí của cursor post trong không gian sắp xếp đó.
+        //
+        //  Case A — cursor đang ở vùng featured (isFeatured=true):
+        //    Trang tiếp = featured có views thấp hơn  →  hoặc  →  tất cả non-featured
+        //
+        //  Case B — cursor đang ở vùng non-featured (isFeatured=false/null):
+        //    Trang tiếp = non-featured có views thấp hơn (không còn featured nào nữa)
+        const cursorPost = await Post.findById(cursor)
+        if (cursorPost) {
+          const cursorViews  = cursorPost.stats?.viewsCount || 0
+          const cursorFeatured = !!cursorPost.isFeatured
+
+          if (cursorFeatured) {
+            // Vẫn còn trong vùng featured HOẶC bắt đầu vùng non-featured
+            query.$or = [
+              { isFeatured: true,  'stats.viewsCount': { $lt: cursorViews } },
+              { isFeatured: true,  'stats.viewsCount': cursorViews, _id: { $lt: cursorPost._id } },
+              { isFeatured: { $ne: true } },                         // toàn bộ non-featured
+            ]
+          } else {
+            // Đang trong vùng non-featured rồi — không lùi về featured
+            query.$or = [
+              { isFeatured: { $ne: true }, 'stats.viewsCount': { $lt: cursorViews } },
+              { isFeatured: { $ne: true }, 'stats.viewsCount': cursorViews, _id: { $lt: cursorPost._id } },
+            ]
+          }
+        }
       } else {
+        // 'new' — sort theo _id DESC, cursor đơn giản
         query._id = { $lt: cursor }
       }
     }

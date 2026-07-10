@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react'
 import api from '../api/api'
 import toast from 'react-hot-toast'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import PostDetailModal from '../components/post/PostDetailModal'
 import { useSettings } from '../context/SettingsContext'
 import useModalUrl from '../hooks/useModalUrl'
@@ -20,7 +20,9 @@ import {
   Shuffle,
   Lightbulb,
   RefreshCw,
+  Bookmark,
 } from 'lucide-react'
+import { GiCutDiamond } from 'react-icons/gi'
 
 // Dimensions & pre-crop logic for magazine look
 const CARD_PATTERN = [
@@ -98,10 +100,15 @@ export default function ExplorePage() {
   const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
   const navigate = useNavigate()
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab') || 'new'
+  const initialPostType = searchParams.get('postType') || 'all'
+  const initialCategory = searchParams.get('category') || 'all'
+
   // Filter states
-  const [activeTab, setActiveTab] = useState('new')
-  const [activePostType, setActivePostType] = useState('all')
-  const [activeCategory, setActiveCategory] = useState('all')
+  const [activeTab, setActiveTab] = useState(initialTab)
+  const [activePostType, setActivePostType] = useState(initialPostType)
+  const [activeCategory, setActiveCategory] = useState(initialCategory)
   const [onlyShowExif, setOnlyShowExif] = useState(true)
 
   // Posts & pagination states
@@ -112,6 +119,9 @@ export default function ExplorePage() {
   const [loadingMore, setLoadingMore] = useState(false)
   const [isEmpty, setIsEmpty] = useState(false)
   const [selectedIndex, setSelectedIndex] = useState(null)
+
+  // Track IDs already loaded in random tab to avoid duplicates on next page
+  const seenIdsRef = useRef(new Set())
 
   // Stats badge counts
   const [tabStats, setTabStats] = useState({
@@ -189,6 +199,7 @@ export default function ExplorePage() {
         setLoading(true)
         setCursor(null)
         setIsEmpty(false)
+        seenIdsRef.current = new Set() // clear seen IDs on filter change / manual refresh
       } else {
         if (loadingMore || !hasMore) return
         setLoadingMore(true)
@@ -213,8 +224,14 @@ export default function ExplorePage() {
           params.hasExif = 'true'
         }
 
-        if (!reset && cursor) {
+        // Cursor pagination for non-random tabs
+        if (!reset && cursor && currentTabObj.key !== 'random') {
           params.cursor = cursor
+        }
+
+        // Random tab: send already-seen IDs so backend can exclude them
+        if (currentTabObj.key === 'random' && !reset && seenIdsRef.current.size > 0) {
+          params.excludeIds = [...seenIdsRef.current].join(',')
         }
 
         const { data } = await api.get(currentTabObj.endpoint, { params })
@@ -228,6 +245,12 @@ export default function ExplorePage() {
         }
 
         const newPosts = data.posts || []
+
+        // Track seen IDs for random dedup
+        if (currentTabObj.key === 'random') {
+          newPosts.forEach(p => seenIdsRef.current.add(p._id))
+        }
+
         setPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]))
         setHasMore(data.pagination?.hasMore || false)
         setCursor(data.pagination?.nextCursor || null)
@@ -252,6 +275,14 @@ export default function ExplorePage() {
   // Fetch on filters change
   useEffect(() => {
     fetchPosts(true)
+    setSearchParams(
+      {
+        tab: activeTab,
+        postType: activePostType,
+        category: activeCategory,
+      },
+      { replace: true }
+    )
   }, [activeTab, activePostType, activeCategory, onlyShowExif]) // eslint-disable-line
 
   // Infinite Scroll IntersectionObserver
@@ -437,17 +468,57 @@ export default function ExplorePage() {
                     transition={{ duration: 0.25, ease: 'easeOut' }}
                     className="flex items-center"
                   >
-                    <button
+                    <motion.button
                       onClick={() => fetchPosts(true)}
                       disabled={loading}
-                      className="flex items-center gap-2 bg-[#1a172e]/30 hover:bg-[#1a172e]/55 backdrop-blur-md px-4 py-2.5 rounded-xl border transition-all text-xs font-semibold text-white/70 hover:text-white cursor-pointer select-none active:scale-95 disabled:opacity-50"
+                      whileTap={{ scale: 0.93 }}
+                      whileHover={{ scale: 1.03 }}
+                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      className="relative flex items-center gap-2 backdrop-blur-md px-4 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer select-none overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{
-                        borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
+                        background: loading ? 'rgba(26,23,46,0.55)' : 'rgba(26,23,46,0.30)',
+                        borderColor: loading
+                          ? 'hsla(var(--color-brand-h), var(--color-brand-s), 60%, 0.35)'
+                          : 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
+                        color: loading ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)',
+                        transition: 'background 0.2s, border-color 0.2s, color 0.2s',
+                        boxShadow: loading
+                          ? '0 0 18px hsla(var(--color-brand-h), var(--color-brand-s), 55%, 0.18)'
+                          : 'none',
                       }}
                     >
-                      <RefreshCw size={12} className={`${loading ? 'animate-spin' : ''}`} />
-                      Làm mới ngẫu nhiên
-                    </button>
+                      {/* Shimmer sweep while loading */}
+                      {loading && (
+                        <motion.span
+                          className="absolute inset-0 pointer-events-none"
+                          style={{
+                            background:
+                              'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.07) 50%, transparent 65%)',
+                            backgroundSize: '200% 100%',
+                          }}
+                          animate={{ backgroundPosition: ['200% 0', '-200% 0'] }}
+                          transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                        />
+                      )}
+
+                      {/* Icon — spin driven by framer-motion, reacts instantly */}
+                      <motion.span
+                        animate={{ rotate: loading ? 360 : 0 }}
+                        transition={
+                          loading
+                            ? { duration: 0.7, repeat: Infinity, ease: 'linear' }
+                            : { duration: 0.35, ease: 'easeOut' }
+                        }
+                        style={{ display: 'inline-flex', flexShrink: 0 }}
+                      >
+                        <RefreshCw size={13} />
+                      </motion.span>
+
+                      {/* Label */}
+                      <span className="relative z-10">
+                        {loading ? 'Đang tải...' : 'Làm mới ngẫu nhiên'}
+                      </span>
+                    </motion.button>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -591,14 +662,15 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
   return (
     <div
       onClick={() => onClick?.(post, index)}
-      className="group relative w-full h-full overflow-hidden rounded-2xl cursor-pointer border border-white/5 transition-all duration-500 ease-out hover:-translate-y-0.5 shadow-md"
+      className="group relative w-full h-full overflow-hidden rounded-2xl cursor-pointer border border-white/5 transition-all duration-500 ease-out hover:-translate-y-0.5 shadow-md transform-gpu backface-visibility-hidden will-change-transform"
+      style={{ isolation: 'isolate' }}
     >
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 overflow-hidden rounded-2xl transform-gpu backface-visibility-hidden">
         {displayUrl ? (
           <img
             src={displayUrl}
             alt={post.caption || 'Explore Art'}
-            className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-750 ease-out"
+            className="w-full h-full object-cover group-hover:scale-[1.05] transition-transform duration-750 ease-out will-change-transform transform-gpu backface-visibility-hidden"
             loading="lazy"
           />
         ) : (
@@ -617,20 +689,31 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
       />
 
       {/* Top badges */}
-      <div className="absolute top-3 left-3 flex gap-1.5 z-10">
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
         {post.isPremium && (
-          <span className="relative overflow-hidden flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[9px] font-black pj bg-gradient-to-r from-amber-500 to-orange-400 text-white shadow-sm">
-            💎 PRO
+          <span className="group relative overflow-hidden inline-flex items-center gap-1.5
+            px-2.5 py-1 rounded-full text-[9px] font-black leading-none
+            bg-black/65 border border-amber-500/45 text-amber-400
+            backdrop-blur-md shadow-[0_0_10px_rgba(251,191,36,0.15)]
+            cursor-default select-none transition-shadow duration-300
+            hover:shadow-[0_0_16px_rgba(251,191,36,0.28)]"
+          >
+            {/* shimmer sweep */}
+            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+              transition-transform duration-700 ease-out pointer-events-none
+              bg-gradient-to-r from-transparent via-amber-300/25 to-transparent" />
+            <GiCutDiamond size={9} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+            PREMIUM
           </span>
         )}
         {post.aiTool && (
-          <span className="bg-brand-500/25 border border-brand-500/25 text-brand-200 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm pj">
+          <span className="inline-flex items-center leading-none bg-brand-500/25 border border-brand-500/25 text-brand-200 px-2 py-1 rounded-full text-[9px] font-bold backdrop-blur-sm pj">
             ✨ AI
           </span>
         )}
         {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
           <span
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm pj"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-[9px] font-bold leading-none backdrop-blur-sm pj"
             style={{
               background: 'rgba(99,102,241,0.35)',
               color: 'rgba(199,210,254,0.95)',
@@ -666,13 +749,24 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
           </div>
 
           <div className="flex items-center gap-2 text-white/70 text-[10px] font-bold shrink-0">
-            <span className="flex items-center gap-0.5">
+            <span className="flex items-center gap-0.5" title="Lượt thích">
               <Heart size={10} className="fill-red-400 text-red-400" />
               {(post.stats?.likesCount || 0).toLocaleString()}
             </span>
-            <span className="flex items-center gap-0.5">
-              <Eye size={10} className="text-blue-300" />
+            <span className="flex items-center gap-0.5" title="Lượt xem">
+              {/* Custom Solid Eye Icon for premium layout */}
+              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-blue-300 shrink-0">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              </svg>
               {(post.stats?.viewsCount || 0).toLocaleString()}
+            </span>
+            <span className="flex items-center gap-0.5" title="Lượt lưu">
+              <Bookmark size={10} className="text-amber-400 fill-amber-400" />
+              {(post.stats?.bookmarksCount || 0).toLocaleString()}
+            </span>
+            <span className="flex items-center gap-0.5" title="Lượt tải">
+              <Download size={10} className="text-emerald-400" />
+              {(post.stats?.downloadsCount || 0).toLocaleString()}
             </span>
           </div>
         </div>

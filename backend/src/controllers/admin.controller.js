@@ -3,6 +3,7 @@ import User from '../models/User.model.js'
 import Category from '../models/Category.model.js'
 import Settings from '../models/Settings.model.js'
 import AuditLog from '../models/AuditLog.model.js'
+import Report from '../models/Report.model.js'
 import AppError from '../utils/AppError.js'
 import { logAdminAction } from '../utils/auditLogger.js'
 
@@ -836,6 +837,105 @@ export const rejectWithdrawal = async (req, res, next) => {
       transaction: result.transaction
     })
   } catch (err) { next(err) }
+}
+
+// =============================================
+// REPORT MANAGEMENT
+// =============================================
+
+/** GET /admin/reports */
+export const getAdminReports = async (req, res, next) => {
+  try {
+    const { status = 'pending', cursor, limit = 20 } = req.query
+    const query = {}
+    if (status !== 'all') query.status = status
+    if (cursor) query._id = { $lt: cursor }
+
+    const reports = await Report.find(query)
+      .sort({ _id: -1 })
+      .limit(parseInt(limit) + 1)
+      .populate('reporterId', 'username displayName avatar email')
+      .populate({
+        path: 'postId',
+        populate: {
+          path: 'authorId',
+          select: 'username displayName avatar email',
+        }
+      })
+      .lean()
+
+    const hasMore = reports.length > parseInt(limit)
+    if (hasMore) reports.pop()
+
+    const [pendingCount, resolvedCount, dismissedCount] = await Promise.all([
+      Report.countDocuments({ status: 'pending' }),
+      Report.countDocuments({ status: 'resolved' }),
+      Report.countDocuments({ status: 'dismissed' }),
+    ])
+
+    res.json({
+      reports,
+      stats: {
+        pending: pendingCount,
+        resolved: resolvedCount,
+        dismissed: dismissedCount,
+        total: pendingCount + resolvedCount + dismissedCount,
+      },
+      pagination: {
+        hasMore,
+        nextCursor: hasMore ? reports[reports.length - 1]._id : null,
+      }
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** PATCH /admin/reports/:id/action */
+export const updateReportStatus = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { action } = req.body // 'dismiss' | 'resolve_hide'
+
+    const report = await Report.findById(id)
+    if (!report) {
+      throw new AppError('NOT_FOUND', 'Không tìm thấy báo cáo', 404)
+    }
+
+    if (action === 'dismiss') {
+      report.status = 'dismissed'
+      await report.save()
+
+      // Log admin action
+      await logAdminAction(req.user._id, 'REPORT_DISMISS', report.postId, 'Post', {
+        reportId: id
+      })
+    } else if (action === 'resolve_hide') {
+      report.status = 'resolved'
+      await report.save()
+
+      // Hide the post
+      const post = await Post.findById(report.postId)
+      if (post) {
+        post.status = 'hidden'
+        await post.save()
+      }
+
+      // Log admin action
+      await logAdminAction(req.user._id, 'REPORT_RESOLVE_HIDE', report.postId, 'Post', {
+        reportId: id
+      })
+    } else {
+      throw new AppError('BAD_REQUEST', 'Hành động không hợp lệ', 400)
+    }
+
+    res.json({
+      success: true,
+      report,
+    })
+  } catch (err) {
+    next(err)
+  }
 }
 
 

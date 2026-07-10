@@ -20,6 +20,7 @@ import {
   toggleLike,
   toggleBookmark,
   trackView,
+  reportPost,
 } from '../controllers/post.interaction.controller.js'
 import {
   createComment,
@@ -135,6 +136,9 @@ router.post('/:id/bookmark', authenticate, toggleBookmark)
 
 /** POST /posts/:id/view — Track view (optionalAuth: guest cũng đếm) */
 router.post('/:id/view', optionalAuth, trackView)
+
+/** POST /posts/:id/report — Báo cáo bài đăng vi phạm */
+router.post('/:id/report', authenticate, reportPost)
 
 // =====================
 // COMMENTS

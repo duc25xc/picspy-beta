@@ -13,8 +13,11 @@ import {
   UserPlus,
   UserCheck,
   Maximize2,
+  Flag,
+  Check,
 } from 'lucide-react'
-import { IoDiamond, IoSparkles } from 'react-icons/io5'
+import { IoSparkles } from 'react-icons/io5'
+import { GiCutDiamond } from 'react-icons/gi'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
@@ -95,11 +98,16 @@ const AuthorAvatar = ({ user, size = 10 }) => {
 
 /* ─── Color Palette Display ───────────────────────────────────── */
 const ColorPaletteStrip = ({ palette }) => {
+  const handleCopy = (hex) => {
+    navigator.clipboard?.writeText(hex)
+    toast.success(`Đã sao chép: ${hex} 🎨`, { id: `copy-${hex}`, duration: 1500 })
+  }
+
   if (!palette?.length) return null
   return (
     <div className="px-5 py-2.5 border-b border-white/8">
       <p className="text-[10px] text-white/25 mb-2 font-medium tracking-wider uppercase">
-        Màu chủ đạo
+        Màu chủ đạo (Click để copy)
       </p>
       <div className="flex gap-2 items-center">
         {palette.slice(0, 6).map((hex, i) => (
@@ -108,12 +116,13 @@ const ColorPaletteStrip = ({ palette }) => {
             initial={{ scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             transition={{ delay: i * 0.06 + 0.2 }}
-            title={hex}
+            title={`Click để copy: ${hex}`}
             className="group relative"
           >
             <div
+              onClick={() => handleCopy(hex)}
               className="w-6 h-6 rounded-lg border border-white/15 cursor-pointer
-                hover:scale-125 hover:ring-2 hover:ring-white/30 transition-all duration-200 shadow-lg"
+                hover:scale-125 hover:ring-2 hover:ring-white/30 transition-all duration-200 shadow-lg active:scale-95"
               style={{ backgroundColor: hex }}
             />
             {/* Tooltip hex */}
@@ -155,6 +164,12 @@ const PostDetailModal = ({
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [ambientReady, setAmbientReady] = useState(false)
+
+  // Feedback states
+  const [copied, setCopied] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reporting, setReporting] = useState(false)
 
   /* Tính ambient gradient memoized — chỉ recompute khi palette đổi */
   const ambientGradient = useMemo(
@@ -344,8 +359,38 @@ const PostDetailModal = ({
   const handleShare = () => {
     navigator.clipboard
       .writeText(`${window.location.origin}/posts/${postId}`)
-      .then(() => toast.success('Đã sao chép link!'))
+      .then(() => {
+        setCopied(true)
+        toast.success('Đã sao chép link!')
+        setTimeout(() => setCopied(false), 1500)
+      })
       .catch(() => toast.error('Không thể sao chép'))
+  }
+
+  /* ─── Report ── */
+  const handleReportSubmit = async (e) => {
+    e.preventDefault()
+    if (!isLoggedIn) {
+      toast('Đăng nhập để báo cáo vi phạm 🔒')
+      return
+    }
+    if (!reportReason.trim()) {
+      toast.error('Vui lòng chọn hoặc điền lý do')
+      return
+    }
+
+    setReporting(true)
+    try {
+      await api.post(`/posts/${postId}/report`, { reason: reportReason })
+      toast.success('Gửi báo cáo thành công! Admin sẽ kiểm duyệt.')
+      setShowReportDialog(false)
+      setReportReason('')
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Không thể gửi báo cáo'
+      toast.error(msg)
+    } finally {
+      setReporting(false)
+    }
   }
 
   const firstImg = post?.generatedImages?.[0] || post?.images?.[0]
@@ -509,12 +554,14 @@ const PostDetailModal = ({
               {post?.tags?.length > 0 && (
                 <div className="flex flex-wrap gap-1.5">
                   {post.tags.map((tag) => (
-                    <span
+                    <Link
                       key={tag}
-                      className="badge-brand flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium"
+                      to={`/search?q=${encodeURIComponent(tag)}`}
+                      onClick={() => onClose?.()}
+                      className="badge-brand flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-medium hover:bg-brand-500/25 hover:text-white transition-colors cursor-pointer select-none"
                     >
                       <Tag size={9} />#{tag}
-                    </span>
+                    </Link>
                   ))}
                 </div>
               )}
@@ -594,15 +641,29 @@ const PostDetailModal = ({
                   </span>
                 )}
                 {post.isPremium && (
-                  <span className="text-xs text-amber-400 font-medium flex items-center gap-1">
-                    <IoDiamond size={11} className="text-amber-400" />
-                    Premium
+                  <span className="group relative overflow-hidden inline-flex items-center gap-1.5
+                    px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide
+                    bg-black/65 border border-amber-500/45 text-amber-400
+                    backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.15)]
+                    cursor-default select-none transition-shadow duration-300
+                    hover:shadow-[0_0_18px_rgba(251,191,36,0.28)]"
+                  >
+                    {/* shimmer sweep */}
+                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                      transition-transform duration-700 ease-out pointer-events-none
+                      bg-gradient-to-r from-transparent via-amber-300/25 to-transparent" />
+                    <GiCutDiamond size={10} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                    PREMIUM
                   </span>
                 )}
-                <div className="flex flex-col gap-0.5 text-[11px] text-white/40 font-medium">
+                <div className="flex flex-col gap-1 text-[11px] text-white/40 font-medium">
                   <div className="flex items-center gap-1.5">
                     <Calendar size={11} className="text-white/30" />
                     <span>Ngày đăng: {formatDate(post.createdAt)}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Eye size={11} className="text-white/30" />
+                    <span>Lượt xem: {(post.stats?.viewsCount || 0).toLocaleString()} views</span>
                   </div>
                   {post.exifData?.dateTaken && (
                     <div className="flex items-center gap-1.5">
@@ -631,44 +692,71 @@ const PostDetailModal = ({
               <ColorPaletteStrip palette={post.colorPalette} />
             )}
 
-            {/* Stats + Action Buttons */}
-            {post && (
-              <div className="px-5 py-3 border-b border-white/8 flex items-center gap-4 flex-wrap">
-                <LikeButton
-                  postId={post._id}
-                  initialLiked={isLiked}
-                  initialCount={post.stats?.likesCount || 0}
-                  size="md"
-                  onToggle={(liked) => setIsLiked(liked)}
-                />
-                <BookmarkButton
-                  postId={post._id}
-                  initialBookmarked={isBookmarked}
-                  size="md"
-                  onToggle={(b) => setIsBookmarked(b)}
-                />
-                <span className="flex items-center gap-1.5 text-white/30 text-xs">
-                  <Eye size={14} />
-                  {(post.stats?.viewsCount || 0).toLocaleString()}
-                </span>
-                <motion.button
-                  onClick={handleShare}
-                  whileTap={{ scale: 0.9 }}
-                  className="flex items-center gap-1.5 text-white/30 hover:text-white transition-colors"
-                  title="Sao chép link"
-                >
-                  <Share2 size={16} />
-                </motion.button>
-                <div className="ml-auto">
-                  <DownloadButton
-                    post={post}
-                    postId={post._id}
-                    isPremium={post.isPremium}
-                    priceInVnd={post.priceInVnd}
-                  />
-                </div>
-              </div>
-            )}
+             {/* Stats + Action Buttons */}
+             {post && (
+               <div className="px-5 py-4 border-b border-white/8 space-y-4">
+                 {/* Full width Download row */}
+                 <div className="w-full">
+                   <DownloadButton
+                     post={post}
+                     postId={post._id}
+                     isPremium={post.isPremium}
+                     priceInVnd={post.priceInVnd}
+                     variant="detail"
+                   />
+                 </div>
+
+                 {/* Micro-actions row */}
+                 <div className="flex items-center justify-between px-1 text-white/50">
+                   <LikeButton
+                     postId={post._id}
+                     initialLiked={isLiked}
+                     initialCount={post.stats?.likesCount || 0}
+                     size="md"
+                     onToggle={(liked) => setIsLiked(liked)}
+                   />
+                   <BookmarkButton
+                     postId={post._id}
+                     initialBookmarked={isBookmarked}
+                     showCount={true}
+                     initialCount={post.stats?.bookmarksCount || 0}
+                     size="md"
+                     onToggle={(b) => setIsBookmarked(b)}
+                   />
+                   <motion.button
+                     onClick={handleShare}
+                     whileTap={{ scale: 0.9 }}
+                     animate={copied ? { scale: [1, 1.15, 0.95, 1], y: [0, -3, 0] } : { scale: 1, y: 0 }}
+                     transition={{ duration: 0.45, ease: 'easeInOut' }}
+                     className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 py-1 ${
+                       copied ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]' : 'text-white/30 hover:text-white'
+                     }`}
+                     title="Sao chép link"
+                   >
+                     <motion.span
+                       animate={copied ? { rotate: [0, 360], scale: [1, 1.25, 1] } : { rotate: 0, scale: 1 }}
+                       transition={{ duration: 0.4, ease: 'easeOut' }}
+                       className="flex items-center justify-center shrink-0"
+                     >
+                       {copied ? <Check size={14} /> : <Share2 size={14} />}
+                     </motion.span>
+                     <span>{(post.stats?.sharesCount || 0).toLocaleString()}</span>
+                   </motion.button>
+
+                   {!isOwnPost && (
+                     <motion.button
+                       onClick={() => setShowReportDialog(true)}
+                       whileTap={{ scale: 0.9 }}
+                       className="flex items-center gap-1.5 text-white/30 hover:text-red-400 transition-colors text-xs font-semibold py-1 cursor-pointer"
+                       title="Báo cáo vi phạm"
+                     >
+                       <Flag size={14} />
+                       <span>Báo cáo</span>
+                     </motion.button>
+                   )}
+                 </div>
+               </div>
+             )}
 
             {/* Comments */}
             <div className="px-5 py-4 min-h-0 border-t border-white/5">
@@ -787,6 +875,108 @@ const PostDetailModal = ({
         type="danger"
         zIndex={300}
       />
+
+      {/* Report Modal Dialog */}
+      <AnimatePresence>
+        {showReportDialog && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[350] flex items-center justify-center p-4"
+            style={{ background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(10px)' }}
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', duration: 0.5 }}
+              className="w-full max-w-md bg-[#161426]/90 border border-white/10 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
+            >
+              {/* Glow effect */}
+              <div className="absolute -top-10 -right-10 w-[150px] h-[150px] bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+
+              <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                <Flag className="text-red-400" size={20} /> Báo cáo bài viết
+              </h3>
+              <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                Giúp PicSpy giữ gìn môi trường nghệ thuật lành mạnh. Vui lòng chọn hoặc nhập lý do bài đăng này vi phạm tiêu chuẩn cộng đồng.
+              </p>
+
+              <form onSubmit={handleReportSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  {[
+                    'Nội dung nhạy cảm, người lớn (NSFW)',
+                    'Bản quyền/Ăn cắp tác phẩm',
+                    'Spam hoặc nội dung lừa đảo',
+                    'Nội dung thù ghét, bạo lực',
+                    'Lý do khác (Nhập chi tiết bên dưới)',
+                  ].map((preset) => (
+                    <label
+                      key={preset}
+                      className="flex items-start gap-2.5 p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] cursor-pointer transition-colors text-xs text-white/80"
+                    >
+                      <input
+                        type="radio"
+                        name="reportReasonPreset"
+                        value={preset}
+                        checked={
+                          reportReason === preset ||
+                          (preset.startsWith('Lý do khác') &&
+                            !['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                            reportReason.length > 0)
+                        }
+                        onChange={() => setReportReason(preset)}
+                        className="mt-0.5 accent-brand-500"
+                      />
+                      <span>{preset}</span>
+                    </label>
+                  ))}
+                </div>
+
+                {(reportReason.startsWith('Lý do khác') ||
+                  (!['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                    reportReason.length > 0)) && (
+                  <textarea
+                    placeholder="Vui lòng nhập lý do cụ thể..."
+                    rows={3}
+                    onChange={(e) => setReportReason(e.target.value)}
+                    value={
+                      ['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason)
+                        ? ''
+                        : reportReason.startsWith('Lý do khác')
+                        ? ''
+                        : reportReason
+                    }
+                    className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand-500/50 resize-none"
+                    required
+                  />
+                )}
+
+                <div className="flex gap-3 justify-end pt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowReportDialog(false)
+                      setReportReason('')
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold text-white/55 hover:text-white/80 border border-white/8 hover:bg-white/5 transition-colors cursor-pointer"
+                  >
+                    Hủy bỏ
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={reporting}
+                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 hover:shadow-red-600/35 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    {reporting ? 'Đang gửi...' : 'Gửi báo cáo'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </>
   )
 }

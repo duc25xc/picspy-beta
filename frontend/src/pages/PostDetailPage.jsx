@@ -3,12 +3,13 @@ import { useParams, useNavigate, Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   ArrowLeft, Eye, Download, Share2,
-  Calendar, Tag, Zap, Crown, Camera,
+  Calendar, Tag, Zap, Crown, Camera, Flag, Check,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import useTierAccess from '../hooks/useTierAccess'
+import { GiCutDiamond } from 'react-icons/gi'
 import DownloadButton from '../components/post/DownloadButton'
 import LikeButton from '../components/post/LikeButton'
 import BookmarkButton from '../components/post/BookmarkButton'
@@ -91,6 +92,7 @@ const PostDownloadButton = ({ post, onUnlock }) => {
 const PostDetailPage = () => {
   const { id } = useParams()
   const navigate = useNavigate()
+  const user = useAuthStore(s => s.user)
 
   const [post, setPost]             = useState(null)
   const [loading, setLoading]       = useState(true)
@@ -104,6 +106,12 @@ const PostDetailPage = () => {
   // Track which image is active in gallery — để show/hide ExifPanel
   const [activeIsSource, setActiveIsSource] = useState(false)
   const [activeImg, setActiveImg]   = useState(null)
+
+  // Report & copy feedback states
+  const [copied, setCopied] = useState(false)
+  const [showReportDialog, setShowReportDialog] = useState(false)
+  const [reportReason, setReportReason] = useState('')
+  const [reporting, setReporting] = useState(false)
 
   // Tier access — đặt ở đây để không vi phạm Rules of Hooks
   const tierAccess = useTierAccess()
@@ -155,9 +163,36 @@ const PostDetailPage = () => {
     setShareLoading(true)
     try {
       await navigator.clipboard.writeText(`${window.location.origin}/posts/${id}`)
+      setCopied(true)
       toast.success('Đã copy link!')
+      setTimeout(() => setCopied(false), 1500)
     } catch { toast.error('Không thể copy link') }
     finally { setShareLoading(false) }
+  }
+
+  const handleReportSubmit = async (e) => {
+    e.preventDefault()
+    if (!isLoggedIn) {
+      toast('Đăng nhập để báo cáo vi phạm 🔒')
+      return
+    }
+    if (!reportReason.trim()) {
+      toast.error('Vui lòng chọn hoặc điền lý do')
+      return
+    }
+
+    setReporting(true)
+    try {
+      await api.post(`/posts/${id}/report`, { reason: reportReason })
+      toast.success('Gửi báo cáo thành công! Admin sẽ kiểm duyệt.')
+      setShowReportDialog(false)
+      setReportReason('')
+    } catch (err) {
+      const msg = err.response?.data?.message || 'Không thể gửi báo cáo'
+      toast.error(msg)
+    } finally {
+      setReporting(false)
+    }
   }
 
   const handleImageChange = useCallback((img, isSource) => {
@@ -228,6 +263,7 @@ const PostDetailPage = () => {
   if (!post) return null
 
   const author = post.authorId
+  const isOwnPost = user && (post.authorId?._id === user._id || post.authorId === user._id)
   const genImages = post.generatedImages || []
   // Source images: mọi user đều xem được (chỉ gate download high-res, không gate view)
   const srcImages = post.sourceImages || []
@@ -300,8 +336,10 @@ const PostDetailPage = () => {
 
             {/* Mobile stats */}
             <div className="flex items-center gap-5 mt-4 lg:hidden" style={{ fontFamily: 'Outfit, sans-serif' }}>
-              <div className="flex items-center gap-1.5 text-white/35 text-sm">
-                <Eye size={13} />
+              <div className="flex items-center gap-1.5 text-white/35 text-sm" title="Lượt xem">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" className="shrink-0">
+                  <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+                </svg>
                 {(post.stats?.viewsCount || 0).toLocaleString()}
               </div>
               <div className="flex items-center gap-1.5 text-white/35 text-sm">
@@ -455,9 +493,10 @@ const PostDetailPage = () => {
             {post.tags?.length > 0 && (
               <div className="flex flex-wrap gap-2">
                 {post.tags.map(tag => (
-                  <span
+                  <Link
                     key={tag}
-                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border"
+                    to={`/search?q=${encodeURIComponent(tag)}`}
+                    className="flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold border transition-all duration-200 hover:bg-[rgba(121,134,235,0.2)] hover:text-white cursor-pointer select-none"
                     style={{
                       background: 'rgba(121,134,235,0.1)',
                       borderColor: 'rgba(121,134,235,0.22)',
@@ -465,7 +504,7 @@ const PostDetailPage = () => {
                     }}
                   >
                     <Tag size={9} />#{tag}
-                  </span>
+                  </Link>
                 ))}
               </div>
             )}
@@ -498,15 +537,31 @@ const PostDetailPage = () => {
 
             {/* ── Meta: category / resolution / date ── */}
             <div
-              className="flex flex-wrap gap-x-5 gap-y-1.5 py-3 border-t border-b"
+              className="flex flex-wrap items-center gap-x-3 gap-y-2 py-3 border-t border-b"
               style={{ borderColor: 'rgba(255,255,255,0.07)' }}
             >
               {post.category && (
-                <span className="text-xs text-white/40 capitalize">{post.category}</span>
+                <span className="inline-flex items-center text-xs text-white/40 capitalize leading-none">{post.category}</span>
               )}
               {post.resolution && (
-                <span className="text-xs font-bold uppercase" style={{ color: '#7986eb' }}>
+                <span className="inline-flex items-center text-xs font-bold uppercase leading-none" style={{ color: '#7986eb' }}>
                   {post.resolution}
+                </span>
+              )}
+              {post.isPremium && (
+                <span className="group relative overflow-hidden inline-flex items-center gap-1.5
+                  px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide
+                  bg-black/65 border border-amber-500/45 text-amber-400
+                  backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.15)]
+                  cursor-default select-none transition-shadow duration-300
+                  hover:shadow-[0_0_18px_rgba(251,191,36,0.28)]"
+                >
+                  {/* shimmer sweep */}
+                  <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                    transition-transform duration-700 ease-out pointer-events-none
+                    bg-gradient-to-r from-transparent via-amber-300/25 to-transparent" />
+                  <GiCutDiamond size={10} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                  PREMIUM
                 </span>
               )}
               <div className="flex flex-col gap-0.5 text-[11px] text-white/40 font-medium">
@@ -527,10 +582,8 @@ const PostDetailPage = () => {
 
             {/* ── Stats ───────────────────────────────── */}
             <div className="flex items-center gap-6">
-              <div className="flex items-center gap-1.5 text-white/35 text-sm">
-                <Eye size={14} />
-                <span>{(post.stats?.viewsCount || 0).toLocaleString()}</span>
-                <span className="text-white/25 text-xs">lượt xem</span>
+              <div className="text-white/45 text-sm font-semibold select-none">
+                {(post.stats?.viewsCount || 0).toLocaleString()} views
               </div>
               <div className="flex items-center gap-1.5 text-white/35 text-sm">
                 <Download size={14} />
@@ -542,28 +595,58 @@ const PostDetailPage = () => {
             {/* ── Actions ─────────────────────────────── */}
             <div className="space-y-3">
               <PostDownloadButton post={post} onUnlock={() => setIsUnlocked(true)} />
-              <div className="grid grid-cols-3 gap-2.5">
+              <div className={`grid ${isOwnPost ? 'grid-cols-3' : 'grid-cols-4'} gap-2`}>
                 <LikeButton
                   postId={post._id}
                   initialCount={post.stats?.likesCount || 0}
                   initialLiked={post.isLiked}
+                  className="flex items-center justify-center gap-1 py-2.5 rounded-xl border border-white/8 hover:border-white/15 transition-all duration-150 bg-white/[0.04] text-xs font-semibold text-white/55 hover:text-white/80 min-h-[44px] w-full"
                 />
                 <BookmarkButton
                   postId={post._id}
                   initialBookmarked={post.isBookmarked}
+                  showCount={true}
+                  initialCount={post.stats?.bookmarksCount || 0}
+                  className="flex items-center justify-center gap-1 py-2.5 rounded-xl border border-white/8 hover:border-white/15 transition-all duration-150 bg-white/[0.04] text-xs font-semibold text-white/55 hover:text-white/80 min-h-[44px] w-full"
                 />
                 <motion.button
                   whileTap={{ scale: 0.95 }}
+                  animate={copied ? { scale: [1, 1.12, 0.95, 1], y: [0, -3, 0] } : { scale: 1, y: 0 }}
+                  transition={{ duration: 0.45, ease: 'easeInOut' }}
                   onClick={handleShare}
                   disabled={shareLoading}
-                  className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl
-                    text-sm font-semibold text-white/55 hover:text-white/80
-                    border border-white/8 hover:border-white/15
-                    transition-all duration-150"
-                  style={{ background: 'rgba(255,255,255,0.04)', minHeight: 44 }}
+                  className={`flex items-center justify-center gap-1.5 py-2.5 rounded-xl
+                    text-xs font-semibold border hover:border-white/15
+                    transition-all duration-200 min-h-[44px] w-full ${
+                      copied
+                        ? 'text-emerald-400 border-emerald-500/35 bg-emerald-500/5 shadow-[0_0_15px_rgba(16,185,129,0.18)]'
+                        : 'text-white/55 hover:text-white/80 border-white/8 bg-white/[0.04]'
+                    }`}
                 >
-                  <Share2 size={14} /> Chia sẻ
+                  <motion.span
+                    animate={copied ? { rotate: [0, 360], scale: [1, 1.25, 1] } : { rotate: 0, scale: 1 }}
+                    transition={{ duration: 0.4, ease: 'easeOut' }}
+                    className="flex items-center justify-center shrink-0"
+                  >
+                    {copied ? <Check size={14} /> : <Share2 size={14} />}
+                  </motion.span>
+                  <span>{(post.stats?.sharesCount || 0).toLocaleString()}</span>
                 </motion.button>
+                {!isOwnPost && (
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => setShowReportDialog(true)}
+                    className="flex items-center justify-center gap-1 py-2.5 rounded-xl
+                      text-xs font-semibold text-white/55 hover:text-red-400
+                      border border-white/8 hover:border-red-500/25
+                      bg-white/[0.04] hover:bg-red-500/5
+                      transition-all duration-150 min-h-[44px] w-full cursor-pointer"
+                    title="Báo cáo vi phạm"
+                  >
+                    <Flag size={14} />
+                    <span>Báo cáo</span>
+                  </motion.button>
+                )}
               </div>
             </div>
 
@@ -574,6 +657,108 @@ const PostDetailPage = () => {
             >
               <CommentSection postId={post._id} />
             </div>
+
+            {/* Report Modal Dialog */}
+            <AnimatePresence>
+              {showReportDialog && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[350] flex items-center justify-center p-4"
+                  style={{ background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(10px)' }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.9, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.9, y: 20 }}
+                    transition={{ type: 'spring', duration: 0.5 }}
+                    className="w-full max-w-md bg-[#161426]/90 border border-white/10 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
+                  >
+                    {/* Glow effect */}
+                    <div className="absolute -top-10 -right-10 w-[150px] h-[150px] bg-red-500/10 rounded-full blur-3xl pointer-events-none" />
+
+                    <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                      <Flag className="text-red-400" size={20} /> Báo cáo bài viết
+                    </h3>
+                    <p className="text-xs text-white/50 mb-4 leading-relaxed">
+                      Giúp PicSpy giữ gìn môi trường nghệ thuật lành mạnh. Vui lòng chọn hoặc nhập lý do bài đăng này vi phạm tiêu chuẩn cộng đồng.
+                    </p>
+
+                    <form onSubmit={handleReportSubmit} className="space-y-4">
+                      <div className="space-y-2">
+                        {[
+                          'Nội dung nhạy cảm, người lớn (NSFW)',
+                          'Bản quyền/Ăn cắp tác phẩm',
+                          'Spam hoặc nội dung lừa đảo',
+                          'Nội dung thù ghét, bạo lực',
+                          'Lý do khác (Nhập chi tiết bên dưới)',
+                        ].map((preset) => (
+                          <label
+                            key={preset}
+                            className="flex items-start gap-2.5 p-3 rounded-xl border border-white/5 bg-white/[0.02] hover:bg-white/[0.05] cursor-pointer transition-colors text-xs text-white/80"
+                          >
+                            <input
+                              type="radio"
+                              name="reportReasonPreset"
+                              value={preset}
+                              checked={
+                                reportReason === preset ||
+                                (preset.startsWith('Lý do khác') &&
+                                  !['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                                  reportReason.length > 0)
+                              }
+                              onChange={() => setReportReason(preset)}
+                              className="mt-0.5 accent-brand-500"
+                            />
+                            <span>{preset}</span>
+                          </label>
+                        ))}
+                      </div>
+
+                      {(reportReason.startsWith('Lý do khác') ||
+                        (!['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                          reportReason.length > 0)) && (
+                        <textarea
+                          placeholder="Vui lòng nhập lý do cụ thể..."
+                          rows={3}
+                          onChange={(e) => setReportReason(e.target.value)}
+                          value={
+                            ['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason)
+                              ? ''
+                              : reportReason.startsWith('Lý do khác')
+                              ? ''
+                              : reportReason
+                          }
+                          className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand-500/50 resize-none"
+                          required
+                        />
+                      )}
+
+                      <div className="flex gap-3 justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowReportDialog(false)
+                            setReportReason('')
+                          }}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold text-white/55 hover:text-white/80 border border-white/8 hover:bg-white/5 transition-colors cursor-pointer"
+                        >
+                          Hủy bỏ
+                        </button>
+                        <button
+                          type="submit"
+                          disabled={reporting}
+                          className="px-4 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 hover:shadow-red-600/35 transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          {reporting ? 'Đang gửi...' : 'Gửi báo cáo'}
+                        </button>
+                      </div>
+                    </form>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
           </motion.div>
         </div>

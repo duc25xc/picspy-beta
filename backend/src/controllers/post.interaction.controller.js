@@ -1,5 +1,6 @@
 import Post from '../models/Post.model.js'
 import Interaction from '../models/Interaction.model.js'
+import Report from '../models/Report.model.js'
 import AppError from '../utils/AppError.js'
 
 /**
@@ -276,6 +277,50 @@ export const getMyBookmarks = async (req, res, next) => {
         nextCursor: hasMore ? filtered[filtered.length - 1]._id : null,
         count: filtered.length,
       },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /posts/:id/report — Báo cáo bài đăng vi phạm
+ */
+export const reportPost = async (req, res, next) => {
+  try {
+    const { id: postId } = req.params
+    const reporterId = req.user._id
+    const { reason } = req.body
+
+    if (!reason || !reason.trim()) {
+      throw new AppError('BAD_REQUEST', 'Vui lòng cung cấp lý do báo cáo', 400)
+    }
+
+    const post = await Post.findById(postId)
+    if (!post) {
+      throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại', 404)
+    }
+
+    // Không cho tự báo cáo bài của mình
+    if (post.authorId.toString() === reporterId.toString()) {
+      throw new AppError('BAD_REQUEST', 'Bạn không thể báo cáo bài viết của chính mình', 400)
+    }
+
+    // Check if already reported
+    const existing = await Report.findOne({ reporterId, postId })
+    if (existing) {
+      throw new AppError('CONFLICT', 'Bạn đã báo cáo bài đăng này rồi', 409)
+    }
+
+    await Report.create({
+      reporterId,
+      postId,
+      reason: reason.trim(),
+    })
+
+    res.json({
+      success: true,
+      message: 'Báo cáo vi phạm thành công. Ban quản trị sẽ kiểm duyệt bài viết này.',
     })
   } catch (err) {
     next(err)

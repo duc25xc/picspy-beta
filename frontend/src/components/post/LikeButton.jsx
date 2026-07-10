@@ -72,8 +72,8 @@ const LikeButton = ({
     >
       <div className="relative">
         <motion.div
-          animate={burst ? { scale: [1, 1.4, 1] } : { scale: 1 }}
-          transition={{ duration: 0.35, ease: 'easeOut' }}
+          animate={liked ? { scale: [1, 1.5, 0.85, 1.15, 1] } : { scale: 1 }}
+          transition={{ duration: 0.45, ease: [0.175, 0.885, 0.32, 1.275] }}
         >
           <Heart
             size={iconSize}

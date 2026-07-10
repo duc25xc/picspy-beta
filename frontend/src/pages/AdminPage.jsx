@@ -5,7 +5,7 @@ import {
   Coins, ShieldAlert, ShieldCheck, RefreshCw, ChevronDown, Search,
   BarChart3, AlertTriangle, Plus, Minus, Tag, Pencil, Trash2, Eye,
   TrendingUp, ToggleLeft, ToggleRight, Check, Square, CheckSquare,
-  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight, Megaphone, Wallet,
+  X, Save, Loader2, Settings, Zap, ZapOff, Timer, UserCheck, Shield, Palette, ArrowRight, Megaphone, Wallet, Flag,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -3702,6 +3702,188 @@ const WithdrawalsTab = () => {
   )
 }
 
+
+const ReportsTab = () => {
+  const [reports, setReports] = useState([])
+  const [stats, setStats] = useState({ pending: 0, resolved: 0, dismissed: 0, total: 0 })
+  const [loading, setLoading] = useState(true)
+  const [filter, setFilter] = useState('pending')
+  const [processingId, setProcessingId] = useState(null)
+
+  const fetchReports = async () => {
+    setLoading(true)
+    try {
+      const { data } = await api.get('/admin/reports', { params: { status: filter } })
+      setReports(data.reports || [])
+      if (data.stats) setStats(data.stats)
+    } catch (err) {
+      toast.error('Không thể tải danh sách báo cáo')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchReports()
+  }, [filter])
+
+  const handleAction = async (reportId, action) => {
+    setProcessingId(reportId)
+    try {
+      await api.patch(`/admin/reports/${reportId}/action`, { action })
+      toast.success(action === 'dismiss' ? 'Đã bỏ qua báo cáo' : 'Đã ẩn bài viết thành công')
+      await fetchReports()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Thao tác thất bại')
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const formatTime = (dateStr) => {
+    const d = new Date(dateStr)
+    return `${d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} - ${d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })}`
+  }
+
+  return (
+    <div className="space-y-4 font-body">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-bold text-xl text-white mb-1 font-display">Báo cáo vi phạm</h2>
+          <p className="text-sm text-white/40 font-medium">Xem xét báo cáo của người dùng đối với các bài đăng vi phạm.</p>
+        </div>
+
+        {/* Filter Pills */}
+        <div className="flex gap-1.5 p-1 bg-white/5 rounded-xl border border-white/5 self-start">
+          {['pending', 'resolved', 'dismissed', 'all'].map((status) => (
+            <button
+              key={status}
+              onClick={() => setFilter(status)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold uppercase tracking-wider transition-all cursor-pointer ${
+                filter === status
+                  ? 'bg-brand-600 text-white shadow-lg'
+                  : 'text-white/50 hover:text-white/80'
+              }`}
+            >
+              {status === 'pending' && `Chờ xử lý (${stats.pending || 0})`}
+              {status === 'resolved' && `Đã xử lý (${stats.resolved || 0})`}
+              {status === 'dismissed' && `Đã bỏ qua (${stats.dismissed || 0})`}
+              {status === 'all' && `Tất cả (${stats.total || 0})`}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card p-5 animate-pulse h-28" />
+          ))}
+        </div>
+      ) : reports.length === 0 ? (
+        <div className="card p-12 text-center text-white/35">
+          <Flag size={40} className="mx-auto mb-3 opacity-25" />
+          Không tìm thấy báo cáo nào trong mục này
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {reports.map((rep) => {
+            const reporter = rep.reporterId || {}
+            const post = rep.postId || {}
+            const author = post.authorId || {}
+            const firstImg = post.generatedImages?.[0] || post.images?.[0]
+            const thumbUrl = firstImg?.thumbnailUrl || firstImg?.url
+
+            return (
+              <motion.div
+                key={rep._id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card p-5 flex flex-col md:flex-row gap-4 border border-white/10 hover:border-white/20 transition-all bg-[#121225]/40 rounded-2xl"
+              >
+                {/* Post Preview Thumbnail */}
+                <div className="w-20 h-20 rounded-xl overflow-hidden border border-white/10 bg-black/30 flex-shrink-0 relative group">
+                  {thumbUrl ? (
+                    <img src={thumbUrl} className="w-full h-full object-cover" alt="" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/25 text-[10px]">No Img</div>
+                  )}
+                  {post._id && (
+                    <a
+                      href={`/posts/${post._id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity text-white text-[10px] font-bold"
+                    >
+                      Xem ảnh
+                    </a>
+                  )}
+                </div>
+
+                {/* Report Info */}
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-3">
+                    <span className="text-xs font-semibold text-white/70">
+                      Người báo cáo: <strong className="text-white">@{reporter.username || 'unknown'}</strong> (${reporter.email || 'N/A'})
+                    </span>
+                    <span className="text-white/20 text-xs">•</span>
+                    <span className="text-xs font-semibold text-white/70">
+                      Tác giả: <strong className="text-white">@{author.username || 'unknown'}</strong>
+                    </span>
+
+                    <div className="ml-auto flex items-center gap-2">
+                      {rep.status === 'pending' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/25 font-bold">CHỜ XỬ LÝ</span>
+                      )}
+                      {rep.status === 'resolved' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/10 text-green-400 border border-green-500/25 font-bold">ĐÃ ẨN ẢNH</span>
+                      )}
+                      {rep.status === 'dismissed' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/50 border border-white/20 font-bold">ĐÃ BỎ QUA</span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-red-500/5 border border-red-500/15 rounded-xl text-xs text-red-300">
+                    <span className="text-white/40 block mb-0.5 font-medium">Lý do báo cáo:</span>
+                    <p className="font-semibold leading-relaxed">${rep.reason}</p>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/40 font-medium">
+                    <span>ID Bài đăng: <span className="font-mono">${post._id || 'N/A'}</span></span>
+                    <span>•</span>
+                    <span>Gửi lúc: ${formatTime(rep.createdAt)}</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                {rep.status === 'pending' && (
+                  <div className="flex md:flex-col justify-end gap-2 shrink-0 self-center md:self-end">
+                    <button
+                      onClick={() => handleAction(rep._id, 'dismiss')}
+                      disabled={processingId === rep._id}
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold text-white/60 hover:text-white border border-white/10 hover:bg-white/5 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Bỏ qua
+                    </button>
+                    <button
+                      onClick={() => handleAction(rep._id, 'resolve_hide')}
+                      disabled={processingId === rep._id}
+                      className="px-3.5 py-2 rounded-xl text-xs font-semibold bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/20 transition-all cursor-pointer disabled:opacity-50"
+                    >
+                      Duyệt & Ẩn ảnh
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ══════════════════════════════════════════════════════════════════
 // MAIN AdminPage
 // ══════════════════════════════════════════════════════════════════
@@ -3710,6 +3892,7 @@ const TABS = [
   { key: 'posts',      label: 'Bài đăng',   Icon: Images },
   { key: 'users',      label: 'Users',       Icon: Users },
   { key: 'withdrawals', label: 'Rút tiền',    Icon: Wallet },
+  { key: 'reports',    label: 'Báo cáo vi phạm', Icon: Flag },
   { key: 'categories', label: 'Danh mục',   Icon: Tag },
   { key: 'settings',   label: 'Cài đặt',    Icon: Settings },
   { key: 'logs',       label: 'Nhật ký Admin', Icon: Clock },
@@ -3759,6 +3942,7 @@ const AdminPage = () => {
               {activeTab === 'posts'      && <PostsTab />}
               {activeTab === 'users'      && <UsersTab />}
               {activeTab === 'withdrawals' && <WithdrawalsTab />}
+              {activeTab === 'reports'    && <ReportsTab />}
               {activeTab === 'categories' && <CategoriesTab />}
               {activeTab === 'settings'   && <SettingsTab onDirtyChange={setHasUnsavedColors} />}
               {activeTab === 'logs'       && <LogsTab />}

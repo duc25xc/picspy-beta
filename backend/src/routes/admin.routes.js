@@ -7,6 +7,7 @@ import {
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
   getSettings, updateSettings, getAuditLogs, triggerSettlement,
   depositUserVnd, getWithdrawalRequests, approveWithdrawal, rejectWithdrawal,
+  getAdminReports, updateReportStatus,
 } from '../controllers/admin.controller.js'
 
 const router = Router()
@@ -24,6 +25,10 @@ router.get('/posts', getAllPosts)
 router.patch('/posts/:id/status', updatePostStatus)
 router.post('/posts/bulk', bulkUpdatePosts)
 router.post('/posts/:id/buff', buffPostStats)
+
+// ── Reports management ────────────────────────────────────────
+router.get('/reports', getAdminReports)
+router.patch('/reports/:id/action', updateReportStatus)
 
 // ── Users management ─────────────────────────────────────────
 router.get('/users', getAllUsers)

@@ -23,7 +23,8 @@ import {
   Copy,
   Check,
 } from 'lucide-react'
-import { IoDiamond, IoImages, IoSparkles } from 'react-icons/io5'
+import { IoImages, IoSparkles } from 'react-icons/io5'
+import { GiCutDiamond } from 'react-icons/gi'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import { useSettings } from '../context/SettingsContext'
@@ -1308,7 +1309,7 @@ const EditModal = ({
                     >
                       {form.isPremium ? (
                         <>
-                          <IoDiamond size={12} className="text-amber-400" />
+                          <GiCutDiamond size={12} className="text-amber-400" />
                           <span>Premium</span>
                         </>
                       ) : (
@@ -1521,7 +1522,7 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start">
           {post.isPremium && (
             <span className="badge-warning text-xs px-2.5 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/20 backdrop-blur-md rounded-lg font-medium flex items-center gap-1">
-              <IoDiamond size={11} className="text-amber-300" />
+              <GiCutDiamond size={11} className="text-amber-300" />
               <span>Premium</span>
             </span>
           )}

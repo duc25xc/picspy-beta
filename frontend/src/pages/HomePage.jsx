@@ -40,6 +40,7 @@ import {
 } from 'lucide-react'
 import useAuthStore from '../store/auth.store'
 import ConfirmModal from '../components/common/ConfirmModal'
+import { GiCutDiamond } from 'react-icons/gi'
 
 /* ─── Google Fonts: Plus Jakarta Sans ─────────────────────── */
 const FontLoader = () => (
@@ -708,7 +709,9 @@ const MasonryCard = ({ post, index, onClick }) => {
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-white/70 text-xs pj font-semibold">
-            <Eye size={12} /> {formatViews} views
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" className="shrink-0 opacity-80">
+              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            </svg> {formatViews} views
           </div>
           <div className="flex items-center gap-1 text-white/70 text-xs hover:text-red-400 transition-colors">
             <Heart size={12} className="fill-red-400 text-red-400" />
@@ -786,16 +789,17 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
     <div
       onClick={() => onClick?.(post, index)}
       className="group relative w-full h-full overflow-hidden rounded-2xl cursor-pointer
-        transition-all duration-500 ease-out hover:-translate-y-0.5"
+        transition-all duration-500 ease-out hover:-translate-y-0.5 transform-gpu backface-visibility-hidden will-change-transform"
+      style={{ isolation: 'isolate' }}
     >
       {/* Image — object-cover chỉ align, thumbnail đã được AI pre-crop */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 overflow-hidden rounded-2xl transform-gpu backface-visibility-hidden">
         {displayUrl ? (
           <img
             src={displayUrl}
             alt={post.caption || 'Wallpaper'}
             className="w-full h-full object-cover
-              group-hover:scale-[1.06] transition-transform duration-700 ease-out"
+              group-hover:scale-[1.06] transition-transform duration-700 ease-out will-change-transform transform-gpu backface-visibility-hidden"
             loading="lazy"
           />
         ) : (
@@ -820,30 +824,32 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
       />
 
       {/* TOP badges */}
-      <div className="absolute top-3 left-3 flex gap-1.5 z-10">
+      <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
         {post.isPremium && (
           <span
-            className="relative overflow-hidden flex items-center gap-1
+            className="relative overflow-hidden flex items-center gap-1.5
             px-2.5 py-1 rounded-full text-[10px] font-black pj
-            bg-gradient-to-r from-amber-500 to-orange-400 text-white"
+            bg-black/60 border border-amber-500/40 text-amber-400
+            backdrop-blur-sm shadow-md"
           >
             {/* shimmer sweep on hover */}
             <span
               className="absolute inset-0 -translate-x-full group-hover:translate-x-full
               transition-transform duration-700
-              bg-gradient-to-r from-transparent via-white/35 to-transparent"
+              bg-gradient-to-r from-transparent via-amber-300/20 to-transparent"
             />
-            💎 PRO
+            <GiCutDiamond size={11} className="text-amber-400 shrink-0" />
+            PREMIUM
           </span>
         )}
         {post.aiTool && (
-          <span className="badge-brand px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj">
+          <span className="badge-brand px-2 py-1 rounded-full text-[10px] font-bold leading-none backdrop-blur-sm pj flex items-center">
             ✨ AI
           </span>
         )}
         {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
           <span
-            className="flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold backdrop-blur-sm pj"
+            className="flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-bold leading-none backdrop-blur-sm pj"
             style={{
               background: 'rgba(99,102,241,0.35)',
               color: 'rgba(199,210,254,0.95)',
@@ -855,7 +861,7 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
         )}
         {post.resolution && (
           <span
-            className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase
+            className="flex items-center px-2 py-1 rounded-full text-[10px] font-bold leading-none uppercase
             bg-black/50 text-white/70 backdrop-blur-sm pj"
           >
             {post.resolution}
@@ -890,14 +896,28 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
             </span>
           </div>
           <div className="flex items-center gap-2 text-white/70 text-[11px] shrink-0">
-            <span className="flex items-center gap-0.5">
+            <span className="flex items-center gap-0.5" title="Lượt thích">
               <Heart size={9} className="text-red-400" />
               {(post.stats?.likesCount || 0).toLocaleString()}
             </span>
-            <span className="flex items-center gap-0.5">
-              <Eye size={9} className="text-blue-300" />
+            <span className="flex items-center gap-0.5" title="Lượt xem">
+              <svg width="9" height="9" viewBox="0 0 24 24" fill="currentColor" className="text-blue-300 shrink-0">
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              </svg>
               {(post.stats?.viewsCount || 0).toLocaleString()}
             </span>
+            {index < 3 && (
+              <>
+                <span className="flex items-center gap-0.5" title="Lượt lưu">
+                  <Bookmark size={9} className="text-amber-400 fill-amber-400" />
+                  {(post.stats?.bookmarksCount || 0).toLocaleString()}
+                </span>
+                <span className="flex items-center gap-0.5" title="Lượt tải">
+                  <Download size={9} className="text-emerald-400" />
+                  {(post.stats?.downloadsCount || 0).toLocaleString()}
+                </span>
+              </>
+            )}
           </div>
         </div>
       </div>
@@ -1600,30 +1620,42 @@ const CommunityGallerySection = () => {
                 {/* Load more */}
                 {hasMore && (
                   <div className="flex justify-center mt-12">
-                    <motion.button
-                      whileTap={{ scale: 0.97 }}
-                      onClick={() => fetchPosts(false)}
-                      disabled={loadingMore}
-                      className="flex items-center gap-2 px-6 py-3 rounded-2xl
-                        bg-surface-50 border border-[var(--color-border)] text-foreground/60
-                        hover:bg-surface-100 hover:text-foreground transition-all text-sm font-semibold pj
-                        disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {loadingMore ? (
-                        <motion.div
-                          className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                          animate={{ rotate: 360 }}
-                          transition={{
-                            duration: 0.8,
-                            repeat: Infinity,
-                            ease: 'linear',
-                          }}
-                        />
-                      ) : (
+                    {posts.length >= 24 ? (
+                      <Link
+                        to={`/explore?tab=${activeTab}&postType=${activePostType}&category=${activeCategory}`}
+                        className="flex items-center gap-2 px-6 py-3 rounded-2xl
+                          bg-surface-50 border border-[var(--color-border)] text-foreground/60
+                          hover:bg-surface-100 hover:text-foreground transition-all text-sm font-semibold pj cursor-pointer select-none active:scale-95"
+                      >
                         <ArrowRight size={16} />
-                      )}
-                      {loadingMore ? 'Đang tải...' : 'Xem thêm'}
-                    </motion.button>
+                        Xem thêm tại Khám phá
+                      </Link>
+                    ) : (
+                      <motion.button
+                        whileTap={{ scale: 0.97 }}
+                        onClick={() => fetchPosts(false)}
+                        disabled={loadingMore}
+                        className="flex items-center gap-2 px-6 py-3 rounded-2xl
+                          bg-surface-50 border border-[var(--color-border)] text-foreground/60
+                          hover:bg-surface-100 hover:text-foreground transition-all text-sm font-semibold pj
+                          disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {loadingMore ? (
+                          <motion.div
+                            className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
+                            animate={{ rotate: 360 }}
+                            transition={{
+                              duration: 0.8,
+                              repeat: Infinity,
+                              ease: 'linear',
+                            }}
+                          />
+                        ) : (
+                          <ArrowRight size={16} />
+                        )}
+                        {loadingMore ? 'Đang tải...' : 'Xem thêm'}
+                      </motion.button>
+                    )}
                   </div>
                 )}
 
