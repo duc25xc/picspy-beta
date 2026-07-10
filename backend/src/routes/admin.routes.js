@@ -3,9 +3,10 @@ import { authenticate, requireAdmin } from '../middlewares/authenticate.js'
 import {
   getAllPosts, updatePostStatus, bulkUpdatePosts, buffPostStats,
   getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole,
+  createAdminUser, updateAdminUser, deleteAdminUser,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
-  getSettings, updateSettings, getAuditLogs, triggerSettlement,
+  getSettings, updateSettings, getAuditLogs, triggerSettlement, triggerScoreDecay, triggerSubscriptionCleanup,
   depositUserVnd, getWithdrawalRequests, approveWithdrawal, rejectWithdrawal,
   getAdminReports, updateReportStatus,
 } from '../controllers/admin.controller.js'
@@ -32,6 +33,9 @@ router.patch('/reports/:id/action', updateReportStatus)
 
 // ── Users management ─────────────────────────────────────────
 router.get('/users', getAllUsers)
+router.post('/users', createAdminUser)
+router.put('/users/:id', updateAdminUser)
+router.delete('/users/:id', deleteAdminUser)
 router.post('/users/:id/tokens', adjustUserTokens)
 router.post('/users/:id/deposit', depositUserVnd)
 router.patch('/users/:id/ban', toggleBanUser)
@@ -54,5 +58,7 @@ router.delete('/categories/:id', deleteCategory)
 router.get('/settings', getSettings)
 router.put('/settings', updateSettings)
 router.post('/settlement/trigger', triggerSettlement)
+router.post('/settlement/trigger-score-decay', triggerScoreDecay)
+router.post('/settlement/trigger-subscription-cleanup', triggerSubscriptionCleanup)
 
 export default router

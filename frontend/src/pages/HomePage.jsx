@@ -3006,7 +3006,12 @@ const HomePage = () => {
               },
               {
                 title: 'Nền tảng',
-                links: ['Về PICSPY', 'Điều khoản', 'Bảo mật', 'Hướng dẫn Coin'],
+                links: [
+                  'Về PICSPY',
+                  'Điều khoản',
+                  'Bảo mật',
+                  'Hướng dẫn dùng Token',
+                ],
               },
               {
                 title: 'Hỗ trợ',

@@ -6,19 +6,20 @@ import AuditLog from '../models/AuditLog.model.js'
 import Report from '../models/Report.model.js'
 import AppError from '../utils/AppError.js'
 import { logAdminAction } from '../utils/auditLogger.js'
+import bcrypt from 'bcryptjs'
 
 // ─── DEFAULT CATEGORIES SEED ──────────────────────────────────
 const DEFAULT_CATEGORIES = [
-  { name: 'Thiên nhiên', slug: 'nature',   emoji: '🌿', sortOrder: 1 },
-  { name: 'Anime',       slug: 'anime',    emoji: '🎌', sortOrder: 2 },
-  { name: 'Minimal',     slug: 'minimal',  emoji: '◻️', sortOrder: 3 },
-  { name: 'Abstract',    slug: 'abstract', emoji: '🎨', sortOrder: 4 },
-  { name: 'Thành phố',  slug: 'city',     emoji: '🌃', sortOrder: 5 },
-  { name: 'Vũ trụ',     slug: 'space',    emoji: '🚀', sortOrder: 6 },
-  { name: 'Dark',        slug: 'dark',     emoji: '🌑', sortOrder: 7 },
-  { name: 'Light',       slug: 'light',    emoji: '☀️', sortOrder: 8 },
-  { name: 'Gradient',    slug: 'gradient', emoji: '🌈', sortOrder: 9 },
-  { name: 'Khác',        slug: 'other',    emoji: '✨', sortOrder: 10 },
+  { name: 'Thiên nhiên', slug: 'nature', emoji: '🌿', sortOrder: 1 },
+  { name: 'Anime', slug: 'anime', emoji: '🎌', sortOrder: 2 },
+  { name: 'Minimal', slug: 'minimal', emoji: '◻️', sortOrder: 3 },
+  { name: 'Abstract', slug: 'abstract', emoji: '🎨', sortOrder: 4 },
+  { name: 'Thành phố', slug: 'city', emoji: '🌃', sortOrder: 5 },
+  { name: 'Vũ trụ', slug: 'space', emoji: '🚀', sortOrder: 6 },
+  { name: 'Dark', slug: 'dark', emoji: '🌑', sortOrder: 7 },
+  { name: 'Light', slug: 'light', emoji: '☀️', sortOrder: 8 },
+  { name: 'Gradient', slug: 'gradient', emoji: '🌈', sortOrder: 9 },
+  { name: 'Khác', slug: 'other', emoji: '✨', sortOrder: 10 },
 ]
 
 export const seedCategories = async () => {
@@ -50,12 +51,13 @@ export const getAllPosts = async (req, res, next) => {
     const hasMore = posts.length > parseInt(limit)
     if (hasMore) posts.pop()
 
-    const [pendingCount, approvedCount, rejectedCount, hiddenCount] = await Promise.all([
-      Post.countDocuments({ status: 'pending' }),
-      Post.countDocuments({ status: 'approved' }),
-      Post.countDocuments({ status: 'rejected' }),
-      Post.countDocuments({ status: 'hidden' }),
-    ])
+    const [pendingCount, approvedCount, rejectedCount, hiddenCount] =
+      await Promise.all([
+        Post.countDocuments({ status: 'pending' }),
+        Post.countDocuments({ status: 'approved' }),
+        Post.countDocuments({ status: 'rejected' }),
+        Post.countDocuments({ status: 'hidden' }),
+      ])
 
     res.json({
       posts,
@@ -72,7 +74,9 @@ export const getAllPosts = async (req, res, next) => {
         count: posts.length,
       },
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** PATCH /admin/posts/:id/status */
@@ -82,33 +86,47 @@ export const updatePostStatus = async (req, res, next) => {
     const { status, rejectionReason } = req.body
 
     const VALID = ['approved', 'rejected', 'hidden', 'pending']
-    if (!VALID.includes(status)) throw new AppError('INVALID_STATUS', 'Trạng thái không hợp lệ', 400)
+    if (!VALID.includes(status))
+      throw new AppError('INVALID_STATUS', 'Trạng thái không hợp lệ', 400)
 
     const post = await Post.findById(id)
     if (!post) throw new AppError('NOT_FOUND', 'Không tìm thấy bài đăng', 404)
 
     const prev = post.status
     post.status = status
-    if (status === 'rejected' && rejectionReason) post.rejectionReason = rejectionReason
+    if (status === 'rejected' && rejectionReason)
+      post.rejectionReason = rejectionReason
     else if (status === 'approved') post.rejectionReason = undefined
     post.reviewedBy = req.user._id
     post.reviewedAt = new Date()
     await post.save()
 
     if (prev !== 'approved' && status === 'approved')
-      await User.findByIdAndUpdate(post.authorId, { $inc: { 'stats.postsCount': 1 } })
+      await User.findByIdAndUpdate(post.authorId, {
+        $inc: { 'stats.postsCount': 1 },
+      })
     else if (prev === 'approved' && status !== 'approved')
-      await User.findByIdAndUpdate(post.authorId, { $inc: { 'stats.postsCount': -1 } })
+      await User.findByIdAndUpdate(post.authorId, {
+        $inc: { 'stats.postsCount': -1 },
+      })
 
     // Log admin action
-    await logAdminAction(req.user._id, `POST_${status.toUpperCase()}`, post._id, 'Post', {
-      caption: post.caption,
-      rejectionReason,
-      previousStatus: prev
-    })
+    await logAdminAction(
+      req.user._id,
+      `POST_${status.toUpperCase()}`,
+      post._id,
+      'Post',
+      {
+        caption: post.caption,
+        rejectionReason,
+        previousStatus: prev,
+      }
+    )
 
     res.json({ message: `Đã cập nhật trạng thái thành "${status}"`, post })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/posts/bulk — Bulk action nhiều posts */
@@ -118,7 +136,8 @@ export const bulkUpdatePosts = async (req, res, next) => {
     if (!Array.isArray(postIds) || postIds.length === 0)
       throw new AppError('INVALID_INPUT', 'Cần ít nhất 1 post ID', 400)
     const VALID = ['approved', 'rejected', 'hidden', 'pending']
-    if (!VALID.includes(status)) throw new AppError('INVALID_STATUS', 'Trạng thái không hợp lệ', 400)
+    if (!VALID.includes(status))
+      throw new AppError('INVALID_STATUS', 'Trạng thái không hợp lệ', 400)
 
     const posts = await Post.find({ _id: { $in: postIds } })
 
@@ -127,12 +146,19 @@ export const bulkUpdatePosts = async (req, res, next) => {
     for (const post of posts) {
       const key = post.authorId.toString()
       if (!authorUpdates[key]) authorUpdates[key] = 0
-      if (post.status !== 'approved' && status === 'approved') authorUpdates[key] += 1
-      else if (post.status === 'approved' && status !== 'approved') authorUpdates[key] -= 1
+      if (post.status !== 'approved' && status === 'approved')
+        authorUpdates[key] += 1
+      else if (post.status === 'approved' && status !== 'approved')
+        authorUpdates[key] -= 1
     }
 
-    const bulkUpdate = { status, reviewedBy: req.user._id, reviewedAt: new Date() }
-    if (status === 'rejected' && rejectionReason) bulkUpdate.rejectionReason = rejectionReason
+    const bulkUpdate = {
+      status,
+      reviewedBy: req.user._id,
+      reviewedAt: new Date(),
+    }
+    if (status === 'rejected' && rejectionReason)
+      bulkUpdate.rejectionReason = rejectionReason
     if (status === 'approved') bulkUpdate.rejectionReason = undefined
 
     await Post.updateMany({ _id: { $in: postIds } }, { $set: bulkUpdate })
@@ -142,19 +168,32 @@ export const bulkUpdatePosts = async (req, res, next) => {
       Object.entries(authorUpdates)
         .filter(([, delta]) => delta !== 0)
         .map(([authorId, delta]) =>
-          User.findByIdAndUpdate(authorId, { $inc: { 'stats.postsCount': delta } })
+          User.findByIdAndUpdate(authorId, {
+            $inc: { 'stats.postsCount': delta },
+          })
         )
     )
 
     // Log admin action
-    await logAdminAction(req.user._id, `POST_BULK_${status.toUpperCase()}`, null, 'Post', {
-      count: postIds.length,
-      postIds,
-      rejectionReason
-    })
+    await logAdminAction(
+      req.user._id,
+      `POST_BULK_${status.toUpperCase()}`,
+      null,
+      'Post',
+      {
+        count: postIds.length,
+        postIds,
+        rejectionReason,
+      }
+    )
 
-    res.json({ message: `Đã ${status} ${postIds.length} bài đăng`, updated: postIds.length })
-  } catch (err) { next(err) }
+    res.json({
+      message: `Đã ${status} ${postIds.length} bài đăng`,
+      updated: postIds.length,
+    })
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/posts/:id/buff — Buff stats cho post */
@@ -167,13 +206,21 @@ export const buffPostStats = async (req, res, next) => {
     if (!post) throw new AppError('NOT_FOUND', 'Không tìm thấy bài viết', 404)
 
     if (!post.stats) {
-      post.stats = { viewsCount: 0, likesCount: 0, downloadsCount: 0, commentsCount: 0, bookmarksCount: 0 }
+      post.stats = {
+        viewsCount: 0,
+        likesCount: 0,
+        downloadsCount: 0,
+        commentsCount: 0,
+        bookmarksCount: 0,
+      }
     }
 
     post.stats.viewsCount = (post.stats.viewsCount || 0) + Number(views)
-    post.stats.downloadsCount = (post.stats.downloadsCount || 0) + Number(downloads)
+    post.stats.downloadsCount =
+      (post.stats.downloadsCount || 0) + Number(downloads)
     post.stats.likesCount = (post.stats.likesCount || 0) + Number(likes)
-    post.stats.bookmarksCount = (post.stats.bookmarksCount || 0) + Number(bookmarks)
+    post.stats.bookmarksCount =
+      (post.stats.bookmarksCount || 0) + Number(bookmarks)
 
     await post.save()
 
@@ -186,19 +233,22 @@ export const buffPostStats = async (req, res, next) => {
     })
 
     res.json({ message: 'Đã buff chỉ số bài viết thành công', post })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 // =============================================
 // USER MANAGEMENT
 // =============================================
 
-/** GET /admin/users */
 export const getAllUsers = async (req, res, next) => {
   try {
-    const { cursor, limit = 20, search } = req.query
+    const { cursor, limit = 20, search, sortBy, page = 1 } = req.query
+    const limitNum = parseInt(limit) || 20
+    const pageNum = parseInt(page) || 1
     const query = {}
-    if (cursor) query._id = { $lt: cursor }
+
     if (search) {
       query.$or = [
         { username: { $regex: search, $options: 'i' } },
@@ -207,21 +257,75 @@ export const getAllUsers = async (req, res, next) => {
       ]
     }
 
-    const users = await User.find(query)
-      .sort({ _id: -1 })
-      .limit(parseInt(limit) + 1)
-      .select('-passwordHash -emailVerifyToken -passwordResetToken')
-      .lean()
+    // Apply special filters based on sortBy
+    if (sortBy === 'new-subscribers') {
+      query.subscriptionTier = { $ne: 'free' }
+    } else if (sortBy === 'sub-expiring') {
+      query.subscriptionExpiry = { $exists: true, $ne: null }
+    }
 
-    const hasMore = users.length > parseInt(limit)
-    if (hasMore) users.pop()
+    // Determine sort options
+    let sortOption = { _id: -1 }
+    if (sortBy === 'alphabetical') {
+      sortOption = { username: 1 }
+    } else if (sortBy === 'alphabetical-desc') {
+      sortOption = { username: -1 }
+    } else if (sortBy === 'createdAt') {
+      sortOption = { createdAt: -1 }
+    } else if (sortBy === 'new-subscribers') {
+      sortOption = { updatedAt: -1 }
+    } else if (sortBy === 'sub-expiring') {
+      sortOption = { subscriptionExpiry: 1 }
+    } else if (sortBy === 'most-posts') {
+      sortOption = { 'stats.postsCount': -1 }
+    } else if (sortBy === 'most-followers') {
+      sortOption = { 'stats.followersCount': -1 }
+    } else if (sortBy === 'most-likes') {
+      sortOption = { 'stats.totalLikes': -1 }
+    } else if (sortBy === 'highest-revenue') {
+      sortOption = { totalEarned: -1 }
+    }
+
+    let users = []
+    let hasMore = false
+    let nextCursor = null
+
+    if (sortBy && sortBy !== 'default') {
+      const skipNum = (pageNum - 1) * limitNum
+      users = await User.find(query)
+        .sort(sortOption)
+        .skip(skipNum)
+        .limit(limitNum + 1)
+        .select('-passwordHash -emailVerifyToken -passwordResetToken')
+        .lean()
+
+      hasMore = users.length > limitNum
+      if (hasMore) users.pop()
+    } else {
+      if (cursor) query._id = { $lt: cursor }
+      users = await User.find(query)
+        .sort({ _id: -1 })
+        .limit(limitNum + 1)
+        .select('-passwordHash -emailVerifyToken -passwordResetToken')
+        .lean()
+
+      hasMore = users.length > limitNum
+      if (hasMore) users.pop()
+      nextCursor = hasMore ? users[users.length - 1]._id : null
+    }
 
     res.json({
       users,
-      totalUsers: await User.countDocuments(),
-      pagination: { hasMore, nextCursor: hasMore ? users[users.length - 1]._id : null },
+      totalUsers: await User.countDocuments(query),
+      pagination: {
+        hasMore,
+        nextCursor,
+        page: pageNum,
+      },
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/users/:id/tokens */
@@ -230,7 +334,8 @@ export const adjustUserTokens = async (req, res, next) => {
     const { id } = req.params
     const { amount, reason = 'Admin adjustment' } = req.body
     const parsed = parseInt(amount)
-    if (isNaN(parsed) || parsed === 0) throw new AppError('INVALID_AMOUNT', 'Số token không hợp lệ', 400)
+    if (isNaN(parsed) || parsed === 0)
+      throw new AppError('INVALID_AMOUNT', 'Số token không hợp lệ', 400)
 
     const user = await User.findById(id)
     if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
@@ -243,7 +348,7 @@ export const adjustUserTokens = async (req, res, next) => {
       username: user.username,
       amount: parsed,
       reason,
-      newBalance: user.tokenBalance
+      newBalance: user.tokenBalance,
     })
 
     res.json({
@@ -253,7 +358,9 @@ export const adjustUserTokens = async (req, res, next) => {
       delta: parsed,
       reason,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** PATCH /admin/users/:id/ban */
@@ -269,22 +376,33 @@ export const toggleBanUser = async (req, res, next) => {
 
     user.isBanned = ban
     if (ban && reason) user.banReason = reason
-    if (!ban) { user.banReason = undefined; user.banExpiry = undefined }
+    if (!ban) {
+      user.banReason = undefined
+      user.banExpiry = undefined
+    }
 
     // Hỗ trợ ban có thời hạn
     if (ban && banDurationDays && banDurationDays > 0) {
-      user.banExpiry = new Date(Date.now() + banDurationDays * 24 * 60 * 60 * 1000)
+      user.banExpiry = new Date(
+        Date.now() + banDurationDays * 24 * 60 * 60 * 1000
+      )
     }
 
     await user.save()
 
     // Log admin action
-    await logAdminAction(req.user._id, ban ? 'USER_BAN' : 'USER_UNBAN', user._id, 'User', {
-      username: user.username,
-      reason,
-      durationDays: banDurationDays,
-      expiry: user.banExpiry
-    })
+    await logAdminAction(
+      req.user._id,
+      ban ? 'USER_BAN' : 'USER_UNBAN',
+      user._id,
+      'User',
+      {
+        username: user.username,
+        reason,
+        durationDays: banDurationDays,
+        expiry: user.banExpiry,
+      }
+    )
 
     res.json({
       message: ban ? `Đã ban @${user.username}` : `Đã unban @${user.username}`,
@@ -292,7 +410,9 @@ export const toggleBanUser = async (req, res, next) => {
       banReason: user.banReason,
       banExpiry: user.banExpiry,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** PATCH /admin/users/:id/role — Set role user/admin */
@@ -302,11 +422,19 @@ export const setUserRole = async (req, res, next) => {
     const { role } = req.body
 
     if (id === req.user._id.toString())
-      throw new AppError('FORBIDDEN', 'Không thể tự thay đổi role của bản thân', 403)
+      throw new AppError(
+        'FORBIDDEN',
+        'Không thể tự thay đổi role của bản thân',
+        403
+      )
 
     const VALID_ROLES = ['user', 'admin']
     if (!VALID_ROLES.includes(role))
-      throw new AppError('INVALID_ROLE', `Role không hợp lệ. Chọn: ${VALID_ROLES.join(', ')}`, 400)
+      throw new AppError(
+        'INVALID_ROLE',
+        `Role không hợp lệ. Chọn: ${VALID_ROLES.join(', ')}`,
+        400
+      )
 
     const user = await User.findById(id)
     if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
@@ -319,7 +447,7 @@ export const setUserRole = async (req, res, next) => {
     await logAdminAction(req.user._id, 'USER_ROLE_CHANGE', user._id, 'User', {
       username: user.username,
       previousRole: prevRole,
-      newRole: role
+      newRole: role,
     })
 
     res.json({
@@ -328,9 +456,10 @@ export const setUserRole = async (req, res, next) => {
       role: user.role,
       prevRole,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
-
 
 /** PATCH /admin/users/:id/tier — Đổi subscription tier (dev/admin tool) */
 export const changeUserTier = async (req, res, next) => {
@@ -340,7 +469,11 @@ export const changeUserTier = async (req, res, next) => {
 
     const VALID_TIERS = ['free', 'pro', 'ultimate', 'founder']
     if (!VALID_TIERS.includes(tier))
-      throw new AppError('INVALID_TIER', `Tier không hợp lệ. Chọn: ${VALID_TIERS.join(', ')}`, 400)
+      throw new AppError(
+        'INVALID_TIER',
+        `Tier không hợp lệ. Chọn: ${VALID_TIERS.join(', ')}`,
+        400
+      )
 
     const user = await User.findById(id)
     if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
@@ -351,14 +484,17 @@ export const changeUserTier = async (req, res, next) => {
     // Đặt expiry nếu có (mặc định 30 ngày)
     const days = parseInt(expireInDays) || (tier === 'free' ? 0 : 30)
     if (tier !== 'free' && days > 0) {
-      user.subscriptionExpiry = new Date(Date.now() + days * 24 * 60 * 60 * 1000)
+      user.subscriptionExpiry = new Date(
+        Date.now() + days * 24 * 60 * 60 * 1000
+      )
     } else {
       user.subscriptionExpiry = undefined
     }
 
     // Đặt founderSlot nếu là founder
     if (tier === 'founder') user.founderSlot = true
-    else if (prevTier === 'founder' && tier !== 'founder') user.founderSlot = false
+    else if (prevTier === 'founder' && tier !== 'founder')
+      user.founderSlot = false
 
     await user.save()
 
@@ -367,7 +503,7 @@ export const changeUserTier = async (req, res, next) => {
       username: user.username,
       previousTier: prevTier,
       newTier: tier,
-      expireInDays
+      expireInDays,
     })
 
     res.json({
@@ -377,7 +513,9 @@ export const changeUserTier = async (req, res, next) => {
       subscriptionExpiry: user.subscriptionExpiry,
       prevTier,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 // =============================================
@@ -388,18 +526,33 @@ export const changeUserTier = async (req, res, next) => {
 export const getDashboardStats = async (req, res, next) => {
   try {
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
-    const [totalPosts, totalUsers, pendingPosts, totalApproved, recentPosts, recentUsers] =
-      await Promise.all([
-        Post.countDocuments(),
-        User.countDocuments(),
-        Post.countDocuments({ status: 'pending' }),
-        Post.countDocuments({ status: 'approved' }),
-        Post.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
-        User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
-      ])
+    const [
+      totalPosts,
+      totalUsers,
+      pendingPosts,
+      totalApproved,
+      recentPosts,
+      recentUsers,
+    ] = await Promise.all([
+      Post.countDocuments(),
+      User.countDocuments(),
+      Post.countDocuments({ status: 'pending' }),
+      Post.countDocuments({ status: 'approved' }),
+      Post.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+      User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+    ])
 
-    res.json({ totalPosts, totalUsers, pendingPosts, totalApproved, recentPosts, recentUsers })
-  } catch (err) { next(err) }
+    res.json({
+      totalPosts,
+      totalUsers,
+      pendingPosts,
+      totalApproved,
+      recentPosts,
+      recentUsers,
+    })
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** GET /admin/dashboard/analytics?days=7|30 */
@@ -409,15 +562,22 @@ export const getAnalytics = async (req, res, next) => {
     const result = []
 
     for (let i = days - 1; i >= 0; i--) {
-      const start = new Date(); start.setHours(0, 0, 0, 0); start.setDate(start.getDate() - i)
-      const end   = new Date(); end.setHours(23, 59, 59, 999); end.setDate(end.getDate() - i)
+      const start = new Date()
+      start.setHours(0, 0, 0, 0)
+      start.setDate(start.getDate() - i)
+      const end = new Date()
+      end.setHours(23, 59, 59, 999)
+      end.setDate(end.getDate() - i)
       const [posts, users] = await Promise.all([
         Post.countDocuments({ createdAt: { $gte: start, $lte: end } }),
         User.countDocuments({ createdAt: { $gte: start, $lte: end } }),
       ])
       result.push({
         date: start.toISOString().split('T')[0],
-        label: start.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' }),
+        label: start.toLocaleDateString('vi-VN', {
+          day: '2-digit',
+          month: '2-digit',
+        }),
         posts,
         users,
       })
@@ -432,7 +592,9 @@ export const getAnalytics = async (req, res, next) => {
     ])
 
     res.json({ timeline: result, categoryStats })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 // =============================================
@@ -447,10 +609,15 @@ export const getCategories = async (req, res, next) => {
     const sorted = [...categories].sort((a, b) => {
       if (a.slug === 'other') return 1
       if (b.slug === 'other') return -1
-      return (a.sortOrder || 0) - (b.sortOrder || 0) || (a.createdAt || 0) - (b.createdAt || 0)
+      return (
+        (a.sortOrder || 0) - (b.sortOrder || 0) ||
+        (a.createdAt || 0) - (b.createdAt || 0)
+      )
     })
     res.json({ categories: sorted })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** GET /v1/categories — Public: chỉ trả về isActive */
@@ -466,7 +633,9 @@ export const getPublicCategories = async (req, res, next) => {
       return (a.sortOrder || 0) - (b.sortOrder || 0)
     })
     res.json({ categories: sorted })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** GET /v1/categories/details — Public: trả về thông tin chi tiết danh mục kèm top posts */
@@ -477,7 +646,10 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
 
     const categoriesData = await Promise.all(
       categories.map(async (cat) => {
-        const count = await Post.countDocuments({ status: 'approved', category: cat.slug })
+        const count = await Post.countDocuments({
+          status: 'approved',
+          category: cat.slug,
+        })
 
         // Tính tổng views, downloads, likes, bookmarks của danh mục
         const stats = await Post.aggregate([
@@ -486,11 +658,15 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
             $group: {
               _id: null,
               totalViews: { $sum: { $ifNull: ['$stats.viewsCount', 0] } },
-              totalDownloads: { $sum: { $ifNull: ['$stats.downloadsCount', 0] } },
+              totalDownloads: {
+                $sum: { $ifNull: ['$stats.downloadsCount', 0] },
+              },
               totalLikes: { $sum: { $ifNull: ['$stats.likesCount', 0] } },
-              totalBookmarks: { $sum: { $ifNull: ['$stats.bookmarksCount', 0] } }
-            }
-          }
+              totalBookmarks: {
+                $sum: { $ifNull: ['$stats.bookmarksCount', 0] },
+              },
+            },
+          },
         ])
         const totalViews = stats[0]?.totalViews || 0
         const totalDownloads = stats[0]?.totalDownloads || 0
@@ -501,11 +677,17 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
         const growth7d = await Post.countDocuments({
           status: 'approved',
           category: cat.slug,
-          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) }
+          createdAt: { $gte: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) },
         })
 
         // Trending Score = View + Download*2 + Favorite*3 + Search Count*2 + Growth 7 ngày + Bookmark*3
-        const trendingScore = totalViews + totalDownloads * 2 + totalLikes * 3 + (cat.searchCount || 0) * 2 + growth7d + totalBookmarks * 3
+        const trendingScore =
+          totalViews +
+          totalDownloads * 2 +
+          totalLikes * 3 +
+          (cat.searchCount || 0) * 2 +
+          growth7d +
+          totalBookmarks * 3
 
         // Lấy top 6 posts nhiều tương tác nhất để hiển thị giao diện đa dạng style
         const topPosts = await Post.aggregate([
@@ -516,10 +698,10 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
                 $add: [
                   { $ifNull: ['$stats.viewsCount', 0] },
                   { $multiply: [{ $ifNull: ['$stats.likesCount', 0] }, 3] },
-                  { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 5] }
-                ]
-              }
-            }
+                  { $multiply: [{ $ifNull: ['$stats.downloadsCount', 0] }, 5] },
+                ],
+              },
+            },
           },
           { $sort: { popularityScore: -1, _id: -1 } },
           { $limit: 6 },
@@ -531,9 +713,9 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
               caption: 1,
               prompt: 1,
               tags: 1,
-              stats: 1
-            }
-          }
+              stats: 1,
+            },
+          },
         ])
 
         return {
@@ -550,22 +732,31 @@ export const getPublicCategoriesDetails = async (req, res, next) => {
           growth7d,
           searchCount: cat.searchCount || 0,
           trendingScore,
-          posts: topPosts
+          posts: topPosts,
         }
       })
     )
 
     res.json({ categories: categoriesData })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/categories */
 export const createCategory = async (req, res, next) => {
   try {
     const { name, emoji = '🏷️', description } = req.body
-    if (!name?.trim()) throw new AppError('INVALID_INPUT', 'Tên danh mục không được bỏ trống', 400)
+    if (!name?.trim())
+      throw new AppError(
+        'INVALID_INPUT',
+        'Tên danh mục không được bỏ trống',
+        400
+      )
 
-    const slug = name.trim().toLowerCase()
+    const slug = name
+      .trim()
+      .toLowerCase()
       .replace(/[àáạảãâầấậẩẫăằắặẳẵ]/g, 'a')
       .replace(/[èéẹẻẽêềếệểễ]/g, 'e')
       .replace(/[ìíịỉĩ]/g, 'i')
@@ -577,7 +768,10 @@ export const createCategory = async (req, res, next) => {
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '')
 
-    const maxOrder = await Category.findOne().sort({ sortOrder: -1 }).select('sortOrder').lean()
+    const maxOrder = await Category.findOne()
+      .sort({ sortOrder: -1 })
+      .select('sortOrder')
+      .lean()
 
     const category = await Category.create({
       name: name.trim(),
@@ -590,7 +784,8 @@ export const createCategory = async (req, res, next) => {
 
     res.status(201).json({ message: 'Đã tạo danh mục', category })
   } catch (err) {
-    if (err.code === 11000) return next(new AppError('DUPLICATE', 'Slug đã tồn tại', 409))
+    if (err.code === 11000)
+      return next(new AppError('DUPLICATE', 'Slug đã tồn tại', 409))
     next(err)
   }
 }
@@ -602,7 +797,8 @@ export const updateCategory = async (req, res, next) => {
     const { name, emoji, description, sortOrder } = req.body
 
     const category = await Category.findById(id)
-    if (!category) throw new AppError('NOT_FOUND', 'Không tìm thấy danh mục', 404)
+    if (!category)
+      throw new AppError('NOT_FOUND', 'Không tìm thấy danh mục', 404)
 
     if (name !== undefined) category.name = name.trim()
     if (emoji !== undefined) category.emoji = emoji
@@ -611,7 +807,9 @@ export const updateCategory = async (req, res, next) => {
     await category.save()
 
     res.json({ message: 'Đã cập nhật danh mục', category })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** PATCH /admin/categories/:id/toggle — bật/tắt active */
@@ -619,17 +817,27 @@ export const toggleCategory = async (req, res, next) => {
   try {
     const { id } = req.params
     const category = await Category.findById(id)
-    if (!category) throw new AppError('NOT_FOUND', 'Không tìm thấy danh mục', 404)
+    if (!category)
+      throw new AppError('NOT_FOUND', 'Không tìm thấy danh mục', 404)
 
     // Không tắt "other" vì là fallback
     if (category.slug === 'other')
-      throw new AppError('FORBIDDEN', 'Không thể tắt danh mục Khác (dùng làm fallback)', 400)
+      throw new AppError(
+        'FORBIDDEN',
+        'Không thể tắt danh mục Khác (dùng làm fallback)',
+        400
+      )
 
     category.isActive = !category.isActive
     await category.save()
 
-    res.json({ message: `Đã ${category.isActive ? 'bật' : 'tắt'} danh mục "${category.name}"`, isActive: category.isActive })
-  } catch (err) { next(err) }
+    res.json({
+      message: `Đã ${category.isActive ? 'bật' : 'tắt'} danh mục "${category.name}"`,
+      isActive: category.isActive,
+    })
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** DELETE /admin/categories/:id — soft delete (set inactive + migrate posts) */
@@ -637,10 +845,15 @@ export const deleteCategory = async (req, res, next) => {
   try {
     const { id } = req.params
     const category = await Category.findById(id)
-    if (!category) throw new AppError('NOT_FOUND', 'Không tìm thấy danh mục', 404)
+    if (!category)
+      throw new AppError('NOT_FOUND', 'Không tìm thấy danh mục', 404)
 
     if (category.slug === 'other')
-      throw new AppError('FORBIDDEN', 'Không thể xóa danh mục mặc định "Khác"', 400)
+      throw new AppError(
+        'FORBIDDEN',
+        'Không thể xóa danh mục mặc định "Khác"',
+        400
+      )
 
     // Migrate posts về "other"
     const migrated = await Post.updateMany(
@@ -654,7 +867,9 @@ export const deleteCategory = async (req, res, next) => {
       message: `Đã xóa danh mục "${category.name}"`,
       migratedPosts: migrated.modifiedCount,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 // =============================================
@@ -666,23 +881,46 @@ export const getSettings = async (req, res, next) => {
   try {
     const settings = await Settings.getSingleton()
     res.json({ settings })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** PUT /admin/settings — Cập nhật 1 hoặc nhiều setting */
 export const updateSettings = async (req, res, next) => {
   try {
     const allowed = [
-      'autoApprove', 'autoApproveDelayMs', 'primaryColor', 'gradientColor', 
-      'brandOpacity', 'brandBlur', 'enableGradient', 'shadowStyle',
-      'announcementText', 'announcementLink', 'announcementEnabled',
-      'categoryStyle', 'categoriesPageStyle', 'heroBannerMode', 'heroBannerImage',
-      'heroCollageMode', 'heroCollageImages', 'globalLoaderType', 'splashExtraMs', 'myPostsSkeletonMs', 'postLoadingDelayMs',
-      'payoutRatePerView', 'creatorSharePercent', 'withdrawalFlatFee', 'withdrawalPercentFee', 'blurPremiumImages',
-      'postDetailLayout', 'trendingCarouselInterval'
+      'autoApprove',
+      'autoApproveDelayMs',
+      'primaryColor',
+      'gradientColor',
+      'brandOpacity',
+      'brandBlur',
+      'enableGradient',
+      'shadowStyle',
+      'announcementText',
+      'announcementLink',
+      'announcementEnabled',
+      'categoryStyle',
+      'categoriesPageStyle',
+      'heroBannerMode',
+      'heroBannerImage',
+      'heroCollageMode',
+      'heroCollageImages',
+      'globalLoaderType',
+      'splashExtraMs',
+      'myPostsSkeletonMs',
+      'postLoadingDelayMs',
+      'payoutRatePerView',
+      'creatorSharePercent',
+      'withdrawalFlatFee',
+      'withdrawalPercentFee',
+      'blurPremiumImages',
+      'postDetailLayout',
+      'trendingCarouselInterval',
     ]
     const updates = {}
-    allowed.forEach(key => {
+    allowed.forEach((key) => {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
     })
 
@@ -693,10 +931,18 @@ export const updateSettings = async (req, res, next) => {
     const settings = await Settings.updateSettings(updates)
 
     // Log admin action
-    await logAdminAction(req.user._id, 'SYSTEM_SETTINGS_UPDATE', settings._id, 'Settings', updates)
+    await logAdminAction(
+      req.user._id,
+      'SYSTEM_SETTINGS_UPDATE',
+      settings._id,
+      'Settings',
+      updates
+    )
 
     res.json({ message: 'Đã cập nhật cài đặt', settings })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** GET /admin/audit-logs */
@@ -724,16 +970,42 @@ export const getAuditLogs = async (req, res, next) => {
         count: data.length,
       },
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/settlement/trigger — Chạy quyết toán thủ công */
 export const triggerSettlement = async (req, res, next) => {
   try {
-    const { runDailySettlement } = await import('../jobs/settlement.js')
+    const { runDailySettlement } = await import('../jobs/cronJobs.js')
     const result = await runDailySettlement()
     res.json({ message: 'Quyết toán hoàn thành', result })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/settlement/trigger-score-decay — Tính lại điểm trending thủ công */
+export const triggerScoreDecay = async (req, res, next) => {
+  try {
+    const { runDailyScoreDecay } = await import('../jobs/cronJobs.js')
+    const result = await runDailyScoreDecay()
+    res.json({ message: 'Tính lại điểm trending hoàn thành', result })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/settlement/trigger-subscription-cleanup — Kiểm tra hạn gói thủ công */
+export const triggerSubscriptionCleanup = async (req, res, next) => {
+  try {
+    const { runDailySubscriptionCleanup } = await import('../jobs/cronJobs.js')
+    const result = await runDailySubscriptionCleanup()
+    res.json({ message: 'Kiểm tra hạn gói hoàn thành', result })
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/users/:id/deposit */
@@ -743,7 +1015,11 @@ export const depositUserVnd = async (req, res, next) => {
     const { amount, description, adminNote } = req.body
     const parsed = parseInt(amount)
     if (isNaN(parsed) || parsed === 0) {
-      throw new AppError('INVALID_AMOUNT', 'Số tiền điều chỉnh không hợp lệ', 400)
+      throw new AppError(
+        'INVALID_AMOUNT',
+        'Số tiền điều chỉnh không hợp lệ',
+        400
+      )
     }
 
     const WalletService = (await import('../services/WalletService.js')).default
@@ -752,7 +1028,7 @@ export const depositUserVnd = async (req, res, next) => {
       amount: parsed,
       description,
       adminNote,
-      adminId: req.user._id
+      adminId: req.user._id,
     })
 
     // Log admin action
@@ -760,7 +1036,7 @@ export const depositUserVnd = async (req, res, next) => {
       amount: parsed,
       description,
       adminNote,
-      newBalance: result.user.vndBalance
+      newBalance: result.user.vndBalance,
     })
 
     const actionText = parsed > 0 ? 'nạp thành công' : 'trừ thành công'
@@ -768,23 +1044,31 @@ export const depositUserVnd = async (req, res, next) => {
       message: `Đã ${actionText} ${Math.abs(parsed).toLocaleString('vi-VN')} VNĐ cho @${result.user.username}`,
       username: result.user.username,
       vndBalance: result.user.vndBalance,
-      transaction: result.transaction
+      transaction: result.transaction,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** GET /admin/withdrawals */
 export const getWithdrawalRequests = async (req, res, next) => {
   try {
-    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    const VndTransaction = (await import('../models/VndTransaction.model.js'))
+      .default
     // Tìm các yêu cầu rút tiền
     const requests = await VndTransaction.find({ type: 'withdraw_request' })
-      .populate('userId', 'username displayName email avatar bankAccount vndBalance holdingBalance lockedBalance')
+      .populate(
+        'userId',
+        'username displayName email avatar bankAccount vndBalance holdingBalance lockedBalance'
+      )
       .sort({ createdAt: -1 })
       .lean()
 
     res.json({ requests })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/withdrawals/:txnId/approve */
@@ -801,16 +1085,24 @@ export const approveWithdrawal = async (req, res, next) => {
     )
 
     // Log admin action
-    await logAdminAction(req.user._id, 'WITHDRAW_APPROVE', result.transaction.userId, 'VndTransaction', {
-      transactionId: txnId,
-      adminNote
-    })
+    await logAdminAction(
+      req.user._id,
+      'WITHDRAW_APPROVE',
+      result.transaction.userId,
+      'VndTransaction',
+      {
+        transactionId: txnId,
+        adminNote,
+      }
+    )
 
     res.json({
       message: 'Đã duyệt yêu cầu rút tiền thành công',
-      transaction: result.transaction
+      transaction: result.transaction,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 /** POST /admin/withdrawals/:txnId/reject */
@@ -827,16 +1119,24 @@ export const rejectWithdrawal = async (req, res, next) => {
     )
 
     // Log admin action
-    await logAdminAction(req.user._id, 'WITHDRAW_REJECT', result.transaction.userId, 'VndTransaction', {
-      transactionId: txnId,
-      adminNote
-    })
+    await logAdminAction(
+      req.user._id,
+      'WITHDRAW_REJECT',
+      result.transaction.userId,
+      'VndTransaction',
+      {
+        transactionId: txnId,
+        adminNote,
+      }
+    )
 
     res.json({
       message: 'Đã từ chối yêu cầu rút tiền thành công',
-      transaction: result.transaction
+      transaction: result.transaction,
     })
-  } catch (err) { next(err) }
+  } catch (err) {
+    next(err)
+  }
 }
 
 // =============================================
@@ -860,7 +1160,7 @@ export const getAdminReports = async (req, res, next) => {
         populate: {
           path: 'authorId',
           select: 'username displayName avatar email',
-        }
+        },
       })
       .lean()
 
@@ -884,7 +1184,7 @@ export const getAdminReports = async (req, res, next) => {
       pagination: {
         hasMore,
         nextCursor: hasMore ? reports[reports.length - 1]._id : null,
-      }
+      },
     })
   } catch (err) {
     next(err)
@@ -907,9 +1207,15 @@ export const updateReportStatus = async (req, res, next) => {
       await report.save()
 
       // Log admin action
-      await logAdminAction(req.user._id, 'REPORT_DISMISS', report.postId, 'Post', {
-        reportId: id
-      })
+      await logAdminAction(
+        req.user._id,
+        'REPORT_DISMISS',
+        report.postId,
+        'Post',
+        {
+          reportId: id,
+        }
+      )
     } else if (action === 'resolve_hide') {
       report.status = 'resolved'
       await report.save()
@@ -922,9 +1228,15 @@ export const updateReportStatus = async (req, res, next) => {
       }
 
       // Log admin action
-      await logAdminAction(req.user._id, 'REPORT_RESOLVE_HIDE', report.postId, 'Post', {
-        reportId: id
-      })
+      await logAdminAction(
+        req.user._id,
+        'REPORT_RESOLVE_HIDE',
+        report.postId,
+        'Post',
+        {
+          reportId: id,
+        }
+      )
     } else {
       throw new AppError('BAD_REQUEST', 'Hành động không hợp lệ', 400)
     }
@@ -938,4 +1250,152 @@ export const updateReportStatus = async (req, res, next) => {
   }
 }
 
+/** POST /admin/users — Admin tạo mới tài khoản */
+export const createAdminUser = async (req, res, next) => {
+  try {
+    const { username, email, displayName, password, role = 'user', subscriptionTier = 'free' } = req.body
+
+    if (!username || !email || !password) {
+      throw new AppError('VALIDATION_ERROR', 'Vui lòng điền đầy đủ username, email và mật khẩu', 400)
+    }
+
+    // Kiểm tra trùng username / email
+    const existing = await User.findOne({ $or: [{ username }, { email }] })
+    if (existing) {
+      throw new AppError('ALREADY_EXISTS', 'Username hoặc email đã tồn tại', 400)
+    }
+
+    const salt = await bcrypt.genSalt(10)
+    const passwordHash = await bcrypt.hash(password, salt)
+
+    const user = new User({
+      username: username.toLowerCase().trim(),
+      email: email.toLowerCase().trim(),
+      displayName: displayName?.trim() || username.trim(),
+      passwordHash,
+      role,
+      subscriptionTier,
+      tokenBalance: subscriptionTier === 'pro' ? 1000 : subscriptionTier === 'ultimate' ? 999999 : 0
+    })
+
+    if (subscriptionTier === 'founder') {
+      user.founderSlot = true
+    }
+
+    await user.save()
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_CREATE', user._id, 'User', {
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      tier: user.subscriptionTier,
+    })
+
+    res.status(201).json({
+      success: true,
+      message: `Đã tạo tài khoản @${user.username} thành công!`,
+      user: {
+        _id: user._id,
+        username: user.username,
+        email: user.email,
+        displayName: user.displayName,
+        role: user.role,
+        subscriptionTier: user.subscriptionTier,
+        tokenBalance: user.tokenBalance,
+        createdAt: user.createdAt,
+      }
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** PUT /admin/users/:id — Admin cập nhật thông tin user */
+export const updateAdminUser = async (req, res, next) => {
+  try {
+    const { id } = req.params
+    const { username, email, displayName, role, subscriptionTier, tokenBalance, vndBalance } = req.body
+
+    const user = await User.findById(id)
+    if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy người dùng', 404)
+
+    // Kiểm tra trùng lặp nếu đổi username hoặc email
+    if (username && username.toLowerCase() !== user.username) {
+      const dup = await User.findOne({ username: username.toLowerCase() })
+      if (dup) throw new AppError('ALREADY_EXISTS', 'Username đã bị sử dụng', 400)
+      user.username = username.toLowerCase().trim()
+    }
+
+    if (email && email.toLowerCase() !== user.email) {
+      const dup = await User.findOne({ email: email.toLowerCase() })
+      if (dup) throw new AppError('ALREADY_EXISTS', 'Email đã bị sử dụng', 400)
+      user.email = email.toLowerCase().trim()
+    }
+
+    if (displayName !== undefined) user.displayName = displayName.trim()
+    if (role !== undefined) user.role = role
+    
+    if (subscriptionTier !== undefined) {
+      const prevTier = user.subscriptionTier
+      user.subscriptionTier = subscriptionTier
+      if (subscriptionTier === 'founder') user.founderSlot = true
+      else if (prevTier === 'founder') user.founderSlot = false
+    }
+
+    if (tokenBalance !== undefined) user.tokenBalance = Math.max(0, parseInt(tokenBalance) || 0)
+    if (vndBalance !== undefined) user.vndBalance = Math.max(0, parseInt(vndBalance) || 0)
+
+    await user.save()
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_UPDATE', user._id, 'User', {
+      username: user.username,
+      email: user.email,
+      role: user.role,
+      tier: user.subscriptionTier,
+    })
+
+    res.json({
+      success: true,
+      message: `Đã cập nhật thông tin của @${user.username} thành công!`,
+      user
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** DELETE /admin/users/:id — Admin xóa tài khoản */
+export const deleteAdminUser = async (req, res, next) => {
+  try {
+    const { id } = req.params
+
+    if (id === req.user._id.toString()) {
+      throw new AppError('FORBIDDEN', 'Bạn không thể tự xóa tài khoản admin của chính mình!', 400)
+    }
+
+    const user = await User.findById(id)
+    if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy người dùng', 404)
+
+    // Xóa user khỏi cơ sở dữ liệu
+    await User.findByIdAndDelete(id)
+
+    // Cũng xóa hoặc ẩn toàn bộ posts của user này để tránh lỗi mồ côi dữ liệu
+    await Post.deleteMany({ authorId: id })
+
+    // Log admin action
+    await logAdminAction(req.user._id, 'USER_DELETE', id, 'User', {
+      username: user.username,
+      email: user.email,
+    })
+
+    res.json({
+      success: true,
+      message: `Đã xóa vĩnh viễn tài khoản @${user.username} và toàn bộ bài đăng liên quan!`
+    })
+  } catch (err) {
+    next(err)
+  }
+}
 

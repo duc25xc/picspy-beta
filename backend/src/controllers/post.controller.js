@@ -842,68 +842,27 @@ export const getApprovedPosts = async (req, res, next) => {
       })
     }
 
-    // ─── HOT: Aggregation pipeline tính điểm real-time ──────
+    // ─── HOT: Query trực tiếp theo trường score đã được đánh index ──────
     if (sort === 'hot') {
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
+      const query = { ...baseMatch }
 
-      const pipeline = [
-        { $match: { ...baseMatch, createdAt: { $gte: thirtyDaysAgo } } },
-        {
-          $addFields: {
-            hotScore: {
-              $add: [
-                { $multiply: ['$stats.viewsCount', 1] },
-                { $multiply: ['$stats.likesCount', 3] },
-                { $multiply: ['$stats.downloadsCount', 5] },
-              ],
-            },
-          },
-        },
-      ]
-
-      // Lọc cursor phân trang cho HOT dựa trên điểm score động
       if (cursor) {
         const cursorPost = await Post.findById(cursor)
         if (cursorPost) {
-          const cursorScore = ((cursorPost.stats?.viewsCount || 0) * 1) +
-                              ((cursorPost.stats?.likesCount || 0) * 3) +
-                              ((cursorPost.stats?.downloadsCount || 0) * 5)
-          pipeline.push({
-            $match: {
-              $or: [
-                { hotScore: { $lt: cursorScore } },
-                { hotScore: cursorScore, _id: { $lt: cursorPost._id } }
-              ]
-            }
-          })
+          const cursorScore = cursorPost.score || 0
+          query.$or = [
+            { score: { $lt: cursorScore } },
+            { score: cursorScore, _id: { $lt: cursorPost._id } }
+          ]
         }
       }
 
-      pipeline.push(
-        { $sort: { hotScore: -1, _id: -1 } },
-        { $limit: parseInt(limit) + 1 },
-        {
-          $lookup: {
-            from: 'users',
-            localField: 'authorId',
-            foreignField: '_id',
-            pipeline: [
-              {
-                $project: {
-                  username: 1,
-                  displayName: 1,
-                  avatar: 1,
-                  isVerified: 1,
-                },
-              },
-            ],
-            as: 'authorId',
-          },
-        },
-        { $unwind: { path: '$authorId', preserveNullAndEmptyArrays: true } }
-      )
+      const posts = await Post.find(query)
+        .sort({ score: -1, _id: -1 })
+        .limit(parseInt(limit) + 1)
+        .populate('authorId', 'username displayName avatar isVerified subscriptionTier')
+        .lean()
 
-      const posts = await Post.aggregate(pipeline)
       const hasMore = posts.length > parseInt(limit)
       if (hasMore) posts.pop()
 
@@ -1785,10 +1744,7 @@ export const getHomepageData = async (req, res, next) => {
 
     // Count creators (users who have postsCount > 0 or have role creator/admin)
     const creatorsCount = await User.countDocuments({
-      $or: [
-        { role: 'creator' },
-        { 'stats.postsCount': { $gt: 0 } }
-      ]
+      'stats.postsCount': { $gt: 0 }
     })
 
     // Sum total coins paid (totalEarned from all users)
@@ -2060,10 +2016,7 @@ export const getHomepageData = async (req, res, next) => {
 
     // 7. Leaderboard (top 4 creators with followersCount desc)
     const leaderboardCreators = await User.find({
-      $or: [
-        { role: 'creator' },
-        { 'stats.postsCount': { $gt: 0 } }
-      ]
+      'stats.postsCount': { $gt: 0 }
     })
       .sort({ 'stats.followersCount': -1, _id: -1 })
       .limit(4)

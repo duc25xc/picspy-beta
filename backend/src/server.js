@@ -33,7 +33,7 @@ import Settings from './models/Settings.model.js'
 
 // Workers & Jobs (khởi động cùng server)
 import './workers/imageProcessor.worker.js'
-import './jobs/settlement.js'
+import './jobs/cronJobs.js'
 
 const app = express()
 const httpServer = http.createServer(app)
@@ -181,6 +181,8 @@ const startServer = async () => {
   await connectDB()
   await seedCategories() // seed danh mục mặc định nếu chưa có
   await seedSubscriptionPlans() // seed 4 gói subscription nếu chưa có
+  const User = (await import('./models/User.model.js')).default
+  await User.updateMany({ role: 'creator' }, { role: 'user' })
   initSocket(httpServer)
 
   httpServer.listen(PORT, () => {

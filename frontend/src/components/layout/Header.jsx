@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Film,
   Wallet,
+  Shield,
 } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
 import { useSettings } from '../../context/SettingsContext'
@@ -286,6 +287,17 @@ const Header = () => {
                         <span>Creator Studio</span>
                         <span className="ml-auto text-[9px] font-bold text-brand-400 bg-brand-500/10 border border-brand-500/20 px-1.5 py-0.5 rounded-md">NEW</span>
                       </Link>
+
+                      {user.role === 'admin' && (
+                        <Link
+                          to="/admin"
+                          onClick={() => setIsDropdownOpen(false)}
+                          className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-violet-400 hover:bg-violet-500/10 transition-colors"
+                        >
+                          <Shield size={14} className="text-violet-400" />
+                          <span>Admin Panel</span>
+                        </Link>
+                      )}
 
                       {/* Divider */}
                       <hr className="my-1 border-[var(--color-border)]" />

@@ -539,10 +539,7 @@ export const getLeaderboard = async (req, res, next) => {
     if (type === 'followers') {
       if (period === 'all') {
         creatorsData = await User.find({
-          $or: [
-            { role: 'creator' },
-            { 'stats.postsCount': { $gt: 0 } }
-          ]
+          'stats.postsCount': { $gt: 0 }
         })
           .sort({ 'stats.followersCount': -1, _id: -1 })
           .limit(limitNum)
@@ -599,10 +596,7 @@ export const getLeaderboard = async (req, res, next) => {
       const existingIds = creatorsData.map(c => c._id.toString())
       const backupCreators = await User.find({
         _id: { $nin: existingIds },
-        $or: [
-          { role: 'creator' },
-          { 'stats.postsCount': { $gt: 0 } }
-        ]
+        'stats.postsCount': { $gt: 0 }
       })
         .sort({ 'stats.followersCount': -1, _id: -1 })
         .limit(limitNum - creatorsData.length)

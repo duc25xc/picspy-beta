@@ -100,14 +100,17 @@ const AuthorAvatar = ({ user, size = 10 }) => {
 const ColorPaletteStrip = ({ palette }) => {
   const handleCopy = (hex) => {
     navigator.clipboard?.writeText(hex)
-    toast.success(`Đã sao chép: ${hex} 🎨`, { id: `copy-${hex}`, duration: 1500 })
+    toast.success(`Đã sao chép: ${hex} 🎨`, {
+      id: `copy-${hex}`,
+      duration: 1500,
+    })
   }
 
   if (!palette?.length) return null
   return (
     <div className="px-5 py-2.5 border-b border-white/8">
       <p className="text-[10px] text-white/25 mb-2 font-medium tracking-wider uppercase">
-        Màu chủ đạo (Click để copy)
+        Màu chủ đạo
       </p>
       <div className="flex gap-2 items-center">
         {palette.slice(0, 6).map((hex, i) => (
@@ -641,7 +644,8 @@ const PostDetailModal = ({
                   </span>
                 )}
                 {post.isPremium && (
-                  <span className="group relative overflow-hidden inline-flex items-center gap-1.5
+                  <span
+                    className="group relative overflow-hidden inline-flex items-center gap-1.5
                     px-2.5 py-1 rounded-full text-[10px] font-bold tracking-wide
                     bg-black/65 border border-amber-500/45 text-amber-400
                     backdrop-blur-md shadow-[0_0_12px_rgba(251,191,36,0.15)]
@@ -649,10 +653,15 @@ const PostDetailModal = ({
                     hover:shadow-[0_0_18px_rgba(251,191,36,0.28)]"
                   >
                     {/* shimmer sweep */}
-                    <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                    <span
+                      className="absolute inset-0 -translate-x-full group-hover:translate-x-full
                       transition-transform duration-700 ease-out pointer-events-none
-                      bg-gradient-to-r from-transparent via-amber-300/25 to-transparent" />
-                    <GiCutDiamond size={10} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+                      bg-gradient-to-r from-transparent via-amber-300/25 to-transparent"
+                    />
+                    <GiCutDiamond
+                      size={10}
+                      className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300"
+                    />
                     PREMIUM
                   </span>
                 )}
@@ -663,7 +672,10 @@ const PostDetailModal = ({
                   </div>
                   <div className="flex items-center gap-1.5">
                     <Eye size={11} className="text-white/30" />
-                    <span>Lượt xem: {(post.stats?.viewsCount || 0).toLocaleString()} views</span>
+                    <span>
+                      Lượt xem: {(post.stats?.viewsCount || 0).toLocaleString()}{' '}
+                      views
+                    </span>
                   </div>
                   {post.exifData?.dateTaken && (
                     <div className="flex items-center gap-1.5">
@@ -692,71 +704,83 @@ const PostDetailModal = ({
               <ColorPaletteStrip palette={post.colorPalette} />
             )}
 
-             {/* Stats + Action Buttons */}
-             {post && (
-               <div className="px-5 py-4 border-b border-white/8 space-y-4">
-                 {/* Full width Download row */}
-                 <div className="w-full">
-                   <DownloadButton
-                     post={post}
-                     postId={post._id}
-                     isPremium={post.isPremium}
-                     priceInVnd={post.priceInVnd}
-                     variant="detail"
-                   />
-                 </div>
+            {/* Stats + Action Buttons */}
+            {post && (
+              <div className="px-5 py-4 border-b border-white/8 space-y-4">
+                {/* Full width Download row */}
+                <div className="w-full">
+                  <DownloadButton
+                    post={post}
+                    postId={post._id}
+                    isPremium={post.isPremium}
+                    priceInVnd={post.priceInVnd}
+                    variant="detail"
+                  />
+                </div>
 
-                 {/* Micro-actions row */}
-                 <div className="flex items-center justify-between px-1 text-white/50">
-                   <LikeButton
-                     postId={post._id}
-                     initialLiked={isLiked}
-                     initialCount={post.stats?.likesCount || 0}
-                     size="md"
-                     onToggle={(liked) => setIsLiked(liked)}
-                   />
-                   <BookmarkButton
-                     postId={post._id}
-                     initialBookmarked={isBookmarked}
-                     showCount={true}
-                     initialCount={post.stats?.bookmarksCount || 0}
-                     size="md"
-                     onToggle={(b) => setIsBookmarked(b)}
-                   />
-                   <motion.button
-                     onClick={handleShare}
-                     whileTap={{ scale: 0.9 }}
-                     animate={copied ? { scale: [1, 1.15, 0.95, 1], y: [0, -3, 0] } : { scale: 1, y: 0 }}
-                     transition={{ duration: 0.45, ease: 'easeInOut' }}
-                     className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 py-1 ${
-                       copied ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]' : 'text-white/30 hover:text-white'
-                     }`}
-                     title="Sao chép link"
-                   >
-                     <motion.span
-                       animate={copied ? { rotate: [0, 360], scale: [1, 1.25, 1] } : { rotate: 0, scale: 1 }}
-                       transition={{ duration: 0.4, ease: 'easeOut' }}
-                       className="flex items-center justify-center shrink-0"
-                     >
-                       {copied ? <Check size={14} /> : <Share2 size={14} />}
-                     </motion.span>
-                     <span>{(post.stats?.sharesCount || 0).toLocaleString()}</span>
-                   </motion.button>
+                {/* Micro-actions row */}
+                <div className="flex items-center justify-between px-1 text-white/50">
+                  <LikeButton
+                    postId={post._id}
+                    initialLiked={isLiked}
+                    initialCount={post.stats?.likesCount || 0}
+                    size="md"
+                    onToggle={(liked) => setIsLiked(liked)}
+                  />
+                  <BookmarkButton
+                    postId={post._id}
+                    initialBookmarked={isBookmarked}
+                    showCount={true}
+                    initialCount={post.stats?.bookmarksCount || 0}
+                    size="md"
+                    onToggle={(b) => setIsBookmarked(b)}
+                  />
+                  <motion.button
+                    onClick={handleShare}
+                    whileTap={{ scale: 0.9 }}
+                    animate={
+                      copied
+                        ? { scale: [1, 1.15, 0.95, 1], y: [0, -3, 0] }
+                        : { scale: 1, y: 0 }
+                    }
+                    transition={{ duration: 0.45, ease: 'easeInOut' }}
+                    className={`flex items-center gap-1.5 text-xs font-semibold transition-all duration-200 py-1 ${
+                      copied
+                        ? 'text-emerald-400 drop-shadow-[0_0_8px_rgba(16,185,129,0.2)]'
+                        : 'text-white/30 hover:text-white'
+                    }`}
+                    title="Sao chép link"
+                  >
+                    <motion.span
+                      animate={
+                        copied
+                          ? { rotate: [0, 360], scale: [1, 1.25, 1] }
+                          : { rotate: 0, scale: 1 }
+                      }
+                      transition={{ duration: 0.4, ease: 'easeOut' }}
+                      className="flex items-center justify-center shrink-0"
+                    >
+                      {copied ? <Check size={14} /> : <Share2 size={14} />}
+                    </motion.span>
+                    <span>
+                      {(post.stats?.sharesCount || 0).toLocaleString()}
+                    </span>
+                  </motion.button>
 
-                   {!isOwnPost && (
-                     <motion.button
-                       onClick={() => setShowReportDialog(true)}
-                       whileTap={{ scale: 0.9 }}
-                       className="flex items-center gap-1.5 text-white/30 hover:text-red-400 transition-colors text-xs font-semibold py-1 cursor-pointer"
-                       title="Báo cáo vi phạm"
-                     >
-                       <Flag size={14} />
-                       <span>Báo cáo</span>
-                     </motion.button>
-                   )}
-                 </div>
-               </div>
-             )}
+                  {!isOwnPost && (
+                    <motion.button
+                      onClick={() => setShowReportDialog(true)}
+                      whileTap={{ scale: 0.9 }}
+                      className="flex items-center gap-1.5 text-white/30 hover:text-red-400 transition-colors text-xs font-semibold py-1 cursor-pointer"
+                      title="Báo cáo vi phạm"
+                    >
+                      <Flag size={14} />
+                      <span>Báo cáo</span>
+                    </motion.button>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Comments */}
             <div className="px-5 py-4 min-h-0 border-t border-white/5">
@@ -884,7 +908,10 @@ const PostDetailModal = ({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 z-[350] flex items-center justify-center p-4"
-            style={{ background: 'rgba(0, 0, 0, 0.75)', backdropFilter: 'blur(10px)' }}
+            style={{
+              background: 'rgba(0, 0, 0, 0.75)',
+              backdropFilter: 'blur(10px)',
+            }}
           >
             <motion.div
               initial={{ scale: 0.9, y: 20 }}
@@ -900,7 +927,8 @@ const PostDetailModal = ({
                 <Flag className="text-red-400" size={20} /> Báo cáo bài viết
               </h3>
               <p className="text-xs text-white/50 mb-4 leading-relaxed">
-                Giúp PicSpy giữ gìn môi trường nghệ thuật lành mạnh. Vui lòng chọn hoặc nhập lý do bài đăng này vi phạm tiêu chuẩn cộng đồng.
+                Giúp PicSpy giữ gìn môi trường nghệ thuật lành mạnh. Vui lòng
+                chọn hoặc nhập lý do bài đăng này vi phạm tiêu chuẩn cộng đồng.
               </p>
 
               <form onSubmit={handleReportSubmit} className="space-y-4">
@@ -923,7 +951,12 @@ const PostDetailModal = ({
                         checked={
                           reportReason === preset ||
                           (preset.startsWith('Lý do khác') &&
-                            !['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                            ![
+                              'Nội dung nhạy cảm, người lớn (NSFW)',
+                              'Bản quyền/Ăn cắp tác phẩm',
+                              'Spam hoặc nội dung lừa đảo',
+                              'Nội dung thù ghét, bạo lực',
+                            ].includes(reportReason) &&
                             reportReason.length > 0)
                         }
                         onChange={() => setReportReason(preset)}
@@ -935,18 +968,28 @@ const PostDetailModal = ({
                 </div>
 
                 {(reportReason.startsWith('Lý do khác') ||
-                  (!['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason) &&
+                  (![
+                    'Nội dung nhạy cảm, người lớn (NSFW)',
+                    'Bản quyền/Ăn cắp tác phẩm',
+                    'Spam hoặc nội dung lừa đảo',
+                    'Nội dung thù ghét, bạo lực',
+                  ].includes(reportReason) &&
                     reportReason.length > 0)) && (
                   <textarea
                     placeholder="Vui lòng nhập lý do cụ thể..."
                     rows={3}
                     onChange={(e) => setReportReason(e.target.value)}
                     value={
-                      ['Nội dung nhạy cảm, người lớn (NSFW)', 'Bản quyền/Ăn cắp tác phẩm', 'Spam hoặc nội dung lừa đảo', 'Nội dung thù ghét, bạo lực'].includes(reportReason)
+                      [
+                        'Nội dung nhạy cảm, người lớn (NSFW)',
+                        'Bản quyền/Ăn cắp tác phẩm',
+                        'Spam hoặc nội dung lừa đảo',
+                        'Nội dung thù ghét, bạo lực',
+                      ].includes(reportReason)
                         ? ''
                         : reportReason.startsWith('Lý do khác')
-                        ? ''
-                        : reportReason
+                          ? ''
+                          : reportReason
                     }
                     className="w-full bg-black/40 border border-white/10 rounded-xl p-3 text-xs text-white placeholder-white/20 focus:outline-none focus:border-brand-500/50 resize-none"
                     required
