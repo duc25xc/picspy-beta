@@ -550,6 +550,20 @@ export const createPost = async (req, res, next) => {
     const User = (await import('../models/User.model.js')).default
     await User.findByIdAndUpdate(req.user._id, { $inc: { 'stats.postsCount': 1 } })
 
+    // Gửi thông báo admin có bài đăng mới chờ duyệt
+    const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
+    await triggerAdminNotificationEvent({
+      type: 'ADMIN_NEW_POST',
+      actorId: req.user._id,
+      targetId: post._id,
+      targetModel: 'Post',
+      metadata: {
+        postId: post._id,
+        customTitle: post.caption,
+        message: `🖼️ Bài đăng mới "${post.caption || 'Chưa có mô tả'}" vừa được tạo bởi @${req.user.username} (Chờ duyệt).`
+      }
+    }).catch(err => console.error(err))
+
     res.status(202).json({
       message: 'Nội dung đang được xử lý. Bạn sẽ nhận thông báo khi hoàn tất.',
       postId: post._id,

@@ -1115,494 +1115,508 @@ const PostsTab = () => {
 
       {/* Post Preview Modal */}
       <AnimatePresence>
-        {previewModal && (() => {
-          const resultImages = getResultImages(previewModal)
-          return (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm !mt-0"
-              onClick={(e) =>
-                e.target === e.currentTarget && setPreviewModal(null)
-              }
-            >
+        {previewModal &&
+          (() => {
+            const resultImages = getResultImages(previewModal)
+            return (
               <motion.div
-                initial={{ scale: 0.95, y: 20 }}
-                animate={{ scale: 1, y: 0 }}
-                exit={{ scale: 0.95 }}
-                className="card overflow-hidden max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 bg-[#121216] border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] rounded-2xl h-[760px] max-h-[92vh]"
-                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm !mt-0"
+                onClick={(e) =>
+                  e.target === e.currentTarget && setPreviewModal(null)
+                }
               >
-                {/* Left Column: Image viewport with Tab Switcher & Slider */}
-                <div className="relative h-full bg-black/85 flex flex-col items-center justify-center border-r border-white/5 overflow-hidden group/left">
-                  {/* Ambient glow background */}
-                  {(() => {
-                    const list =
-                      previewTab === 'result'
-                        ? resultImages
-                        : previewModal.sourceImages || []
-                    const activeImage = list[previewImgIndex]
-                    return activeImage?.url ? (
-                      <div
-                        className="absolute inset-0 opacity-15 scale-110 pointer-events-none transition-all duration-500"
-                        style={{
-                          backgroundImage: `url(${activeImage.thumbnailUrl || activeImage.url})`,
-                          backgroundSize: 'cover',
-                          backgroundPosition: 'center',
-                          filter: 'blur(28px)',
-                        }}
-                      />
-                    ) : null
-                  })()}
-
-                  {/* Image count badge in top right */}
-                  {(() => {
-                    const list =
-                      previewTab === 'result'
-                        ? resultImages
-                        : previewModal.sourceImages || []
-                    if (list.length <= 1) return null
-                    return (
-                      <div className="absolute top-4 right-4 z-10 px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold text-white shadow-md flex items-center gap-1">
-                        <Image size={11} className="text-white" />
-                        <span>
-                          {previewImgIndex + 1} / {list.length}
-                        </span>
-                      </div>
-                    )
-                  })()}
-                  {/* Segmented Control / Tabs for Result vs Source (only if source images exist) */}
-                  {previewModal.sourceImages &&
-                    previewModal.sourceImages.length > 0 && (
-                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex p-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold">
-                        <button
-                          onClick={() => {
-                            setPreviewDirection(1)
-                            setPreviewTab('result')
-                            setPreviewImgIndex(0)
+                <motion.div
+                  initial={{ scale: 0.95, y: 20 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.95 }}
+                  className="card overflow-hidden max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 bg-[#121216] border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] rounded-2xl h-[760px] max-h-[92vh]"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Left Column: Image viewport with Tab Switcher & Slider */}
+                  <div className="relative h-full bg-black/85 flex flex-col items-center justify-center border-r border-white/5 overflow-hidden group/left">
+                    {/* Ambient glow background */}
+                    {(() => {
+                      const list =
+                        previewTab === 'result'
+                          ? resultImages
+                          : previewModal.sourceImages || []
+                      const activeImage = list[previewImgIndex]
+                      return activeImage?.url ? (
+                        <div
+                          className="absolute inset-0 opacity-15 scale-110 pointer-events-none transition-all duration-500"
+                          style={{
+                            backgroundImage: `url(${activeImage.thumbnailUrl || activeImage.url})`,
+                            backgroundSize: 'cover',
+                            backgroundPosition: 'center',
+                            filter: 'blur(28px)',
                           }}
-                          className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                        />
+                      ) : null
+                    })()}
+
+                    {/* Image count badge in top right */}
+                    {(() => {
+                      const list =
+                        previewTab === 'result'
+                          ? resultImages
+                          : previewModal.sourceImages || []
+                      if (list.length <= 1) return null
+                      return (
+                        <div className="absolute top-4 right-4 z-10 px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold text-white shadow-md flex items-center gap-1">
+                          <Image size={11} className="text-white" />
+                          <span>
+                            {previewImgIndex + 1} / {list.length}
+                          </span>
+                        </div>
+                      )
+                    })()}
+                    {/* Segmented Control / Tabs for Result vs Source (only if source images exist) */}
+                    {previewModal.sourceImages &&
+                      previewModal.sourceImages.length > 0 && (
+                        <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex p-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold">
+                          <button
+                            onClick={() => {
+                              setPreviewDirection(1)
+                              setPreviewTab('result')
+                              setPreviewImgIndex(0)
+                            }}
+                            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                              previewTab === 'result'
+                                ? 'bg-brand-600 text-white shadow-sm'
+                                : 'text-white/40 hover:text-white/80'
+                            }`}
+                          >
+                            Kết quả ({resultImages.length})
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPreviewDirection(1)
+                              setPreviewTab('source')
+                              setPreviewImgIndex(0)
+                            }}
+                            className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                              previewTab === 'source'
+                                ? 'bg-brand-600 text-white shadow-sm'
+                                : 'text-white/40 hover:text-white/80'
+                            }`}
+                          >
+                            Ảnh gốc ({previewModal.sourceImages.length})
+                          </button>
+                        </div>
+                      )}
+
+                    {/* Main Viewport */}
+                    <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
+                      <AnimatePresence
+                        initial={false}
+                        custom={previewDirection}
+                        mode="wait"
+                      >
+                        {(() => {
+                          const list =
                             previewTab === 'result'
-                              ? 'bg-brand-600 text-white shadow-sm'
-                              : 'text-white/40 hover:text-white/80'
-                          }`}
-                        >
-                          Kết quả ({resultImages.length})
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPreviewDirection(1)
-                            setPreviewTab('source')
-                            setPreviewImgIndex(0)
-                          }}
-                          className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                            previewTab === 'source'
-                              ? 'bg-brand-600 text-white shadow-sm'
-                              : 'text-white/40 hover:text-white/80'
-                          }`}
-                        >
-                          Ảnh gốc ({previewModal.sourceImages.length})
-                        </button>
-                      </div>
-                    )}
+                              ? resultImages
+                              : previewModal.sourceImages || []
+                          const activeImage = list[previewImgIndex]
 
-                  {/* Main Viewport */}
-                  <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
-                    <AnimatePresence initial={false} custom={previewDirection} mode="wait">
-                      {(() => {
-                        const list =
-                          previewTab === 'result'
-                            ? resultImages
-                            : previewModal.sourceImages || []
-                        const activeImage = list[previewImgIndex]
+                          if (!activeImage?.url) {
+                            return (
+                              <motion.div
+                                key="empty"
+                                className="text-white/25 text-xs italic"
+                              >
+                                Không có hình ảnh
+                              </motion.div>
+                            )
+                          }
 
-                        if (!activeImage?.url) {
                           return (
                             <motion.div
-                              key="empty"
-                              className="text-white/25 text-xs italic"
+                              key={`${previewTab}-${previewImgIndex}`}
+                              custom={previewDirection}
+                              variants={previewSlideVariants}
+                              initial="enter"
+                              animate="center"
+                              exit="exit"
+                              transition={{
+                                duration: 0.22,
+                                ease: [0.22, 1, 0.36, 1],
+                              }}
+                              className="absolute inset-0 w-full h-full flex items-center justify-center p-4"
                             >
-                              Không có hình ảnh
+                              <div className="relative max-w-full max-h-full flex items-center justify-center select-none">
+                                <img
+                                  src={activeImage.url}
+                                  alt=""
+                                  className="max-w-full max-h-[660px] object-contain rounded-lg shadow-2xl border border-white/5"
+                                  draggable={false}
+                                />
+                                {/* Image dimension & file info overlay in bottom center */}
+                                <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded bg-black/75 text-[10px] text-white/50 border border-white/5 backdrop-blur-sm whitespace-nowrap z-20">
+                                  {activeImage.width && activeImage.height
+                                    ? `${activeImage.width}x${activeImage.height}`
+                                    : ''}
+                                  {activeImage.fileSize
+                                    ? ` · ${(activeImage.fileSize / 1024 / 1024).toFixed(2)} MB`
+                                    : ''}
+                                </div>
+                              </div>
                             </motion.div>
                           )
-                        }
+                        })()}
+                      </AnimatePresence>
+                    </div>
 
-                        return (
-                          <motion.div
-                            key={`${previewTab}-${previewImgIndex}`}
-                            custom={previewDirection}
-                            variants={previewSlideVariants}
-                            initial="enter"
-                            animate="center"
-                            exit="exit"
-                            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-                            className="absolute inset-0 w-full h-full flex items-center justify-center p-4"
+                    {/* Left/Right arrows if current tab has multiple images */}
+                    {(() => {
+                      const list =
+                        previewTab === 'result'
+                          ? resultImages
+                          : previewModal.sourceImages || []
+                      if (list.length <= 1) return null
+                      return (
+                        <>
+                          <button
+                            onClick={() => {
+                              setPreviewDirection(-1)
+                              setPreviewImgIndex((prev) =>
+                                prev === 0 ? list.length - 1 : prev - 1
+                              )
+                            }}
+                            className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-all cursor-pointer opacity-0 group-hover/left:opacity-100 z-30"
                           >
-                            <div className="relative max-w-full max-h-full flex items-center justify-center select-none">
-                              <img
-                                src={activeImage.url}
-                                alt=""
-                                className="max-w-full max-h-[660px] object-contain rounded-lg shadow-2xl border border-white/5"
-                                draggable={false}
+                            <ChevronLeft size={18} />
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPreviewDirection(1)
+                              setPreviewImgIndex((prev) =>
+                                prev === list.length - 1 ? 0 : prev + 1
+                              )
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-all cursor-pointer opacity-0 group-hover/left:opacity-100 z-30"
+                          >
+                            <ChevronRight size={18} />
+                          </button>
+                          {/* Pagination dots */}
+                          <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10 bg-black/45 px-2 py-1 rounded-full border border-white/5">
+                            {list.map((_, idx) => (
+                              <button
+                                key={idx}
+                                onClick={() => {
+                                  setPreviewDirection(
+                                    idx > previewImgIndex ? 1 : -1
+                                  )
+                                  setPreviewImgIndex(idx)
+                                }}
+                                className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
+                                  previewImgIndex === idx
+                                    ? 'bg-brand-500 scale-125'
+                                    : 'bg-white/20'
+                                }`}
                               />
-                              {/* Image dimension & file info overlay in bottom center */}
-                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded bg-black/75 text-[10px] text-white/50 border border-white/5 backdrop-blur-sm whitespace-nowrap z-20">
-                                {activeImage.width && activeImage.height
-                                  ? `${activeImage.width}x${activeImage.height}`
-                                  : ''}
-                                {activeImage.fileSize
-                                  ? ` · ${(activeImage.fileSize / 1024 / 1024).toFixed(2)} MB`
-                                  : ''}
-                              </div>
-                            </div>
-                          </motion.div>
-                        )
-                      })()}
-                    </AnimatePresence>
+                            ))}
+                          </div>
+                        </>
+                      )
+                    })()}
+
+                    {previewModal.isNSFW && (
+                      <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold shadow-md z-10">
+                        NSFW
+                      </span>
+                    )}
                   </div>
 
-                  {/* Left/Right arrows if current tab has multiple images */}
-                  {(() => {
-                    const list =
-                      previewTab === 'result'
-                        ? resultImages
-                        : previewModal.sourceImages || []
-                    if (list.length <= 1) return null
-                    return (
-                      <>
-                        <button
-                          onClick={() => {
-                            setPreviewDirection(-1)
-                            setPreviewImgIndex((prev) =>
-                              prev === 0 ? list.length - 1 : prev - 1
-                            )
-                          }}
-                          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-all cursor-pointer opacity-0 group-hover/left:opacity-100 z-30"
-                        >
-                          <ChevronLeft size={18} />
-                        </button>
-                        <button
-                          onClick={() => {
-                            setPreviewDirection(1)
-                            setPreviewImgIndex((prev) =>
-                              prev === list.length - 1 ? 0 : prev + 1
-                            )
-                          }}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-all cursor-pointer opacity-0 group-hover/left:opacity-100 z-30"
-                        >
-                          <ChevronRight size={18} />
-                        </button>
-                        {/* Pagination dots */}
-                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10 bg-black/45 px-2 py-1 rounded-full border border-white/5">
-                          {list.map((_, idx) => (
-                            <button
+                  {/* Right Column: Information & Metadata */}
+                  <div className="flex flex-col h-full overflow-y-auto p-6 space-y-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+                    {/* Author & Header */}
+                    <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                      <div className="flex items-center gap-3">
+                        {previewModal.authorId?.avatar ? (
+                          <img
+                            src={previewModal.authorId.avatar}
+                            className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10"
+                            alt=""
+                          />
+                        ) : (
+                          <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
+                            {previewModal.authorId?.username?.[0]?.toUpperCase() ||
+                              '?'}
+                          </div>
+                        )}
+                        <div>
+                          <p className="text-sm font-bold text-white leading-tight">
+                            {previewModal.authorId?.displayName ||
+                              previewModal.authorId?.username}
+                          </p>
+                          <p className="text-[11px] text-white/40">
+                            @{previewModal.authorId?.username}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setPreviewModal(null)}
+                        className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+                      >
+                        <X size={15} />
+                      </button>
+                    </div>
+
+                    {/* Caption */}
+                    <div className="space-y-1">
+                      <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                        Tiêu đề / Caption
+                      </h3>
+                      <p className="text-sm text-white/95 font-medium leading-relaxed">
+                        {previewModal.caption || (
+                          <span className="text-white/20 italic">
+                            Không có tiêu đề
+                          </span>
+                        )}
+                      </p>
+                    </div>
+
+                    {/* Tags */}
+                    {previewModal.tags && previewModal.tags.length > 0 && (
+                      <div className="space-y-1.5">
+                        <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                          Thẻ (Tags)
+                        </h3>
+                        <div className="flex flex-wrap gap-1.5">
+                          {previewModal.tags.map((tag, idx) => (
+                            <span
                               key={idx}
-                              onClick={() => {
-                                setPreviewDirection(idx > previewImgIndex ? 1 : -1)
-                                setPreviewImgIndex(idx)
-                              }}
-                              className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
-                                previewImgIndex === idx
-                                  ? 'bg-brand-500 scale-125'
-                                  : 'bg-white/20'
-                              }`}
-                            />
+                              className="px-2 py-0.5 rounded-md bg-white/5 border border-white/8 text-[11px] text-white/60 font-semibold hover:border-white/20 transition-colors"
+                            >
+                              #{tag}
+                            </span>
                           ))}
                         </div>
-                      </>
-                    )
-                  })()}
+                      </div>
+                    )}
 
-                  {previewModal.isNSFW && (
-                    <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold shadow-md z-10">
-                      NSFW
-                    </span>
-                  )}
-                </div>
-
-                {/* Right Column: Information & Metadata */}
-                <div className="flex flex-col h-full overflow-y-auto p-6 space-y-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
-                  {/* Author & Header */}
-                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
-                    <div className="flex items-center gap-3">
-                      {previewModal.authorId?.avatar ? (
-                        <img
-                          src={previewModal.authorId.avatar}
-                          className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10"
-                          alt=""
-                        />
-                      ) : (
-                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
-                          {previewModal.authorId?.username?.[0]?.toUpperCase() ||
-                            '?'}
-                        </div>
-                      )}
+                    {/* Details grid */}
+                    <div className="grid grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 rounded-xl p-4 text-xs">
                       <div>
-                        <p className="text-sm font-bold text-white leading-tight">
-                          {previewModal.authorId?.displayName ||
-                            previewModal.authorId?.username}
-                        </p>
-                        <p className="text-[11px] text-white/40">
-                          @{previewModal.authorId?.username}
-                        </p>
+                        <span className="text-white/40 block mb-0.5">
+                          Trạng thái
+                        </span>
+                        <StatusBadge status={previewModal.status} />
+                      </div>
+                      <div>
+                        <span className="text-white/40 block mb-0.5">
+                          Loại bài đăng
+                        </span>
+                        <span className="font-bold text-brand-300">
+                          {previewModal.postType === 'ai'
+                            ? '✦ AI'
+                            : previewModal.postType === 'digital-raw'
+                              ? '📷 RAW'
+                              : 'DIGITAL'}
+                          {resultImages.length > 1 &&
+                            ` (Bộ sưu tập ${resultImages.length} ảnh)`}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-white/40 block mb-0.5">
+                          Premium / Giá bán
+                        </span>
+                        <span
+                          className={
+                            previewModal.isPremium
+                              ? 'text-amber-400 font-bold'
+                              : 'text-white/40'
+                          }
+                        >
+                          {previewModal.isPremium
+                            ? `Có (${(previewModal.priceInVnd || 0).toLocaleString('vi-VN')}đ)`
+                            : 'Không'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-white/40 block mb-0.5">
+                          Danh mục
+                        </span>
+                        <span className="text-white/80 font-semibold">
+                          {previewModal.category || 'Khác'}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-white/40 block mb-0.5">
+                          Ngày đăng
+                        </span>
+                        <span className="text-white/80 font-semibold">
+                          {new Date(previewModal.createdAt).toLocaleDateString(
+                            'vi-VN',
+                            {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                            }
+                          )}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-white/40 block mb-0.5">
+                          Số lần bị report
+                        </span>
+                        <span
+                          className={`font-bold ${previewModal.reportsCount > 0 ? 'text-red-400' : 'text-white/40'}`}
+                        >
+                          🚩 {previewModal.reportsCount || 0} lần
+                        </span>
                       </div>
                     </div>
-                    <button
-                      onClick={() => setPreviewModal(null)}
-                      className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
-                    >
-                      <X size={15} />
-                    </button>
-                  </div>
 
-                  {/* Caption */}
-                  <div className="space-y-1">
-                    <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
-                      Tiêu đề / Caption
-                    </h3>
-                    <p className="text-sm text-white/95 font-medium leading-relaxed">
-                      {previewModal.caption || (
-                        <span className="text-white/20 italic">
-                          Không có tiêu đề
-                        </span>
-                      )}
-                    </p>
-                  </div>
-
-                  {/* Tags */}
-                  {previewModal.tags && previewModal.tags.length > 0 && (
+                    {/* Stats */}
                     <div className="space-y-1.5">
                       <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
-                        Thẻ (Tags)
+                        Chỉ số tương tác
                       </h3>
-                      <div className="flex flex-wrap gap-1.5">
-                        {previewModal.tags.map((tag, idx) => (
-                          <span
-                            key={idx}
-                            className="px-2 py-0.5 rounded-md bg-white/5 border border-white/8 text-[11px] text-white/60 font-semibold hover:border-white/20 transition-colors"
-                          >
-                            #{tag}
+                      <div
+                        className="flex items-center gap-5"
+                        style={{ fontFamily: 'Outfit, sans-serif' }}
+                      >
+                        <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                          <span className="flex items-center gap-1 text-white/60">
+                            👁️ {previewModal.stats?.viewsCount || 0}
                           </span>
-                        ))}
+                          <span>lượt xem</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                          <span className="flex items-center gap-1 text-white/60">
+                            📥 {previewModal.stats?.downloadsCount || 0}
+                          </span>
+                          <span>lượt tải</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                          <span className="flex items-center gap-1 text-white/60">
+                            ❤️ {previewModal.stats?.likesCount || 0}
+                          </span>
+                          <span>lượt thích</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                          <span className="flex items-center gap-1 text-white/60">
+                            📌 {previewModal.stats?.bookmarksCount || 0}
+                          </span>
+                          <span>lưu lại</span>
+                        </div>
                       </div>
                     </div>
-                  )}
 
-                  {/* Details grid */}
-                  <div className="grid grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 rounded-xl p-4 text-xs">
-                    <div>
-                      <span className="text-white/40 block mb-0.5">
-                        Trạng thái
-                      </span>
-                      <StatusBadge status={previewModal.status} />
-                    </div>
-                    <div>
-                      <span className="text-white/40 block mb-0.5">
-                        Loại bài đăng
-                      </span>
-                      <span className="font-bold text-brand-300">
-                        {previewModal.postType === 'ai'
-                          ? '✦ AI'
-                          : previewModal.postType === 'digital-raw'
-                            ? '📷 RAW'
-                            : 'DIGITAL'}
-                        {resultImages.length > 1 &&
-                          ` (Bộ sưu tập ${resultImages.length} ảnh)`}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-white/40 block mb-0.5">
-                        Premium / Giá bán
-                      </span>
-                      <span
-                        className={
-                          previewModal.isPremium
-                            ? 'text-amber-400 font-bold'
-                            : 'text-white/40'
-                        }
-                      >
-                        {previewModal.isPremium
-                          ? `💎 Có (${previewModal.price || 0} tokens)`
-                          : 'Không'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-white/40 block mb-0.5">Danh mục</span>
-                      <span className="text-white/80 font-semibold">
-                        {previewModal.category || 'Khác'}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-white/40 block mb-0.5">
-                        Ngày đăng
-                      </span>
-                      <span className="text-white/80 font-semibold">
-                        {new Date(previewModal.createdAt).toLocaleDateString(
-                          'vi-VN',
-                          {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          }
+                    {/* EXIF panel data (Camera & Shot parameters) */}
+                    <ExifPanel post={previewModal} compact={true} />
+
+                    {/* Prompt details (AI parameter panel) */}
+                    {previewModal.postType === 'ai' && previewModal.prompt && (
+                      <div className="space-y-2 border-t border-white/5 pt-4">
+                        <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                          Thông số tạo ảnh AI
+                        </h3>
+                        {previewModal.aiTool && (
+                          <div className="flex items-center gap-1.5 text-[11px] text-white/60">
+                            <span>Công cụ:</span>
+                            <span className="px-2 py-0.5 rounded bg-violet-600/10 border border-violet-500/20 text-violet-400 font-bold">
+                              {previewModal.aiTool}
+                              {previewModal.aiModel
+                                ? ` (${previewModal.aiModel})`
+                                : ''}
+                            </span>
+                          </div>
                         )}
-                      </span>
-                    </div>
-                    <div>
-                      <span className="text-white/40 block mb-0.5">
-                        Số lần bị report
-                      </span>
-                      <span
-                        className={`font-bold ${previewModal.reportsCount > 0 ? 'text-red-400' : 'text-white/40'}`}
-                      >
-                        🚩 {previewModal.reportsCount || 0} lần
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Stats */}
-                  <div className="space-y-1.5">
-                    <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
-                      Chỉ số tương tác
-                    </h3>
-                    <div
-                      className="flex items-center gap-5"
-                      style={{ fontFamily: 'Outfit, sans-serif' }}
-                    >
-                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
-                        <span className="flex items-center gap-1 text-white/60">
-                          👁️ {previewModal.stats?.viewsCount || 0}
-                        </span>
-                        <span>lượt xem</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
-                        <span className="flex items-center gap-1 text-white/60">
-                          📥 {previewModal.stats?.downloadsCount || 0}
-                        </span>
-                        <span>lượt tải</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
-                        <span className="flex items-center gap-1 text-white/60">
-                          ❤️ {previewModal.stats?.likesCount || 0}
-                        </span>
-                        <span>lượt thích</span>
-                      </div>
-                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
-                        <span className="flex items-center gap-1 text-white/60">
-                          📌 {previewModal.stats?.bookmarksCount || 0}
-                        </span>
-                        <span>lưu lại</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* EXIF panel data (Camera & Shot parameters) */}
-                  <ExifPanel post={previewModal} compact={true} />
-
-                  {/* Prompt details (AI parameter panel) */}
-                  {previewModal.postType === 'ai' && previewModal.prompt && (
-                    <div className="space-y-2 border-t border-white/5 pt-4">
-                      <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
-                        Thông số tạo ảnh AI
-                      </h3>
-                      {previewModal.aiTool && (
-                        <div className="flex items-center gap-1.5 text-[11px] text-white/60">
-                          <span>Công cụ:</span>
-                          <span className="px-2 py-0.5 rounded bg-violet-600/10 border border-violet-500/20 text-violet-400 font-bold">
-                            {previewModal.aiTool}
-                            {previewModal.aiModel ? ` (${previewModal.aiModel})` : ''}
-                          </span>
-                        </div>
-                      )}
-                      <div className="space-y-1">
-                        <p className="text-[10px] font-bold text-white/30 uppercase">
-                          Prompt:
-                        </p>
-                        <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/80 font-mono leading-relaxed max-h-[160px] overflow-y-auto scrollbar-thin select-all">
-                          {previewModal.prompt}
-                        </div>
-                      </div>
-                      {previewModal.negativePrompt && (
                         <div className="space-y-1">
                           <p className="text-[10px] font-bold text-white/30 uppercase">
-                            Negative Prompt:
+                            Prompt:
                           </p>
-                          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/80 font-mono leading-relaxed max-h-[100px] overflow-y-auto scrollbar-thin select-all">
-                            {previewModal.negativePrompt}
+                          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/80 font-mono leading-relaxed max-h-[160px] overflow-y-auto scrollbar-thin select-all">
+                            {previewModal.prompt}
                           </div>
                         </div>
-                      )}
-                    </div>
-                  )}
+                        {previewModal.negativePrompt && (
+                          <div className="space-y-1">
+                            <p className="text-[10px] font-bold text-white/30 uppercase">
+                              Negative Prompt:
+                            </p>
+                            <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/80 font-mono leading-relaxed max-h-[100px] overflow-y-auto scrollbar-thin select-all">
+                              {previewModal.negativePrompt}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                  {/* Actions footer */}
-                  <div className="flex gap-2 border-t border-white/5 pt-5 mt-auto">
-                    {previewModal.status !== 'approved' && (
+                    {/* Actions footer */}
+                    <div className="flex gap-2 border-t border-white/5 pt-5 mt-auto">
+                      {previewModal.status !== 'approved' && (
+                        <button
+                          onClick={() => {
+                            handleStatus(previewModal._id, 'approved')
+                            setPreviewModal(null)
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-600 border border-green-500/30 text-white hover:bg-green-500 transition-all text-xs font-bold cursor-pointer"
+                        >
+                          <CheckCircle size={13} /> Duyệt
+                        </button>
+                      )}
+                      {previewModal.status !== 'rejected' && (
+                        <button
+                          onClick={() => {
+                            setRejectModal(previewModal)
+                            setPreviewModal(null)
+                          }}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-600 border border-red-500/30 text-white hover:bg-red-500 transition-all text-xs font-bold cursor-pointer"
+                        >
+                          <XCircle size={13} /> Từ chối
+                        </button>
+                      )}
+                      {previewModal.status !== 'hidden' && (
+                        <button
+                          onClick={() => {
+                            handleStatus(previewModal._id, 'hidden')
+                            setPreviewModal(null)
+                          }}
+                          className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                          title="Ẩn bài viết"
+                        >
+                          <EyeOff size={14} />
+                        </button>
+                      )}
                       <button
                         onClick={() => {
-                          handleStatus(previewModal._id, 'approved')
+                          setBuffModal(previewModal)
+                          setBuffViews(0)
+                          setBuffDownloads(0)
+                          setBuffLikes(0)
+                          setBuffBookmarks(0)
                           setPreviewModal(null)
                         }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-600 border border-green-500/30 text-white hover:bg-green-500 transition-all text-xs font-bold cursor-pointer"
+                        className="px-3 py-2.5 rounded-xl bg-yellow-600/15 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-600/25 transition-all text-xs font-bold cursor-pointer flex items-center justify-center gap-1"
+                        title="Buff chỉ số"
                       >
-                        <CheckCircle size={13} /> Duyệt
+                        <Zap size={13} /> Buff
                       </button>
-                    )}
-                    {previewModal.status !== 'rejected' && (
                       <button
                         onClick={() => {
-                          setRejectModal(previewModal)
+                          handleDeletePost(previewModal._id)
                           setPreviewModal(null)
                         }}
-                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-600 border border-red-500/30 text-white hover:bg-red-500 transition-all text-xs font-bold cursor-pointer"
+                        className="px-3 py-2.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600/20 transition-all text-xs font-bold cursor-pointer"
+                        title="Xóa bài viết"
                       >
-                        <XCircle size={13} /> Từ chối
+                        <Trash2 size={14} />
                       </button>
-                    )}
-                    {previewModal.status !== 'hidden' && (
-                      <button
-                        onClick={() => {
-                          handleStatus(previewModal._id, 'hidden')
-                          setPreviewModal(null)
-                        }}
-                        className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white transition-all text-xs font-bold cursor-pointer"
-                        title="Ẩn bài viết"
-                      >
-                        <EyeOff size={14} />
-                      </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setBuffModal(previewModal)
-                        setBuffViews(0)
-                        setBuffDownloads(0)
-                        setBuffLikes(0)
-                        setBuffBookmarks(0)
-                        setPreviewModal(null)
-                      }}
-                      className="px-3 py-2.5 rounded-xl bg-yellow-600/15 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-600/25 transition-all text-xs font-bold cursor-pointer flex items-center justify-center gap-1"
-                      title="Buff chỉ số"
-                    >
-                      <Zap size={13} /> Buff
-                    </button>
-                    <button
-                      onClick={() => {
-                        handleDeletePost(previewModal._id)
-                        setPreviewModal(null)
-                      }}
-                      className="px-3 py-2.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600/20 transition-all text-xs font-bold cursor-pointer"
-                      title="Xóa bài viết"
-                    >
-                      <Trash2 size={14} />
-                    </button>
+                    </div>
                   </div>
-                </div>
+                </motion.div>
               </motion.div>
-            </motion.div>
-          )
-        })()}
+            )
+          })()}
       </AnimatePresence>
     </div>
   )
@@ -3779,9 +3793,17 @@ const CategoriesTab = () => {
   const [deletingId, setDeletingId] = useState(null)
 
   useEffect(() => {
+    const startTime = Date.now()
     api
       .get('/admin/categories')
-      .then(({ data }) => setCategories(data.categories))
+      .then(async ({ data }) => {
+        const elapsed = Date.now() - startTime
+        const delay = Math.max(0, 700 - elapsed)
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+        }
+        setCategories(data.categories)
+      })
       .catch(() => toast.error('Không thể tải danh mục'))
       .finally(() => setLoading(false))
   }, [])
@@ -4275,10 +4297,10 @@ const SettingsTab = ({ onDirtyChange }) => {
   ]
 
   useEffect(() => {
+    const startTime = Date.now()
     api
       .get('/admin/settings')
-      .then(({ data }) => {
-        setSettings(data.settings)
+      .then(async ({ data }) => {
         const primary = data.settings?.primaryColor || '#7c3aed'
         const gradient = data.settings?.gradientColor || '#3b82f6'
         const opacity =
@@ -4293,6 +4315,13 @@ const SettingsTab = ({ onDirtyChange }) => {
             : true
         const sStyle = data.settings?.shadowStyle || 'soft'
 
+        const elapsed = Date.now() - startTime
+        const delay = Math.max(0, 700 - elapsed)
+        if (delay > 0) {
+          await new Promise((resolve) => setTimeout(resolve, delay))
+        }
+
+        setSettings(data.settings)
         setPrimaryColor(primary)
         setGradientColor(gradient)
         setBrandOpacity(opacity)
@@ -4819,10 +4848,39 @@ const SettingsTab = ({ onDirtyChange }) => {
 
   if (loading)
     return (
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="card p-6 animate-pulse h-20" />
-        ))}
+      <div className="space-y-6 max-w-2xl animate-pulse">
+        {/* Header Skeleton */}
+        <div className="space-y-2">
+          <div className="h-6 bg-white/10 rounded w-48"></div>
+          <div className="h-4 bg-white/5 rounded w-80"></div>
+        </div>
+
+        {/* Sub-tabs Navigation Skeleton */}
+        <div className="flex gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 max-w-md h-12 items-center">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="h-8 bg-white/5 rounded-lg w-28"></div>
+          ))}
+        </div>
+
+        {/* Content Card 1 Skeleton */}
+        <div className="card h-28 border border-white/10 p-5 rounded-2xl flex items-center justify-between">
+          <div className="space-y-2 flex-1">
+            <div className="h-4 bg-white/10 rounded w-36"></div>
+            <div className="h-3 bg-white/5 rounded w-64"></div>
+          </div>
+          <div className="w-12 h-6 bg-white/10 rounded-full"></div>
+        </div>
+
+        {/* Content Card 2 Skeleton */}
+        <div className="card h-80 border border-white/10 p-5 rounded-2xl space-y-4">
+          <div className="space-y-2">
+            <div className="h-4 bg-white/10 rounded w-44"></div>
+            <div className="h-3 bg-white/5 rounded w-72"></div>
+          </div>
+          <div className="h-10 bg-white/5 rounded-xl w-full"></div>
+          <div className="h-16 bg-white/5 rounded-xl w-full"></div>
+          <div className="h-10 bg-white/5 rounded-xl w-full"></div>
+        </div>
       </div>
     )
 
@@ -6930,6 +6988,10 @@ const ACTION_MAPPING = {
     label: 'Cập nhật hệ thống',
     color: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
   },
+  LOG_CLEAR: {
+    label: 'Dọn dẹp nhật ký',
+    color: 'bg-red-500/10 text-red-400 border-red-500/20',
+  },
 }
 
 const LogsTab = () => {
@@ -6938,8 +7000,14 @@ const LogsTab = () => {
   const [cursor, setCursor] = useState(null)
   const [hasMore, setHasMore] = useState(false)
 
+  // Sub-tabs: 'audit' (Hoạt động Admin) vs 'server' (Nhật ký hệ thống server.log)
+  const [subTab, setSubTab] = useState('audit')
+  const [serverLog, setServerLog] = useState('')
+  const [serverLogLoading, setServerLogLoading] = useState(false)
+
   const fetchLogs = useCallback(
     async (reset = false) => {
+      const startTime = Date.now()
       if (reset) {
         setLoading(true)
         setCursor(null)
@@ -6948,6 +7016,15 @@ const LogsTab = () => {
         const params = { limit: 20 }
         if (!reset && cursor) params.cursor = cursor
         const { data } = await api.get('/admin/audit-logs', { params })
+
+        if (reset) {
+          const elapsed = Date.now() - startTime
+          const delay = Math.max(0, 700 - elapsed)
+          if (delay > 0) {
+            await new Promise((resolve) => setTimeout(resolve, delay))
+          }
+        }
+
         setLogs(reset ? data.logs : (prev) => [...prev, ...data.logs])
         setHasMore(data.pagination.hasMore)
         setCursor(data.pagination.nextCursor)
@@ -6960,9 +7037,68 @@ const LogsTab = () => {
     [cursor]
   )
 
+  const fetchServerLogs = async () => {
+    setServerLogLoading(true)
+    const startTime = Date.now()
+    try {
+      const { data } = await api.get('/admin/server-logs')
+
+      const elapsed = Date.now() - startTime
+      const delay = Math.max(0, 700 - elapsed)
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+
+      setServerLog(data.content || '')
+    } catch (err) {
+      toast.error('Không thể tải nhật ký hệ thống')
+    } finally {
+      setServerLogLoading(false)
+    }
+  }
+
+  const handleClearServerLogs = async () => {
+    if (
+      !window.confirm(
+        'Bạn có chắc chắn muốn dọn dẹp (xóa trắng) file server.log không? Hành động này không thể hoàn tác.'
+      )
+    )
+      return
+    try {
+      const { data } = await api.post('/admin/server-logs/clear')
+      toast.success(data.message)
+      fetchServerLogs()
+      fetchLogs(true)
+    } catch (err) {
+      toast.error('Không thể dọn dẹp nhật ký hệ thống')
+    }
+  }
+
+  const handleClearAuditLogs = async () => {
+    if (
+      !window.confirm(
+        'Bạn có chắc chắn muốn dọn dẹp (xóa trắng) toàn bộ Nhật ký hoạt động Admin không? Hành động này không thể hoàn tác.'
+      )
+    )
+      return
+    try {
+      const { data } = await api.post('/admin/audit-logs/clear')
+      toast.success(data.message)
+      fetchLogs(true)
+    } catch (err) {
+      toast.error('Không thể dọn dẹp nhật ký hoạt động')
+    }
+  }
+
   useEffect(() => {
     fetchLogs(true)
   }, []) // eslint-disable-line
+
+  useEffect(() => {
+    if (subTab === 'server') {
+      fetchServerLogs()
+    }
+  }, [subTab])
 
   const formatDetails = (log) => {
     const { action, details } = log
@@ -6989,6 +7125,8 @@ const LogsTab = () => {
         return `Người dùng: @${details.username || 'unknown'} (${details.previousRole} → ${details.newRole})`
       case 'SYSTEM_SETTINGS_UPDATE':
         return `Cập nhật: ${Object.keys(details).join(', ')}`
+      case 'LOG_CLEAR':
+        return `Đã dọn dẹp sạch toàn bộ nhật ký hệ thống server.log (Bởi: @${details.by || 'Admin'})`
       default:
         return JSON.stringify(details)
     }
@@ -7009,100 +7147,240 @@ const LogsTab = () => {
   }
 
   return (
-    <div className="space-y-4 max-w-4xl">
-      <div>
-        <h2 className="font-bold text-xl text-white mb-1 font-display">
-          Nhật ký hoạt động Admin
-        </h2>
-        <p className="text-sm text-white/40">
-          Ghi lại toàn bộ thao tác quản lý hệ thống của Admin.
-        </p>
-      </div>
-
-      {loading && logs.length === 0 ? (
-        <div className="space-y-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div
-              key={i}
-              className="card p-5 animate-pulse flex items-center justify-between gap-4"
-            >
-              <div className="h-4 bg-white/10 rounded w-1/4"></div>
-              <div className="h-4 bg-white/10 rounded w-1/2"></div>
-              <div className="h-4 bg-white/10 rounded w-16"></div>
-            </div>
-          ))}
+    <div className="space-y-5 max-w-4xl">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h2 className="font-bold text-xl text-white mb-1 font-display">
+            Nhật ký quản trị
+          </h2>
+          <p className="text-sm text-white/40">
+            Xem và quản lý nhật ký hệ thống hoặc lịch sử thao tác của các Admin.
+          </p>
         </div>
-      ) : logs.length === 0 ? (
-        <div className="card p-12 text-center text-white/35">
-          <Clock size={40} className="mx-auto mb-3 opacity-25" />
-          Nhật ký hoạt động hiện tại chưa có dữ liệu
-        </div>
-      ) : (
-        <div className="card overflow-hidden border border-white/10 divide-y divide-white/5">
-          {logs.map((log) => {
-            const mapped = ACTION_MAPPING[log.action] || {
-              label: log.action,
-              color: 'bg-white/5 text-white border-white/10',
-            }
-            return (
-              <div
-                key={log._id}
-                className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
-              >
-                <div className="space-y-1.5 flex-1">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${mapped.color}`}
-                    >
-                      {mapped.label}
-                    </span>
-                    <span className="text-[10px] text-white/35 font-medium">
-                      {formatTime(log.createdAt)}
-                    </span>
-                  </div>
-                  <p className="text-xs text-white/70 leading-relaxed font-medium">
-                    {formatDetails(log)}
-                  </p>
-                </div>
 
-                {/* Admin user info */}
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <div className="text-right">
-                    <span className="text-xs font-semibold text-white/80 block">
-                      @{log.adminId?.username || 'unknown'}
-                    </span>
-                    <span className="text-[10px] text-white/35 block leading-none">
-                      {log.adminId?.email || ''}
-                    </span>
-                  </div>
-                  {log.adminId?.avatar ? (
-                    <img
-                      src={log.adminId.avatar}
-                      className="w-8 h-8 rounded-full border border-white/10 object-cover"
-                      alt=""
-                    />
-                  ) : (
-                    <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-md shadow-black/25">
-                      {log.adminId?.username?.[0]?.toUpperCase() || '?'}
-                    </div>
-                  )}
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      )}
-
-      {hasMore && (
-        <div className="flex justify-center pt-2">
+        {/* Sub-tab segment switcher */}
+        <div className="flex bg-white/[0.03] p-1 rounded-xl border border-white/5 self-start sm:self-center">
           <button
-            onClick={() => fetchLogs(false)}
-            className="btn-secondary text-xs flex items-center gap-2 font-bold px-5 py-2"
+            onClick={() => setSubTab('audit')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              subTab === 'audit'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-white/40 hover:text-white'
+            }`}
           >
-            <ChevronDown size={14} /> Tải thêm nhật ký
+            Hoạt động Admin
+          </button>
+          <button
+            onClick={() => setSubTab('server')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+              subTab === 'server'
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-white/40 hover:text-white'
+            }`}
+          >
+            Nhật ký hệ thống (server.log)
           </button>
         </div>
-      )}
+      </div>
+
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={subTab}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
+          className="min-h-[550px] flex flex-col justify-start"
+        >
+          {subTab === 'audit' ? (
+            <div className="flex-1 flex flex-col justify-between">
+              <div>
+                <div className="flex justify-between items-center gap-3 mb-4">
+                  <div className="text-xs text-white/40 font-medium">
+                    Danh sách thao tác kiểm toán của quản trị viên hệ thống.
+                  </div>
+                  <div className="flex gap-2">
+                    <motion.button
+                      whileTap={{ scale: 0.95 }}
+                      onClick={() => fetchLogs(true)}
+                      disabled={loading}
+                      className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <motion.div
+                        animate={loading ? { rotate: 360 } : {}}
+                        transition={{
+                          duration: 0.8,
+                          repeat: loading ? Infinity : 0,
+                          ease: 'linear',
+                        }}
+                        className="flex items-center justify-center flex-shrink-0"
+                      >
+                        <RefreshCw size={12} />
+                      </motion.div>
+                      Làm mới
+                    </motion.button>
+                    <button
+                      onClick={handleClearAuditLogs}
+                      className="px-3 py-1.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                    >
+                      <Trash2 size={12} className="flex-shrink-0" />
+                      Dọn dẹp nhật ký hoạt động
+                    </button>
+                  </div>
+                </div>
+
+                {loading && logs.length === 0 ? (
+                  <div className="space-y-3">
+                    {Array.from({ length: 6 }).map((_, i) => (
+                      <div
+                        key={i}
+                        className="card p-5 animate-pulse flex items-center justify-between gap-4"
+                      >
+                        <div className="h-4 bg-white/10 rounded w-1/4"></div>
+                        <div className="h-4 bg-white/10 rounded w-1/2"></div>
+                        <div className="h-4 bg-white/10 rounded w-16"></div>
+                      </div>
+                    ))}
+                  </div>
+                ) : logs.length === 0 ? (
+                  <div className="card p-12 text-center text-white/35">
+                    <Clock size={40} className="mx-auto mb-3 opacity-25" />
+                    Nhật ký hoạt động hiện tại chưa có dữ liệu
+                  </div>
+                ) : (
+                  <div className="card overflow-hidden border border-white/10 divide-y divide-white/5">
+                    {logs.map((log) => {
+                      const mapped = ACTION_MAPPING[log.action] || {
+                        label: log.action,
+                        color: 'bg-white/5 text-white border-white/10',
+                      }
+                      return (
+                        <div
+                          key={log._id}
+                          className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
+                        >
+                          <div className="space-y-1.5 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span
+                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${mapped.color}`}
+                              >
+                                {mapped.label}
+                              </span>
+                              <span className="text-[10px] text-white/35 font-medium">
+                                {formatTime(log.createdAt)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-white/70 leading-relaxed font-medium">
+                              {formatDetails(log)}
+                            </p>
+                          </div>
+
+                          {/* Admin user info */}
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <div className="text-right">
+                              <span className="text-xs font-semibold text-white/80 block">
+                                @{log.adminId?.username || 'unknown'}
+                              </span>
+                              <span className="text-[10px] text-white/35 block leading-none">
+                                {log.adminId?.email || ''}
+                              </span>
+                            </div>
+                            {log.adminId?.avatar ? (
+                              <img
+                                src={log.adminId.avatar}
+                                className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                                alt=""
+                              />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-md shadow-black/25">
+                                {log.adminId?.username?.[0]?.toUpperCase() ||
+                                  '?'}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {hasMore && (
+                <div className="flex justify-center pt-4">
+                  <button
+                    onClick={() => fetchLogs(false)}
+                    className="btn-secondary text-xs flex items-center gap-2 font-bold px-5 py-2"
+                  >
+                    <ChevronDown size={14} className="flex-shrink-0" /> Tải thêm
+                    nhật ký
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center gap-3">
+                <div className="text-xs text-white/40 font-medium">
+                  Chỉ ghi nhận lỗi hệ thống và khởi động. Tự động hiển thị 2MB
+                  cuối cùng.
+                </div>
+                <div className="flex gap-2">
+                  <motion.button
+                    whileTap={{ scale: 0.95 }}
+                    onClick={fetchServerLogs}
+                    disabled={serverLogLoading}
+                    className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                  >
+                    <motion.div
+                      animate={serverLogLoading ? { rotate: 360 } : {}}
+                      transition={{
+                        duration: 0.8,
+                        repeat: serverLogLoading ? Infinity : 0,
+                        ease: 'linear',
+                      }}
+                      className="flex items-center justify-center flex-shrink-0"
+                    >
+                      <RefreshCw size={12} />
+                    </motion.div>
+                    Làm mới
+                  </motion.button>
+                  <button
+                    onClick={handleClearServerLogs}
+                    className="px-3 py-1.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                  >
+                    <Trash2 size={12} className="flex-shrink-0" />
+                    Dọn dẹp nhật ký
+                  </button>
+                </div>
+              </div>
+
+              <div className="card border border-white/10 p-4 bg-black/60 rounded-2xl overflow-hidden shadow-2xl relative h-[500px] flex flex-col">
+                {serverLogLoading && (
+                  <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 0.8,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
+                      className="text-brand-500 mb-2 flex items-center justify-center flex-shrink-0"
+                    >
+                      <RefreshCw size={32} />
+                    </motion.div>
+                    <span className="text-xs text-white/55 font-medium tracking-wide">
+                      Đang đọc nhật ký hệ thống...
+                    </span>
+                  </div>
+                )}
+                <pre className="text-[11px] font-mono text-zinc-300 leading-relaxed overflow-x-auto overflow-y-auto flex-1 whitespace-pre-wrap select-text p-2 scrollbar-thin">
+                  {serverLog || 'Nhật ký hệ thống trống.'}
+                </pre>
+              </div>
+            </div>
+          )}
+        </motion.div>
+      </AnimatePresence>
     </div>
   )
 }
@@ -7116,8 +7394,16 @@ const WithdrawalsTab = () => {
 
   const fetchRequests = async () => {
     setLoading(true)
+    const startTime = Date.now()
     try {
       const { data } = await api.get('/admin/withdrawals')
+
+      const elapsed = Date.now() - startTime
+      const delay = Math.max(0, 700 - elapsed)
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+
       setRequests(data.requests || [])
     } catch (err) {
       toast.error('Không thể tải danh sách rút tiền')
@@ -7166,8 +7452,12 @@ const WithdrawalsTab = () => {
 
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
-            <div key={i} className="card p-5 animate-pulse h-24" />
+          {Array.from({ length: 1 }).map((_, i) => (
+            <div
+              key={i}
+              className="card p-5 animate-pulse"
+              style={{ height: '174px' }}
+            />
           ))}
         </div>
       ) : requests.length === 0 ? (
@@ -7410,10 +7700,18 @@ const ReportsTab = () => {
 
   const fetchReports = async () => {
     setLoading(true)
+    const startTime = Date.now()
     try {
       const { data } = await api.get('/admin/reports', {
         params: { status: filter },
       })
+
+      const elapsed = Date.now() - startTime
+      const delay = Math.max(0, 700 - elapsed)
+      if (delay > 0) {
+        await new Promise((resolve) => setTimeout(resolve, delay))
+      }
+
       setReports(data.reports || [])
       if (data.stats) setStats(data.stats)
     } catch (err) {
@@ -7482,7 +7780,7 @@ const ReportsTab = () => {
 
       {loading ? (
         <div className="space-y-2">
-          {Array.from({ length: 4 }).map((_, i) => (
+          {Array.from({ length: 1 }).map((_, i) => (
             <div key={i} className="card p-5 animate-pulse h-28" />
           ))}
         </div>
@@ -7692,6 +7990,7 @@ const AdminPage = () => {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -8 }}
               transition={{ duration: 0.15 }}
+              className="min-h-[600px] flex flex-col justify-start w-full relative"
             >
               {activeTab === 'dashboard' && <DashboardTab />}
               {activeTab === 'posts' && <PostsTab />}

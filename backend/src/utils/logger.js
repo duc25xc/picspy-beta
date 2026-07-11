@@ -40,10 +40,10 @@ const writeLog = (level, message, meta) => {
     console.log(`🟢 ${formatted.trim()}`)
   }
 
-  // Chỉ ghi vào file logs/server.log các lỗi (error), cảnh báo (warn) hoặc các sự kiện khởi động/quyết toán quan trọng
+  // Tối ưu hóa ghi file: chỉ ghi lỗi hệ thống nghiêm trọng (không phải lỗi operational của người dùng), cảnh báo CRITICAL, và khởi động hệ thống
   const shouldWriteToFile =
-    level === 'error' ||
-    level === 'warn' ||
+    (level === 'error' && (!meta || !meta.isOperational)) || // Bỏ qua lỗi AppError (như hết hạn token, 404, 400) để chống rác log
+    (level === 'warn' && message.includes('CRITICAL')) ||
     (level === 'info' && (
       message.includes('🚀') ||
       message.includes('📡') ||

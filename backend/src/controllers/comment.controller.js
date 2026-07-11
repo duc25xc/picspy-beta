@@ -16,7 +16,7 @@ export const createComment = async (req, res, next) => {
   try {
     const { id: postId } = req.params
 
-    const post = await Post.findById(postId).select('status authorId').lean()
+    const post = await Post.findById(postId).select('status authorId caption').lean()
     if (!post || post.status !== 'approved') {
       throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại', 404)
     }
@@ -25,8 +25,9 @@ export const createComment = async (req, res, next) => {
 
     // Nếu reply → kiểm tra parent comment tồn tại
     let parentId = null
+    let parent = null
     if (data.parentId) {
-      const parent = await Comment.findById(data.parentId).lean()
+      parent = await Comment.findById(data.parentId).lean()
       if (!parent || parent.postId.toString() !== postId) {
         throw new AppError('NOT_FOUND', 'Comment gốc không tồn tại', 404)
       }
@@ -46,6 +47,74 @@ export const createComment = async (req, res, next) => {
     await Post.findByIdAndUpdate(postId, {
       $inc: { 'stats.commentsCount': 1 },
     })
+
+    // Gửi thông báo Comment hoặc Reply
+    const { triggerNotificationEvent } = await import('../services/notification.service.js')
+    
+    if (parentId && parent) {
+      if (parent.authorId.toString() !== req.user._id.toString()) {
+        await triggerNotificationEvent({
+          type: 'COMMENT_REPLY',
+          actorId: req.user._id,
+          recipientId: parent.authorId,
+          targetId: comment._id,
+          targetModel: 'Comment',
+          metadata: {
+            postId,
+            commentId: comment._id,
+            customTitle: post.caption,
+            message: data.content,
+          }
+        }).catch(err => console.error(err))
+      }
+    } else {
+      if (post.authorId.toString() !== req.user._id.toString()) {
+        await triggerNotificationEvent({
+          type: 'POST_COMMENT',
+          actorId: req.user._id,
+          recipientId: post.authorId,
+          targetId: comment._id,
+          targetModel: 'Comment',
+          metadata: {
+            postId,
+            commentId: comment._id,
+            customTitle: post.caption,
+            message: data.content,
+          }
+        }).catch(err => console.error(err))
+      }
+    }
+
+    // Quét và gửi thông báo MENTION (@username)
+    const mentionRegex = /@([a-z0-9_]{3,30})/g
+    const matches = [...data.content.matchAll(mentionRegex)].map(m => m[1])
+    if (matches.length > 0) {
+      const User = (await import('../models/User.model.js')).default
+      const mentionedUsers = await User.find({ username: { $in: matches } }).select('_id').lean()
+      
+      for (const u of mentionedUsers) {
+        const uIdStr = u._id.toString()
+        const isSelf = uIdStr === req.user._id.toString()
+        const isParentAuthor = parent && uIdStr === parent.authorId.toString()
+        const isPostAuthor = !parentId && uIdStr === post.authorId.toString()
+        
+        if (!isSelf && !isParentAuthor && !isPostAuthor) {
+          await triggerNotificationEvent({
+            type: 'POST_MENTION',
+            actorId: req.user._id,
+            recipientId: u._id,
+            targetId: comment._id,
+            targetModel: 'Comment',
+            metadata: {
+              postId,
+              commentId: comment._id,
+              customTitle: post.caption,
+              message: data.content,
+            }
+          }).catch(err => console.error(err))
+        }
+      }
+    }
 
     // Populate author info trước khi trả về
     const populated = await Comment.findById(comment._id)

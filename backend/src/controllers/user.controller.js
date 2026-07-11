@@ -203,6 +203,31 @@ export const toggleFollow = async (req, res, next) => {
       await User.findByIdAndUpdate(req.user._id, {
         $inc: { 'stats.followingCount': -1 },
       })
+
+      // Xử lý rút/xóa thông báo FOLLOW để tránh spam
+      const Notification = (await import('../models/Notification.model.js')).default
+      const existingNotif = await Notification.findOne({
+        recipient: targetId,
+        type: 'USER_FOLLOW',
+      })
+
+      if (existingNotif) {
+        existingNotif.actors = existingNotif.actors.filter(
+          (actorId) => actorId.toString() !== req.user._id.toString()
+        )
+
+        if (existingNotif.actors.length === 0) {
+          await Notification.deleteOne({ _id: existingNotif._id })
+          if (!existingNotif.isRead) {
+            await User.findByIdAndUpdate(targetId, {
+              $inc: { notificationCount: -1 }
+            })
+          }
+        } else {
+          await existingNotif.save()
+        }
+      }
+
       res.json({ following: false, message: 'Đã bỏ follow' })
     } else {
       // Follow
@@ -213,6 +238,17 @@ export const toggleFollow = async (req, res, next) => {
       await User.findByIdAndUpdate(req.user._id, {
         $inc: { 'stats.followingCount': 1 },
       })
+
+      // Gửi thông báo USER_FOLLOW
+      const { triggerNotificationEvent } = await import('../services/notification.service.js')
+      await triggerNotificationEvent({
+        type: 'USER_FOLLOW',
+        actorId: req.user._id,
+        recipientId: targetId,
+        targetId: targetId,
+        targetModel: 'User',
+      }).catch(err => console.error('Failed to trigger USER_FOLLOW notification:', err))
+
       res.json({ following: true, message: 'Đã follow' })
     }
   } catch (err) {
@@ -436,6 +472,19 @@ export const requestWithdrawal = async (req, res, next) => {
       vndBalance: balanceAfter,
       transaction: txn
     })
+
+    // Gửi thông báo admin có yêu cầu rút tiền mới
+    const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
+    await triggerAdminNotificationEvent({
+      type: 'ADMIN_NEW_WITHDRAW',
+      actorId: req.user._id,
+      targetId: txn._id,
+      targetModel: 'VndTransaction',
+      metadata: {
+        amount,
+        message: `💸 Yêu cầu rút tiền mới từ @${req.user.username}: ${amount.toLocaleString('vi-VN')}đ`
+      }
+    }).catch(err => console.error(err))
   } catch (err) {
     next(err)
   }

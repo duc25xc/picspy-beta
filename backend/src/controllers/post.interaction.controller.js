@@ -112,6 +112,40 @@ export const toggleLike = async (req, res, next) => {
       await Post.findByIdAndUpdate(postId, {
         $inc: { 'stats.likesCount': -1 },
       })
+
+      // Giảm totalLikes cho author (denormalized)
+      if (post.authorId.toString() !== userId.toString()) {
+        const User = (await import('../models/User.model.js')).default
+        await User.findByIdAndUpdate(post.authorId, {
+          $inc: { 'stats.totalLikes': -1 },
+        })
+
+        // Xử lý rút/xóa thông báo LIKE để tránh spam
+        const Notification = (await import('../models/Notification.model.js')).default
+        const existingNotif = await Notification.findOne({
+          recipient: post.authorId,
+          type: 'POST_LIKE',
+          target: postId,
+        })
+
+        if (existingNotif) {
+          existingNotif.actors = existingNotif.actors.filter(
+            (actorId) => actorId.toString() !== userId.toString()
+          )
+
+          if (existingNotif.actors.length === 0) {
+            await Notification.deleteOne({ _id: existingNotif._id })
+            if (!existingNotif.isRead) {
+              await User.findByIdAndUpdate(post.authorId, {
+                $inc: { notificationCount: -1 }
+              })
+            }
+          } else {
+            await existingNotif.save()
+          }
+        }
+      }
+
       res.json({ liked: false, likesCount: Math.max(0, post.stats.likesCount - 1) })
     } else {
       // Like
@@ -126,6 +160,20 @@ export const toggleLike = async (req, res, next) => {
         await User.findByIdAndUpdate(post.authorId, {
           $inc: { 'stats.totalLikes': 1 },
         })
+
+        // Gửi thông báo LIKE
+        const { triggerNotificationEvent } = await import('../services/notification.service.js')
+        await triggerNotificationEvent({
+          type: 'POST_LIKE',
+          actorId: userId,
+          recipientId: post.authorId,
+          targetId: postId,
+          targetModel: 'Post',
+          metadata: {
+            postId,
+            customTitle: post.caption,
+          }
+        }).catch(err => console.error('Failed to trigger POST_LIKE notification:', err))
       }
 
       res.json({ liked: true, likesCount: post.stats.likesCount + 1 })
@@ -203,9 +251,14 @@ export const trackView = async (req, res, next) => {
       }
       guestViewCache.add(guestKey)
 
-      await Post.findByIdAndUpdate(postId, {
+      const post = await Post.findByIdAndUpdate(postId, {
         $inc: { 'stats.viewsCount': 1 },
-      })
+      }, { new: true, select: 'authorId stats caption' }).lean()
+
+      if (post) {
+        const { checkViewMilestone } = await import('../services/notification.service.js')
+        await checkViewMilestone(post, post.stats?.viewsCount || 0).catch(err => console.error(err))
+      }
       return res.json({ viewed: true })
     }
 
@@ -219,15 +272,20 @@ export const trackView = async (req, res, next) => {
       const post = await Post.findByIdAndUpdate(
         postId,
         { $inc: { 'stats.viewsCount': 1 } },
-        { new: true, select: 'authorId' }
+        { new: true, select: 'authorId stats caption' }
       ).lean()
 
-      // Tăng totalViews cho author (chỉ khi viewer không phải chính chủ)
-      if (post && post.authorId.toString() !== userId.toString()) {
-        const User = (await import('../models/User.model.js')).default
-        await User.findByIdAndUpdate(post.authorId, {
-          $inc: { 'stats.totalViews': 1 },
-        })
+      if (post) {
+        const { checkViewMilestone } = await import('../services/notification.service.js')
+        await checkViewMilestone(post, post.stats?.viewsCount || 0).catch(err => console.error(err))
+
+        // Tăng totalViews cho author (chỉ khi viewer không phải chính chủ)
+        if (post.authorId.toString() !== userId.toString()) {
+          const User = (await import('../models/User.model.js')).default
+          await User.findByIdAndUpdate(post.authorId, {
+            $inc: { 'stats.totalViews': 1 },
+          })
+        }
       }
     } catch (err) {
       // Duplicate key = đã view, bỏ qua im lặng
@@ -317,6 +375,19 @@ export const reportPost = async (req, res, next) => {
       postId,
       reason: reason.trim(),
     })
+
+    // Gửi thông báo admin có báo cáo vi phạm mới
+    const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
+    await triggerAdminNotificationEvent({
+      type: 'ADMIN_NEW_REPORT',
+      actorId: reporterId,
+      targetId: postId,
+      targetModel: 'Post',
+      metadata: {
+        postId,
+        message: `🚨 Báo cáo vi phạm mới từ @${req.user.username}: "${reason.trim()}"`
+      }
+    }).catch(err => console.error(err))
 
     res.json({
       success: true,

@@ -82,6 +82,7 @@ const userSchema = new mongoose.Schema(
       accountHolder: { type: String, default: '' },
     },
 
+    notificationCount: { type: Number, default: 0 },
     // === STATS (denormalized để tránh query nặng) ===
     stats: {
       postsCount: { type: Number, default: 0 },

@@ -6,6 +6,7 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import useAuthStore from '../../store/auth.store'
+import useNotificationStore from '../../store/notification.store'
 import { useSettings } from '../../context/SettingsContext'
 import toast from 'react-hot-toast'
 
@@ -18,6 +19,9 @@ const BottomNav = () => {
   const navigate = useNavigate()
   const { user, logout } = useAuthStore()
   const { theme, language, changeTheme, changeLanguage, t } = useSettings()
+
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const setOpen = useNotificationStore((s) => s.setOpen)
 
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [avatarError, setAvatarError] = useState(false)
@@ -91,6 +95,9 @@ const BottomNav = () => {
                         </div>
                       )}
                     </div>
+                    {unreadCount > 0 && (
+                      <span className="absolute top-1 right-3 bg-red-500 w-2 h-2 rounded-full border border-surface-50" />
+                    )}
                     <span className="text-[10px] font-medium mt-0.5">{label}</span>
                   </button>
                 )
@@ -238,6 +245,26 @@ const BottomNav = () => {
 
               {/* Navigation Items (Touch Target >= 44px) */}
               <div className="flex flex-col gap-1">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false)
+                    setOpen(true)
+                  }}
+                  className="flex items-center justify-between px-4 py-3 rounded-xl hover:bg-foreground/5 text-foreground font-semibold text-sm transition-colors border text-left cursor-pointer"
+                  style={{ minHeight: '44px' }}
+                >
+                  <div className="flex items-center gap-3 relative">
+                    <Bell size={16} className="text-brand-500" />
+                    <span>Thông báo</span>
+                    {unreadCount > 0 && (
+                      <span className="bg-red-500 text-white text-[8px] font-black rounded-full px-1.5 py-0.5 h-[14px] flex items-center justify-center">
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
+                  <ChevronRight size={16} className="text-foreground/30" />
+                </button>
+
                 <Link
                   to={`/profile/${user.username}`}
                   onClick={() => setIsMenuOpen(false)}

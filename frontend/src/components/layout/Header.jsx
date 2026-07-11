@@ -19,6 +19,7 @@ import {
   Shield,
 } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
+import useNotificationStore from '../../store/notification.store'
 import { useSettings } from '../../context/SettingsContext'
 import toast from 'react-hot-toast'
 import { BrandLogo } from '../ui/ContentLoader'
@@ -31,6 +32,10 @@ const Header = () => {
   const { user, logout } = useAuthStore()
   const navigate = useNavigate()
   const { theme, language, changeTheme, changeLanguage, t } = useSettings()
+
+  const unreadCount = useNotificationStore((s) => s.unreadCount)
+  const setOpen = useNotificationStore((s) => s.setOpen)
+  const isOpen = useNotificationStore((s) => s.isOpen)
 
   const [isScrolled, setIsScrolled] = useState(false)
   const [isDropdownOpen, setIsDropdownOpen] = useState(false)
@@ -181,12 +186,18 @@ const Header = () => {
                 <span>{t.nav.upload}</span>
               </Link>
 
-              {/* Notifications — coming soon dropdown */}
+              {/* Notifications Bell */}
               <button
-                title="Thông báo (sắp ra mắt)"
-                className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-border)] transition-colors text-[var(--color-text-muted)] hover:text-foreground flex-shrink-0 relative cursor-default"
+                onClick={() => setOpen(!isOpen)}
+                title="Thông báo"
+                className="notification-bell-trigger w-8 h-8 flex items-center justify-center rounded-full hover:bg-[var(--color-border)] transition-colors text-[var(--color-text-muted)] hover:text-foreground flex-shrink-0 relative cursor-pointer"
               >
                 <Bell size={18} />
+                {unreadCount > 0 && (
+                  <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-black rounded-full px-1 py-0.5 min-w-[15px] h-[15px] flex items-center justify-center border border-[#0c0c0e]">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
               </button>
 
               {/* Avatar Dropdown Container */}

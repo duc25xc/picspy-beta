@@ -866,4 +866,26 @@
       transform: translateY(0) scale(1);
     }
   }
+
+  @keyframes comment-glow {
+    0% {
+      background-color: rgba(139, 92, 246, 0.18);
+      box-shadow: 0 0 16px rgba(139, 92, 246, 0.15);
+      border-color: rgba(139, 92, 246, 0.25);
+    }
+    100% {
+      background-color: transparent;
+      box-shadow: none;
+      border-color: transparent;
+    }
+  }
+
+  .comment-highlight {
+    animation: comment-glow 3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    border-radius: 12px;
+    padding: 6px 10px;
+    margin-left: -10px;
+    margin-right: -10px;
+    border: 1px solid transparent;
+  }
 }

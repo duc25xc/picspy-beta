@@ -69,10 +69,11 @@ const CommentRow = ({
 
   return (
     <motion.div
+      id={`comment-${comment._id}`}
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      className={`flex gap-3 ${isReply ? 'ml-9 mt-2' : ''}`}
+      className={`flex gap-3 transition-all duration-300 ${isReply ? 'ml-9 mt-2' : ''}`}
     >
       {isReply && (
         <CornerDownRight
@@ -294,6 +295,67 @@ const CommentSection = ({ postId, initialCount = 0 }) => {
     fetchComments(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId])
+
+  // Lắng nghe deep-link comment từ URL query (?commentId=...)
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search)
+    const targetCommentId = queryParams.get('commentId')
+    if (!targetCommentId || comments.length === 0) return
+
+    // 1. Tìm trong danh sách comment cấp cao nhất (top-level)
+    const topIndex = comments.findIndex(c => c._id === targetCommentId)
+    if (topIndex !== -1) {
+      const pageIndex = Math.floor(topIndex / 3) * 3
+      if (visibleIndex !== pageIndex) {
+        setVisibleIndex(pageIndex)
+      }
+      highlightComment(targetCommentId)
+      return
+    }
+
+    // 2. Tìm trong danh sách replies của từng comment
+    for (let i = 0; i < comments.length; i++) {
+      const replies = comments[i].replies || []
+      const replyIndex = replies.findIndex(r => r._id === targetCommentId)
+      if (replyIndex !== -1) {
+        const pageIndex = Math.floor(i / 3) * 3
+        if (visibleIndex !== pageIndex) {
+          setVisibleIndex(pageIndex)
+        }
+        highlightComment(targetCommentId)
+        return
+      }
+    }
+
+    // 3. Nếu chưa tìm thấy và vẫn còn trang tiếp theo, tự động tải thêm trang tiếp
+    if (hasMore && !loading && !loadingMore) {
+      handleNextPage()
+    }
+  }, [comments]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const highlightComment = (id) => {
+    let attempts = 0
+    const tryHighlight = () => {
+      const el = document.getElementById(`comment-${id}`)
+      if (el) {
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+        el.classList.add('comment-highlight')
+        
+        // Dọn sạch query param trên URL
+        const url = new URL(window.location.href)
+        url.searchParams.delete('commentId')
+        window.history.replaceState({}, '', url.toString())
+
+        setTimeout(() => {
+          el.classList.remove('comment-highlight')
+        }, 3000)
+      } else if (attempts < 15) {
+        attempts++
+        setTimeout(tryHighlight, 150)
+      }
+    }
+    setTimeout(tryHighlight, 250)
+  }
 
   const handleNextPage = async () => {
     const nextIndex = visibleIndex + 3

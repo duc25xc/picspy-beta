@@ -232,6 +232,97 @@ export const runDailySubscriptionCleanup = async () => {
   }
 }
 
+/**
+ * Kiểm tra Creator đứng Top 1 hệ thống theo lượt xem và gửi thông báo WEEKLY_TOP
+ */
+export const checkWeeklyTopCreator = async () => {
+  try {
+    const User = (await import('../models/User.model.js')).default
+    // Tìm creator có tổng lượt xem cao nhất
+    const topCreator = await User.findOne({ role: { $ne: 'admin' }, isBanned: false })
+      .sort({ 'stats.totalViews': -1 })
+      .lean()
+
+    if (!topCreator) return
+
+    // Tính toán mốc ngày Thứ Hai đầu tuần làm mã định danh duy nhất cho tuần này
+    const today = new Date()
+    const dayOfWeek = today.getDay()
+    const diff = today.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1)
+    const startOfWeek = new Date(today.setDate(diff))
+    startOfWeek.setHours(0, 0, 0, 0)
+
+    const Notification = (await import('../models/Notification.model.js')).default
+    const existing = await Notification.findOne({
+      recipient: topCreator._id,
+      type: 'WEEKLY_TOP',
+      'metadata.weekStart': startOfWeek,
+    })
+
+    if (!existing) {
+      const { triggerNotificationEvent } = await import('../services/notification.service.js')
+      await triggerNotificationEvent({
+        type: 'WEEKLY_TOP',
+        actorId: null,
+        recipientId: topCreator._id,
+        targetId: topCreator._id,
+        targetModel: 'User',
+        metadata: {
+          weekStart: startOfWeek,
+          customTitle: `Tuần ${startOfWeek.toLocaleDateString('vi-VN')}`,
+          message: '🏆 Chúc mừng! Bạn là Creator đứng Top 1 Hệ thống tuần này!'
+        }
+      })
+    }
+  } catch (error) {
+    console.error('[Cron Jobs] Error checking weekly top creator:', error)
+  }
+}
+
+/**
+ * Tính toán và gửi báo cáo thống kê hàng ngày đến toàn bộ Admin
+ */
+export const sendDailyAdminStatsSummary = async () => {
+  try {
+    const User = (await import('../models/User.model.js')).default
+    const Post = (await import('../models/Post.model.js')).default
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
+
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000)
+
+    const [newUsers, newPosts, transactions] = await Promise.all([
+      User.countDocuments({ createdAt: { $gte: oneDayAgo } }),
+      Post.countDocuments({ createdAt: { $gte: oneDayAgo } }),
+      VndTransaction.find({ createdAt: { $gte: oneDayAgo } }).lean()
+    ])
+
+    let totalDeposits = 0
+    let totalWithdrawals = 0
+    transactions.forEach(t => {
+      if (t.type === 'deposit') {
+        totalDeposits += Math.abs(t.amount)
+      } else if (t.type === 'withdraw_approved') {
+        totalWithdrawals += Math.abs(t.amount)
+      }
+    })
+
+    const summaryMessage = `📊 Thống kê 24h qua: Đăng ký mới: ${newUsers} | Bài đăng mới: ${newPosts} | Tổng nạp: ${totalDeposits.toLocaleString('vi-VN')}đ | Tổng rút: ${totalWithdrawals.toLocaleString('vi-VN')}đ.`
+
+    await triggerAdminNotificationEvent({
+      type: 'ADMIN_STATS_SUMMARY',
+      actorId: null,
+      targetId: null,
+      targetModel: null,
+      metadata: {
+        message: summaryMessage
+      }
+    })
+  } catch (error) {
+    console.error('[Cron Jobs] Error sending admin stats summary:', error)
+  }
+}
+
 // Lập lịch tự động chạy tất cả tác vụ lúc 00:00 hàng đêm
 cron.schedule('0 0 * * *', async () => {
   console.log('⏰ [Cron Scheduler] Initiating daily midnight tasks...')
@@ -257,5 +348,22 @@ cron.schedule('0 0 * * *', async () => {
     await runDailySubscriptionCleanup()
   } catch (err) {
     console.error('[Cron Scheduler] Subscription cleanup failed:', err)
+  }
+
+  // 4. Nếu là Chủ Nhật hàng tuần, chạy check Top Creator của tuần
+  try {
+    const today = new Date()
+    if (today.getDay() === 0) {
+      await checkWeeklyTopCreator()
+    }
+  } catch (err) {
+    console.error('[Cron Scheduler] Weekly top creator check failed:', err)
+  }
+
+  // 5. Chạy báo cáo thống kê hàng ngày cho toàn bộ Admin
+  try {
+    await sendDailyAdminStatsSummary()
+  } catch (err) {
+    console.error('[Cron Scheduler] Admin stats summary failed:', err)
   }
 })

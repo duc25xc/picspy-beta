@@ -122,6 +122,31 @@ export const downloadPost = async (req, res, next) => {
         await User.findByIdAndUpdate(post.authorId, { $inc: { 'stats.totalDownloads': 1 } })
       }
 
+      if (purchaseCompleted && post.authorId.toString() !== userId.toString()) {
+        const { triggerNotificationEvent } = await import('../services/notification.service.js')
+        const sharePercent = 70
+        const authorShare = Math.floor(bundlePrice * (sharePercent / 100))
+        // Trigger BUY_IMAGE for buyer
+        await triggerNotificationEvent({
+          type: 'BUY_IMAGE',
+          actorId: post.authorId,
+          recipientId: userId,
+          targetId: postId,
+          targetModel: 'Post',
+          metadata: { amount: bundlePrice, customTitle: post.caption }
+        }).catch(err => console.error(err))
+        
+        // Trigger SELL_SUCCESS for creator
+        await triggerNotificationEvent({
+          type: 'SELL_SUCCESS',
+          actorId: userId,
+          recipientId: post.authorId,
+          targetId: postId,
+          targetModel: 'Post',
+          metadata: { amount: authorShare, customTitle: post.caption }
+        }).catch(err => console.error(err))
+      }
+
       return res.json({
         isBundle: true,
         downloadItems,
@@ -337,6 +362,31 @@ export const downloadPost = async (req, res, next) => {
         await User.findByIdAndUpdate(post.authorId, {
           $inc: { 'stats.totalDownloads': 1 },
         })
+      }
+
+      if (purchaseCompleted && post.authorId.toString() !== userId.toString()) {
+        const { triggerNotificationEvent } = await import('../services/notification.service.js')
+        const sharePercent = 70
+        const authorShare = Math.floor(price * (sharePercent / 100))
+        // Trigger BUY_IMAGE for buyer
+        await triggerNotificationEvent({
+          type: 'BUY_IMAGE',
+          actorId: post.authorId,
+          recipientId: userId,
+          targetId: postId,
+          targetModel: 'Post',
+          metadata: { amount: price, customTitle: post.caption }
+        }).catch(err => console.error(err))
+        
+        // Trigger SELL_SUCCESS for creator
+        await triggerNotificationEvent({
+          type: 'SELL_SUCCESS',
+          actorId: userId,
+          recipientId: post.authorId,
+          targetId: postId,
+          targetModel: 'Post',
+          metadata: { amount: authorShare, customTitle: post.caption }
+        }).catch(err => console.error(err))
       }
 
       const price = post.priceInVnd || 20000

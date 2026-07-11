@@ -9,6 +9,7 @@ import {
   getSettings, updateSettings, getAuditLogs, triggerSettlement, triggerScoreDecay, triggerSubscriptionCleanup,
   depositUserVnd, getWithdrawalRequests, approveWithdrawal, rejectWithdrawal,
   getAdminReports, updateReportStatus,
+  getServerLogs, clearServerLogs, clearAuditLogs,
 } from '../controllers/admin.controller.js'
 
 const router = Router()
@@ -20,6 +21,9 @@ router.use(authenticate, requireAdmin)
 router.get('/dashboard', getDashboardStats)
 router.get('/dashboard/analytics', getAnalytics)
 router.get('/audit-logs', getAuditLogs)
+router.post('/audit-logs/clear', clearAuditLogs)
+router.get('/server-logs', getServerLogs)
+router.post('/server-logs/clear', clearServerLogs)
 
 // ── Posts management ──────────────────────────────────────────
 router.get('/posts', getAllPosts)

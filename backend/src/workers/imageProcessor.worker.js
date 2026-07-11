@@ -452,25 +452,28 @@ const imageWorker = new Worker(
         $set: updateFields,
       })
 
-      // 9. Emit Socket.io notification cho creator
+      // 9. Gửi thông báo kết quả xử lý AI vào DB & Socket
       await job.updateProgress(100)
-      if (global.io) {
-        global.io.to(`user:${authorId}`).emit('notification', {
-          type:
-            status === 'approved'
-              ? 'post_approved'
-              : status === 'rejected'
-                ? 'post_rejected'
-                : 'post_reviewed',
+      const { triggerNotificationEvent } = await import('../services/notification.service.js')
+      const notifType = status === 'rejected' ? 'AI_FAILED' : 'AI_COMPLETE'
+      const notifMsg = status === 'approved'
+        ? '🎉 Hình ảnh AI của bạn đã được duyệt và đăng tải thành công!'
+        : status === 'rejected'
+          ? '❌ Hình ảnh AI bị từ chối do không phù hợp tiêu chuẩn (NSFW)'
+          : '⏳ Hình ảnh AI đã xử lý xong và đang chờ kiểm duyệt thủ công.'
+
+      await triggerNotificationEvent({
+        type: notifType,
+        actorId: null,
+        recipientId: authorId,
+        targetId: postId,
+        targetModel: 'Post',
+        metadata: {
           postId,
-          message:
-            status === 'approved'
-              ? '🎉 Nội dung AI của bạn đã được duyệt!'
-              : status === 'rejected'
-                ? '❌ Nội dung không được chấp nhận (NSFW)'
-                : '⏳ Nội dung đang chờ duyệt thủ công',
-        })
-      }
+          customTitle: postDoc.caption || 'Bài đăng AI',
+          message: notifMsg
+        }
+      }).catch(err => console.error('Failed to trigger AI status notification:', err))
 
       console.log(`✅ Post ${postId} processed — status: ${status}`)
     } catch (error) {

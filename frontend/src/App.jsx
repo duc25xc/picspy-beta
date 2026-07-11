@@ -8,6 +8,8 @@ import ProtectedRoute from './components/auth/ProtectedRoute'
 import useAuthStore from './store/auth.store'
 import { useSettings } from './context/SettingsContext'
 import ContentLoader from './components/ui/ContentLoader'
+import NotificationPanel from './components/common/NotificationPanel'
+import useNotificationStore from './store/notification.store'
 
 /**
  * Overlay che phủ toàn màn hình khi chuyển theme.
@@ -105,6 +107,19 @@ export default function App() {
   const location = useLocation()
   const refreshMe = useAuthStore((s) => s.refreshMe)
   const userId = useAuthStore((s) => s.user?._id ?? null)
+  const accessToken = useAuthStore((s) => s.accessToken)
+  const initSocket = useNotificationStore((s) => s.initSocket)
+  const disconnectSocket = useNotificationStore((s) => s.disconnectSocket)
+
+  // Khởi tạo kết nối socket.io real-time
+  useEffect(() => {
+    if (accessToken) {
+      initSocket(accessToken)
+    } else {
+      disconnectSocket()
+    }
+    return () => disconnectSocket()
+  }, [accessToken, initSocket, disconnectSocket])
 
   // Sync user data (coin, stats) mỗi khi userId thay đổi (kể cả khi switch account)
   // Dùng userId thay vì isAuth để effect re-run khi đăng nhập tài khoản khác
@@ -120,6 +135,7 @@ export default function App() {
   return (
     <>
       <ThemeTransitionOverlay />
+      <NotificationPanel />
       <AnimatePresence mode="wait">
         {/* Suspense fallback = null: HomePage tự quản lý splash loader qua createPortal */}
         <Suspense fallback={null}>

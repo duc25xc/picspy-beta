@@ -7,6 +7,12 @@ import Report from '../models/Report.model.js'
 import AppError from '../utils/AppError.js'
 import { logAdminAction } from '../utils/auditLogger.js'
 import bcrypt from 'bcryptjs'
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
 
 // ─── DEFAULT CATEGORIES SEED ──────────────────────────────────
 const DEFAULT_CATEGORIES = [
@@ -1055,6 +1061,19 @@ export const depositUserVnd = async (req, res, next) => {
       newBalance: result.user.vndBalance,
     })
 
+    // Gửi thông báo nạp tiền
+    if (parsed > 0) {
+      const { triggerNotificationEvent } = await import('../services/notification.service.js')
+      await triggerNotificationEvent({
+        type: 'TOPUP_SUCCESS',
+        actorId: req.user._id,
+        recipientId: userId,
+        targetId: result.transaction._id,
+        targetModel: 'VndTransaction',
+        metadata: { amount: parsed, message: description || adminNote }
+      }).catch(err => console.error(err))
+    }
+
     const actionText = parsed > 0 ? 'nạp thành công' : 'trừ thành công'
     res.json({
       message: `Đã ${actionText} ${Math.abs(parsed).toLocaleString('vi-VN')} VNĐ cho @${result.user.username}`,
@@ -1112,6 +1131,17 @@ export const approveWithdrawal = async (req, res, next) => {
       }
     )
 
+    // Gửi thông báo rút tiền thành công
+    const { triggerNotificationEvent } = await import('../services/notification.service.js')
+    await triggerNotificationEvent({
+      type: 'WITHDRAW_SUCCESS',
+      actorId: req.user._id,
+      recipientId: result.transaction.userId,
+      targetId: txnId,
+      targetModel: 'VndTransaction',
+      metadata: { amount: Math.abs(result.transaction.amount), message: adminNote }
+    }).catch(err => console.error(err))
+
     res.json({
       message: 'Đã duyệt yêu cầu rút tiền thành công',
       transaction: result.transaction,
@@ -1145,6 +1175,17 @@ export const rejectWithdrawal = async (req, res, next) => {
         adminNote,
       }
     )
+
+    // Gửi thông báo rút tiền bị từ chối
+    const { triggerNotificationEvent } = await import('../services/notification.service.js')
+    await triggerNotificationEvent({
+      type: 'WITHDRAW_REJECT',
+      actorId: req.user._id,
+      recipientId: result.transaction.userId,
+      targetId: txnId,
+      targetModel: 'VndTransaction',
+      metadata: { amount: Math.abs(result.transaction.amount), message: adminNote }
+    }).catch(err => console.error(err))
 
     res.json({
       message: 'Đã từ chối yêu cầu rút tiền thành công',
@@ -1409,6 +1450,77 @@ export const deleteAdminUser = async (req, res, next) => {
     res.json({
       success: true,
       message: `Đã xóa vĩnh viễn tài khoản @${user.username} và toàn bộ bài đăng liên quan!`
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** GET /admin/server-logs — Lấy nội dung server.log */
+export const getServerLogs = async (req, res, next) => {
+  try {
+    const logPath = path.join(__dirname, '../../logs/server.log')
+    if (!fs.existsSync(logPath)) {
+      return res.json({ content: 'Chưa có nhật ký ghi nhận.' })
+    }
+
+    const stat = fs.statSync(logPath)
+    const limitBytes = 2 * 1024 * 1024 // 2MB
+    
+    if (stat.size > limitBytes) {
+      const buffer = Buffer.alloc(limitBytes)
+      const fd = fs.openSync(logPath, 'r')
+      fs.readSync(fd, buffer, 0, limitBytes, stat.size - limitBytes)
+      fs.closeSync(fd)
+      const content = buffer.toString('utf8')
+      res.json({ content: `... [NHẬT KÝ QUÁ DÀI - CHỈ HIỂN THỊ 2MB CUỐI CÙNG] ...\n${content}` })
+    } else {
+      const content = fs.readFileSync(logPath, 'utf8')
+      res.json({ content })
+    }
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/server-logs/clear — Dọn dẹp/xóa trống file server.log */
+export const clearServerLogs = async (req, res, next) => {
+  try {
+    const logPath = path.join(__dirname, '../../logs/server.log')
+    
+    fs.writeFileSync(
+      logPath,
+      `[${new Date().toLocaleString('vi-VN', {
+        timeZone: 'Asia/Ho_Chi_Minh',
+      })}] [INFO] Nhật ký đã được dọn dẹp sạch bởi Admin @${req.user.username}.\n`
+    )
+    
+    await logAdminAction(req.user._id, 'LOG_CLEAR', null, 'System', {
+      by: req.user.username
+    })
+
+    res.json({
+      success: true,
+      message: 'Đã dọn dẹp sạch nhật ký hệ thống (server.log)!'
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/audit-logs/clear — Xóa sạch nhật ký hoạt động admin */
+export const clearAuditLogs = async (req, res, next) => {
+  try {
+    await AuditLog.deleteMany({})
+    
+    await logAdminAction(req.user._id, 'LOG_CLEAR', null, 'System', {
+      by: req.user.username,
+      message: `Admin @${req.user.username} đã dọn sạch nhật ký hoạt động.`
+    })
+
+    res.json({
+      success: true,
+      message: 'Đã xóa sạch nhật ký hoạt động Admin!'
     })
   } catch (err) {
     next(err)

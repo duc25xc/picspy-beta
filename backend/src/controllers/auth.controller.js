@@ -68,6 +68,18 @@ export const register = async (req, res, next) => {
       console.error('Email send failed:', err.message)
     )
 
+    // Gửi thông báo admin có user mới đăng ký
+    const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
+    await triggerAdminNotificationEvent({
+      type: 'ADMIN_NEW_USER',
+      actorId: user._id,
+      targetId: user._id,
+      targetModel: 'User',
+      metadata: {
+        message: `👤 Người dùng mới @${user.username} vừa đăng ký tài khoản.`
+      }
+    }).catch(err => console.error(err))
+
     res.status(201).json({
       message: 'Đăng ký thành công. Vui lòng kiểm tra email để xác thực tài khoản.',
       user: {
