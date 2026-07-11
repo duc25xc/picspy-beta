@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { motion } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { motion } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { Bookmark } from 'lucide-react'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
@@ -22,6 +22,15 @@ const BookmarkButton = ({
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
 
+  // Sync state with props when post changes or initial value changes
+  useEffect(() => {
+    setBookmarked(initialBookmarked)
+  }, [postId, initialBookmarked])
+
+  useEffect(() => {
+    setCount(initialCount)
+  }, [postId, initialCount])
+
   const iconSize = size === 'sm' ? 14 : size === 'lg' ? 22 : 18
 
   const handleToggle = async (e) => {
@@ -43,10 +52,10 @@ const BookmarkButton = ({
       setBookmarked(data.bookmarked)
       onToggle?.(data.bookmarked)
 
-      toast(
-        data.bookmarked ? 'Đã lưu vào bộ sưu tập' : 'Đã bỏ lưu',
-        { icon: data.bookmarked ? '🔖' : '✓', duration: 1500 }
-      )
+      toast(data.bookmarked ? 'Đã lưu vào bộ sưu tập' : 'Đã bỏ lưu', {
+        icon: data.bookmarked ? '🔖' : '✓',
+        duration: 1500,
+      })
     } catch {
       // Revert
       setBookmarked(wasBookmarked)

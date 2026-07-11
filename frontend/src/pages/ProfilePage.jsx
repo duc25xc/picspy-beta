@@ -1,10 +1,21 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import {
-  Heart, Download, Globe, UserPlus, UserCheck,
-  Zap, Crown, Star, Settings, ChevronRight,
-  ImageOff, Loader2, Camera, Film,
+  Heart,
+  Download,
+  Globe,
+  UserPlus,
+  UserCheck,
+  Zap,
+  Crown,
+  Star,
+  Settings,
+  ChevronRight,
+  ImageOff,
+  Loader2,
+  Camera,
+  Film,
 } from 'lucide-react'
 import { IoImages, IoSparkles } from 'react-icons/io5'
 import { GiCutDiamond } from 'react-icons/gi'
@@ -18,10 +29,38 @@ import FollowListModal from '../components/profile/FollowListModal'
 
 // ─── Tier config (đồng bộ với useTierAccess + AdminPage) ────────
 const TIER_META = {
-  free:     { label: 'Miễn phí', color: '#9ca3af', bg: 'rgba(156,163,175,0.12)', border: 'rgba(156,163,175,0.2)', icon: null,    badge: null },
-  founder:  { label: "Founder's", color: '#d97706', bg: 'rgba(217,119,6,0.12)',  border: 'rgba(217,119,6,0.3)',   icon: Star,     badge: '⭐ Founder' },
-  pro:      { label: 'Pro',        color: '#7986eb', bg: 'rgba(121,134,235,0.12)', border: 'rgba(121,134,235,0.3)', icon: Zap,      badge: '⚡ Pro' },
-  ultimate: { label: 'Ultimate',   color: '#06b6d4', bg: 'rgba(6,182,212,0.12)',   border: 'rgba(6,182,212,0.3)',  icon: Crown,    badge: '👑 Ultimate' },
+  free: {
+    label: 'Miễn phí',
+    color: '#9ca3af',
+    bg: 'rgba(156,163,175,0.12)',
+    border: 'rgba(156,163,175,0.2)',
+    icon: null,
+    badge: null,
+  },
+  founder: {
+    label: "Founder's",
+    color: '#d97706',
+    bg: 'rgba(217,119,6,0.12)',
+    border: 'rgba(217,119,6,0.3)',
+    icon: Star,
+    badge: '⭐ Founder',
+  },
+  pro: {
+    label: 'Pro',
+    color: '#7986eb',
+    bg: 'rgba(121,134,235,0.12)',
+    border: 'rgba(121,134,235,0.3)',
+    icon: Zap,
+    badge: '⚡ Pro',
+  },
+  ultimate: {
+    label: 'Ultimate',
+    color: '#06b6d4',
+    bg: 'rgba(6,182,212,0.12)',
+    border: 'rgba(6,182,212,0.3)',
+    icon: Crown,
+    badge: '👑 Ultimate',
+  },
 }
 
 // ─── Skeleton ────────────────────────────────────────────────────
@@ -32,12 +71,14 @@ const SkeletonCard = () => (
 const ProfileSkeleton = () => (
   <div className="min-h-screen pb-24 md:pb-8">
     <div className="h-36 md:h-52 bg-white/5 animate-pulse" />
-    <div className="page-container -mt-14">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-14">
       <div className="w-24 h-24 rounded-3xl bg-white/10 animate-pulse mb-4" />
       <div className="h-6 w-40 bg-white/10 rounded-xl animate-pulse mb-2" />
       <div className="h-4 w-24 bg-white/5 rounded-xl animate-pulse mb-6" />
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-        {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+        {Array.from({ length: 6 }).map((_, i) => (
+          <SkeletonCard key={i} />
+        ))}
       </div>
     </div>
   </div>
@@ -47,7 +88,9 @@ const ProfileSkeleton = () => (
 const StatItem = ({ label, value }) => (
   <div className="text-center px-2">
     <p className="text-xl font-display font-bold">
-      {typeof value === 'number' ? value.toLocaleString('vi-VN') : (value ?? '—')}
+      {typeof value === 'number'
+        ? value.toLocaleString('vi-VN')
+        : (value ?? '—')}
     </p>
     <p className="text-xs text-white/40 mt-0.5">{label}</p>
   </div>
@@ -56,11 +99,15 @@ const StatItem = ({ label, value }) => (
 // ─── Tier Badge ──────────────────────────────────────────────────
 const TierBadge = ({ tier }) => {
   const meta = TIER_META[tier] ?? TIER_META.free
-  if (!meta.badge) return null   // Free tier: không hiện badge
+  if (!meta.badge) return null // Free tier: không hiện badge
   return (
     <span
       className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full border"
-      style={{ background: meta.bg, color: meta.color, borderColor: meta.border }}
+      style={{
+        background: meta.bg,
+        color: meta.color,
+        borderColor: meta.border,
+      }}
     >
       {meta.badge}
     </span>
@@ -90,7 +137,7 @@ const ProfilePage = () => {
   const isOwnProfile = currentUser?.username === username
 
   const handleProfileUpdated = useCallback((updates) => {
-    setProfile(prev => {
+    setProfile((prev) => {
       if (!prev) return prev
       return { ...prev, ...updates }
     })
@@ -101,7 +148,8 @@ const ProfilePage = () => {
     setLoadingProfile(true)
     setError(null)
     setAvatarError(false)
-    api.get(`/users/${username}`)
+    api
+      .get(`/users/${username}`)
       .then(({ data }) => {
         setProfile(data.user)
         // Kiểm tra xem currentUser có đang follow không
@@ -123,7 +171,7 @@ const ProfilePage = () => {
     let request = null
     if (activeTab === 'posts') {
       request = api.get('/posts', {
-        params: { authorId: profile._id, status: 'approved', limit: 24 }
+        params: { authorId: profile._id, status: 'approved', limit: 24 },
       })
     } else if (activeTab === 'bookmarks') {
       request = api.get('/users/me/bookmarks')
@@ -150,7 +198,7 @@ const ProfilePage = () => {
       const { creatorId, isFollowing: newIsFollowing } = event.data
       if (profile._id === creatorId) {
         setIsFollowing(newIsFollowing)
-        setProfile(prev => {
+        setProfile((prev) => {
           if (!prev) return prev
           // Tránh cộng trừ sai lệch nếu trạng thái đã khớp từ trước
           const currentIsFollowing = isFollowing
@@ -160,7 +208,10 @@ const ProfilePage = () => {
             ...prev,
             stats: {
               ...prev.stats,
-              followersCount: Math.max(0, (prev.stats?.followersCount || 0) + diff),
+              followersCount: Math.max(
+                0,
+                (prev.stats?.followersCount || 0) + diff
+              ),
             },
           }
         })
@@ -180,18 +231,24 @@ const ProfilePage = () => {
     try {
       const { data } = await api.post(`/users/${profile._id}/follow`)
       setIsFollowing(data.following)
-      setProfile(prev => ({
+      setProfile((prev) => ({
         ...prev,
         stats: {
           ...prev.stats,
-          followersCount: Math.max(0, prev.stats.followersCount + (data.following ? 1 : -1)),
+          followersCount: Math.max(
+            0,
+            prev.stats.followersCount + (data.following ? 1 : -1)
+          ),
         },
       }))
       toast.success('Đã bỏ theo dõi', { duration: 1500 })
 
       // Broadcast sự kiện sync cho các tab khác
       const channel = new BroadcastChannel('picspy_follow_sync')
-      channel.postMessage({ creatorId: profile._id, isFollowing: data.following })
+      channel.postMessage({
+        creatorId: profile._id,
+        isFollowing: data.following,
+      })
       channel.close()
     } catch {
       toast.error('Không thể thực hiện')
@@ -202,7 +259,10 @@ const ProfilePage = () => {
   }, [profile?._id, followLoading])
 
   const handleFollow = useCallback(async () => {
-    if (!currentUser) { navigate('/login'); return }
+    if (!currentUser) {
+      navigate('/login')
+      return
+    }
     if (isFollowing) {
       setShowUnfollowConfirm(true)
     } else {
@@ -211,18 +271,24 @@ const ProfilePage = () => {
       try {
         const { data } = await api.post(`/users/${profile._id}/follow`)
         setIsFollowing(data.following)
-        setProfile(prev => ({
+        setProfile((prev) => ({
           ...prev,
           stats: {
             ...prev.stats,
-            followersCount: Math.max(0, prev.stats.followersCount + (data.following ? 1 : -1)),
+            followersCount: Math.max(
+              0,
+              prev.stats.followersCount + (data.following ? 1 : -1)
+            ),
           },
         }))
         toast.success(`Đang theo dõi @${profile.username}`, { duration: 1500 })
 
         // Broadcast sự kiện sync cho các tab khác
         const channel = new BroadcastChannel('picspy_follow_sync')
-        channel.postMessage({ creatorId: profile._id, isFollowing: data.following })
+        channel.postMessage({
+          creatorId: profile._id,
+          isFollowing: data.following,
+        })
         channel.close()
       } catch {
         toast.error('Không thể thực hiện')
@@ -235,21 +301,32 @@ const ProfilePage = () => {
   // ── Error / Loading states ─────────────────────────────────────
   if (loadingProfile) return <ProfileSkeleton />
 
-  if (error === 'not_found') return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
-      <ImageOff size={48} className="text-white/20" />
-      <h1 className="text-2xl font-bold">Không tìm thấy người dùng</h1>
-      <p className="text-white/40 text-sm">@{username} không tồn tại hoặc đã bị khóa.</p>
-      <Link to="/" className="btn-primary text-sm">Về trang chủ</Link>
-    </div>
-  )
+  if (error === 'not_found')
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
+        <ImageOff size={48} className="text-white/20" />
+        <h1 className="text-2xl font-bold">Không tìm thấy người dùng</h1>
+        <p className="text-white/40 text-sm">
+          @{username} không tồn tại hoặc đã bị khóa.
+        </p>
+        <Link to="/" className="btn-primary text-sm">
+          Về trang chủ
+        </Link>
+      </div>
+    )
 
-  if (error) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
-      <p className="text-white/40">Đã có lỗi xảy ra. Vui lòng thử lại.</p>
-      <button onClick={() => window.location.reload()} className="btn-secondary text-sm">Thử lại</button>
-    </div>
-  )
+  if (error)
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-6">
+        <p className="text-white/40">Đã có lỗi xảy ra. Vui lòng thử lại.</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="btn-secondary text-sm"
+        >
+          Thử lại
+        </button>
+      </div>
+    )
 
   const tier = profile.subscriptionTier ?? 'free'
   const tierMeta = TIER_META[tier] ?? TIER_META.free
@@ -257,7 +334,8 @@ const ProfilePage = () => {
   return (
     <div className="min-h-screen pb-24 md:pb-8">
       {/* ══════════ COVER ══════════ */}
-      <div className="h-36 md:h-52 relative overflow-hidden"
+      <div
+        className="h-36 md:h-52 relative overflow-hidden"
         style={{
           background: `linear-gradient(135deg, ${tierMeta.bg.replace('0.12', '0.4')} 0%, hsl(240,20%,8%) 60%)`,
         }}
@@ -272,23 +350,38 @@ const ProfilePage = () => {
       </div>
 
       {/* ══════════ HEADER ══════════ */}
-      <div className="page-container">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="relative -mt-14 md:-mt-20 mb-4 flex items-end justify-between">
           {/* Avatar */}
-          <motion.div initial={{ scale: 0.8, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="relative">
+          <motion.div
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="relative"
+          >
             <div
               className="w-24 h-24 md:w-32 md:h-32 rounded-3xl overflow-hidden border-4 border-surface shadow-2xl"
-              style={{ borderColor: tier !== 'free' ? tierMeta.color + '66' : undefined }}
+              style={{
+                borderColor:
+                  tier !== 'free' ? tierMeta.color + '66' : undefined,
+              }}
             >
-              {profile.avatar && !avatarError
-                ? <img src={profile.avatar} alt={profile.displayName} className="w-full h-full object-cover bg-surface-100" onError={() => setAvatarError(true)} />
-                : (
-                  <div className="w-full h-full flex items-center justify-center text-3xl font-bold"
-                    style={{ background: `linear-gradient(135deg, ${tierMeta.color}33, ${tierMeta.color}11)` }}>
-                    {profile.username?.[0]?.toUpperCase()}
-                  </div>
-                )
-              }
+              {profile.avatar && !avatarError ? (
+                <img
+                  src={profile.avatar}
+                  alt={profile.displayName}
+                  className="w-full h-full object-cover bg-surface-100"
+                  onError={() => setAvatarError(true)}
+                />
+              ) : (
+                <div
+                  className="w-full h-full flex items-center justify-center text-3xl font-bold"
+                  style={{
+                    background: `linear-gradient(135deg, ${tierMeta.color}33, ${tierMeta.color}11)`,
+                  }}
+                >
+                  {profile.username?.[0]?.toUpperCase()}
+                </div>
+              )}
             </div>
             {/* Verified checkmark */}
             {profile.isVerified && (
@@ -308,12 +401,18 @@ const ProfilePage = () => {
                 >
                   <Settings size={14} /> Thiết lập
                 </button>
-                <Link to="/studio" className="btn-secondary text-sm flex items-center gap-1.5">
+                <Link
+                  to="/studio"
+                  className="btn-secondary text-sm flex items-center gap-1.5"
+                >
                   <Film size={14} /> Creator Studio
                 </Link>
                 {/* Nút nâng cấp nếu free */}
                 {tier === 'free' && (
-                  <Link to="/pricing#pro" className="btn-primary text-sm flex items-center gap-1.5">
+                  <Link
+                    to="/pricing#pro"
+                    className="btn-primary text-sm flex items-center gap-1.5"
+                  >
                     <Zap size={14} /> Nâng cấp Pro
                   </Link>
                 )}
@@ -327,34 +426,51 @@ const ProfilePage = () => {
                   isFollowing ? 'btn-secondary' : 'btn-primary'
                 }`}
               >
-                {followLoading
-                  ? <Loader2 size={14} className="animate-spin" />
-                  : isFollowing
-                    ? <><UserCheck size={14} /> Đang follow</>
-                    : <><UserPlus size={14} /> Follow</>
-                }
+                {followLoading ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : isFollowing ? (
+                  <>
+                    <UserCheck size={14} /> Đang follow
+                  </>
+                ) : (
+                  <>
+                    <UserPlus size={14} /> Follow
+                  </>
+                )}
               </motion.button>
             )}
           </div>
         </div>
 
         {/* ══════════ INFO ══════════ */}
-        <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+        >
           <div className="flex items-center gap-2 flex-wrap mb-1">
-            <h1 className="text-xl font-display font-bold">{profile.displayName || profile.username}</h1>
+            <h1 className="text-xl font-display font-bold">
+              {profile.displayName || profile.username}
+            </h1>
             <TierBadge tier={tier} />
           </div>
           <p className="text-white/40 text-sm mb-3">@{profile.username}</p>
 
           {profile.bio && (
-            <p className="text-white/70 text-sm leading-relaxed mb-4 max-w-lg">{profile.bio}</p>
+            <p className="text-white/70 text-sm leading-relaxed mb-4 max-w-lg">
+              {profile.bio}
+            </p>
           )}
 
           {/* Links */}
           <div className="flex flex-wrap gap-4 text-sm text-white/40 mb-6">
             {profile.website && (
-              <a href={profile.website} target="_blank" rel="noreferrer"
-                className="flex items-center gap-1 hover:text-brand-400 transition-colors">
+              <a
+                href={profile.website}
+                target="_blank"
+                rel="noreferrer"
+                className="flex items-center gap-1 hover:text-brand-400 transition-colors"
+              >
                 <Globe size={14} />
                 {profile.website.replace(/^https?:\/\//, '')}
               </a>
@@ -364,20 +480,32 @@ const ProfilePage = () => {
           {/* Upgrade banner — chỉ hiện cho own profile free */}
           {isOwnProfile && tier === 'free' && (
             <motion.div
-              initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
               className="mb-6 p-4 rounded-2xl flex items-center justify-between gap-3"
               style={{
-                background: 'linear-gradient(135deg, rgba(121,134,235,0.1) 0%, rgba(6,182,212,0.08) 100%)',
+                background:
+                  'linear-gradient(135deg, rgba(121,134,235,0.1) 0%, rgba(6,182,212,0.08) 100%)',
                 border: '1px solid rgba(121,134,235,0.2)',
               }}
             >
               <div>
-                <p className="text-sm font-bold text-white/80">Nâng cấp lên Pro để mở khoá toàn bộ tính năng</p>
-                <p className="text-xs text-white/40 mt-0.5">Copy prompt 1-click · Không watermark · Negative prompts · và nhiều hơn</p>
+                <p className="text-sm font-bold text-white/80">
+                  Nâng cấp lên Pro để mở khoá toàn bộ tính năng
+                </p>
+                <p className="text-xs text-white/40 mt-0.5">
+                  Copy prompt 1-click · Không watermark · Negative prompts · và
+                  nhiều hơn
+                </p>
               </div>
-              <Link to="/pricing#pro"
+              <Link
+                to="/pricing#pro"
                 className="flex items-center gap-1 shrink-0 text-xs font-bold px-3 py-2 rounded-xl transition-all"
-                style={{ background: 'rgba(121,134,235,0.2)', color: '#7986eb', border: '1px solid rgba(121,134,235,0.3)' }}
+                style={{
+                  background: 'rgba(121,134,235,0.2)',
+                  color: '#7986eb',
+                  border: '1px solid rgba(121,134,235,0.3)',
+                }}
               >
                 Xem gói <ChevronRight size={13} />
               </Link>
@@ -395,7 +523,10 @@ const ProfilePage = () => {
               }}
               className="focus:outline-none hover:opacity-80 transition-opacity cursor-pointer text-left"
             >
-              <StatItem label="Followers" value={profile.stats?.followersCount} />
+              <StatItem
+                label="Followers"
+                value={profile.stats?.followersCount}
+              />
             </button>
             <button
               onClick={() => {
@@ -404,7 +535,10 @@ const ProfilePage = () => {
               }}
               className="focus:outline-none hover:opacity-80 transition-opacity cursor-pointer text-left"
             >
-              <StatItem label="Following" value={profile.stats?.followingCount} />
+              <StatItem
+                label="Following"
+                value={profile.stats?.followingCount}
+              />
             </button>
             <div className="w-px bg-white/10 mx-1 self-stretch my-2" />
             <StatItem label="Lượt thích" value={profile.stats?.totalLikes} />
@@ -416,16 +550,20 @@ const ProfilePage = () => {
         <div className="flex gap-1 mb-6 border-b border-white/10">
           {[
             { key: 'posts', label: '🖼 Ảnh' },
-            ...(isOwnProfile ? [{ key: 'bookmarks', label: '🔖 Bookmark' }] : []),
+            ...(isOwnProfile
+              ? [{ key: 'bookmarks', label: '🔖 Bookmark' }]
+              : []),
             ...(isOwnProfile ? [{ key: 'purchases', label: '🛍 Đã mua' }] : []),
           ].map(({ key, label }) => (
             <button
               key={key}
               onClick={() => setActiveTab(key)}
               className={`px-5 py-2.5 text-sm font-medium transition-all duration-200 border-b-2 -mb-px
-                ${activeTab === key
-                  ? 'border-brand-500 text-brand-400'
-                  : 'border-transparent text-white/40 hover:text-white/70'}`}
+                ${
+                  activeTab === key
+                    ? 'border-brand-500 text-brand-400'
+                    : 'border-transparent text-white/40 hover:text-white/70'
+                }`}
             >
               {label}
             </button>
@@ -436,7 +574,9 @@ const ProfilePage = () => {
         <AnimatePresence mode="wait">
           {loadingPosts ? (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-              {Array.from({ length: 6 }).map((_, i) => <SkeletonCard key={i} />)}
+              {Array.from({ length: 6 }).map((_, i) => (
+                <SkeletonCard key={i} />
+              ))}
             </div>
           ) : posts.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -451,7 +591,9 @@ const ProfilePage = () => {
                       : 'Người dùng chưa đăng ảnh nào.'}
               </p>
               {isOwnProfile && activeTab === 'posts' && (
-                <Link to="/upload" className="btn-primary text-sm mt-2">+ Đăng ảnh đầu tiên</Link>
+                <Link to="/upload" className="btn-primary text-sm mt-2">
+                  + Đăng ảnh đầu tiên
+                </Link>
               )}
             </div>
           ) : (
@@ -466,16 +608,14 @@ const ProfilePage = () => {
                   onClick={() => navigate(`/posts/${post._id}`)}
                 >
                   <img
-                    src={
-                      getOptimizedWebpUrl(
-                        post.images?.[0]?.thumbnailUrl ||
+                    src={getOptimizedWebpUrl(
+                      post.images?.[0]?.thumbnailUrl ||
                         post.images?.[0]?.url ||
                         post.generatedImages?.[0]?.thumbnailUrl ||
                         post.generatedImages?.[0]?.url ||
                         post.thumbnail,
-                        400
-                      )
-                    }
+                      400
+                    )}
                     alt={post.caption}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     loading="lazy"
@@ -489,7 +629,9 @@ const ProfilePage = () => {
                     </div>
                     <div className="flex items-center gap-1.5 text-white font-medium text-sm">
                       <Download size={15} className="text-blue-400" />
-                      {(post.stats?.downloadsCount ?? 0).toLocaleString('vi-VN')}
+                      {(post.stats?.downloadsCount ?? 0).toLocaleString(
+                        'vi-VN'
+                      )}
                     </div>
                   </div>
 
@@ -503,23 +645,32 @@ const ProfilePage = () => {
                           transition-transform duration-700
                           bg-gradient-to-r from-transparent via-amber-300/20 to-transparent"
                         />
-                        <GiCutDiamond size={10} className="text-amber-400 shrink-0" />
+                        <GiCutDiamond
+                          size={10}
+                          className="text-amber-400 shrink-0"
+                        />
                         <span>PREMIUM</span>
                       </div>
                     )}
                     {(post.postType === 'ai' || post.isAI) && (
-                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5"
-                        style={{ background: 'rgba(121,134,235,0.85)', color: '#fff' }}>
+                      <div
+                        className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5"
+                        style={{
+                          background: 'rgba(121,134,235,0.85)',
+                          color: '#fff',
+                        }}
+                      >
                         <IoSparkles size={9} className="text-white" />
                         <span>AI</span>
                       </div>
                     )}
-                    {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
-                      <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm flex items-center gap-0.5">
-                        <IoImages size={10} className="text-indigo-150" />
-                        <span>{post.generatedImages.length}</span>
-                      </div>
-                    )}
+                    {post.isCollection &&
+                      (post.generatedImages?.length || 0) > 1 && (
+                        <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm flex items-center gap-0.5">
+                          <IoImages size={10} className="text-indigo-150" />
+                          <span>{post.generatedImages.length}</span>
+                        </div>
+                      )}
                   </div>
                 </motion.div>
               ))}
@@ -534,15 +685,19 @@ const ProfilePage = () => {
         onClose={() => setShowUnfollowConfirm(false)}
         onConfirm={confirmUnfollow}
         title="Hủy theo dõi?"
-        message={profile ? (
-          <>
-            Bạn có chắc chắn muốn hủy theo dõi{' '}
-            <span className="text-white font-bold whitespace-nowrap">
-              {profile.displayName || profile.username}
-            </span>{' '}
-            không?
-          </>
-        ) : ''}
+        message={
+          profile ? (
+            <>
+              Bạn có chắc chắn muốn hủy theo dõi{' '}
+              <span className="text-white font-bold whitespace-nowrap">
+                {profile.displayName || profile.username}
+              </span>{' '}
+              không?
+            </>
+          ) : (
+            ''
+          )
+        }
         confirmText="Hủy theo dõi"
         cancelText="Bỏ qua"
         type="danger"

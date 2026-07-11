@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { Link as RouterLink } from 'react-router-dom'
 import {
   LayoutGrid,
   Clock,
@@ -1480,8 +1481,11 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
       }}
       className="group relative rounded-2xl bg-surface-50 overflow-hidden border border-white/5 transition-colors duration-300"
     >
-      {/* Image */}
-      <div className="relative aspect-square overflow-hidden border-b border-white/5">
+      {/* Image container wrapped in RouterLink */}
+      <RouterLink
+        to={`/posts/${post._id}`}
+        className="block relative aspect-square overflow-hidden border-b border-white/5 cursor-pointer"
+      >
         {displayUrl ? (
           <img
             src={displayUrl}
@@ -1497,26 +1501,6 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
 
         {/* Overlay on hover */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]" />
-
-        {/* Action buttons */}
-        <div className="absolute top-2.5 right-2.5 flex gap-1.5 opacity-0 group-hover:opacity-100 translate-y-[-4px] group-hover:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
-          <motion.button
-            whileHover={{ scale: 1.1, backgroundColor: '#7c3aed' }}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => onEdit(post)}
-            className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/20 transition-colors"
-          >
-            <Pencil size={13} />
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.1, backgroundColor: '#dc2626' }}
-            whileTap={{ scale: 0.92 }}
-            onClick={() => onDelete(post)}
-            className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/20 transition-colors"
-          >
-            <Trash2 size={13} />
-          </motion.button>
-        </div>
 
         {/* Top-left badges */}
         <div className="absolute top-2.5 left-2.5 flex flex-col gap-1.5 items-start">
@@ -1554,6 +1538,34 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
             </span>
           </div>
         </div>
+      </RouterLink>
+
+      {/* Action buttons (absolute wrapper OUTSIDE the link to allow separate click events) */}
+      <div className="absolute top-2.5 right-2.5 flex gap-1.5 z-10 opacity-0 group-hover:opacity-100 translate-y-[-4px] group-hover:translate-y-0 transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]">
+        <motion.button
+          whileHover={{ scale: 1.1, backgroundColor: '#7c3aed' }}
+          whileTap={{ scale: 0.92 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            onEdit(post)
+          }}
+          className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
+        >
+          <Pencil size={13} />
+        </motion.button>
+        <motion.button
+          whileHover={{ scale: 1.1, backgroundColor: '#dc2626' }}
+          whileTap={{ scale: 0.92 }}
+          onClick={(e) => {
+            e.stopPropagation()
+            e.preventDefault()
+            onDelete(post)
+          }}
+          className="w-8 h-8 rounded-xl bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 hover:border-white/20 transition-colors cursor-pointer"
+        >
+          <Trash2 size={13} />
+        </motion.button>
       </div>
 
       {/* Info */}
@@ -1573,9 +1585,12 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
           </span>
         </div>
         {post.caption && (
-          <p className="text-sm text-white/70 mt-2 line-clamp-1 font-normal">
+          <RouterLink
+            to={`/posts/${post._id}`}
+            className="block text-sm text-white/70 mt-2 line-clamp-1 font-normal hover:text-brand-300 transition-colors cursor-pointer"
+          >
             {post.caption}
-          </p>
+          </RouterLink>
         )}
         {post.status === 'rejected' && post.rejectionReason && (
           <p className="text-xs text-red-400/80 mt-1.5 line-clamp-1 font-medium">

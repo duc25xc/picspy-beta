@@ -48,6 +48,22 @@ export const getAllPosts = async (req, res, next) => {
       .populate('authorId', 'username displayName avatar email')
       .lean()
 
+    // Fetch report counts for these posts
+    const postIds = posts.map((p) => p._id)
+    const reportCounts = await Report.aggregate([
+      { $match: { postId: { $in: postIds } } },
+      { $group: { _id: '$postId', count: { $sum: 1 } } },
+    ])
+    const reportCountMap = reportCounts.reduce((acc, curr) => {
+      acc[curr._id.toString()] = curr.count
+      return acc
+    }, {})
+
+    // Attach reportsCount to each post
+    posts.forEach((p) => {
+      p.reportsCount = reportCountMap[p._id.toString()] || 0
+    })
+
     const hasMore = posts.length > parseInt(limit)
     if (hasMore) posts.pop()
 

@@ -13,6 +13,8 @@ import {
   ShieldCheck,
   RefreshCw,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Search,
   BarChart3,
   AlertTriangle,
@@ -54,6 +56,7 @@ import useAuthStore from '../store/auth.store'
 import { Navigate } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
+import ExifPanel from '../components/post/ExifPanel'
 // ─── Guard ─────────────────────────────────────────────────────
 const AdminGuard = ({ children }) => {
   const user = useAuthStore((s) => s.user)
@@ -426,9 +429,12 @@ const DashboardTab = () => {
   )
 }
 
-// ══════════════════════════════════════════════════════════════════
-// TAB: POSTS (với Bulk Actions)
-// ══════════════════════════════════════════════════════════════════
+const previewSlideVariants = {
+  enter: (d) => ({ opacity: 0, x: d > 0 ? 30 : -30 }),
+  center: { opacity: 1, x: 0 },
+  exit: (d) => ({ opacity: 0, x: d > 0 ? -30 : 30 }),
+}
+
 const PostsTab = () => {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
@@ -439,6 +445,55 @@ const PostsTab = () => {
   const [actionLoading, setActionLoading] = useState(null)
   const [rejectModal, setRejectModal] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  const [previewModal, setPreviewModal] = useState(null)
+  const [previewTab, setPreviewTab] = useState('result')
+  const [previewImgIndex, setPreviewImgIndex] = useState(0)
+  const [previewDirection, setPreviewDirection] = useState(1)
+
+  useEffect(() => {
+    setPreviewTab('result')
+    setPreviewImgIndex(0)
+  }, [previewModal])
+
+  const getResultImages = useCallback((post) => {
+    if (!post) return []
+    const list = []
+    if (post.generatedImages && post.generatedImages.length > 0) {
+      post.generatedImages.forEach((img) => {
+        list.push({ ...img, aiTool: post.aiTool, aiModel: post.aiModel })
+      })
+    } else if (post.images && post.images.length > 0) {
+      post.images.forEach((img) => {
+        list.push({ ...img })
+      })
+    }
+
+    if (
+      post.isMultiModel &&
+      post.modelComparisons &&
+      post.modelComparisons.length > 0
+    ) {
+      post.modelComparisons.forEach((comp) => {
+        if (comp.generatedImages && comp.generatedImages.length > 0) {
+          comp.generatedImages.forEach((img) => {
+            const exists = list.some(
+              (existing) =>
+                (existing.publicId && existing.publicId === img.publicId) ||
+                (existing.url && existing.url === img.url)
+            )
+            if (!exists) {
+              list.push({
+                ...img,
+                aiTool: comp.aiTool,
+                aiModel: comp.aiModel,
+              })
+            }
+          })
+        }
+      })
+    }
+    return list
+  }, [])
   // Bulk select
   const [selected, setSelected] = useState(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
@@ -704,7 +759,10 @@ const PostsTab = () => {
                   className={`card overflow-hidden transition-all ${isSelected ? 'ring-2 ring-brand-500' : ''}`}
                 >
                   {/* Thumbnail */}
-                  <div className="relative aspect-video bg-surface-100">
+                  <div
+                    className="relative aspect-video bg-surface-100 cursor-pointer group/thumb overflow-hidden"
+                    onClick={() => setPreviewModal(post)}
+                  >
                     {(img?.thumbnailUrl || img?.url) && (
                       <img
                         src={getOptimizedWebpUrl(
@@ -712,10 +770,16 @@ const PostsTab = () => {
                           400
                         )}
                         alt=""
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
                         loading="lazy"
                       />
                     )}
+                    {/* Hover preview indicator */}
+                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity duration-200">
+                      <span className="text-[10px] font-bold text-white bg-black/60 px-2.5 py-1.5 rounded-xl border border-white/10 flex items-center gap-1 shadow-md">
+                        <Eye size={12} /> Xem chi tiết
+                      </span>
+                    </div>
                     {/* Select checkbox */}
                     <button
                       onClick={() => toggleSelect(post._id)}
@@ -775,7 +839,10 @@ const PostsTab = () => {
                       </span>
                     </div>
                     {/* Caption — placeholder nếu không có text */}
-                    <p className="text-xs line-clamp-2 min-h-[2.5rem] flex items-center">
+                    <p
+                      className="text-xs line-clamp-2 min-h-[2.5rem] flex items-center cursor-pointer hover:text-white transition-colors"
+                      onClick={() => setPreviewModal(post)}
+                    >
                       {post.caption ? (
                         <span className="text-white/50">{post.caption}</span>
                       ) : (
@@ -1044,6 +1111,498 @@ const PostsTab = () => {
             </motion.div>
           </motion.div>
         )}
+      </AnimatePresence>
+
+      {/* Post Preview Modal */}
+      <AnimatePresence>
+        {previewModal && (() => {
+          const resultImages = getResultImages(previewModal)
+          return (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm !mt-0"
+              onClick={(e) =>
+                e.target === e.currentTarget && setPreviewModal(null)
+              }
+            >
+              <motion.div
+                initial={{ scale: 0.95, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                exit={{ scale: 0.95 }}
+                className="card overflow-hidden max-w-6xl w-full grid grid-cols-1 md:grid-cols-2 bg-[#121216] border border-white/10 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.8)] rounded-2xl h-[760px] max-h-[92vh]"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Left Column: Image viewport with Tab Switcher & Slider */}
+                <div className="relative h-full bg-black/85 flex flex-col items-center justify-center border-r border-white/5 overflow-hidden group/left">
+                  {/* Ambient glow background */}
+                  {(() => {
+                    const list =
+                      previewTab === 'result'
+                        ? resultImages
+                        : previewModal.sourceImages || []
+                    const activeImage = list[previewImgIndex]
+                    return activeImage?.url ? (
+                      <div
+                        className="absolute inset-0 opacity-15 scale-110 pointer-events-none transition-all duration-500"
+                        style={{
+                          backgroundImage: `url(${activeImage.thumbnailUrl || activeImage.url})`,
+                          backgroundSize: 'cover',
+                          backgroundPosition: 'center',
+                          filter: 'blur(28px)',
+                        }}
+                      />
+                    ) : null
+                  })()}
+
+                  {/* Image count badge in top right */}
+                  {(() => {
+                    const list =
+                      previewTab === 'result'
+                        ? resultImages
+                        : previewModal.sourceImages || []
+                    if (list.length <= 1) return null
+                    return (
+                      <div className="absolute top-4 right-4 z-10 px-2.5 py-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-[10px] font-bold text-white shadow-md flex items-center gap-1">
+                        <Image size={11} className="text-white" />
+                        <span>
+                          {previewImgIndex + 1} / {list.length}
+                        </span>
+                      </div>
+                    )
+                  })()}
+                  {/* Segmented Control / Tabs for Result vs Source (only if source images exist) */}
+                  {previewModal.sourceImages &&
+                    previewModal.sourceImages.length > 0 && (
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10 flex p-1 rounded-xl bg-black/60 backdrop-blur-md border border-white/10 text-xs font-semibold">
+                        <button
+                          onClick={() => {
+                            setPreviewDirection(1)
+                            setPreviewTab('result')
+                            setPreviewImgIndex(0)
+                          }}
+                          className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                            previewTab === 'result'
+                              ? 'bg-brand-600 text-white shadow-sm'
+                              : 'text-white/40 hover:text-white/80'
+                          }`}
+                        >
+                          Kết quả ({resultImages.length})
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPreviewDirection(1)
+                            setPreviewTab('source')
+                            setPreviewImgIndex(0)
+                          }}
+                          className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
+                            previewTab === 'source'
+                              ? 'bg-brand-600 text-white shadow-sm'
+                              : 'text-white/40 hover:text-white/80'
+                          }`}
+                        >
+                          Ảnh gốc ({previewModal.sourceImages.length})
+                        </button>
+                      </div>
+                    )}
+
+                  {/* Main Viewport */}
+                  <div className="flex-1 w-full flex items-center justify-center relative overflow-hidden">
+                    <AnimatePresence initial={false} custom={previewDirection} mode="wait">
+                      {(() => {
+                        const list =
+                          previewTab === 'result'
+                            ? resultImages
+                            : previewModal.sourceImages || []
+                        const activeImage = list[previewImgIndex]
+
+                        if (!activeImage?.url) {
+                          return (
+                            <motion.div
+                              key="empty"
+                              className="text-white/25 text-xs italic"
+                            >
+                              Không có hình ảnh
+                            </motion.div>
+                          )
+                        }
+
+                        return (
+                          <motion.div
+                            key={`${previewTab}-${previewImgIndex}`}
+                            custom={previewDirection}
+                            variants={previewSlideVariants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+                            className="absolute inset-0 w-full h-full flex items-center justify-center p-4"
+                          >
+                            <div className="relative max-w-full max-h-full flex items-center justify-center select-none">
+                              <img
+                                src={activeImage.url}
+                                alt=""
+                                className="max-w-full max-h-[660px] object-contain rounded-lg shadow-2xl border border-white/5"
+                                draggable={false}
+                              />
+                              {/* Image dimension & file info overlay in bottom center */}
+                              <div className="absolute bottom-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded bg-black/75 text-[10px] text-white/50 border border-white/5 backdrop-blur-sm whitespace-nowrap z-20">
+                                {activeImage.width && activeImage.height
+                                  ? `${activeImage.width}x${activeImage.height}`
+                                  : ''}
+                                {activeImage.fileSize
+                                  ? ` · ${(activeImage.fileSize / 1024 / 1024).toFixed(2)} MB`
+                                  : ''}
+                              </div>
+                            </div>
+                          </motion.div>
+                        )
+                      })()}
+                    </AnimatePresence>
+                  </div>
+
+                  {/* Left/Right arrows if current tab has multiple images */}
+                  {(() => {
+                    const list =
+                      previewTab === 'result'
+                        ? resultImages
+                        : previewModal.sourceImages || []
+                    if (list.length <= 1) return null
+                    return (
+                      <>
+                        <button
+                          onClick={() => {
+                            setPreviewDirection(-1)
+                            setPreviewImgIndex((prev) =>
+                              prev === 0 ? list.length - 1 : prev - 1
+                            )
+                          }}
+                          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-all cursor-pointer opacity-0 group-hover/left:opacity-100 z-30"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setPreviewDirection(1)
+                            setPreviewImgIndex((prev) =>
+                              prev === list.length - 1 ? 0 : prev + 1
+                            )
+                          }}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/60 border border-white/10 flex items-center justify-center text-white/60 hover:text-white hover:bg-black/80 transition-all cursor-pointer opacity-0 group-hover/left:opacity-100 z-30"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                        {/* Pagination dots */}
+                        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-1 z-10 bg-black/45 px-2 py-1 rounded-full border border-white/5">
+                          {list.map((_, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => {
+                                setPreviewDirection(idx > previewImgIndex ? 1 : -1)
+                                setPreviewImgIndex(idx)
+                              }}
+                              className={`w-1.5 h-1.5 rounded-full transition-all cursor-pointer ${
+                                previewImgIndex === idx
+                                  ? 'bg-brand-500 scale-125'
+                                  : 'bg-white/20'
+                              }`}
+                            />
+                          ))}
+                        </div>
+                      </>
+                    )
+                  })()}
+
+                  {previewModal.isNSFW && (
+                    <span className="absolute top-3 left-3 px-2 py-0.5 rounded-full bg-red-600/90 text-white text-[10px] font-bold shadow-md z-10">
+                      NSFW
+                    </span>
+                  )}
+                </div>
+
+                {/* Right Column: Information & Metadata */}
+                <div className="flex flex-col h-full overflow-y-auto p-6 space-y-5 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
+                  {/* Author & Header */}
+                  <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                    <div className="flex items-center gap-3">
+                      {previewModal.authorId?.avatar ? (
+                        <img
+                          src={previewModal.authorId.avatar}
+                          className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10"
+                          alt=""
+                        />
+                      ) : (
+                        <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
+                          {previewModal.authorId?.username?.[0]?.toUpperCase() ||
+                            '?'}
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-sm font-bold text-white leading-tight">
+                          {previewModal.authorId?.displayName ||
+                            previewModal.authorId?.username}
+                        </p>
+                        <p className="text-[11px] text-white/40">
+                          @{previewModal.authorId?.username}
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setPreviewModal(null)}
+                      className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/5 hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
+
+                  {/* Caption */}
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                      Tiêu đề / Caption
+                    </h3>
+                    <p className="text-sm text-white/95 font-medium leading-relaxed">
+                      {previewModal.caption || (
+                        <span className="text-white/20 italic">
+                          Không có tiêu đề
+                        </span>
+                      )}
+                    </p>
+                  </div>
+
+                  {/* Tags */}
+                  {previewModal.tags && previewModal.tags.length > 0 && (
+                    <div className="space-y-1.5">
+                      <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                        Thẻ (Tags)
+                      </h3>
+                      <div className="flex flex-wrap gap-1.5">
+                        {previewModal.tags.map((tag, idx) => (
+                          <span
+                            key={idx}
+                            className="px-2 py-0.5 rounded-md bg-white/5 border border-white/8 text-[11px] text-white/60 font-semibold hover:border-white/20 transition-colors"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Details grid */}
+                  <div className="grid grid-cols-2 gap-4 bg-white/[0.01] border border-white/5 rounded-xl p-4 text-xs">
+                    <div>
+                      <span className="text-white/40 block mb-0.5">
+                        Trạng thái
+                      </span>
+                      <StatusBadge status={previewModal.status} />
+                    </div>
+                    <div>
+                      <span className="text-white/40 block mb-0.5">
+                        Loại bài đăng
+                      </span>
+                      <span className="font-bold text-brand-300">
+                        {previewModal.postType === 'ai'
+                          ? '✦ AI'
+                          : previewModal.postType === 'digital-raw'
+                            ? '📷 RAW'
+                            : 'DIGITAL'}
+                        {resultImages.length > 1 &&
+                          ` (Bộ sưu tập ${resultImages.length} ảnh)`}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block mb-0.5">
+                        Premium / Giá bán
+                      </span>
+                      <span
+                        className={
+                          previewModal.isPremium
+                            ? 'text-amber-400 font-bold'
+                            : 'text-white/40'
+                        }
+                      >
+                        {previewModal.isPremium
+                          ? `💎 Có (${previewModal.price || 0} tokens)`
+                          : 'Không'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block mb-0.5">Danh mục</span>
+                      <span className="text-white/80 font-semibold">
+                        {previewModal.category || 'Khác'}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block mb-0.5">
+                        Ngày đăng
+                      </span>
+                      <span className="text-white/80 font-semibold">
+                        {new Date(previewModal.createdAt).toLocaleDateString(
+                          'vi-VN',
+                          {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          }
+                        )}
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-white/40 block mb-0.5">
+                        Số lần bị report
+                      </span>
+                      <span
+                        className={`font-bold ${previewModal.reportsCount > 0 ? 'text-red-400' : 'text-white/40'}`}
+                      >
+                        🚩 {previewModal.reportsCount || 0} lần
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Stats */}
+                  <div className="space-y-1.5">
+                    <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                      Chỉ số tương tác
+                    </h3>
+                    <div
+                      className="flex items-center gap-5"
+                      style={{ fontFamily: 'Outfit, sans-serif' }}
+                    >
+                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                        <span className="flex items-center gap-1 text-white/60">
+                          👁️ {previewModal.stats?.viewsCount || 0}
+                        </span>
+                        <span>lượt xem</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                        <span className="flex items-center gap-1 text-white/60">
+                          📥 {previewModal.stats?.downloadsCount || 0}
+                        </span>
+                        <span>lượt tải</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                        <span className="flex items-center gap-1 text-white/60">
+                          ❤️ {previewModal.stats?.likesCount || 0}
+                        </span>
+                        <span>lượt thích</span>
+                      </div>
+                      <div className="flex items-center gap-1.5 text-white/35 text-xs">
+                        <span className="flex items-center gap-1 text-white/60">
+                          📌 {previewModal.stats?.bookmarksCount || 0}
+                        </span>
+                        <span>lưu lại</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* EXIF panel data (Camera & Shot parameters) */}
+                  <ExifPanel post={previewModal} compact={true} />
+
+                  {/* Prompt details (AI parameter panel) */}
+                  {previewModal.postType === 'ai' && previewModal.prompt && (
+                    <div className="space-y-2 border-t border-white/5 pt-4">
+                      <h3 className="text-xs font-bold text-white/35 uppercase tracking-wider">
+                        Thông số tạo ảnh AI
+                      </h3>
+                      {previewModal.aiTool && (
+                        <div className="flex items-center gap-1.5 text-[11px] text-white/60">
+                          <span>Công cụ:</span>
+                          <span className="px-2 py-0.5 rounded bg-violet-600/10 border border-violet-500/20 text-violet-400 font-bold">
+                            {previewModal.aiTool}
+                            {previewModal.aiModel ? ` (${previewModal.aiModel})` : ''}
+                          </span>
+                        </div>
+                      )}
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold text-white/30 uppercase">
+                          Prompt:
+                        </p>
+                        <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/80 font-mono leading-relaxed max-h-[160px] overflow-y-auto scrollbar-thin select-all">
+                          {previewModal.prompt}
+                        </div>
+                      </div>
+                      {previewModal.negativePrompt && (
+                        <div className="space-y-1">
+                          <p className="text-[10px] font-bold text-white/30 uppercase">
+                            Negative Prompt:
+                          </p>
+                          <div className="p-3 rounded-xl bg-white/[0.02] border border-white/5 text-[11px] text-white/80 font-mono leading-relaxed max-h-[100px] overflow-y-auto scrollbar-thin select-all">
+                            {previewModal.negativePrompt}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Actions footer */}
+                  <div className="flex gap-2 border-t border-white/5 pt-5 mt-auto">
+                    {previewModal.status !== 'approved' && (
+                      <button
+                        onClick={() => {
+                          handleStatus(previewModal._id, 'approved')
+                          setPreviewModal(null)
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-green-600 border border-green-500/30 text-white hover:bg-green-500 transition-all text-xs font-bold cursor-pointer"
+                      >
+                        <CheckCircle size={13} /> Duyệt
+                      </button>
+                    )}
+                    {previewModal.status !== 'rejected' && (
+                      <button
+                        onClick={() => {
+                          setRejectModal(previewModal)
+                          setPreviewModal(null)
+                        }}
+                        className="flex-1 flex items-center justify-center gap-1.5 py-2.5 rounded-xl bg-red-600 border border-red-500/30 text-white hover:bg-red-500 transition-all text-xs font-bold cursor-pointer"
+                      >
+                        <XCircle size={13} /> Từ chối
+                      </button>
+                    )}
+                    {previewModal.status !== 'hidden' && (
+                      <button
+                        onClick={() => {
+                          handleStatus(previewModal._id, 'hidden')
+                          setPreviewModal(null)
+                        }}
+                        className="px-3 py-2.5 rounded-xl bg-white/5 border border-white/10 text-white/60 hover:text-white transition-all text-xs font-bold cursor-pointer"
+                        title="Ẩn bài viết"
+                      >
+                        <EyeOff size={14} />
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setBuffModal(previewModal)
+                        setBuffViews(0)
+                        setBuffDownloads(0)
+                        setBuffLikes(0)
+                        setBuffBookmarks(0)
+                        setPreviewModal(null)
+                      }}
+                      className="px-3 py-2.5 rounded-xl bg-yellow-600/15 border border-yellow-500/30 text-yellow-400 hover:bg-yellow-600/25 transition-all text-xs font-bold cursor-pointer flex items-center justify-center gap-1"
+                      title="Buff chỉ số"
+                    >
+                      <Zap size={13} /> Buff
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleDeletePost(previewModal._id)
+                        setPreviewModal(null)
+                      }}
+                      className="px-3 py-2.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600/20 transition-all text-xs font-bold cursor-pointer"
+                      title="Xóa bài viết"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            </motion.div>
+          )
+        })()}
       </AnimatePresence>
     </div>
   )

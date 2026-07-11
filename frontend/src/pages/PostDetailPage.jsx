@@ -374,6 +374,8 @@ const PostDetailPage = () => {
       const { data } = await api.get(`/posts/${id}`)
       setPost({
         ...data.post,
+        isLiked: data.isLiked || false,
+        isBookmarked: data.isBookmarked || false,
         purchasedFileTypes: data.purchasedFileTypes || [],
       })
       if (!data.post.isPremium) setIsUnlocked(true)

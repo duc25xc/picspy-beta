@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { motion, AnimatePresence } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import { Heart } from 'lucide-react'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
@@ -27,6 +27,15 @@ const LikeButton = ({
   const [count, setCount] = useState(initialCount)
   const [loading, setLoading] = useState(false)
   const [burst, setBurst] = useState(false)
+
+  // Sync state with props when post changes or initial value changes
+  useEffect(() => {
+    setLiked(initialLiked)
+  }, [postId, initialLiked])
+
+  useEffect(() => {
+    setCount(initialCount)
+  }, [postId, initialCount])
 
   const iconSize = size === 'sm' ? 14 : size === 'lg' ? 22 : 18
 
@@ -102,7 +111,12 @@ const LikeButton = ({
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
                   className="absolute inset-0 w-1.5 h-1.5 rounded-full bg-red-400 pointer-events-none"
-                  style={{ top: '50%', left: '50%', marginTop: -3, marginLeft: -3 }}
+                  style={{
+                    top: '50%',
+                    left: '50%',
+                    marginTop: -3,
+                    marginLeft: -3,
+                  }}
                 />
               ))}
             </>
