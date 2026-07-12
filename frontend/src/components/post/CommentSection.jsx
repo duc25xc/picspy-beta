@@ -31,6 +31,9 @@ const Avatar = ({ user, size = 8 }) => {
         src={user.avatar}
         alt={user.username}
         className={`${s} rounded-full object-cover ring-1 ring-white/10 flex-shrink-0`}
+        onError={(e) => {
+          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
+        }}
       />
     )
   }

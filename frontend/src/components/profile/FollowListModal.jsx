@@ -194,6 +194,9 @@ const FollowListModal = ({ isOpen, onClose, userId, type, username }) => {
                               src={user.avatar} 
                               alt={user.displayName || user.username} 
                               className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
+                              }}
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center font-bold text-sm bg-brand-600/20 text-brand-400">

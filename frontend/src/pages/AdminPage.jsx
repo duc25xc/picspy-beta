@@ -828,6 +828,9 @@ const PostsTab = () => {
                           src={post.authorId.avatar}
                           className="w-7 h-7 rounded-full object-cover"
                           alt=""
+                          onError={(e) => {
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(post.authorId?.username || '')}&background=8b5cf6&color=fff`
+                          }}
                         />
                       ) : (
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-xs font-bold">
@@ -1341,6 +1344,9 @@ const PostsTab = () => {
                             src={previewModal.authorId.avatar}
                             className="w-9 h-9 rounded-full object-cover ring-1 ring-white/10"
                             alt=""
+                            onError={(e) => {
+                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(previewModal.authorId?.username || '')}&background=8b5cf6&color=fff`
+                            }}
                           />
                         ) : (
                           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold">
@@ -2254,6 +2260,9 @@ const UsersTab = () => {
                     src={user.avatar}
                     className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
                     alt=""
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
+                    }}
                   />
                 ) : (
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
@@ -3001,6 +3010,9 @@ const UsersTab = () => {
                         src={detailModal.avatar}
                         className="w-20 h-20 rounded-full object-cover ring-2 ring-brand-500/50 shadow-lg shadow-brand-500/10"
                         alt=""
+                        onError={(e) => {
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(detailModal.username || '')}&background=8b5cf6&color=fff`
+                        }}
                       />
                     ) : (
                       <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-2xl font-black shadow-lg">
@@ -7290,6 +7302,9 @@ const LogsTab = () => {
                                 src={log.adminId.avatar}
                                 className="w-8 h-8 rounded-full border border-white/10 object-cover"
                                 alt=""
+                                onError={(e) => {
+                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(log.adminId?.username || '')}&background=8b5cf6&color=fff`
+                                }}
                               />
                             ) : (
                               <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-md shadow-black/25">
@@ -7487,6 +7502,9 @@ const WithdrawalsTab = () => {
                         src={user.avatar}
                         className="w-9 h-9 rounded-full object-cover flex-shrink-0"
                         alt=""
+                        onError={(e) => {
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
+                        }}
                       />
                     ) : (
                       <div className="w-9 h-9 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold flex-shrink-0">

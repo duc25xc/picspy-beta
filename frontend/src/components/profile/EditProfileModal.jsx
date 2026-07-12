@@ -226,6 +226,9 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated }) => {
                           src={avatarPreview}
                           alt="Avatar Preview"
                           className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.username || '')}&background=8b5cf6&color=fff`
+                          }}
                         />
                       ) : (
                         <span className="text-3xl font-bold text-white/20">

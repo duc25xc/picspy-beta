@@ -732,6 +732,9 @@ const PostDetailPage = () => {
                     className="w-11 h-11 rounded-xl object-cover flex-shrink-0
                       ring-2 ring-[#7986eb]/25 group-hover:ring-[#7986eb]/55 transition-all duration-200"
                     alt=""
+                    onError={(e) => {
+                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(author.username || '')}&background=8b5cf6&color=fff`
+                    }}
                   />
                 ) : (
                   <div
