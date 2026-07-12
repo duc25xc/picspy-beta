@@ -217,10 +217,10 @@ export default function PinManagementModal({ isOpen, onClose, onSuccess, default
   useEffect(() => {
     if (!isOpen) return
     if (tab === 'change') {
-      const t = setTimeout(() => inputRef.current?.focus(), 80)
+      const t = setTimeout(() => requestAnimationFrame(() => inputRef.current?.focus()), 80)
       return () => clearTimeout(t)
     } else if (tab === 'forgot' && fgtStep >= 3) {
-      const t = setTimeout(() => inputRef.current?.focus(), 80)
+      const t = setTimeout(() => requestAnimationFrame(() => inputRef.current?.focus()), 80)
       return () => clearTimeout(t)
     }
   }, [tab, chgStep, fgtStep, isOpen])
@@ -263,8 +263,8 @@ export default function PinManagementModal({ isOpen, onClose, onSuccess, default
       setTimeout(() => {
         setChgStep(2)
         setChgLoading(false)
-        // Re-focus: step change effect also fires but explicit is safer
-        setTimeout(() => inputRef.current?.focus(), 60)
+        // Double RAF: ensures DOM updates from step change settle before focus
+        requestAnimationFrame(() => requestAnimationFrame(() => inputRef.current?.focus()))
       }, 300)
     } catch (err) {
       const msg = err?.response?.data?.message || 'Mã PIN hiện tại không chính xác.'
@@ -272,8 +272,8 @@ export default function PinManagementModal({ isOpen, onClose, onSuccess, default
       triggerChgShake()
       setChgCurrent('')
       setChgLoading(false)
-      // Re-focus AFTER setChgLoading(false) so readOnly is removed
-      setTimeout(() => inputRef.current?.focus(), 30)
+      // Double RAF after setChgLoading(false) so readOnly is removed before focus
+      requestAnimationFrame(() => requestAnimationFrame(() => inputRef.current?.focus()))
     }
   }
 

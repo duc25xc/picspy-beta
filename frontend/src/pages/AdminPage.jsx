@@ -4187,6 +4187,11 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [settings, setSettings] = useState(null)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [autoApproveSaving, setAutoApproveSaving] = useState(false)
+  const [bypassToggleSaving, setBypassToggleSaving] = useState(false)
+
+  const bypassPasswordInputRef = useRef(null)
+  const bypassPinInputRef = useRef(null)
 
   const {
     updateBrandColors,
@@ -4242,6 +4247,16 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [trendingCarouselSaving, setTrendingCarouselSaving] = useState(false)
   const [bypassPassword, setBypassPassword] = useState('')
   const [bypassPasswordSaving, setBypassPasswordSaving] = useState(false)
+  const [bypassPin, setBypassPin] = useState('')
+  const [bypassPinSaving, setBypassPinSaving] = useState(false)
+  const [showBypassPassword, setShowBypassPassword] = useState(false)
+  const [showBypassPin, setShowBypassPin] = useState(false)
+  const [currentBypassPassword, setCurrentBypassPassword] = useState(null)
+  const [currentBypassPin, setCurrentBypassPin] = useState(null)
+  const [showCurrentBypassKeys, setShowCurrentBypassKeys] = useState(false)
+  const [loadingBypassKeys, setLoadingBypassKeys] = useState(false)
+  const [bypassPasswordFocused, setBypassPasswordFocused] = useState(false)
+  const [bypassPinFocused, setBypassPinFocused] = useState(false)
   const [discoveryAutoScrollInterval, setDiscoveryAutoScrollInterval] =
     useState(10000)
   const [discoveryAutoScrollStagger, setDiscoveryAutoScrollStagger] =
@@ -4545,7 +4560,7 @@ const SettingsTab = ({ onDirtyChange }) => {
   const handleToggleAutoApprove = async () => {
     if (!settings) return
     const next = !settings.autoApprove
-    setSaving(true)
+    setAutoApproveSaving(true)
     try {
       const { data } = await api.put('/admin/settings', { autoApprove: next })
       setSettings(data.settings)
@@ -4557,26 +4572,43 @@ const SettingsTab = ({ onDirtyChange }) => {
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi cập nhật')
     } finally {
-      setSaving(false)
+      setAutoApproveSaving(false)
     }
   }
 
   const handleToggleBypassEnabled = async () => {
     if (!settings) return
     const next = !settings.bypassEnabled
-    setSaving(true)
+    setBypassToggleSaving(true)
     try {
       const { data } = await api.put('/admin/settings', { bypassEnabled: next })
       setSettings(data.settings)
+      // When disabling: clear all local bypass UI state
+      if (!next) {
+        setBypassPassword('')
+        setBypassPin('')
+        setShowBypassPassword(false)
+        setShowBypassPin(false)
+        setShowCurrentBypassKeys(false)
+        setCurrentBypassPassword(null)
+        setCurrentBypassPin(null)
+      } else {
+        // Auto focus the password input when enabled
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            bypassPasswordInputRef.current?.focus()
+          })
+        })
+      }
       toast.success(
         next
           ? '⚡ Đã BẬT Bypass Password/PIN giao dịch'
-          : '🔒 Đã TẮT Bypass Password/PIN giao dịch'
+          : '🔒 Đã TẮT Bypass Password/PIN giao dịch — đã xóa toàn bộ key'
       )
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi cập nhật')
     } finally {
-      setSaving(false)
+      setBypassToggleSaving(false)
     }
   }
 
@@ -4591,10 +4623,58 @@ const SettingsTab = ({ onDirtyChange }) => {
       setSettings(data.settings)
       setBypassPassword('') // Clear input
       toast.success('🔑 Đã cập nhật mật khẩu bypass mới')
+      if (showCurrentBypassKeys) {
+        fetchBypassKeysDirect()
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi cập nhật mật khẩu bypass')
     } finally {
       setBypassPasswordSaving(false)
+    }
+  }
+
+  const handleSaveBypassPin = async () => {
+    if (!bypassPin || !/^\d{6}$/.test(bypassPin)) {
+      toast.error('Mã PIN bypass phải gồm đúng 6 chữ số')
+      return
+    }
+    setBypassPinSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { bypassPin })
+      setSettings(data.settings)
+      setBypassPin('') // Clear input
+      toast.success('🔑 Đã cập nhật mã PIN bypass mới')
+      if (showCurrentBypassKeys) {
+        fetchBypassKeysDirect()
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật mã PIN bypass')
+    } finally {
+      setBypassPinSaving(false)
+    }
+  }
+
+  const fetchBypassKeysDirect = async () => {
+    try {
+      const { data } = await api.get('/admin/settings/bypass-keys')
+      setCurrentBypassPassword(data.bypassPassword)
+      setCurrentBypassPin(data.bypassPin)
+    } catch (err) {
+      console.error(err)
+    }
+  }
+
+  const fetchBypassKeys = async () => {
+    setLoadingBypassKeys(true)
+    try {
+      const { data } = await api.get('/admin/settings/bypass-keys')
+      setCurrentBypassPassword(data.bypassPassword)
+      setCurrentBypassPin(data.bypassPin)
+      setShowCurrentBypassKeys(true)
+    } catch (err) {
+      toast.error('Không thể lấy thông tin bypass hiện tại')
+    } finally {
+      setLoadingBypassKeys(false)
     }
   }
 
@@ -4899,7 +4979,7 @@ const SettingsTab = ({ onDirtyChange }) => {
 
   if (loading)
     return (
-      <div className="space-y-6 max-w-2xl animate-pulse">
+      <div className="space-y-6">
         {/* Header Skeleton */}
         <div className="space-y-2">
           <div className="h-6 bg-white/10 rounded w-48"></div>
@@ -4907,7 +4987,7 @@ const SettingsTab = ({ onDirtyChange }) => {
         </div>
 
         {/* Sub-tabs Navigation Skeleton */}
-        <div className="flex gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 max-w-md h-12 items-center">
+        <div className="flex gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 w-fit h-12 items-center">
           {Array.from({ length: 4 }).map((_, i) => (
             <div key={i} className="h-8 bg-white/5 rounded-lg w-28"></div>
           ))}
@@ -4936,7 +5016,7 @@ const SettingsTab = ({ onDirtyChange }) => {
     )
 
   return (
-    <div className="space-y-6 max-w-2xl">
+    <div className="space-y-6">
       <div>
         <h2 className="font-bold text-xl text-white mb-1">Cài đặt hệ thống</h2>
         <p className="text-sm text-white/40">
@@ -4945,7 +5025,7 @@ const SettingsTab = ({ onDirtyChange }) => {
       </div>
 
       {/* Sub-tabs Navigation */}
-      <div className="flex gap-2 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 max-w-md">
+      <div className="flex gap-1.5 p-1.5 rounded-xl bg-white/[0.02] border border-white/5 w-full flex-wrap">
         {[
           { key: 'general', label: '📁 Cấu hình Chung' },
           { key: 'branding', label: '🎨 Giao diện & Màu sắc' },
@@ -4956,7 +5036,7 @@ const SettingsTab = ({ onDirtyChange }) => {
             key={subTab.key}
             type="button"
             onClick={() => setActiveSubTab(subTab.key)}
-            className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-all cursor-pointer text-center
+            className={`py-2 px-4 rounded-lg text-xs font-bold transition-all cursor-pointer text-center whitespace-nowrap
               ${
                 activeSubTab === subTab.key
                   ? 'bg-brand-600 text-white shadow-md font-display'
@@ -5024,19 +5104,19 @@ const SettingsTab = ({ onDirtyChange }) => {
               <motion.button
                 whileTap={{ scale: 0.93 }}
                 onClick={handleToggleAutoApprove}
-                disabled={saving}
+                disabled={autoApproveSaving}
                 className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
                   settings?.autoApprove
                     ? 'bg-green-500 border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]'
                     : 'bg-white/10 border-white/20'
-                } disabled:opacity-60`}
+                } disabled:opacity-60 cursor-pointer`}
               >
                 <motion.div
                   className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md"
                   animate={{ left: settings?.autoApprove ? '28px' : '2px' }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
-                {saving && (
+                {autoApproveSaving && (
                   <Loader2
                     size={10}
                     className="absolute inset-0 m-auto text-white animate-spin"
@@ -5048,14 +5128,15 @@ const SettingsTab = ({ onDirtyChange }) => {
 
           {/* ── Security Bypass Master Key Card ─── */}
           <motion.div
-            className={`card p-6 border transition-all duration-300 ${
+            className={`card border transition-all duration-300 overflow-hidden ${
               settings?.bypassEnabled
                 ? 'border-amber-500/40 bg-amber-500/5'
                 : 'border-white/10'
             }`}
             layout
           >
-            <div className="flex items-start justify-between gap-4">
+            {/* Header row with Title and Switch */}
+            <div className="flex items-start justify-between gap-4 p-6">
               <div className="flex items-start gap-4">
                 <div
                   className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors duration-300 ${
@@ -5070,45 +5151,13 @@ const SettingsTab = ({ onDirtyChange }) => {
                 </div>
                 <div>
                   <h3 className="font-bold text-white text-base mb-1">
-                    Cấu hình bypass mật khẩu & PIN
+                    Cấu hình bypass mật khẩu &amp; PIN
                   </h3>
                   <p className="text-sm text-white/50 leading-relaxed max-w-xl">
                     Cho phép Admin đặt một mật khẩu Master có thể bypass tất cả kiểm tra mật khẩu (khi tắt PIN) và mã PIN giao dịch của bất kỳ tài khoản nào.
                     <br />
                     <span className="text-amber-400 font-semibold text-xs block mt-1">⚠️ Cảnh báo bảo mật: Chỉ kích hoạt ở môi trường phát triển (development) hoặc kiểm thử.</span>
                   </p>
-
-                  {settings?.bypassEnabled && (
-                    <div className="mt-4 space-y-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 max-w-md">
-                      <div className="flex justify-between items-center text-xs">
-                        <span className="text-white/60">Trạng thái mã bypass:</span>
-                        <span className={`font-semibold ${settings?.hasBypassPassword ? 'text-green-400' : 'text-red-400'}`}>
-                          {settings?.hasBypassPassword ? 'Đã thiết lập' : 'Chưa thiết lập'}
-                        </span>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <label className="text-[10px] font-bold text-white/35 uppercase tracking-wider block">Thiết lập mật khẩu Master mới</label>
-                        <div className="flex gap-2">
-                          <input
-                            type="password"
-                            placeholder="Nhập mật khẩu Master..."
-                            value={bypassPassword}
-                            onChange={(e) => setBypassPassword(e.target.value)}
-                            className="input py-2 text-xs flex-1 bg-white/[0.03] border border-white/10 focus:border-brand-500 rounded-xl px-3 text-white focus:outline-none"
-                          />
-                          <button
-                            type="button"
-                            onClick={handleSaveBypassPassword}
-                            disabled={bypassPasswordSaving}
-                            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/40 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-1 cursor-pointer"
-                          >
-                            {bypassPasswordSaving ? <Loader2 size={12} className="animate-spin" /> : 'Lưu'}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -5116,7 +5165,7 @@ const SettingsTab = ({ onDirtyChange }) => {
               <motion.button
                 whileTap={{ scale: 0.93 }}
                 onClick={handleToggleBypassEnabled}
-                disabled={saving}
+                disabled={bypassToggleSaving}
                 className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
                   settings?.bypassEnabled
                     ? 'bg-amber-500 border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]'
@@ -5128,7 +5177,7 @@ const SettingsTab = ({ onDirtyChange }) => {
                   animate={{ left: settings?.bypassEnabled ? '28px' : '2px' }}
                   transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
-                {saving && (
+                {bypassToggleSaving && (
                   <Loader2
                     size={10}
                     className="absolute inset-0 m-auto text-white animate-spin"
@@ -5136,6 +5185,236 @@ const SettingsTab = ({ onDirtyChange }) => {
                 )}
               </motion.button>
             </div>
+
+            {/* Config inputs displayed at full width below the header */}
+            {settings?.bypassEnabled && (
+              <div className="px-6 pb-6 pt-2 border-t border-white/5">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  {/* Section 1: Bypass Password */}
+                  <div 
+                    onClick={(e) => {
+                      if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                        bypassPasswordInputRef.current?.focus()
+                      }
+                    }}
+                    className={`border rounded-2xl p-5 flex flex-col justify-between space-y-4 cursor-text transition-all duration-300 ${
+                      bypassPasswordFocused 
+                        ? 'border-amber-500/55 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
+                        : 'border-white/5 bg-white/[0.02] hover:border-white/10'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-center text-sm mb-3">
+                        <span className="text-white/60 font-semibold">Mật khẩu Bypass:</span>
+                        <span className={`font-semibold ${settings?.hasBypassPassword ? 'text-green-400' : 'text-red-400'}`}>
+                          {settings?.hasBypassPassword ? 'Đã thiết lập' : 'Chưa thiết lập'}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-white/35 uppercase tracking-wider block">Mật khẩu Master mới</label>
+                        <div className="relative flex items-center">
+                          <input
+                            ref={bypassPasswordInputRef}
+                            type={showBypassPassword ? 'text' : 'password'}
+                            placeholder="Nhập mật khẩu Master..."
+                            value={bypassPassword}
+                            onChange={(e) => setBypassPassword(e.target.value)}
+                            onFocus={() => setBypassPasswordFocused(true)}
+                            onBlur={() => setBypassPasswordFocused(false)}
+                            className="input py-2.5 text-sm w-full bg-white/[0.03] border border-white/10 focus:border-amber-500/60 focus:bg-amber-500/[0.02] rounded-xl pl-3 pr-10 text-white focus:outline-none transition-all duration-200"
+                          />
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowBypassPassword(!showBypassPassword)
+                            }}
+                            className="absolute right-3 text-white/35 hover:text-white/60 transition-colors"
+                          >
+                            {showBypassPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSaveBypassPassword(e)
+                      }}
+                      disabled={bypassPasswordSaving || !bypassPassword}
+                      className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/40 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      {bypassPasswordSaving
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : (settings?.hasBypassPassword && bypassPassword)
+                          ? 'Cập nhật mật khẩu Bypass'
+                          : 'Lưu mật khẩu Bypass'}
+                    </button>
+                  </div>
+
+                  {/* Section 2: Bypass PIN */}
+                  <div 
+                    onClick={(e) => {
+                      if (e.target.tagName !== 'BUTTON') {
+                        bypassPinInputRef.current?.focus()
+                      }
+                    }}
+                    className={`border rounded-2xl p-5 flex flex-col justify-between space-y-4 cursor-text transition-all duration-300 ${
+                      bypassPinFocused 
+                        ? 'border-amber-500/55 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
+                        : 'border-white/5 bg-white/[0.02] hover:border-white/10'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex justify-between items-center text-sm mb-3">
+                        <span className="text-white/60 font-semibold">PIN Bypass:</span>
+                        <span className={`font-semibold ${settings?.hasBypassPin ? 'text-green-400' : 'text-red-400'}`}>
+                          {settings?.hasBypassPin ? 'Đã thiết lập' : 'Chưa thiết lập'}
+                        </span>
+                      </div>
+
+                      <div className="space-y-2 relative">
+                        <div className="flex justify-between items-center">
+                          <label className="text-xs font-bold text-white/35 uppercase tracking-wider block">Mã PIN Bypass mới (6 số)</label>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              setShowBypassPin(!showBypassPin)
+                            }}
+                            className="text-white/35 hover:text-white/60 transition-colors flex items-center gap-1 text-xs font-bold"
+                          >
+                            {showBypassPin ? <><EyeOff size={12} /> Ẩn PIN</> : <><Eye size={12} /> Hiện PIN</>}
+                          </button>
+                        </div>
+
+                        {/* Hidden Input for PIN Capture */}
+                        <input
+                          ref={bypassPinInputRef}
+                          type="tel"
+                          inputMode="numeric"
+                          maxLength={6}
+                          value={bypassPin}
+                          onChange={(e) => setBypassPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          onFocus={() => setBypassPinFocused(true)}
+                          onBlur={() => setBypassPinFocused(false)}
+                          className="absolute opacity-0 pointer-events-none w-1 h-1"
+                          id="admin-bypass-pin-input"
+                        />
+
+                        {/* Dot UI component */}
+                        <div
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            bypassPinInputRef.current?.focus()
+                          }}
+                          className={`flex justify-center gap-2.5 py-2.5 cursor-pointer border border-dashed rounded-xl transition-all duration-200 ${
+                            bypassPinFocused 
+                              ? 'bg-amber-500/[0.02] border-amber-500/40' 
+                              : 'bg-white/[0.01] hover:bg-white/[0.03] border-white/5'
+                          }`}
+                        >
+                          {Array.from({ length: 6 }).map((_, idx) => {
+                            const char = bypassPin[idx] || '';
+                            const filled = bypassPin.length > idx;
+                            const active = bypassPin.length === idx;
+                            return (
+                              <motion.div
+                                key={idx}
+                                animate={{
+                                  scale: filled ? [0.85, 1.05, 1] : 1,
+                                  borderColor: active
+                                    ? '#f59e0b'
+                                    : filled
+                                      ? '#f59e0b'
+                                      : 'rgba(255,255,255,0.15)',
+                                  backgroundColor: filled && !showBypassPin
+                                    ? '#f59e0b'
+                                    : 'transparent',
+                                }}
+                                transition={{ duration: 0.15 }}
+                                className="w-10 h-10 rounded-lg border-2 flex items-center justify-center text-sm font-bold text-white font-mono"
+                              >
+                                {showBypassPin && char}
+                              </motion.div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleSaveBypassPin(e)
+                      }}
+                      disabled={bypassPinSaving || bypassPin.length !== 6}
+                      className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/40 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
+                    >
+                      {bypassPinSaving
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : (settings?.hasBypassPin && bypassPin.length === 6)
+                          ? 'Cập nhật PIN Bypass'
+                          : 'Lưu PIN Bypass'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* View Current Bypass Keys */}
+                <div className="mt-4 pt-2">
+                  {!showCurrentBypassKeys ? (
+                    <button
+                      type="button"
+                      onClick={fetchBypassKeys}
+                      disabled={loadingBypassKeys}
+                      className="flex items-center gap-2 text-[11px] font-semibold text-white/40 hover:text-amber-400 transition-colors py-1"
+                    >
+                      {loadingBypassKeys
+                        ? <Loader2 size={12} className="animate-spin" />
+                        : <Eye size={12} />}
+                      Xem bypass hiện tại (mật khẩu &amp; PIN)
+                    </button>
+                  ) : (
+                    <motion.div
+                      initial={{ opacity: 0, y: -4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-black/30 border border-amber-500/20 rounded-2xl p-4 space-y-3"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider">Bypass hiện tại</span>
+                        <button
+                          type="button"
+                          onClick={() => { setShowCurrentBypassKeys(false); setCurrentBypassPassword(null); setCurrentBypassPin(null) }}
+                          className="text-white/25 hover:text-white/50 transition-colors"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">Mật khẩu Bypass</p>
+                          <div className="bg-white/5 border border-white/8 rounded-xl px-3 py-2 font-mono text-xs text-amber-300 select-all break-all">
+                            {currentBypassPassword ?? <span className="text-white/25 italic">Chưa thiết lập</span>}
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">PIN Bypass</p>
+                          <div className="bg-white/5 border border-white/8 rounded-xl px-3 py-2 font-mono text-xs text-amber-300 tracking-widest select-all">
+                            {currentBypassPin
+                              ? currentBypassPin.split('').join(' ')
+                              : <span className="text-white/25 italic">Chưa thiết lập</span>}
+                          </div>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </div>
+              </div>
+            )}
           </motion.div>
         </div>
       )}
@@ -5520,20 +5799,22 @@ const SettingsTab = ({ onDirtyChange }) => {
                   Bật để hiển thị banner thông báo trên toàn trang
                 </span>
               </div>
-              <button
+              <motion.button
+                whileTap={{ scale: 0.93 }}
                 type="button"
                 onClick={() => setAnnouncementEnabled(!announcementEnabled)}
-                className={`relative w-12 h-6 rounded-full border transition-all duration-300 flex-shrink-0 focus:outline-none ${
+                className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
                   announcementEnabled
-                    ? 'bg-brand-500 border-brand-400 shadow-[0_0_12px_rgba(124,58,237,0.3)]'
+                    ? 'bg-brand-600 border-brand-500 shadow-[0_0_20px_rgba(124,58,237,0.4)]'
                     : 'bg-white/10 border-white/20'
-                }`}
+                } cursor-pointer`}
               >
-                <div
-                  className="absolute top-0.5 w-4 h-4 rounded-full bg-white shadow-md transition-all duration-300"
-                  style={{ left: announcementEnabled ? '26px' : '2px' }}
+                <motion.div
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md"
+                  animate={{ left: announcementEnabled ? '28px' : '2px' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
-              </button>
+              </motion.button>
             </div>
 
             {/* Text Input */}

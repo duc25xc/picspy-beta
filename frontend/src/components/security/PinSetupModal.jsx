@@ -99,8 +99,10 @@ export default function PinSetupModal({ isOpen, onClose, onSuccess }) {
   // Re-focus whenever step changes (step 1 → 2 transition)
   useEffect(() => {
     if (!isOpen || done) return
-    // Use a slightly longer delay so AnimatePresence exit animation finishes
-    const t = setTimeout(() => inputRef.current?.focus(), 80)
+    // Slightly longer delay so AnimatePresence exit animation finishes before focus
+    const t = setTimeout(() => {
+      requestAnimationFrame(() => inputRef.current?.focus())
+    }, 80)
     return () => clearTimeout(t)
   }, [step, isOpen, done])
 
@@ -175,8 +177,8 @@ export default function PinSetupModal({ isOpen, onClose, onSuccess }) {
       triggerShake()
       setConfirmVal('')
       setError('Mã PIN xác thực không khớp. Vui lòng nhập lại.')
-      // Re-focus immediately — no async needed
-      setTimeout(() => inputRef.current?.focus(), 30)
+      // Double RAF: ensures React finishes re-render then DOM paints before focus
+      requestAnimationFrame(() => requestAnimationFrame(() => inputRef.current?.focus()))
       return
     }
 
@@ -196,8 +198,8 @@ export default function PinSetupModal({ isOpen, onClose, onSuccess }) {
       setConfirmVal('')
     } finally {
       setIsLoading(false)
-      // Re-focus AFTER isLoading becomes false so input is no longer disabled
-      setTimeout(() => inputRef.current?.focus(), 30)
+      // Double RAF after isLoading → false (readOnly removed) so browser registers input as focusable
+      requestAnimationFrame(() => requestAnimationFrame(() => inputRef.current?.focus()))
     }
   }
 

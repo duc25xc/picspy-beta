@@ -230,6 +230,12 @@
     min-height: 44px;
   }
 
+  /* Hide native browser password reveal eye icon (Edge/IE) */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none !important;
+  }
+
   .input::placeholder {
     color: var(--color-placeholder);
   }

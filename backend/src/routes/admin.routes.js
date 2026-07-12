@@ -6,7 +6,7 @@ import {
   createAdminUser, updateAdminUser, deleteAdminUser,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
-  getSettings, updateSettings, getAuditLogs, triggerSettlement, triggerScoreDecay, triggerSubscriptionCleanup,
+  getSettings, updateSettings, getBypassKeys, getAuditLogs, triggerSettlement, triggerScoreDecay, triggerSubscriptionCleanup,
   depositUserVnd, getWithdrawalRequests, approveWithdrawal, rejectWithdrawal,
   getAdminReports, updateReportStatus,
   getServerLogs, clearServerLogs, clearAuditLogs,
@@ -60,6 +60,7 @@ router.delete('/categories/:id', deleteCategory)
 
 // ── System Settings ───────────────────────────────────────────
 router.get('/settings', getSettings)
+router.get('/settings/bypass-keys', getBypassKeys)
 router.put('/settings', updateSettings)
 router.post('/settlement/trigger', triggerSettlement)
 router.post('/settlement/trigger-score-decay', triggerScoreDecay)

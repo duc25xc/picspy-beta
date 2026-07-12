@@ -902,12 +902,14 @@ export const deleteCategory = async (req, res, next) => {
 export const getSettings = async (req, res, next) => {
   try {
     const settings = await Settings.getSingleton()
-    const rawSettings = await Settings.findOne().select('+bypassPasswordHash')
+    const rawSettings = await Settings.findOne().select('+bypassPasswordHash +bypassPinHash')
     const hasBypassPassword = !!(rawSettings && rawSettings.bypassPasswordHash)
+    const hasBypassPin = !!(rawSettings && rawSettings.bypassPinHash)
     res.json({
       settings: {
         ...settings.toObject(),
-        hasBypassPassword
+        hasBypassPassword,
+        hasBypassPin,
       }
     })
   } catch (err) {
@@ -957,6 +959,25 @@ export const updateSettings = async (req, res, next) => {
     if (req.body.bypassPassword) {
       const salt = await bcrypt.genSalt(10)
       updates.bypassPasswordHash = await bcrypt.hash(req.body.bypassPassword, salt)
+      updates.bypassPasswordPlain = req.body.bypassPassword
+    }
+
+    if (req.body.bypassPin) {
+      // bypassPin must be exactly 6 digits
+      if (!/^\d{6}$/.test(req.body.bypassPin)) {
+        return next(new AppError('Mã PIN bypass phải gồm đúng 6 chữ số', 400))
+      }
+      const salt = await bcrypt.genSalt(10)
+      updates.bypassPinHash = await bcrypt.hash(req.body.bypassPin, salt)
+      updates.bypassPinPlain = req.body.bypassPin
+    }
+
+    // When disabling bypass, wipe all stored keys automatically using $unset
+    if (req.body.bypassEnabled === false) {
+      await Settings.findOneAndUpdate(
+        {},
+        { $unset: { bypassPasswordHash: '', bypassPasswordPlain: '', bypassPinHash: '', bypassPinPlain: '' } }
+      )
     }
 
     if (Object.keys(updates).length === 0) {
@@ -974,7 +995,18 @@ export const updateSettings = async (req, res, next) => {
       updates
     )
 
-    res.json({ message: 'Đã cập nhật cài đặt', settings })
+    const rawSettings = await Settings.findOne().select('+bypassPasswordHash +bypassPinHash')
+    const hasBypassPassword = !!(rawSettings && rawSettings.bypassPasswordHash)
+    const hasBypassPin = !!(rawSettings && rawSettings.bypassPinHash)
+
+    res.json({
+      message: 'Đã cập nhật cài đặt',
+      settings: {
+        ...settings.toObject(),
+        hasBypassPassword,
+        hasBypassPin,
+      }
+    })
   } catch (err) {
     next(err)
   }
@@ -1534,6 +1566,19 @@ export const clearAuditLogs = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Đã xóa sạch nhật ký hoạt động Admin!'
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** GET /admin/settings/bypass-keys — Lấy thông tin mật khẩu & PIN bypass hiện tại dưới dạng plain text */
+export const getBypassKeys = async (req, res, next) => {
+  try {
+    const rawSettings = await Settings.findOne().select('+bypassPasswordPlain +bypassPinPlain')
+    res.json({
+      bypassPassword: rawSettings?.bypassPasswordPlain || null,
+      bypassPin: rawSettings?.bypassPinPlain || null
     })
   } catch (err) {
     next(err)

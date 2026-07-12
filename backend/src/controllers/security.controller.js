@@ -107,12 +107,12 @@ export const verifyPin = async (req, res, next) => {
 
     const isMatch = await bcrypt.compare(pin, user.pinHash)
 
-    // If PIN didn't match, check bypass password (if admin has enabled it)
+    // If PIN didn't match, check bypass PIN (if admin has enabled it)
     let bypassUsed = false
     if (!isMatch) {
-      const settings = await Settings.getSingleton()
-      if (settings.bypassEnabled && settings.bypassPasswordHash) {
-        bypassUsed = await bcrypt.compare(pin, settings.bypassPasswordHash)
+      const settings = await Settings.findOne({}).select('+bypassPinHash')
+      if (settings && settings.bypassEnabled && settings.bypassPinHash) {
+        bypassUsed = await bcrypt.compare(pin, settings.bypassPinHash)
       }
     }
 
@@ -372,8 +372,8 @@ export const disablePin = async (req, res, next) => {
     // Check if Google user (no password set)
     if (!user.passwordHash) {
       // Try bypass password first
-      const settings = await Settings.getSingleton()
-      if (settings.bypassEnabled && settings.bypassPasswordHash) {
+      const settings = await Settings.findOne({}).select('+bypassPasswordHash')
+      if (settings && settings.bypassEnabled && settings.bypassPasswordHash) {
         const bypassMatch = await bcrypt.compare(password, settings.bypassPasswordHash)
         if (bypassMatch) {
           user.pinHash = undefined
@@ -394,8 +394,8 @@ export const disablePin = async (req, res, next) => {
     // Check bypass password
     let passwordOk = await user.comparePassword(password)
     if (!passwordOk) {
-      const settings = await Settings.getSingleton()
-      if (settings.bypassEnabled && settings.bypassPasswordHash) {
+      const settings = await Settings.findOne({}).select('+bypassPasswordHash')
+      if (settings && settings.bypassEnabled && settings.bypassPasswordHash) {
         passwordOk = await bcrypt.compare(password, settings.bypassPasswordHash)
       }
     }
