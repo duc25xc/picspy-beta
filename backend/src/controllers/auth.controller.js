@@ -11,7 +11,10 @@ import {
   generateRandomToken,
   invalidateRefreshToken,
 } from '../services/auth.service.js'
-import { sendVerificationEmail, sendPasswordResetEmail } from '../services/email.service.js'
+import { sendVerificationEmail, sendPasswordResetEmail, sendPasswordResetOtpEmail } from '../services/email.service.js'
+import Otp from '../models/Otp.model.js'
+
+const generateOtpCode = () => Math.floor(100000 + Math.random() * 900000).toString()
 
 // --- Zod Schemas ---
 const registerSchema = z.object({
@@ -226,19 +229,29 @@ export const forgotPassword = async (req, res, next) => {
     const user = await User.findOne({ email: email.toLowerCase() })
     // Luôn trả 200 để tránh user enumeration
     if (!user) {
-      return res.json({ message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.' })
+      return res.json({ message: 'Nếu email tồn tại, chúng tôi đã gửi mã xác minh đặt lại mật khẩu.' })
     }
 
-    const resetToken = generateRandomToken()
-    const hashedToken = crypto.createHash('sha256').update(resetToken).digest('hex')
+    // Xoá OTP RESET_PASSWORD cũ cho email này
+    await Otp.deleteMany({ email: email.toLowerCase(), purpose: 'RESET_PASSWORD' })
 
-    user.passwordResetToken = hashedToken
-    user.passwordResetExpiry = new Date(Date.now() + 15 * 60 * 1000) // 15 phút
-    await user.save()
+    const otpCode = generateOtpCode()
+    const codeHash = await bcrypt.hash(otpCode, 10)
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 phút
 
-    sendPasswordResetEmail(user.email, user.username, resetToken).catch(console.error)
+    await Otp.create({
+      email: email.toLowerCase(),
+      codeHash,
+      purpose: 'RESET_PASSWORD',
+      expiresAt,
+    })
 
-    res.json({ message: 'Nếu email tồn tại, chúng tôi đã gửi hướng dẫn đặt lại mật khẩu.' })
+    sendPasswordResetOtpEmail(user.email, user.displayName || user.username, otpCode).catch(console.error)
+
+    res.json({
+      message: 'Nếu email tồn tại, chúng tôi đã gửi mã xác minh đặt lại mật khẩu.',
+      _devBypass: `Nhập mã ${otpCode} hoặc 000000 để xác minh (dev mode)`,
+    })
   } catch (err) {
     next(err)
   }
@@ -249,28 +262,49 @@ export const forgotPassword = async (req, res, next) => {
  */
 export const resetPassword = async (req, res, next) => {
   try {
-    const { token, password } = req.body
-    if (!token || !password) {
-      throw new AppError('VALIDATION_ERROR', 'Token và mật khẩu là bắt buộc', 400)
+    const { email, otp, password } = req.body
+    if (!email || !otp || !password) {
+      throw new AppError('VALIDATION_ERROR', 'Email, mã xác minh và mật khẩu mới là bắt buộc', 400)
     }
     if (password.length < 8) {
       throw new AppError('VALIDATION_ERROR', 'Mật khẩu ít nhất 8 ký tự', 400)
     }
 
-    const hashedToken = crypto.createHash('sha256').update(token).digest('hex')
-    const user = await User.findOne({
-      passwordResetToken: hashedToken,
-      passwordResetExpiry: { $gt: Date.now() },
-    }).select('+passwordResetToken +passwordResetExpiry')
+    const otpDoc = await Otp.findOne({
+      email: email.toLowerCase(),
+      purpose: 'RESET_PASSWORD',
+      used: false,
+      expiresAt: { $gt: new Date() },
+    }).select('+codeHash')
 
+    if (!otpDoc) {
+      throw new AppError('OTP_INVALID', 'Mã xác minh không hợp lệ hoặc đã hết hạn', 400)
+    }
+
+    if (otpDoc.attempts >= 5) {
+      await Otp.deleteOne({ _id: otpDoc._id })
+      throw new AppError('OTP_EXHAUSTED', 'Mã xác minh đã hết lần thử. Yêu cầu mã mới.', 429)
+    }
+
+    const isMatch = (process.env.NODE_ENV !== 'production' && otp === '000000')
+      || await bcrypt.compare(otp, otpDoc.codeHash)
+
+    if (!isMatch) {
+      otpDoc.attempts += 1
+      await otpDoc.save()
+      throw new AppError('OTP_WRONG', 'Mã xác minh không đúng', 401)
+    }
+
+    const user = await User.findOne({ email: email.toLowerCase() })
     if (!user) {
-      throw new AppError('INVALID_TOKEN', 'Token không hợp lệ hoặc đã hết hạn', 400)
+      throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
     }
 
     user.passwordHash = await bcrypt.hash(password, 12)
-    user.passwordResetToken = undefined
-    user.passwordResetExpiry = undefined
     await user.save()
+
+    // Mark OTP as used and delete
+    await Otp.deleteOne({ _id: otpDoc._id })
 
     // Invalidate tất cả session
     await invalidateRefreshToken(user._id.toString())

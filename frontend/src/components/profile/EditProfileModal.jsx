@@ -5,11 +5,11 @@ import api from '../../api/api'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/auth.store'
 
-const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated }) => {
+const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultTab }) => {
   const { updateUser } = useAuthStore()
   const fileInputRef = useRef(null)
 
-  const [activeTab, setActiveTab] = useState('info') // 'info' | 'password'
+  const [activeTab, setActiveTab] = useState(defaultTab || 'info') // 'info' | 'password'
   
   // Info tab state
   const [displayName, setDisplayName] = useState(profile?.displayName || '')
@@ -34,13 +34,13 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated }) => {
       setBio(profile.bio || '')
       setWebsite(profile.website || '')
       setAvatarPreview(profile.avatar || null)
-      setActiveTab('info')
+      setActiveTab(defaultTab || 'info')
       // Reset password states
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
     }
-  }, [isOpen, profile])
+  }, [isOpen, profile, defaultTab])
 
   if (!isOpen) return null
 

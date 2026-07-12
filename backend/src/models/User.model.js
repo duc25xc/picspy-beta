@@ -106,6 +106,12 @@ const userSchema = new mongoose.Schema(
     passwordResetToken: { type: String, select: false },
     passwordResetExpiry: { type: Date, select: false },
     lastLoginAt: { type: Date },
+
+    // === TRANSACTION PIN ===
+    pinHash:        { type: String, select: false },
+    pinCreatedAt:   { type: Date },
+    pinRetry:       { type: Number, default: 0, select: false },
+    pinLockedUntil: { type: Date, select: false },
   },
   {
     timestamps: true,

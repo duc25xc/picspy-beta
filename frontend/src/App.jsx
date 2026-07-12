@@ -58,6 +58,7 @@ const ThemeTransitionOverlay = () => {
 // Lazy load pages để code splitting
 const HomePage = lazy(() => import('./pages/HomePage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage'))
 const RegisterPage = lazy(() => import('./pages/RegisterPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
 const UploadPage = lazy(() => import('./pages/UploadPage'))
@@ -147,6 +148,16 @@ export default function App() {
                 <AuthLayout>
                   <PageTransition>
                     <LoginPage />
+                  </PageTransition>
+                </AuthLayout>
+              }
+            />
+            <Route
+              path="/forgot-password"
+              element={
+                <AuthLayout>
+                  <PageTransition>
+                    <ForgotPasswordPage />
                   </PageTransition>
                 </AuthLayout>
               }

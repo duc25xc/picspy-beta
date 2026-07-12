@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useParams, Link, useNavigate } from 'react-router-dom'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
 import {
   Heart,
@@ -133,6 +133,10 @@ const ProfilePage = () => {
   const [showEditModal, setShowEditModal] = useState(false)
   const [showFollowModal, setShowFollowModal] = useState(false)
   const [followModalType, setFollowModalType] = useState('followers') // 'followers' | 'following'
+  
+  const [searchParams, setSearchParams] = useSearchParams()
+  const showEdit = searchParams.get('edit') === 'true'
+  const editTab = searchParams.get('tab') || 'info'
 
   const isOwnProfile = currentUser?.username === username
 
@@ -706,8 +710,17 @@ const ProfilePage = () => {
 
       {/* Edit Profile Dialog */}
       <EditProfileModal
-        isOpen={showEditModal}
-        onClose={() => setShowEditModal(false)}
+        isOpen={showEditModal || showEdit}
+        onClose={() => {
+          setShowEditModal(false)
+          if (showEdit) {
+            const nextParams = new URLSearchParams(searchParams)
+            nextParams.delete('edit')
+            nextParams.delete('tab')
+            setSearchParams(nextParams)
+          }
+        }}
+        defaultTab={editTab}
         profile={profile}
         onProfileUpdated={handleProfileUpdated}
       />

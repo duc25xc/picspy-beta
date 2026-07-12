@@ -53,7 +53,7 @@ import {
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useSearchParams } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import ExifPanel from '../components/post/ExifPanel'
@@ -4240,6 +4240,8 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [savingLayout, setSavingLayout] = useState(false)
   const [trendingCarouselInterval, setTrendingCarouselInterval] = useState(5000)
   const [trendingCarouselSaving, setTrendingCarouselSaving] = useState(false)
+  const [bypassPassword, setBypassPassword] = useState('')
+  const [bypassPasswordSaving, setBypassPasswordSaving] = useState(false)
   const [discoveryAutoScrollInterval, setDiscoveryAutoScrollInterval] =
     useState(10000)
   const [discoveryAutoScrollStagger, setDiscoveryAutoScrollStagger] =
@@ -4556,6 +4558,43 @@ const SettingsTab = ({ onDirtyChange }) => {
       toast.error(err.response?.data?.message || 'Lỗi cập nhật')
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleToggleBypassEnabled = async () => {
+    if (!settings) return
+    const next = !settings.bypassEnabled
+    setSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { bypassEnabled: next })
+      setSettings(data.settings)
+      toast.success(
+        next
+          ? '⚡ Đã BẬT Bypass Password/PIN giao dịch'
+          : '🔒 Đã TẮT Bypass Password/PIN giao dịch'
+      )
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleSaveBypassPassword = async () => {
+    if (!bypassPassword) {
+      toast.error('Vui lòng nhập mật khẩu bypass')
+      return
+    }
+    setBypassPasswordSaving(true)
+    try {
+      const { data } = await api.put('/admin/settings', { bypassPassword })
+      setSettings(data.settings)
+      setBypassPassword('') // Clear input
+      toast.success('🔑 Đã cập nhật mật khẩu bypass mới')
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi cập nhật mật khẩu bypass')
+    } finally {
+      setBypassPasswordSaving(false)
     }
   }
 
@@ -4930,81 +4969,175 @@ const SettingsTab = ({ onDirtyChange }) => {
       </div>
 
       {activeSubTab === 'general' && (
-        // ── Auto Approve Toggle ───
-        <motion.div
-          className={`card p-6 border transition-all duration-300 ${
-            settings?.autoApprove
-              ? 'border-green-500/40 bg-green-500/5'
-              : 'border-white/10'
-          }`}
-          layout
-        >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-start gap-4">
-              <div
-                className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors duration-300 ${
-                  settings?.autoApprove ? 'bg-green-500/20' : 'bg-white/5'
-                }`}
-              >
-                {settings?.autoApprove ? (
-                  <Zap size={22} className="text-green-400" />
-                ) : (
-                  <ZapOff size={22} className="text-white/30" />
-                )}
+        <div className="space-y-6">
+          {/* ── Auto Approve Toggle ─── */}
+          <motion.div
+            className={`card p-6 border transition-all duration-300 ${
+              settings?.autoApprove
+                ? 'border-green-500/40 bg-green-500/5'
+                : 'border-white/10'
+            }`}
+            layout
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors duration-300 ${
+                    settings?.autoApprove ? 'bg-green-500/20' : 'bg-white/5'
+                  }`}
+                >
+                  {settings?.autoApprove ? (
+                    <Zap size={22} className="text-green-400" />
+                  ) : (
+                    <ZapOff size={22} className="text-white/30" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base mb-1">
+                    Tự động duyệt ảnh
+                  </h3>
+                  <p className="text-sm text-white/50 leading-relaxed">
+                    Khi <strong className="text-white/70">BẬT</strong>: ảnh upload
+                    xong sẽ được duyệt tự động sau khi worker xử lý.
+                    <br />
+                    Khi <strong className="text-white/70">TẮT</strong>: mọi ảnh sẽ
+                    ở trạng thái{' '}
+                    <span className="text-yellow-400 font-semibold">
+                      Chờ duyệt
+                    </span>{' '}
+                    — admin phải duyệt thủ công.
+                  </p>
+                  {settings?.autoApprove && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mt-3 flex items-center gap-2 text-green-400 text-xs font-semibold"
+                    >
+                      <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                      Đang hoạt động — ảnh mới sẽ được duyệt tự động
+                    </motion.div>
+                  )}
+                </div>
               </div>
-              <div>
-                <h3 className="font-bold text-white text-base mb-1">
-                  Tự động duyệt ảnh
-                </h3>
-                <p className="text-sm text-white/50 leading-relaxed">
-                  Khi <strong className="text-white/70">BẬT</strong>: ảnh upload
-                  xong sẽ được duyệt tự động sau khi worker xử lý.
-                  <br />
-                  Khi <strong className="text-white/70">TẮT</strong>: mọi ảnh sẽ
-                  ở trạng thái{' '}
-                  <span className="text-yellow-400 font-semibold">
-                    Chờ duyệt
-                  </span>{' '}
-                  — admin phải duyệt thủ công.
-                </p>
-                {settings?.autoApprove && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-3 flex items-center gap-2 text-green-400 text-xs font-semibold"
-                  >
-                    <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
-                    Đang hoạt động — ảnh mới sẽ được duyệt tự động
-                  </motion.div>
-                )}
-              </div>
-            </div>
 
-            {/* Toggle button */}
-            <motion.button
-              whileTap={{ scale: 0.93 }}
-              onClick={handleToggleAutoApprove}
-              disabled={saving}
-              className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
-                settings?.autoApprove
-                  ? 'bg-green-500 border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]'
-                  : 'bg-white/10 border-white/20'
-              } disabled:opacity-60`}
-            >
-              <motion.div
-                className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md"
-                animate={{ left: settings?.autoApprove ? '28px' : '2px' }}
-                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-              />
-              {saving && (
-                <Loader2
-                  size={10}
-                  className="absolute inset-0 m-auto text-white animate-spin"
+              {/* Toggle button */}
+              <motion.button
+                whileTap={{ scale: 0.93 }}
+                onClick={handleToggleAutoApprove}
+                disabled={saving}
+                className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
+                  settings?.autoApprove
+                    ? 'bg-green-500 border-green-400 shadow-[0_0_20px_rgba(34,197,94,0.4)]'
+                    : 'bg-white/10 border-white/20'
+                } disabled:opacity-60`}
+              >
+                <motion.div
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md"
+                  animate={{ left: settings?.autoApprove ? '28px' : '2px' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
                 />
-              )}
-            </motion.button>
-          </div>
-        </motion.div>
+                {saving && (
+                  <Loader2
+                    size={10}
+                    className="absolute inset-0 m-auto text-white animate-spin"
+                  />
+                )}
+              </motion.button>
+            </div>
+          </motion.div>
+
+          {/* ── Security Bypass Master Key Card ─── */}
+          <motion.div
+            className={`card p-6 border transition-all duration-300 ${
+              settings?.bypassEnabled
+                ? 'border-amber-500/40 bg-amber-500/5'
+                : 'border-white/10'
+            }`}
+            layout
+          >
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-start gap-4">
+                <div
+                  className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 transition-colors duration-300 ${
+                    settings?.bypassEnabled ? 'bg-amber-500/20' : 'bg-white/5'
+                  }`}
+                >
+                  {settings?.bypassEnabled ? (
+                    <Shield size={22} className="text-amber-400" />
+                  ) : (
+                    <ShieldAlert size={22} className="text-white/30" />
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-white text-base mb-1">
+                    Cấu hình bypass mật khẩu & PIN
+                  </h3>
+                  <p className="text-sm text-white/50 leading-relaxed max-w-xl">
+                    Cho phép Admin đặt một mật khẩu Master có thể bypass tất cả kiểm tra mật khẩu (khi tắt PIN) và mã PIN giao dịch của bất kỳ tài khoản nào.
+                    <br />
+                    <span className="text-amber-400 font-semibold text-xs block mt-1">⚠️ Cảnh báo bảo mật: Chỉ kích hoạt ở môi trường phát triển (development) hoặc kiểm thử.</span>
+                  </p>
+
+                  {settings?.bypassEnabled && (
+                    <div className="mt-4 space-y-3 bg-white/[0.02] border border-white/5 rounded-2xl p-4 max-w-md">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-white/60">Trạng thái mã bypass:</span>
+                        <span className={`font-semibold ${settings?.hasBypassPassword ? 'text-green-400' : 'text-red-400'}`}>
+                          {settings?.hasBypassPassword ? 'Đã thiết lập' : 'Chưa thiết lập'}
+                        </span>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-white/35 uppercase tracking-wider block">Thiết lập mật khẩu Master mới</label>
+                        <div className="flex gap-2">
+                          <input
+                            type="password"
+                            placeholder="Nhập mật khẩu Master..."
+                            value={bypassPassword}
+                            onChange={(e) => setBypassPassword(e.target.value)}
+                            className="input py-2 text-xs flex-1 bg-white/[0.03] border border-white/10 focus:border-brand-500 rounded-xl px-3 text-white focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleSaveBypassPassword}
+                            disabled={bypassPasswordSaving}
+                            className="px-4 py-2 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/40 text-white font-bold text-xs rounded-xl transition-all shadow-md flex items-center gap-1 cursor-pointer"
+                          >
+                            {bypassPasswordSaving ? <Loader2 size={12} className="animate-spin" /> : 'Lưu'}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Toggle button */}
+              <motion.button
+                whileTap={{ scale: 0.93 }}
+                onClick={handleToggleBypassEnabled}
+                disabled={saving}
+                className={`relative w-14 h-7 rounded-full border-2 flex-shrink-0 transition-all duration-300 focus:outline-none ${
+                  settings?.bypassEnabled
+                    ? 'bg-amber-500 border-amber-400 shadow-[0_0_20px_rgba(245,158,11,0.4)]'
+                    : 'bg-white/10 border-white/20'
+                } disabled:opacity-60 cursor-pointer`}
+              >
+                <motion.div
+                  className="absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md"
+                  animate={{ left: settings?.bypassEnabled ? '28px' : '2px' }}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+                {saving && (
+                  <Loader2
+                    size={10}
+                    className="absolute inset-0 m-auto text-white animate-spin"
+                  />
+                )}
+              </motion.button>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* ── Theme Customizer Card ─── */}
@@ -7947,7 +8080,9 @@ const TABS = [
 ]
 
 const AdminPage = () => {
-  const [activeTab, setActiveTab] = useState('dashboard')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'dashboard'
+  const setActiveTab = (tab) => setSearchParams({ tab })
   const [hasUnsavedColors, setHasUnsavedColors] = useState(false)
 
   return (

@@ -902,7 +902,14 @@ export const deleteCategory = async (req, res, next) => {
 export const getSettings = async (req, res, next) => {
   try {
     const settings = await Settings.getSingleton()
-    res.json({ settings })
+    const rawSettings = await Settings.findOne().select('+bypassPasswordHash')
+    const hasBypassPassword = !!(rawSettings && rawSettings.bypassPasswordHash)
+    res.json({
+      settings: {
+        ...settings.toObject(),
+        hasBypassPassword
+      }
+    })
   } catch (err) {
     next(err)
   }
@@ -940,11 +947,17 @@ export const updateSettings = async (req, res, next) => {
       'blurPremiumImages',
       'postDetailLayout',
       'trendingCarouselInterval',
+      'bypassEnabled',
     ]
     const updates = {}
     allowed.forEach((key) => {
       if (req.body[key] !== undefined) updates[key] = req.body[key]
     })
+
+    if (req.body.bypassPassword) {
+      const salt = await bcrypt.genSalt(10)
+      updates.bypassPasswordHash = await bcrypt.hash(req.body.bypassPassword, salt)
+    }
 
     if (Object.keys(updates).length === 0) {
       return next(new AppError('Không có trường nào hợp lệ để cập nhật', 400))

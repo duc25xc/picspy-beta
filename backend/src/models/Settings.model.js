@@ -159,6 +159,18 @@ const settingsSchema = new mongoose.Schema(
       type: Boolean,
       default: false,
     },
+
+    // ── Security Bypass (Admin Master Key) ───────────────────────
+    // Cho phép admin đặt 1 mã bí mật có thể bypass xác thực PIN giao dịch
+    // và xác thực mật khẩu khi tắt PIN. KHÔNG dùng cho login thông thường.
+    bypassEnabled: {
+      type: Boolean,
+      default: false,
+    },
+    bypassPasswordHash: {
+      type: String,
+      select: false, // Không trả ra ngoài API thông thường
+    },
   },
   {
     timestamps: true,

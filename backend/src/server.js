@@ -24,6 +24,7 @@ import aiRoutes from './routes/ai.routes.js'
 import subscriptionRoutes from './routes/subscription.routes.js'
 import studioRoutes from './routes/studio.routes.js'
 import notificationRoutes from './routes/notification.routes.js'
+import securityRoutes from './routes/security.routes.js'
 import {
   getPublicCategories,
   getPublicCategoriesDetails,
@@ -118,6 +119,7 @@ app.use('/v1/ai', aiRoutes)
 app.use('/v1/subscriptions', subscriptionRoutes)
 app.use('/v1/studio', studioRoutes)
 app.use('/v1/notifications', notificationRoutes)
+app.use('/v1/security', securityRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
 app.get('/v1/categories/details', getPublicCategoriesDetails)

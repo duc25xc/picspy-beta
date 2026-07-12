@@ -1,15 +1,32 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  TrendingUp, Download, Heart, Eye, Users, Coins,
-  BarChart3, Hash, Sparkles, Wallet, Film, Zap,
+  TrendingUp,
+  Download,
+  Heart,
+  Eye,
+  Users,
+  Coins,
+  BarChart3,
+  Hash,
+  Sparkles,
+  Wallet,
+  Film,
+  Zap,
   ChevronDown,
+  ShieldCheck,
+  ShieldAlert,
 } from 'lucide-react'
 import api from '../api/api'
+import { getPinStatus } from '../api/security.api'
 import useAuthStore from '../store/auth.store'
 import toast from 'react-hot-toast'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
+import TransactionPinModal from '../components/security/TransactionPinModal'
+import PinSetupModal from '../components/security/PinSetupModal'
+import PinManagementModal from '../components/security/PinManagementModal'
+import DisablePinModal from '../components/security/DisablePinModal'
 
 // ─── SVG Bar Chart ─────────────────────────────────────────────────────────
 const BarChart = ({ labels = [], data = [], color = '#8b5cf6' }) => {
@@ -24,7 +41,14 @@ const BarChart = ({ labels = [], data = [], color = '#8b5cf6' }) => {
   const max = Math.max(...data, 1)
   const H = 140
   const W = 100
-  const step = labels.length > 45 ? 14 : labels.length > 20 ? 7 : labels.length > 10 ? 3 : 1
+  const step =
+    labels.length > 45
+      ? 14
+      : labels.length > 20
+        ? 7
+        : labels.length > 10
+          ? 3
+          : 1
 
   return (
     <div className="relative w-full" style={{ height: H + 32 }}>
@@ -51,8 +75,10 @@ const BarChart = ({ labels = [], data = [], color = '#8b5cf6' }) => {
         {[0.25, 0.5, 0.75, 1].map((f) => (
           <line
             key={f}
-            x1={0} y1={H - f * H * 0.85}
-            x2={W} y2={H - f * H * 0.85}
+            x1={0}
+            y1={H - f * H * 0.85}
+            x2={W}
+            y2={H - f * H * 0.85}
             stroke="rgba(255,255,255,0.04)"
             strokeDasharray="0.8 1.6"
           />
@@ -66,12 +92,20 @@ const BarChart = ({ labels = [], data = [], color = '#8b5cf6' }) => {
           const y = H - bh
           return (
             <g key={i}>
-              <rect x={x} y={y} width={w} height={bh} rx={1.5}
+              <rect
+                x={x}
+                y={y}
+                width={w}
+                height={bh}
+                rx={1.5}
                 fill={v === 0 ? 'rgba(255,255,255,0.06)' : color}
                 opacity={hovered === i ? 1 : v === 0 ? 0.5 : 0.75}
               />
               <rect
-                x={i * barW} y={0} width={barW} height={H}
+                x={i * barW}
+                y={0}
+                width={barW}
+                height={H}
                 fill="transparent"
                 onMouseEnter={() => setHovered(i)}
                 onMouseLeave={() => setHovered(null)}
@@ -105,21 +139,27 @@ const BarChart = ({ labels = [], data = [], color = '#8b5cf6' }) => {
 // ─── Custom Select ──────────────────────────────────────────────────────────
 const CustomSelect = ({ value, onChange, options }) => {
   const [open, setOpen] = useState(false)
-  const current = options.find(o => o.value === value)
+  const current = options.find((o) => o.value === value)
 
   return (
     <div className="relative">
       <button
-        onClick={() => setOpen(p => !p)}
+        onClick={() => setOpen((p) => !p)}
         className="flex items-center gap-2 bg-white/5 hover:bg-white/8 border border-white/10 rounded-xl px-3 py-1.5 text-xs font-semibold text-white/80 transition-colors cursor-pointer"
       >
         {current?.label}
-        <ChevronDown size={12} className={`text-white/40 transition-transform ${open ? 'rotate-180' : ''}`} />
+        <ChevronDown
+          size={12}
+          className={`text-white/40 transition-transform ${open ? 'rotate-180' : ''}`}
+        />
       </button>
       <AnimatePresence>
         {open && (
           <>
-            <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+            <div
+              className="fixed inset-0 z-10"
+              onClick={() => setOpen(false)}
+            />
             <motion.div
               initial={{ opacity: 0, y: 4, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -127,10 +167,13 @@ const CustomSelect = ({ value, onChange, options }) => {
               transition={{ duration: 0.12 }}
               className="absolute right-0 top-full mt-1.5 z-20 min-w-[160px] bg-[#1a1a2e] border border-white/10 rounded-xl shadow-2xl overflow-hidden py-1"
             >
-              {options.map(o => (
+              {options.map((o) => (
                 <button
                   key={o.value}
-                  onClick={() => { onChange(o.value); setOpen(false) }}
+                  onClick={() => {
+                    onChange(o.value)
+                    setOpen(false)
+                  }}
                   className={`w-full text-left px-3 py-2 text-xs font-medium transition-colors cursor-pointer ${
                     o.value === value
                       ? 'text-white bg-brand-600/40'
@@ -151,17 +194,19 @@ const CustomSelect = ({ value, onChange, options }) => {
 // ─── Thumbnail with fallback ────────────────────────────────────────────────
 const PostThumb = ({ post }) => {
   const [err, setErr] = useState(false)
-  const rawUrl = post.images?.[0]?.thumbnailUrl
-    || post.images?.[0]?.previewUrl
-    || post.images?.[0]?.url
-    || post.generatedImages?.[0]?.thumbnailUrl
-    || post.generatedImages?.[0]?.previewUrl
-    || post.generatedImages?.[0]?.url
+  const rawUrl =
+    post.images?.[0]?.thumbnailUrl ||
+    post.images?.[0]?.previewUrl ||
+    post.images?.[0]?.url ||
+    post.generatedImages?.[0]?.thumbnailUrl ||
+    post.generatedImages?.[0]?.previewUrl ||
+    post.generatedImages?.[0]?.url
 
   const url = rawUrl ? getOptimizedWebpUrl(rawUrl, 150) : ''
 
   if (!url || err) {
-    const letter = (post.caption || post.tags?.[0] || '?')[0]?.toUpperCase() || '?'
+    const letter =
+      (post.caption || post.tags?.[0] || '?')[0]?.toUpperCase() || '?'
     return (
       <div className="w-10 h-10 rounded-lg bg-brand-500/20 flex items-center justify-center flex-shrink-0">
         <span className="text-xs font-black text-brand-300">{letter}</span>
@@ -185,40 +230,66 @@ const PostRow = ({ post, rank }) => (
     to={`/posts/${post._id}`}
     className="grid grid-cols-[20px_44px_1fr_80px_80px_80px_80px] items-center gap-3 py-2.5 border-b border-white/[0.05] last:border-0 hover:bg-white/[0.02] -mx-3 px-3 rounded-lg transition-colors block cursor-pointer"
   >
-    <span className="text-[11px] font-bold text-white/20 tabular-nums text-right">{rank}</span>
+    <span className="text-[11px] font-bold text-white/20 tabular-nums text-right">
+      {rank}
+    </span>
     <PostThumb post={post} />
     <div className="min-w-0">
       <p className="text-xs text-white/70 truncate font-medium leading-tight">
-        {post.caption || post.tags?.slice(0, 3).join(', ') || 'Không có caption'}
+        {post.caption ||
+          post.tags?.slice(0, 3).join(', ') ||
+          'Không có caption'}
       </p>
-      <p className="text-[10px] text-white/30 mt-0.5 font-mono">{post.aiTool || post.category || 'other'}</p>
+      <p className="text-[10px] text-white/30 mt-0.5 font-mono">
+        {post.aiTool || post.category || 'other'}
+      </p>
     </div>
     <div className="text-right">
-      <p className="text-xs font-semibold text-white/70 tabular-nums">{(post.stats?.viewsCount || 0).toLocaleString()}</p>
+      <p className="text-xs font-semibold text-white/70 tabular-nums">
+        {(post.stats?.viewsCount || 0).toLocaleString()}
+      </p>
       <p className="text-[9px] text-white/30 font-medium">
         {post.todayStats?.views > 0 ? (
-          <span className="text-brand-400 font-bold">+{post.todayStats.views} nay</span>
-        ) : 'views'}
+          <span className="text-brand-400 font-bold">
+            +{post.todayStats.views} nay
+          </span>
+        ) : (
+          'views'
+        )}
       </p>
     </div>
     <div className="text-right">
-      <p className="text-xs font-semibold text-white/70 tabular-nums">{(post.stats?.downloadsCount || 0).toLocaleString()}</p>
+      <p className="text-xs font-semibold text-white/70 tabular-nums">
+        {(post.stats?.downloadsCount || 0).toLocaleString()}
+      </p>
       <p className="text-[9px] text-white/30 font-medium">
         {post.todayStats?.downloads > 0 ? (
-          <span className="text-cyan-400 font-bold">+{post.todayStats.downloads} nay</span>
-        ) : 'tải xuống'}
+          <span className="text-cyan-400 font-bold">
+            +{post.todayStats.downloads} nay
+          </span>
+        ) : (
+          'tải xuống'
+        )}
       </p>
     </div>
     <div className="text-right">
-      <p className="text-xs font-semibold text-white/70 tabular-nums">{(post.stats?.likesCount || 0).toLocaleString()}</p>
+      <p className="text-xs font-semibold text-white/70 tabular-nums">
+        {(post.stats?.likesCount || 0).toLocaleString()}
+      </p>
       <p className="text-[9px] text-white/30 font-medium">
         {post.todayStats?.likes > 0 ? (
-          <span className="text-pink-400 font-bold">+{post.todayStats.likes} nay</span>
-        ) : 'thích'}
+          <span className="text-pink-400 font-bold">
+            +{post.todayStats.likes} nay
+          </span>
+        ) : (
+          'thích'
+        )}
       </p>
     </div>
     <div className="text-right">
-      <p className="text-xs font-semibold text-emerald-400 tabular-nums">{(post.totalTokensEarned || 0).toLocaleString()}</p>
+      <p className="text-xs font-semibold text-emerald-400 tabular-nums">
+        {(post.totalTokensEarned || 0).toLocaleString()}
+      </p>
       <p className="text-[9px] text-white/30 font-medium">tokens</p>
     </div>
   </Link>
@@ -229,7 +300,9 @@ const Chip = ({ active, onClick, children }) => (
   <button
     onClick={onClick}
     className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-all cursor-pointer whitespace-nowrap ${
-      active ? 'bg-brand-600 text-white' : 'text-white/40 hover:text-white/70 hover:bg-white/5'
+      active
+        ? 'bg-brand-600 text-white'
+        : 'text-white/40 hover:text-white/70 hover:bg-white/5'
     }`}
   >
     {children}
@@ -248,7 +321,9 @@ const StudioPage = () => {
   const [categories, setCategories] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  const [activeTab, setActiveTab] = useState('overview')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeTab = searchParams.get('tab') || 'overview'
+  const setActiveTab = (tab) => setSearchParams({ tab })
   const [chartMetric, setChartMetric] = useState('views')
   const [chartPeriod, setChartPeriod] = useState('30d')
   const [postSort, setPostSort] = useState('views')
@@ -263,6 +338,15 @@ const StudioPage = () => {
   const [submittingWithdraw, setSubmittingWithdraw] = useState(false)
   const [submittingBank, setSubmittingBank] = useState(false)
 
+  // ── Transaction PIN state ─────────────────────────────────────────
+  const [pinStatus, setPinStatus] = useState(null) // { hasPin, pinCreatedAt, isLocked }
+  const [showPinVerify, setShowPinVerify] = useState(false) // TransactionPinModal
+  const [showPinSetup, setShowPinSetup] = useState(false) // PinSetupModal
+  const [showPinManage, setShowPinManage] = useState(false) // PinManagementModal
+  const [showPinDisable, setShowPinDisable] = useState(false) // DisablePinModal
+  const [pinManageTab, setPinManageTab] = useState('change') // 'change' | 'forgot'
+  const [pendingWithdrawFn, setPendingWithdrawFn] = useState(null) // stored submit after PIN
+
   useEffect(() => {
     if (earnings?.bankAccount) {
       setBankName(earnings.bankAccount.bankName || '')
@@ -270,6 +354,13 @@ const StudioPage = () => {
       setAccountHolder(earnings.bankAccount.accountHolder || '')
     }
   }, [earnings])
+
+  // Load PIN status alongside earnings
+  useEffect(() => {
+    getPinStatus()
+      .then(({ data }) => setPinStatus(data))
+      .catch(() => {}) // silent fail — non-critical
+  }, [])
 
   useEffect(() => {
     const load = async () => {
@@ -292,29 +383,34 @@ const StudioPage = () => {
 
   useEffect(() => {
     if (loading) return
-    api.get(`/studio/chart?metric=${chartMetric}&period=${chartPeriod}`)
+    api
+      .get(`/studio/chart?metric=${chartMetric}&period=${chartPeriod}`)
       .then(({ data }) => setChartData(data))
       .catch(() => {})
   }, [chartMetric, chartPeriod]) // eslint-disable-line
 
   useEffect(() => {
     if (activeTab === 'posts' && posts.length === 0) {
-      api.get(`/studio/posts?sort=${postSort}&limit=20`)
+      api
+        .get(`/studio/posts?sort=${postSort}&limit=20`)
         .then(({ data }) => setPosts(data.posts || []))
         .catch(() => {})
     }
     if (activeTab === 'earnings' && !earnings) {
-      api.get('/studio/earnings?limit=20')
+      api
+        .get('/studio/earnings?limit=20')
         .then(({ data }) => setEarnings(data))
         .catch(() => {})
     }
     if (activeTab === 'hashtags' && !hashtags) {
-      api.get('/studio/hashtags')
+      api
+        .get('/studio/hashtags')
         .then(({ data }) => setHashtags(data))
         .catch(() => {})
     }
     if (activeTab === 'categories' && !categories) {
-      api.get('/studio/categories')
+      api
+        .get('/studio/categories')
         .then(({ data }) => setCategories(data.categories || []))
         .catch(() => {})
     }
@@ -322,7 +418,8 @@ const StudioPage = () => {
 
   const handleSortChange = (sort) => {
     setPostSort(sort)
-    api.get(`/studio/posts?sort=${sort}&limit=20`)
+    api
+      .get(`/studio/posts?sort=${sort}&limit=20`)
       .then(({ data }) => setPosts(data.posts || []))
       .catch(() => {})
   }
@@ -375,6 +472,20 @@ const StudioPage = () => {
     if (!amount || amount < 50000) {
       return toast.error('Số tiền rút tối thiểu là 50.000 VNĐ')
     }
+
+    // If user has a PIN, require PIN verification before submit
+    if (pinStatus?.hasPin) {
+      // Store the actual submit function and open PIN modal
+      setPendingWithdrawFn(() => () => doWithdraw(amount))
+      setShowPinVerify(true)
+      return
+    }
+
+    // No PIN set — proceed directly (with a gentle nudge to set one)
+    doWithdraw(amount)
+  }
+
+  const doWithdraw = async (amount) => {
     setSubmittingWithdraw(true)
     try {
       const { data } = await api.post('/users/me/withdraw', { amount })
@@ -390,19 +501,31 @@ const StudioPage = () => {
   }
 
   const fmt = (n = 0) =>
-    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
-    : n >= 1_000 ? `${(n / 1_000).toFixed(1)}K`
-    : String(n || 0)
+    n >= 1_000_000
+      ? `${(n / 1_000_000).toFixed(1)}M`
+      : n >= 1_000
+        ? `${(n / 1_000).toFixed(1)}K`
+        : String(n || 0)
 
-  const CHART_COLORS = { views: '#8b5cf6', downloads: '#06b6d4', earnings: '#f59e0b', likes: '#ec4899' }
-  const METRIC_LABELS = { views: 'Lượt xem', downloads: 'Lượt tải xuống', earnings: 'Token', likes: 'Thích' }
+  const CHART_COLORS = {
+    views: '#8b5cf6',
+    downloads: '#06b6d4',
+    earnings: '#f59e0b',
+    likes: '#ec4899',
+  }
+  const METRIC_LABELS = {
+    views: 'Lượt xem',
+    downloads: 'Lượt tải xuống',
+    earnings: 'Token',
+    likes: 'Thích',
+  }
 
   const SORT_OPTIONS = [
-    { value: 'views',     label: 'Nhiều view nhất' },
+    { value: 'views', label: 'Nhiều view nhất' },
     { value: 'downloads', label: 'Nhiều tải xuống nhất' },
-    { value: 'likes',     label: 'Nhiều like nhất' },
-    { value: 'earnings',  label: 'Thu nhập cao nhất' },
-    { value: 'recent',   label: 'Mới nhất' },
+    { value: 'likes', label: 'Nhiều like nhất' },
+    { value: 'earnings', label: 'Thu nhập cao nhất' },
+    { value: 'recent', label: 'Mới nhất' },
   ]
 
   if (loading) {
@@ -410,7 +533,9 @@ const StudioPage = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center space-y-3">
           <div className="w-10 h-10 rounded-full border-2 border-brand-500/30 border-t-brand-500 animate-spin mx-auto" />
-          <p className="text-white/30 text-[10px] tracking-widest uppercase">Đang tải</p>
+          <p className="text-white/30 text-[10px] tracking-widest uppercase">
+            Đang tải
+          </p>
         </div>
       </div>
     )
@@ -418,7 +543,6 @@ const StudioPage = () => {
 
   return (
     <div className="min-h-screen pb-24 px-4 max-w-5xl mx-auto">
-
       {/* Header */}
       <motion.div
         initial={{ opacity: 0, y: -10 }}
@@ -434,7 +558,8 @@ const StudioPage = () => {
               {user?.displayName || user?.username}
             </h1>
             <p className="text-sm text-white/35 mt-0.5">
-              {overview?.totalPosts || 0} bài đăng &middot; {fmt(overview?.followers)} followers
+              {overview?.totalPosts || 0} bài đăng &middot;{' '}
+              {fmt(overview?.followers)} followers
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -446,10 +571,15 @@ const StudioPage = () => {
                 <p className="text-base font-black text-emerald-400 tabular-nums leading-none">
                   {(overview?.earnings?.currentBalance || 0).toLocaleString()}
                 </p>
-                <p className="text-[9px] text-emerald-500/60 font-bold uppercase tracking-wider mt-0.5">tokens</p>
+                <p className="text-[9px] text-emerald-500/60 font-bold uppercase tracking-wider mt-0.5">
+                  tokens
+                </p>
               </div>
             </div>
-            <Link to="/upload" className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors">
+            <Link
+              to="/upload"
+              className="flex items-center gap-1.5 bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition-colors"
+            >
               <Sparkles size={13} /> Upload
             </Link>
           </div>
@@ -459,10 +589,38 @@ const StudioPage = () => {
       {/* Stats Row */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
         {[
-          { icon: Eye,      label: 'Tổng lượt xem',  value: fmt(overview?.stats?.views),     sub: 'mọi thời gian',          accent: 'text-violet-400', today: overview?.today?.views },
-          { icon: Download, label: 'Lượt tải xuống', value: fmt(overview?.stats?.downloads), sub: 'premium + free',          accent: 'text-cyan-400', today: overview?.today?.downloads },
-          { icon: Heart,    label: 'Lượt thích',      value: fmt(overview?.stats?.likes),     sub: 'tất cả bài đăng',        accent: 'text-pink-400', today: overview?.today?.likes },
-          { icon: Coins,    label: 'Thu nhập 30 ngày', value: `+${fmt(overview?.earnings?.last30Days)}`, sub: `tổng: ${fmt(overview?.earnings?.totalEarned)}`, accent: 'text-amber-400', today: null },
+          {
+            icon: Eye,
+            label: 'Tổng lượt xem',
+            value: fmt(overview?.stats?.views),
+            sub: 'mọi thời gian',
+            accent: 'text-violet-400',
+            today: overview?.today?.views,
+          },
+          {
+            icon: Download,
+            label: 'Lượt tải xuống',
+            value: fmt(overview?.stats?.downloads),
+            sub: 'premium + free',
+            accent: 'text-cyan-400',
+            today: overview?.today?.downloads,
+          },
+          {
+            icon: Heart,
+            label: 'Lượt thích',
+            value: fmt(overview?.stats?.likes),
+            sub: 'tất cả bài đăng',
+            accent: 'text-pink-400',
+            today: overview?.today?.likes,
+          },
+          {
+            icon: Coins,
+            label: 'Thu nhập 30 ngày',
+            value: `+${fmt(overview?.earnings?.last30Days)}`,
+            sub: `tổng: ${fmt(overview?.earnings?.totalEarned)}`,
+            accent: 'text-amber-400',
+            today: null,
+          },
         ].map(({ icon: Icon, label, value, sub, accent, today }, i) => (
           <motion.div
             key={i}
@@ -473,18 +631,34 @@ const StudioPage = () => {
           >
             <div>
               <Icon size={14} className={`${accent} mb-3 opacity-80`} />
-              <p className={`text-xl font-bold tabular-nums ${accent}`}>{value}</p>
-              <p className="text-[11px] text-white/55 font-medium mt-0.5 leading-tight">{label}</p>
+              <p className={`text-xl font-bold tabular-nums ${accent}`}>
+                {value}
+              </p>
+              <p className="text-[11px] text-white/55 font-medium mt-0.5 leading-tight">
+                {label}
+              </p>
             </div>
             <div className="mt-2.5">
               {today && (
                 <p className="text-[10px] font-bold flex items-center gap-1">
-                  <span className={today.count > 0 ? 'text-emerald-400' : 'text-white/30'}>
+                  <span
+                    className={
+                      today.count > 0 ? 'text-emerald-400' : 'text-white/30'
+                    }
+                  >
                     +{today.count} hôm nay
                   </span>
                   {today.pct !== 0 && (
-                    <span className={today.diff > 0 ? 'text-emerald-400' : 'text-rose-400'}>
-                      ({today.diff > 0 ? `tăng ${today.pct}%` : `giảm ${Math.abs(today.pct)}%`})
+                    <span
+                      className={
+                        today.diff > 0 ? 'text-emerald-400' : 'text-rose-400'
+                      }
+                    >
+                      (
+                      {today.diff > 0
+                        ? `tăng ${today.pct}%`
+                        : `giảm ${Math.abs(today.pct)}%`}
+                      )
                     </span>
                   )}
                 </p>
@@ -498,17 +672,19 @@ const StudioPage = () => {
       {/* Tabs */}
       <div className="flex items-center gap-0.5 mb-6 p-1 bg-white/[0.025] border border-white/[0.07] rounded-xl w-fit">
         {[
-          { id: 'overview',   label: 'Tổng quan' },
-          { id: 'posts',      label: 'Bài đăng' },
+          { id: 'overview', label: 'Tổng quan' },
+          { id: 'posts', label: 'Bài đăng' },
           { id: 'categories', label: 'Danh mục' },
-          { id: 'earnings',   label: 'Thu nhập' },
-          { id: 'hashtags',   label: 'Hashtag' },
-        ].map(t => (
+          { id: 'earnings', label: 'Thu nhập' },
+          { id: 'hashtags', label: 'Hashtag' },
+        ].map((t) => (
           <button
             key={t.id}
             onClick={() => setActiveTab(t.id)}
             className={`px-4 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-              activeTab === t.id ? 'bg-brand-600 text-white shadow-sm' : 'text-white/40 hover:text-white/65'
+              activeTab === t.id
+                ? 'bg-brand-600 text-white shadow-sm'
+                : 'text-white/40 hover:text-white/65'
             }`}
           >
             {t.label}
@@ -517,45 +693,92 @@ const StudioPage = () => {
       </div>
 
       <AnimatePresence mode="wait">
-
         {/* OVERVIEW */}
         {activeTab === 'overview' && (
-          <motion.div key="overview" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="overview"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-5 mb-5">
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <div>
                   <p className="text-sm font-semibold text-white">
-                    {chartData?.data?.reduce((a, b) => a + b, 0)?.toLocaleString() || 0}
-                    <span className="text-white/35 font-normal ml-1.5 text-xs">{METRIC_LABELS[chartMetric]} trong {chartPeriod}</span>
+                    {chartData?.data
+                      ?.reduce((a, b) => a + b, 0)
+                      ?.toLocaleString() || 0}
+                    <span className="text-white/35 font-normal ml-1.5 text-xs">
+                      {METRIC_LABELS[chartMetric]} trong {chartPeriod}
+                    </span>
                   </p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <div className="flex items-center p-0.5 bg-white/[0.03] border border-white/[0.07] rounded-lg gap-0.5">
                     {Object.entries(METRIC_LABELS).map(([k, v]) => (
-                      <Chip key={k} active={chartMetric === k} onClick={() => setChartMetric(k)}>{v}</Chip>
+                      <Chip
+                        key={k}
+                        active={chartMetric === k}
+                        onClick={() => setChartMetric(k)}
+                      >
+                        {v}
+                      </Chip>
                     ))}
                   </div>
                   <div className="flex items-center p-0.5 bg-white/[0.03] border border-white/[0.07] rounded-lg gap-0.5">
-                    {['7d', '30d', '90d'].map(p => (
-                      <Chip key={p} active={chartPeriod === p} onClick={() => setChartPeriod(p)}>{p}</Chip>
+                    {['7d', '30d', '90d'].map((p) => (
+                      <Chip
+                        key={p}
+                        active={chartPeriod === p}
+                        onClick={() => setChartPeriod(p)}
+                      >
+                        {p}
+                      </Chip>
                     ))}
                   </div>
                 </div>
               </div>
-              <BarChart labels={chartData?.labels || []} data={chartData?.data || []} color={CHART_COLORS[chartMetric]} />
+              <BarChart
+                labels={chartData?.labels || []}
+                data={chartData?.data || []}
+                color={CHART_COLORS[chartMetric]}
+              />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
-                { icon: Users,    label: 'Cộng đồng',  primary: fmt(overview?.followers), unit: 'followers', secondary: `Đang theo dõi: ${fmt(overview?.following)}` },
-                { icon: Coins,    label: 'Thu nhập',   primary: `+${fmt(overview?.earnings?.last30Days)}`, unit: 'tokens / 30 ngày', secondary: `Tích lũy: ${fmt(overview?.earnings?.totalEarned)}` },
-                { icon: BarChart3,label: 'Tương tác',  primary: fmt(overview?.stats?.comments), unit: 'bình luận', secondary: `Bookmarks: ${fmt(overview?.stats?.bookmarks)}` },
+                {
+                  icon: Users,
+                  label: 'Cộng đồng',
+                  primary: fmt(overview?.followers),
+                  unit: 'followers',
+                  secondary: `Đang theo dõi: ${fmt(overview?.following)}`,
+                },
+                {
+                  icon: Coins,
+                  label: 'Thu nhập',
+                  primary: `+${fmt(overview?.earnings?.last30Days)}`,
+                  unit: 'tokens / 30 ngày',
+                  secondary: `Tích lũy: ${fmt(overview?.earnings?.totalEarned)}`,
+                },
+                {
+                  icon: BarChart3,
+                  label: 'Tương tác',
+                  primary: fmt(overview?.stats?.comments),
+                  unit: 'bình luận',
+                  secondary: `Bookmarks: ${fmt(overview?.stats?.bookmarks)}`,
+                },
               ].map(({ icon: Icon, label, primary, unit, secondary }, i) => (
-                <div key={i} className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4">
+                <div
+                  key={i}
+                  className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4"
+                >
                   <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                     <Icon size={10} /> {label}
                   </p>
-                  <p className="text-2xl font-bold text-white tabular-nums">{primary}</p>
+                  <p className="text-2xl font-bold text-white tabular-nums">
+                    {primary}
+                  </p>
                   <p className="text-xs text-white/35 mt-0.5">{unit}</p>
                   <div className="mt-2 pt-2 border-t border-white/[0.05]">
                     <p className="text-[10px] text-white/25">{secondary}</p>
@@ -568,29 +791,56 @@ const StudioPage = () => {
 
         {/* POSTS */}
         {activeTab === 'posts' && (
-          <motion.div key="posts" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="posts"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-white">Hiệu suất bài đăng</p>
-              <CustomSelect value={postSort} onChange={handleSortChange} options={SORT_OPTIONS} />
+              <p className="text-sm font-semibold text-white">
+                Hiệu suất bài đăng
+              </p>
+              <CustomSelect
+                value={postSort}
+                onChange={handleSortChange}
+                options={SORT_OPTIONS}
+              />
             </div>
 
             <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-3">
               <div className="grid grid-cols-[20px_44px_1fr_80px_80px_80px_80px] items-center gap-3 pb-2 mb-1 border-b border-white/[0.05]">
-                <span className="text-[9px] font-bold text-white/20 uppercase text-right">#</span>
+                <span className="text-[9px] font-bold text-white/20 uppercase text-right">
+                  #
+                </span>
                 <span />
-                <span className="text-[9px] font-bold text-white/20 uppercase">Bài đăng</span>
-                <span className="text-[9px] font-bold text-white/20 uppercase text-right">View</span>
-                <span className="text-[9px] font-bold text-white/20 uppercase text-right">Tải xuống</span>
-                <span className="text-[9px] font-bold text-white/20 uppercase text-right">Thích</span>
-                <span className="text-[9px] font-bold text-white/20 uppercase text-right">Token</span>
+                <span className="text-[9px] font-bold text-white/20 uppercase">
+                  Bài đăng
+                </span>
+                <span className="text-[9px] font-bold text-white/20 uppercase text-right">
+                  View
+                </span>
+                <span className="text-[9px] font-bold text-white/20 uppercase text-right">
+                  Tải xuống
+                </span>
+                <span className="text-[9px] font-bold text-white/20 uppercase text-right">
+                  Thích
+                </span>
+                <span className="text-[9px] font-bold text-white/20 uppercase text-right">
+                  Token
+                </span>
               </div>
 
               {posts.length === 0 ? (
                 <div className="py-14 text-center">
-                  <p className="text-white/20 text-[10px] tracking-widest uppercase">Chưa có bài đăng</p>
+                  <p className="text-white/20 text-[10px] tracking-widest uppercase">
+                    Chưa có bài đăng
+                  </p>
                 </div>
               ) : (
-                posts.map((p, i) => <PostRow key={p._id} post={p} rank={i + 1} />)
+                posts.map((p, i) => (
+                  <PostRow key={p._id} post={p} rank={i + 1} />
+                ))
               )}
             </div>
           </motion.div>
@@ -598,21 +848,56 @@ const StudioPage = () => {
 
         {/* EARNINGS */}
         {activeTab === 'earnings' && (
-          <motion.div key="earnings" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-6">
+          <motion.div
+            key="earnings"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="space-y-6"
+          >
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
-                { label: 'Tổng doanh thu', value: earnings?.summary?.totalEarned, accent: 'text-amber-400', sub: 'views + bán ảnh' },
-                { label: 'Đang tạm giữ', value: earnings?.summary?.holdingBalance, accent: 'text-yellow-400', sub: 'đối soát 3 ngày' },
-                { label: 'Số dư khả dụng', value: earnings?.summary?.currentBalance, accent: 'text-emerald-400', sub: 'có thể rút' },
-                { label: 'Đã rút tiền mặt', value: earnings?.summary?.totalWithdrawn, accent: 'text-rose-400', sub: 'về ngân hàng' },
+                {
+                  label: 'Tổng doanh thu',
+                  value: earnings?.summary?.totalEarned,
+                  accent: 'text-amber-400',
+                  sub: 'views + bán ảnh',
+                },
+                {
+                  label: 'Đang tạm giữ',
+                  value: earnings?.summary?.holdingBalance,
+                  accent: 'text-yellow-400',
+                  sub: 'đối soát 3 ngày',
+                },
+                {
+                  label: 'Số dư khả dụng',
+                  value: earnings?.summary?.currentBalance,
+                  accent: 'text-emerald-400',
+                  sub: 'có thể rút',
+                },
+                {
+                  label: 'Đã rút tiền mặt',
+                  value: earnings?.summary?.totalWithdrawn,
+                  accent: 'text-rose-400',
+                  sub: 'về ngân hàng',
+                },
               ].map((s, i) => (
-                <div key={i} className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4">
-                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">{s.label}</p>
-                  <p className={`text-xl font-black tabular-nums leading-tight ${s.accent}`}>
+                <div
+                  key={i}
+                  className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4"
+                >
+                  <p className="text-[10px] font-bold text-white/30 uppercase tracking-wider mb-2">
+                    {s.label}
+                  </p>
+                  <p
+                    className={`text-xl font-black tabular-nums leading-tight ${s.accent}`}
+                  >
                     {(s.value || 0).toLocaleString('vi-VN')}đ
                   </p>
-                  <p className="text-[9px] text-white/20 mt-1 uppercase tracking-wide">{s.sub}</p>
+                  <p className="text-[9px] text-white/20 mt-1 uppercase tracking-wide">
+                    {s.sub}
+                  </p>
                 </div>
               ))}
             </div>
@@ -623,10 +908,11 @@ const StudioPage = () => {
                 {/* Simulated topup */}
                 <div className="bg-white/[0.01] border border-white/[0.06] rounded-3xl p-6 relative overflow-hidden">
                   <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
-                    <span>💵</span> Nạp tiền (Mô phỏng)
+                    <span>💵</span> Nạp tiền
                   </h3>
                   <p className="text-[11px] text-white/40 mb-4">
-                    Nạp thêm số dư VNĐ vào tài khoản để test mua ảnh Premium của các Creator khác.
+                    Nạp thêm số dư VNĐ vào tài khoản để test mua ảnh Premium của
+                    các Creator khác.
                   </p>
                   <form onSubmit={handleTopup} className="space-y-4">
                     <div className="flex gap-2">
@@ -666,11 +952,14 @@ const StudioPage = () => {
                     <span>🏦</span> Yêu cầu rút tiền
                   </h3>
                   <p className="text-[11px] text-white/40 mb-4">
-                    Rút số dư khả dụng về tài khoản ngân hàng. Yêu cầu sẽ được xử lý trong vòng 24h.
+                    Rút số dư khả dụng về tài khoản ngân hàng. Yêu cầu sẽ được
+                    xử lý trong vòng 24h.
                   </p>
                   <form onSubmit={handleWithdraw} className="space-y-4">
                     <div>
-                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">Số tiền muốn rút</label>
+                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">
+                        Số tiền muốn rút
+                      </label>
                       <input
                         type="number"
                         placeholder="Rút tối thiểu 50.000đ"
@@ -679,13 +968,18 @@ const StudioPage = () => {
                         className="w-full bg-white/[0.03] border border-white/10 focus:border-brand-500 rounded-xl px-4 py-3 text-sm text-white focus:outline-none"
                       />
                     </div>
-                    
+
                     {/* Fee calculation box */}
                     {withdrawAmount && Number(withdrawAmount) >= 50000 && (
                       <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-4 text-xs space-y-2">
                         <div className="flex justify-between text-white/40">
                           <span>Phí giao dịch rút ví (2%):</span>
-                          <span>{(Math.floor(Number(withdrawAmount) * 0.02)).toLocaleString()}đ</span>
+                          <span>
+                            {Math.floor(
+                              Number(withdrawAmount) * 0.02
+                            ).toLocaleString()}
+                            đ
+                          </span>
                         </div>
                         <div className="flex justify-between text-white/40">
                           <span>Phí liên ngân hàng cố định:</span>
@@ -693,7 +987,14 @@ const StudioPage = () => {
                         </div>
                         <div className="flex justify-between font-bold text-white pt-1 border-t border-white/[0.05]">
                           <span>Thực nhận tài khoản:</span>
-                          <span className="text-emerald-400">{(Number(withdrawAmount) - 10000 - Math.floor(Number(withdrawAmount) * 0.02)).toLocaleString()}đ</span>
+                          <span className="text-emerald-400">
+                            {(
+                              Number(withdrawAmount) -
+                              10000 -
+                              Math.floor(Number(withdrawAmount) * 0.02)
+                            ).toLocaleString()}
+                            đ
+                          </span>
                         </div>
                       </div>
                     )}
@@ -707,6 +1008,96 @@ const StudioPage = () => {
                     </button>
                   </form>
                 </div>
+
+                {/* ── Transaction PIN Security Card ───────────────── */}
+                <div className="bg-white/[0.01] border border-white/[0.06] rounded-3xl p-6 relative overflow-hidden">
+                  <h3 className="text-sm font-black text-white uppercase tracking-wider mb-1 flex items-center gap-2">
+                    {pinStatus?.hasPin ? (
+                      <ShieldCheck size={15} className="text-emerald-400" />
+                    ) : (
+                      <ShieldAlert size={15} className="text-amber-400" />
+                    )}
+                    Bảo mật giao dịch
+                  </h3>
+
+                  {pinStatus?.hasPin ? (
+                    /* ── PIN already set ──────────────────────────── */
+                    <div>
+                      <div className="flex items-center gap-2 mb-4">
+                        <span className="text-[11px] text-emerald-400/80 font-medium">
+                          Đã thiết lập
+                        </span>
+                        <span className="text-white/20 font-mono text-sm tracking-[0.3em]">
+                          ● ● ● ● ● ●
+                        </span>
+                      </div>
+                      <p className="text-[11px] text-white/35 mb-4">
+                        PIN được yêu cầu khi rút tiền và thay đổi thông tin ngân
+                        hàng.
+                      </p>
+                      <div className="flex flex-col gap-2">
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => {
+                              setPinManageTab('change')
+                              setShowPinManage(true)
+                            }}
+                            className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-white/70 hover:text-white text-xs font-semibold transition-all cursor-pointer"
+                          >
+                            Đổi PIN
+                          </button>
+                          <button
+                            onClick={() => {
+                              setPinManageTab('forgot')
+                              setShowPinManage(true)
+                            }}
+                            className="flex-1 py-2.5 rounded-xl border border-white/10 bg-white/[0.03] hover:bg-white/[0.06] text-white/50 hover:text-white/80 text-xs font-semibold transition-all cursor-pointer"
+                          >
+                            Quên PIN
+                          </button>
+                        </div>
+                        <button
+                          onClick={() => setShowPinDisable(true)}
+                          className="w-full py-2 rounded-xl border border-red-500/20 bg-red-500/5 hover:bg-red-500/10 text-red-400 hover:text-red-300 text-xs font-semibold transition-all cursor-pointer"
+                        >
+                          Tắt mã PIN
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── No PIN set ───────────────────────────────── */
+                    <div>
+                      <p className="text-[11px] text-white/40 mb-3 leading-relaxed">
+                        Bạn chưa thiết lập mã PIN. PIN sẽ được yêu cầu khi:
+                      </p>
+                      <ul className="text-[11px] text-white/35 space-y-1 mb-4 ml-1">
+                        <li>• Rút tiền</li>
+                        <li>• Đổi tài khoản ngân hàng</li>
+                        <li>• Thay đổi thông tin thanh toán</li>
+                      </ul>
+                      <button
+                        onClick={() => setShowPinSetup(true)}
+                        style={{
+                          width: '100%',
+                          padding: '10px 0',
+                          borderRadius: 12,
+                          fontWeight: 700,
+                          fontSize: '0.82rem',
+                          fontFamily: 'Outfit, system-ui, sans-serif',
+                          cursor: 'pointer',
+                          background: 'oklch(52% 0.28 285)',
+                          color: 'oklch(97% 0.005 285)',
+                          border: 'none',
+                          boxShadow:
+                            'inset 0 1.5px 0 rgba(255,255,255,0.28), inset 0 -2px 0 rgba(0,0,0,0.22), 0 6px 20px rgba(109,40,217,0.35)',
+                          transition: 'opacity 0.15s',
+                        }}
+                      >
+                        Thiết lập PIN
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Right column: Bank Account Details and Ledger */}
@@ -716,9 +1107,14 @@ const StudioPage = () => {
                   <h3 className="text-sm font-black text-white uppercase tracking-wider mb-4 flex items-center gap-2">
                     <span>💳</span> Liên kết ngân hàng nhận tiền
                   </h3>
-                  <form onSubmit={handleSaveBank} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <form
+                    onSubmit={handleSaveBank}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
+                  >
                     <div>
-                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">Tên ngân hàng</label>
+                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">
+                        Tên ngân hàng
+                      </label>
                       <input
                         type="text"
                         placeholder="Ví dụ: Techcombank, VCB..."
@@ -728,7 +1124,9 @@ const StudioPage = () => {
                       />
                     </div>
                     <div>
-                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">Số tài khoản</label>
+                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">
+                        Số tài khoản
+                      </label>
                       <input
                         type="text"
                         placeholder="Nhập số tài khoản ngân hàng..."
@@ -738,7 +1136,9 @@ const StudioPage = () => {
                       />
                     </div>
                     <div className="md:col-span-2">
-                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">Tên chủ tài khoản (Không dấu)</label>
+                      <label className="block text-[9px] font-bold text-white/35 uppercase tracking-wide mb-1">
+                        Tên chủ tài khoản (Không dấu)
+                      </label>
                       <input
                         type="text"
                         placeholder="Ví dụ: NGUYEN VAN A"
@@ -753,7 +1153,9 @@ const StudioPage = () => {
                         disabled={submittingBank}
                         className="w-full py-2.5 bg-white/10 hover:bg-white/15 disabled:bg-white/5 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all border border-white/5"
                       >
-                        {submittingBank ? 'Đang lưu...' : 'Lưu tài khoản ngân hàng'}
+                        {submittingBank
+                          ? 'Đang lưu...'
+                          : 'Lưu tài khoản ngân hàng'}
                       </button>
                     </div>
                   </form>
@@ -761,10 +1163,14 @@ const StudioPage = () => {
 
                 {/* Transactions Ledger */}
                 <div className="bg-white/[0.01] border border-white/[0.06] rounded-3xl p-6 relative overflow-hidden">
-                  <p className="text-sm font-black text-white uppercase tracking-wider mb-4">Lịch sử giao dịch</p>
+                  <p className="text-sm font-black text-white uppercase tracking-wider mb-4">
+                    Lịch sử giao dịch
+                  </p>
                   {!earnings || earnings.transactions?.length === 0 ? (
                     <div className="py-12 text-center">
-                      <p className="text-white/20 text-[10px] tracking-widest uppercase">Chưa có giao dịch phát sinh</p>
+                      <p className="text-white/20 text-[10px] tracking-widest uppercase">
+                        Chưa có giao dịch phát sinh
+                      </p>
                     </div>
                   ) : (
                     <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
@@ -772,43 +1178,101 @@ const StudioPage = () => {
                         const styleInfo = (() => {
                           switch (t.type) {
                             case 'topup':
-                              return { emoji: '💵', color: 'bg-emerald-500/10 text-emerald-400', txt: 'Nạp tiền ví' }
+                              return {
+                                emoji: '💵',
+                                color: 'bg-emerald-500/10 text-emerald-400',
+                                txt: 'Nạp tiền ví',
+                              }
                             case 'purchase_post':
-                              return { emoji: '📥', color: 'bg-red-500/10 text-red-400', txt: 'Tải ảnh Premium' }
+                              return {
+                                emoji: '📥',
+                                color: 'bg-red-500/10 text-red-400',
+                                txt: 'Tải ảnh Premium',
+                              }
                             case 'earn_purchase':
-                              return { emoji: '🎨', color: 'bg-teal-500/10 text-teal-400', txt: 'Bán ảnh Premium' }
+                              return {
+                                emoji: '🎨',
+                                color: 'bg-teal-500/10 text-teal-400',
+                                txt: 'Bán ảnh Premium',
+                              }
                             case 'earn_hold':
-                              return { emoji: '⏳', color: 'bg-yellow-500/10 text-yellow-400', txt: 'Tạm nhận (Đối soát)' }
+                              return {
+                                emoji: '⏳',
+                                color: 'bg-yellow-500/10 text-yellow-400',
+                                txt: 'Tạm nhận (Đối soát)',
+                              }
                             case 'release_hold':
-                              return { emoji: '✅', color: 'bg-emerald-500/10 text-emerald-400', txt: 'Giải ngân ví khả dụng' }
+                              return {
+                                emoji: '✅',
+                                color: 'bg-emerald-500/10 text-emerald-400',
+                                txt: 'Giải ngân ví khả dụng',
+                              }
                             case 'refund_creator_hold':
-                              return { emoji: '↩️', color: 'bg-orange-500/10 text-orange-400', txt: 'Thu hồi tạm giữ (Hoàn tiền)' }
+                              return {
+                                emoji: '↩️',
+                                color: 'bg-orange-500/10 text-orange-400',
+                                txt: 'Thu hồi tạm giữ (Hoàn tiền)',
+                              }
                             case 'earn_views':
-                              return { emoji: '👁️', color: 'bg-indigo-500/10 text-indigo-400', txt: 'Quyết toán views' }
+                              return {
+                                emoji: '👁️',
+                                color: 'bg-indigo-500/10 text-indigo-400',
+                                txt: 'Quyết toán views',
+                              }
                             case 'withdraw_request':
-                              return { emoji: '🏦', color: 'bg-amber-500/10 text-amber-400', txt: 'Yêu cầu rút tiền' }
+                              return {
+                                emoji: '🏦',
+                                color: 'bg-amber-500/10 text-amber-400',
+                                txt: 'Yêu cầu rút tiền',
+                              }
                             case 'refund':
-                              return { emoji: '↩️', color: 'bg-orange-500/10 text-orange-400', txt: 'Hoàn tiền' }
+                              return {
+                                emoji: '↩️',
+                                color: 'bg-orange-500/10 text-orange-400',
+                                txt: 'Hoàn tiền',
+                              }
                             default:
-                              return { emoji: '💸', color: 'bg-white/10 text-white/60', txt: 'Giao dịch' }
+                              return {
+                                emoji: '💸',
+                                color: 'bg-white/10 text-white/60',
+                                txt: 'Giao dịch',
+                              }
                           }
                         })()
 
                         const isPositive = t.amount > 0
 
                         return (
-                          <div key={t._id} className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl hover:bg-white/[0.03] transition-colors">
-                            <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${styleInfo.color}`}>
+                          <div
+                            key={t._id}
+                            className="flex items-center gap-3 p-3 bg-white/[0.02] border border-white/[0.04] rounded-2xl hover:bg-white/[0.03] transition-colors"
+                          >
+                            <div
+                              className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 text-sm ${styleInfo.color}`}
+                            >
                               {styleInfo.emoji}
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex justify-between items-start">
-                                <p className="text-xs font-bold text-white/80 truncate leading-tight">{t.description || styleInfo.txt}</p>
-                                <p className={`text-xs font-black tabular-nums ${isPositive ? 'text-emerald-400' : 'text-red-400'} ml-2 flex-shrink-0`}>
-                                  {isPositive ? '+' : ''}{t.amount.toLocaleString()}đ
+                                <p className="text-xs font-bold text-white/80 truncate leading-tight">
+                                  {t.description || styleInfo.txt}
+                                </p>
+                                <p
+                                  className={`text-xs font-black tabular-nums ${isPositive ? 'text-emerald-400' : 'text-red-400'} ml-2 flex-shrink-0`}
+                                >
+                                  {isPositive ? '+' : ''}
+                                  {t.amount.toLocaleString()}đ
                                 </p>
                               </div>
-                              <p className="text-[9px] text-white/30 mt-1">{new Date(t.createdAt).toLocaleDateString('vi-VN')} {new Date(t.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</p>
+                              <p className="text-[9px] text-white/30 mt-1">
+                                {new Date(t.createdAt).toLocaleDateString(
+                                  'vi-VN'
+                                )}{' '}
+                                {new Date(t.createdAt).toLocaleTimeString(
+                                  'vi-VN',
+                                  { hour: '2-digit', minute: '2-digit' }
+                                )}
+                              </p>
                             </div>
                           </div>
                         )
@@ -823,7 +1287,12 @@ const StudioPage = () => {
 
         {/* HASHTAGS */}
         {activeTab === 'hashtags' && (
-          <motion.div key="hashtags" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="hashtags"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
               <div>
                 <p className="text-[10px] font-bold text-white/35 uppercase tracking-wider mb-3 flex items-center gap-1.5">
@@ -831,24 +1300,39 @@ const StudioPage = () => {
                 </p>
                 <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4 space-y-3">
                   {!hashtags?.userTags?.length ? (
-                    <p className="text-white/20 text-[10px] tracking-wider uppercase py-8 text-center">Chưa có hashtag</p>
+                    <p className="text-white/20 text-[10px] tracking-wider uppercase py-8 text-center">
+                      Chưa có hashtag
+                    </p>
                   ) : (
                     hashtags.userTags.map((t, i) => {
                       const maxViews = hashtags.userTags[0]?.views || 1
                       const pct = Math.round((t.views / maxViews) * 100)
-                      const isTrending = hashtags.trendingTags?.some(tt => tt.tag === t.tag)
+                      const isTrending = hashtags.trendingTags?.some(
+                        (tt) => tt.tag === t.tag
+                      )
                       return (
                         <div key={t.tag}>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] text-white/20 w-4 tabular-nums text-right">{i + 1}</span>
-                            <span className="text-xs font-semibold text-white/70">#{t.tag}</span>
+                            <span className="text-[10px] text-white/20 w-4 tabular-nums text-right">
+                              {i + 1}
+                            </span>
+                            <span className="text-xs font-semibold text-white/70">
+                              #{t.tag}
+                            </span>
                             {isTrending && (
-                              <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/15 px-1.5 py-0.5 rounded-md">trending</span>
+                              <span className="text-[9px] font-bold text-rose-400 bg-rose-500/10 border border-rose-500/15 px-1.5 py-0.5 rounded-md">
+                                trending
+                              </span>
                             )}
-                            <span className="ml-auto text-[10px] text-white/30 tabular-nums">{t.views.toLocaleString()}</span>
+                            <span className="ml-auto text-[10px] text-white/30 tabular-nums">
+                              {t.views.toLocaleString()}
+                            </span>
                           </div>
                           <div className="ml-6 h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                            <div className="h-full bg-brand-500/50 rounded-full" style={{ width: `${pct}%` }} />
+                            <div
+                              className="h-full bg-brand-500/50 rounded-full"
+                              style={{ width: `${pct}%` }}
+                            />
                           </div>
                         </div>
                       )
@@ -860,28 +1344,45 @@ const StudioPage = () => {
               <div>
                 <p className="text-[10px] font-bold text-white/35 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                   <TrendingUp size={10} /> Trending hệ thống
-                  <span className="text-[9px] text-white/20 font-normal normal-case tracking-normal">30 ngày</span>
+                  <span className="text-[9px] text-white/20 font-normal normal-case tracking-normal">
+                    30 ngày
+                  </span>
                 </p>
                 <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-4 space-y-3">
                   {!hashtags?.trendingTags?.length ? (
-                    <p className="text-white/20 text-[10px] tracking-wider uppercase py-8 text-center">Chưa có dữ liệu</p>
+                    <p className="text-white/20 text-[10px] tracking-wider uppercase py-8 text-center">
+                      Chưa có dữ liệu
+                    </p>
                   ) : (
                     hashtags.trendingTags.map((t, i) => {
                       const maxViews = hashtags.trendingTags[0]?.views || 1
                       const pct = Math.round((t.views / maxViews) * 100)
-                      const youUse = hashtags.userTags?.some(mt => mt.tag === t.tag)
+                      const youUse = hashtags.userTags?.some(
+                        (mt) => mt.tag === t.tag
+                      )
                       return (
                         <div key={t.tag}>
                           <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[10px] text-white/20 w-4 tabular-nums text-right">{i + 1}</span>
-                            <span className="text-xs font-semibold text-white/70">#{t.tag}</span>
+                            <span className="text-[10px] text-white/20 w-4 tabular-nums text-right">
+                              {i + 1}
+                            </span>
+                            <span className="text-xs font-semibold text-white/70">
+                              #{t.tag}
+                            </span>
                             {youUse && (
-                              <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/15 px-1.5 py-0.5 rounded-md">bạn dùng</span>
+                              <span className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/15 px-1.5 py-0.5 rounded-md">
+                                bạn dùng
+                              </span>
                             )}
-                            <span className="ml-auto text-[10px] text-white/30 tabular-nums">{t.views.toLocaleString()}</span>
+                            <span className="ml-auto text-[10px] text-white/30 tabular-nums">
+                              {t.views.toLocaleString()}
+                            </span>
                           </div>
                           <div className="ml-6 h-1 bg-white/[0.05] rounded-full overflow-hidden">
-                            <div className="h-full bg-rose-500/40 rounded-full" style={{ width: `${pct}%` }} />
+                            <div
+                              className="h-full bg-rose-500/40 rounded-full"
+                              style={{ width: `${pct}%` }}
+                            />
                           </div>
                         </div>
                       )
@@ -896,14 +1397,19 @@ const StudioPage = () => {
                     </p>
                     <div className="flex flex-wrap gap-1.5">
                       {hashtags.trendingTags
-                        .filter(tt => !hashtags.userTags?.some(mt => mt.tag === tt.tag))
+                        .filter(
+                          (tt) =>
+                            !hashtags.userTags?.some((mt) => mt.tag === tt.tag)
+                        )
                         .slice(0, 8)
-                        .map(tt => (
-                          <span key={tt.tag} className="text-[10px] bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-white/40">
+                        .map((tt) => (
+                          <span
+                            key={tt.tag}
+                            className="text-[10px] bg-white/[0.04] border border-white/8 rounded-full px-2 py-0.5 text-white/40"
+                          >
                             #{tt.tag}
                           </span>
-                        ))
-                      }
+                        ))}
                     </div>
                   </div>
                 )}
@@ -914,7 +1420,12 @@ const StudioPage = () => {
 
         {/* CATEGORIES */}
         {activeTab === 'categories' && (
-          <motion.div key="categories" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+          <motion.div
+            key="categories"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
             <div className="bg-white/[0.02] border border-white/[0.07] rounded-2xl p-5 mb-5">
               <p className="text-xs font-bold text-white/50 uppercase tracking-wider mb-4">
                 Hiệu suất theo Danh mục
@@ -922,7 +1433,9 @@ const StudioPage = () => {
 
               {!categories || categories.length === 0 ? (
                 <div className="py-12 text-center">
-                  <p className="text-white/20 text-[10px] tracking-widest uppercase">Chưa có danh mục nào</p>
+                  <p className="text-white/20 text-[10px] tracking-widest uppercase">
+                    Chưa có danh mục nào
+                  </p>
                 </div>
               ) : (
                 <div className="space-y-5">
@@ -933,18 +1446,32 @@ const StudioPage = () => {
                       <div key={c.category} className="group">
                         <div className="flex items-center justify-between gap-4 mb-1.5">
                           <div className="flex items-center gap-2">
-                            <span className="text-[10px] text-white/20 w-4 tabular-nums text-right">{i + 1}</span>
-                            <span className="text-xs font-bold text-white/80 capitalize">{c.category === 'other' ? 'Khác' : c.category}</span>
-                            <span className="text-[10px] text-white/25">({c.posts} bài đăng)</span>
+                            <span className="text-[10px] text-white/20 w-4 tabular-nums text-right">
+                              {i + 1}
+                            </span>
+                            <span className="text-xs font-bold text-white/80 capitalize">
+                              {c.category === 'other' ? 'Khác' : c.category}
+                            </span>
+                            <span className="text-[10px] text-white/25">
+                              ({c.posts} bài đăng)
+                            </span>
                           </div>
                           <div className="flex items-center gap-4 text-right">
                             <div>
-                              <span className="text-xs font-semibold text-white/70 tabular-nums">{c.views.toLocaleString()}</span>
-                              <span className="text-[9px] text-white/30 ml-1">views</span>
+                              <span className="text-xs font-semibold text-white/70 tabular-nums">
+                                {c.views.toLocaleString()}
+                              </span>
+                              <span className="text-[9px] text-white/30 ml-1">
+                                views
+                              </span>
                             </div>
                             <div className="w-16">
-                              <span className="text-xs font-semibold text-white/70 tabular-nums">{c.downloads.toLocaleString()}</span>
-                              <span className="text-[9px] text-white/30 ml-1">tải xuống</span>
+                              <span className="text-xs font-semibold text-white/70 tabular-nums">
+                                {c.downloads.toLocaleString()}
+                              </span>
+                              <span className="text-[9px] text-white/30 ml-1">
+                                tải xuống
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -962,8 +1489,59 @@ const StudioPage = () => {
             </div>
           </motion.div>
         )}
-
       </AnimatePresence>
+
+      {/* ── PIN Modals ─────────────────────────────────────────────────────── */}
+      <TransactionPinModal
+        isOpen={showPinVerify}
+        onClose={() => {
+          setShowPinVerify(false)
+          setPendingWithdrawFn(null)
+        }}
+        onSuccess={() => {
+          setShowPinVerify(false)
+          if (pendingWithdrawFn) {
+            pendingWithdrawFn()
+            setPendingWithdrawFn(null)
+          }
+        }}
+        title="Xác nhận rút tiền"
+        description="Nhập PIN 6 số để gửi yêu cầu rút tiền."
+      />
+
+      <PinSetupModal
+        isOpen={showPinSetup}
+        onClose={() => setShowPinSetup(false)}
+        onSuccess={(pinCreatedAt) => {
+          setShowPinSetup(false)
+          setPinStatus({ hasPin: true, pinCreatedAt })
+        }}
+      />
+
+      <PinManagementModal
+        isOpen={showPinManage}
+        onClose={() => setShowPinManage(false)}
+        defaultTab={pinManageTab}
+        onSuccess={async () => {
+          setShowPinManage(false)
+          try {
+            const { data } = await getPinStatus()
+            setPinStatus(data)
+          } catch (e) {}
+        }}
+      />
+
+      <DisablePinModal
+        isOpen={showPinDisable}
+        onClose={() => setShowPinDisable(false)}
+        onSuccess={async () => {
+          setShowPinDisable(false)
+          try {
+            const { data } = await getPinStatus()
+            setPinStatus(data)
+          } catch (e) {}
+        }}
+      />
     </div>
   )
 }
