@@ -534,12 +534,41 @@ export const getMyPurchasedPosts = async (req, res, next) => {
       .sort({ createdAt: -1 })
       .lean()
 
+    // Lấy danh sách các giao dịch đã hoàn tiền để loại trừ
+    const refundTxns = await VndTransaction.find({
+      userId: req.user._id,
+      type: 'refund',
+    }).lean()
+
+    // Count refunds per key: postId_fileType
+    const refundCounts = {}
+    for (const r of refundTxns) {
+      const key = `${r.relatedPostId?.toString()}_${r.fileType || 'original'}`
+      refundCounts[key] = (refundCounts[key] || 0) + 1
+    }
+
+    // Count buys per key: postId_fileType
+    const buyCounts = {}
+    for (const txn of txns) {
+      const postIdStr = txn.relatedPostId?._id?.toString()
+      const key = `${postIdStr}_${txn.fileType || 'original'}`
+      buyCounts[key] = (buyCounts[key] || 0) + 1
+    }
+
     const seenPostIds = new Set()
     const posts = []
 
     for (const txn of txns) {
-      if (txn.relatedPostId && !seenPostIds.has(txn.relatedPostId._id.toString())) {
-        seenPostIds.add(txn.relatedPostId._id.toString())
+      const postIdStr = txn.relatedPostId?._id?.toString()
+      if (!postIdStr) continue
+      const key = `${postIdStr}_${txn.fileType || 'original'}`
+
+      const buys = buyCounts[key] || 0
+      const refunds = refundCounts[key] || 0
+      const isCurrentlyOwned = buys > refunds
+
+      if (txn.relatedPostId && !seenPostIds.has(postIdStr) && isCurrentlyOwned) {
+        seenPostIds.add(postIdStr)
         const postObj = {
           ...txn.relatedPostId,
           purchasedFileType: txn.fileType || 'original',

@@ -163,6 +163,7 @@ export const SettingsProvider = ({ children }) => {
   const [myPostsSkeletonMs, setMyPostsSkeletonMs] = useState(0)
   const [postLoadingDelayMs, setPostLoadingDelayMs] = useState(0)
   const [blurPremiumImages, setBlurPremiumImages] = useState(false)
+  const [enableRefund, setEnableRefund] = useState(false)
   const [postDetailLayout, setPostDetailLayout] = useState('left-image')
   const [categoriesPageStyle, setCategoriesPageStyle] = useState('style-2')
   const [trendingCarouselInterval, setTrendingCarouselInterval] = useState(5000)
@@ -233,6 +234,9 @@ export const SettingsProvider = ({ children }) => {
         }
         if (data?.blurPremiumImages !== undefined) {
           setBlurPremiumImages(data.blurPremiumImages)
+        }
+        if (data?.enableRefund !== undefined) {
+          setEnableRefund(data.enableRefund)
         }
         if (data?.postDetailLayout) {
           setPostDetailLayout(data.postDetailLayout)
@@ -346,6 +350,8 @@ export const SettingsProvider = ({ children }) => {
         setPostLoadingDelayMs,
         blurPremiumImages,
         setBlurPremiumImages,
+        enableRefund,
+        setEnableRefund,
         postDetailLayout,
         setPostDetailLayout,
         categoriesPageStyle,

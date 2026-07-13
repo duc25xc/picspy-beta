@@ -123,6 +123,10 @@ const settingsSchema = new mongoose.Schema(
       type: Boolean,
       default: false, // Tắt làm mờ ảnh Premium theo mặc định
     },
+    enableRefund: {
+      type: Boolean,
+      default: false, // Hoàn tác đơn hàng
+    },
     postDetailLayout: {
       type: String,
       enum: ['left-image', 'right-image'],

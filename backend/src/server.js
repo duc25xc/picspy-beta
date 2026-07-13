@@ -143,6 +143,7 @@ app.get('/v1/settings', async (req, res, next) => {
       myPostsSkeletonMs: settings.myPostsSkeletonMs ?? 0,
       postLoadingDelayMs: settings.postLoadingDelayMs ?? 0,
       blurPremiumImages: settings.blurPremiumImages !== undefined ? settings.blurPremiumImages : false,
+      enableRefund: settings.enableRefund !== undefined ? settings.enableRefund : false,
       postDetailLayout: settings.postDetailLayout || 'left-image',
       categoriesPageStyle: settings.categoriesPageStyle || 'style-2',
       trendingCarouselInterval: settings.trendingCarouselInterval ?? 5000,

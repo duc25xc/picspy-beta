@@ -714,6 +714,14 @@ const PostDetailModal = ({
                     isPremium={post.isPremium}
                     priceInVnd={post.priceInVnd}
                     variant="detail"
+                    onPurchased={(fileType) => {
+                      setPost((prev) => {
+                        if (!prev) return prev
+                        const already = prev.purchasedFileTypes || []
+                        if (already.includes(fileType)) return prev
+                        return { ...prev, purchasedFileTypes: [...already, fileType] }
+                      })
+                    }}
                   />
                 </div>
 

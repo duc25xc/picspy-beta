@@ -121,8 +121,8 @@ const extractColorsFromImg = (src, count = 4) =>
   })
 
 /* ─── Download Button Wrapper ───────────────────────────────── */
-const PostDownloadButton = ({ post, onUnlock }) => {
-  return <DownloadButton post={post} variant="detail" onUnlock={onUnlock} />
+const PostDownloadButton = ({ post, onUnlock, onPurchased }) => {
+  return <DownloadButton post={post} variant="detail" onUnlock={onUnlock} onPurchased={onPurchased} />
 }
 
 /* ─── Discovery Post Card ───────────────────────────────────── */
@@ -994,6 +994,14 @@ const PostDetailPage = () => {
               <PostDownloadButton
                 post={post}
                 onUnlock={() => setIsUnlocked(true)}
+                onPurchased={(fileType) => {
+                  setPost((prev) => {
+                    if (!prev) return prev
+                    const already = prev.purchasedFileTypes || []
+                    if (already.includes(fileType)) return prev
+                    return { ...prev, purchasedFileTypes: [...already, fileType] }
+                  })
+                }}
               />
               <div
                 className={`grid ${isOwnPost ? 'grid-cols-3' : 'grid-cols-4'} gap-2`}

@@ -947,6 +947,7 @@ export const updateSettings = async (req, res, next) => {
       'withdrawalFlatFee',
       'withdrawalPercentFee',
       'blurPremiumImages',
+      'enableRefund',
       'postDetailLayout',
       'trendingCarouselInterval',
       'bypassEnabled',

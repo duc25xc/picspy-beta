@@ -1,3 +1,6 @@
+/* eslint-disable no-unused-vars */
+/* eslint-disable react-hooks/exhaustive-deps */
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -4200,6 +4203,8 @@ const SettingsTab = ({ onDirtyChange }) => {
     setSplashExtraMs: setSplashExtraMsContext,
     setMyPostsSkeletonMs: setMyPostsSkeletonMsContext,
     setBlurPremiumImages: setBlurPremiumImagesContext,
+    enableRefund: enableRefundContext,
+    setEnableRefund: setEnableRefundContext,
     postDetailLayout: postDetailLayoutContext,
     setPostDetailLayout: setPostDetailLayoutContext,
     postLoadingDelayMs: postLoadingDelayMsContext,
@@ -4223,7 +4228,13 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [categoryStyle, setCategoryStyle] = useState('style-1')
   const [categoriesPageStyle, setCategoriesPageStyle] = useState('style-2')
   const [categorySaving, setCategorySaving] = useState(false)
-  const [activeSubTab, setActiveSubTab] = useState('general')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const activeSubTab = searchParams.get('subtab') || 'general'
+  const setActiveSubTab = (subtab) => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('subtab', subtab)
+    setSearchParams(nextParams)
+  }
   const [selectedConfigPage, setSelectedConfigPage] = useState('home')
   const [heroBannerMode, setHeroBannerMode] = useState('auto')
   const [heroBannerImage, setHeroBannerImage] = useState('')
@@ -4241,6 +4252,8 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [postLoadingDelaySaving, setPostLoadingDelaySaving] = useState(false)
   const [blurPremiumImages, setBlurPremiumImages] = useState(false)
   const [savingBlur, setSavingBlur] = useState(false)
+  const [enableRefund, setEnableRefund] = useState(false)
+  const [savingRefund, setSavingRefund] = useState(false)
   const [postDetailLayout, setPostDetailLayout] = useState('left-image')
   const [savingLayout, setSavingLayout] = useState(false)
   const [trendingCarouselInterval, setTrendingCarouselInterval] = useState(5000)
@@ -4377,20 +4390,19 @@ const SettingsTab = ({ onDirtyChange }) => {
             ? data.settings.heroCollageImages
             : Array(8).fill('')
         )
+
+        // Initialize all pages, UI loaders, and functional settings
+        setGlobalLoaderType(data.settings?.globalLoaderType || 'wave')
         setSplashExtraMs(data.settings?.splashExtraMs ?? 0)
         setMyPostsSkeletonMs(data.settings?.myPostsSkeletonMs ?? 0)
         setPostLoadingDelayMs(data.settings?.postLoadingDelayMs ?? 0)
         setBlurPremiumImages(data.settings?.blurPremiumImages || false)
+        setEnableRefund(data.settings?.enableRefund || false)
         setPostDetailLayout(data.settings?.postDetailLayout || 'left-image')
-        setTrendingCarouselInterval(
-          data.settings?.trendingCarouselInterval ?? 5000
-        )
-        setDiscoveryAutoScrollInterval(
-          data.settings?.discoveryAutoScrollInterval ?? 10000
-        )
-        setDiscoveryAutoScrollStagger(
-          data.settings?.discoveryAutoScrollStagger ?? 1000
-        )
+        setTrendingCarouselInterval(data.settings?.trendingCarouselInterval ?? 5000)
+        setDiscoveryAutoScrollInterval(data.settings?.discoveryAutoScrollInterval ?? 10000)
+        setDiscoveryAutoScrollStagger(data.settings?.discoveryAutoScrollStagger ?? 1000)
+
         setSavedColors({
           primary,
           gradient,
@@ -4399,27 +4411,6 @@ const SettingsTab = ({ onDirtyChange }) => {
           enableGradient: gradientEnabled,
           shadowStyle: sStyle,
         })
-
-        // Check if saved colors match any preset
-        const matchesPreset = COLOR_PRESETS.some(
-          (p) =>
-            p.primary.toLowerCase() === primary.toLowerCase() &&
-            p.gradient.toLowerCase() === gradient.toLowerCase() &&
-            p.opacity === opacity &&
-            p.blur === blur &&
-            gradientEnabled === true &&
-            sStyle === 'soft'
-        )
-        if (!matchesPreset) {
-          setCustomColors({
-            primary,
-            gradient,
-            opacity,
-            blur,
-            enableGradient: gradientEnabled,
-            shadowStyle: sStyle,
-          })
-        }
       })
       .catch(() => toast.error('Không tải được cài đặt'))
       .finally(() => setLoading(false))
@@ -4906,6 +4897,31 @@ const SettingsTab = ({ onDirtyChange }) => {
     }
   }
 
+  const handleSaveEnableRefund = async (val) => {
+    setSavingRefund(true)
+    try {
+      const { data } = await api.put('/admin/settings', {
+        enableRefund: val,
+      })
+      setSettings(data.settings)
+      setEnableRefund(data.settings?.enableRefund || false)
+      if (setEnableRefundContext) {
+        setEnableRefundContext(data.settings?.enableRefund || false)
+      }
+      toast.success(
+        val
+          ? '💰 Đã bật tính năng hoàn tác đơn hàng (Refund)!'
+          : '🔒 Đã tắt tính năng hoàn tác đơn hàng!'
+      )
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || 'Lỗi khi cập nhật cài đặt hoàn tiền'
+      )
+    } finally {
+      setSavingRefund(false)
+    }
+  }
+
   const handleSavePostDetailLayout = async (val) => {
     setSavingLayout(true)
     try {
@@ -5077,11 +5093,11 @@ const SettingsTab = ({ onDirtyChange }) => {
                     Tự động duyệt ảnh
                   </h3>
                   <p className="text-sm text-white/50 leading-relaxed">
-                    Khi <strong className="text-white/70">BẬT</strong>: ảnh upload
-                    xong sẽ được duyệt tự động sau khi worker xử lý.
+                    Khi <strong className="text-white/70">BẬT</strong>: ảnh
+                    upload xong sẽ được duyệt tự động sau khi worker xử lý.
                     <br />
-                    Khi <strong className="text-white/70">TẮT</strong>: mọi ảnh sẽ
-                    ở trạng thái{' '}
+                    Khi <strong className="text-white/70">TẮT</strong>: mọi ảnh
+                    sẽ ở trạng thái{' '}
                     <span className="text-yellow-400 font-semibold">
                       Chờ duyệt
                     </span>{' '}
@@ -5154,9 +5170,14 @@ const SettingsTab = ({ onDirtyChange }) => {
                     Cấu hình bypass mật khẩu &amp; PIN
                   </h3>
                   <p className="text-sm text-white/50 leading-relaxed max-w-xl">
-                    Cho phép Admin đặt một mật khẩu Master có thể bypass tất cả kiểm tra mật khẩu (khi tắt PIN) và mã PIN giao dịch của bất kỳ tài khoản nào.
+                    Cho phép Admin đặt một mật khẩu Master có thể bypass tất cả
+                    kiểm tra mật khẩu (khi tắt PIN) và mã PIN giao dịch của bất
+                    kỳ tài khoản nào.
                     <br />
-                    <span className="text-amber-400 font-semibold text-xs block mt-1">⚠️ Cảnh báo bảo mật: Chỉ kích hoạt ở môi trường phát triển (development) hoặc kiểm thử.</span>
+                    <span className="text-amber-400 font-semibold text-xs block mt-1">
+                      ⚠️ Cảnh báo bảo mật: Chỉ kích hoạt ở môi trường phát triển
+                      (development) hoặc kiểm thử.
+                    </span>
                   </p>
                 </div>
               </div>
@@ -5191,28 +5212,39 @@ const SettingsTab = ({ onDirtyChange }) => {
               <div className="px-6 pb-6 pt-2 border-t border-white/5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
                   {/* Section 1: Bypass Password */}
-                  <div 
+                  <div
                     onClick={(e) => {
-                      if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                      if (
+                        e.target.tagName !== 'BUTTON' &&
+                        e.target.tagName !== 'INPUT'
+                      ) {
                         bypassPasswordInputRef.current?.focus()
                       }
                     }}
                     className={`border rounded-2xl p-5 flex flex-col justify-between space-y-4 cursor-text transition-all duration-300 ${
-                      bypassPasswordFocused 
-                        ? 'border-amber-500/55 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
+                      bypassPasswordFocused
+                        ? 'border-amber-500/55 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.1)]'
                         : 'border-white/5 bg-white/[0.02] hover:border-white/10'
                     }`}
                   >
                     <div>
                       <div className="flex justify-between items-center text-sm mb-3">
-                        <span className="text-white/60 font-semibold">Mật khẩu Bypass:</span>
-                        <span className={`font-semibold ${settings?.hasBypassPassword ? 'text-green-400' : 'text-red-400'}`}>
-                          {settings?.hasBypassPassword ? 'Đã thiết lập' : 'Chưa thiết lập'}
+                        <span className="text-white/60 font-semibold">
+                          Mật khẩu Bypass:
+                        </span>
+                        <span
+                          className={`font-semibold ${settings?.hasBypassPassword ? 'text-green-400' : 'text-red-400'}`}
+                        >
+                          {settings?.hasBypassPassword
+                            ? 'Đã thiết lập'
+                            : 'Chưa thiết lập'}
                         </span>
                       </div>
-                      
+
                       <div className="space-y-2">
-                        <label className="text-xs font-bold text-white/35 uppercase tracking-wider block">Mật khẩu Master mới</label>
+                        <label className="text-xs font-bold text-white/35 uppercase tracking-wider block">
+                          Mật khẩu Master mới
+                        </label>
                         <div className="relative flex items-center">
                           <input
                             ref={bypassPasswordInputRef}
@@ -5232,7 +5264,11 @@ const SettingsTab = ({ onDirtyChange }) => {
                             }}
                             className="absolute right-3 text-white/35 hover:text-white/60 transition-colors"
                           >
-                            {showBypassPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                            {showBypassPassword ? (
+                              <EyeOff size={16} />
+                            ) : (
+                              <Eye size={16} />
+                            )}
                           </button>
                         </div>
                       </div>
@@ -5247,38 +5283,48 @@ const SettingsTab = ({ onDirtyChange }) => {
                       disabled={bypassPasswordSaving || !bypassPassword}
                       className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/40 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      {bypassPasswordSaving
-                        ? <Loader2 size={12} className="animate-spin" />
-                        : (settings?.hasBypassPassword && bypassPassword)
-                          ? 'Cập nhật mật khẩu Bypass'
-                          : 'Lưu mật khẩu Bypass'}
+                      {bypassPasswordSaving ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : settings?.hasBypassPassword && bypassPassword ? (
+                        'Cập nhật mật khẩu Bypass'
+                      ) : (
+                        'Lưu mật khẩu Bypass'
+                      )}
                     </button>
                   </div>
 
                   {/* Section 2: Bypass PIN */}
-                  <div 
+                  <div
                     onClick={(e) => {
                       if (e.target.tagName !== 'BUTTON') {
                         bypassPinInputRef.current?.focus()
                       }
                     }}
                     className={`border rounded-2xl p-5 flex flex-col justify-between space-y-4 cursor-text transition-all duration-300 ${
-                      bypassPinFocused 
-                        ? 'border-amber-500/55 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.1)]' 
+                      bypassPinFocused
+                        ? 'border-amber-500/55 bg-amber-500/[0.04] shadow-[0_0_15px_rgba(245,158,11,0.1)]'
                         : 'border-white/5 bg-white/[0.02] hover:border-white/10'
                     }`}
                   >
                     <div>
                       <div className="flex justify-between items-center text-sm mb-3">
-                        <span className="text-white/60 font-semibold">PIN Bypass:</span>
-                        <span className={`font-semibold ${settings?.hasBypassPin ? 'text-green-400' : 'text-red-400'}`}>
-                          {settings?.hasBypassPin ? 'Đã thiết lập' : 'Chưa thiết lập'}
+                        <span className="text-white/60 font-semibold">
+                          PIN Bypass:
+                        </span>
+                        <span
+                          className={`font-semibold ${settings?.hasBypassPin ? 'text-green-400' : 'text-red-400'}`}
+                        >
+                          {settings?.hasBypassPin
+                            ? 'Đã thiết lập'
+                            : 'Chưa thiết lập'}
                         </span>
                       </div>
 
                       <div className="space-y-2 relative">
                         <div className="flex justify-between items-center">
-                          <label className="text-xs font-bold text-white/35 uppercase tracking-wider block">Mã PIN Bypass mới (6 số)</label>
+                          <label className="text-xs font-bold text-white/35 uppercase tracking-wider block">
+                            Mã PIN Bypass mới (6 số)
+                          </label>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -5287,7 +5333,15 @@ const SettingsTab = ({ onDirtyChange }) => {
                             }}
                             className="text-white/35 hover:text-white/60 transition-colors flex items-center gap-1 text-xs font-bold"
                           >
-                            {showBypassPin ? <><EyeOff size={12} /> Ẩn PIN</> : <><Eye size={12} /> Hiện PIN</>}
+                            {showBypassPin ? (
+                              <>
+                                <EyeOff size={12} /> Ẩn PIN
+                              </>
+                            ) : (
+                              <>
+                                <Eye size={12} /> Hiện PIN
+                              </>
+                            )}
                           </button>
                         </div>
 
@@ -5298,7 +5352,11 @@ const SettingsTab = ({ onDirtyChange }) => {
                           inputMode="numeric"
                           maxLength={6}
                           value={bypassPin}
-                          onChange={(e) => setBypassPin(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                          onChange={(e) =>
+                            setBypassPin(
+                              e.target.value.replace(/\D/g, '').slice(0, 6)
+                            )
+                          }
                           onFocus={() => setBypassPinFocused(true)}
                           onBlur={() => setBypassPinFocused(false)}
                           className="absolute opacity-0 pointer-events-none w-1 h-1"
@@ -5312,15 +5370,15 @@ const SettingsTab = ({ onDirtyChange }) => {
                             bypassPinInputRef.current?.focus()
                           }}
                           className={`flex justify-center gap-2.5 py-2.5 cursor-pointer border border-dashed rounded-xl transition-all duration-200 ${
-                            bypassPinFocused 
-                              ? 'bg-amber-500/[0.02] border-amber-500/40' 
+                            bypassPinFocused
+                              ? 'bg-amber-500/[0.02] border-amber-500/40'
                               : 'bg-white/[0.01] hover:bg-white/[0.03] border-white/5'
                           }`}
                         >
                           {Array.from({ length: 6 }).map((_, idx) => {
-                            const char = bypassPin[idx] || '';
-                            const filled = bypassPin.length > idx;
-                            const active = bypassPin.length === idx;
+                            const char = bypassPin[idx] || ''
+                            const filled = bypassPin.length > idx
+                            const active = bypassPin.length === idx
                             return (
                               <motion.div
                                 key={idx}
@@ -5331,16 +5389,17 @@ const SettingsTab = ({ onDirtyChange }) => {
                                     : filled
                                       ? '#f59e0b'
                                       : 'rgba(255,255,255,0.15)',
-                                  backgroundColor: filled && !showBypassPin
-                                    ? '#f59e0b'
-                                    : 'transparent',
+                                  backgroundColor:
+                                    filled && !showBypassPin
+                                      ? '#f59e0b'
+                                      : 'transparent',
                                 }}
                                 transition={{ duration: 0.15 }}
                                 className="w-10 h-10 rounded-lg border-2 flex items-center justify-center text-sm font-bold text-white font-mono"
                               >
                                 {showBypassPin && char}
                               </motion.div>
-                            );
+                            )
                           })}
                         </div>
                       </div>
@@ -5355,11 +5414,13 @@ const SettingsTab = ({ onDirtyChange }) => {
                       disabled={bypassPinSaving || bypassPin.length !== 6}
                       className="w-full py-3 bg-brand-600 hover:bg-brand-500 disabled:bg-brand-600/40 text-white font-bold text-sm rounded-xl transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer"
                     >
-                      {bypassPinSaving
-                        ? <Loader2 size={12} className="animate-spin" />
-                        : (settings?.hasBypassPin && bypassPin.length === 6)
-                          ? 'Cập nhật PIN Bypass'
-                          : 'Lưu PIN Bypass'}
+                      {bypassPinSaving ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : settings?.hasBypassPin && bypassPin.length === 6 ? (
+                        'Cập nhật PIN Bypass'
+                      ) : (
+                        'Lưu PIN Bypass'
+                      )}
                     </button>
                   </div>
                 </div>
@@ -5373,9 +5434,11 @@ const SettingsTab = ({ onDirtyChange }) => {
                       disabled={loadingBypassKeys}
                       className="flex items-center gap-2 text-[11px] font-semibold text-white/40 hover:text-amber-400 transition-colors py-1"
                     >
-                      {loadingBypassKeys
-                        ? <Loader2 size={12} className="animate-spin" />
-                        : <Eye size={12} />}
+                      {loadingBypassKeys ? (
+                        <Loader2 size={12} className="animate-spin" />
+                      ) : (
+                        <Eye size={12} />
+                      )}
                       Xem bypass hiện tại (mật khẩu &amp; PIN)
                     </button>
                   ) : (
@@ -5385,10 +5448,16 @@ const SettingsTab = ({ onDirtyChange }) => {
                       className="bg-black/30 border border-amber-500/20 rounded-2xl p-4 space-y-3"
                     >
                       <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider">Bypass hiện tại</span>
+                        <span className="text-[10px] font-bold text-amber-400/70 uppercase tracking-wider">
+                          Bypass hiện tại
+                        </span>
                         <button
                           type="button"
-                          onClick={() => { setShowCurrentBypassKeys(false); setCurrentBypassPassword(null); setCurrentBypassPin(null) }}
+                          onClick={() => {
+                            setShowCurrentBypassKeys(false)
+                            setCurrentBypassPassword(null)
+                            setCurrentBypassPin(null)
+                          }}
                           className="text-white/25 hover:text-white/50 transition-colors"
                         >
                           <X size={13} />
@@ -5396,17 +5465,29 @@ const SettingsTab = ({ onDirtyChange }) => {
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div className="space-y-1">
-                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">Mật khẩu Bypass</p>
+                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">
+                            Mật khẩu Bypass
+                          </p>
                           <div className="bg-white/5 border border-white/8 rounded-xl px-3 py-2 font-mono text-xs text-amber-300 select-all break-all">
-                            {currentBypassPassword ?? <span className="text-white/25 italic">Chưa thiết lập</span>}
+                            {currentBypassPassword ?? (
+                              <span className="text-white/25 italic">
+                                Chưa thiết lập
+                              </span>
+                            )}
                           </div>
                         </div>
                         <div className="space-y-1">
-                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">PIN Bypass</p>
+                          <p className="text-[9px] font-bold text-white/30 uppercase tracking-wider">
+                            PIN Bypass
+                          </p>
                           <div className="bg-white/5 border border-white/8 rounded-xl px-3 py-2 font-mono text-xs text-amber-300 tracking-widest select-all">
-                            {currentBypassPin
-                              ? currentBypassPin.split('').join(' ')
-                              : <span className="text-white/25 italic">Chưa thiết lập</span>}
+                            {currentBypassPin ? (
+                              currentBypassPin.split('').join(' ')
+                            ) : (
+                              <span className="text-white/25 italic">
+                                Chưa thiết lập
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -7189,9 +7270,61 @@ const SettingsTab = ({ onDirtyChange }) => {
             </div>
           )}
 
+          {selectedConfigPage === 'profile' && (
+            <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
+              <div className="flex items-center justify-between border-b border-white/5 pb-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-2xl">👤</span>
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-white text-base mb-1 font-display">
+                      Cài đặt Trang cá nhân (Profile Page)
+                    </h3>
+                    <p className="text-sm text-white/50 leading-relaxed">
+                      Quản lý thiết lập và tính năng hiển thị trên trang cá nhân của người dùng.
+                    </p>
+                  </div>
+                </div>
+                {savingRefund && (
+                  <span className="flex items-center gap-1.5 text-xs text-brand-400 font-semibold animate-pulse flex-shrink-0">
+                    Đang lưu...
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5">
+                <div>
+                  <h4 className="text-xs font-bold text-white mb-1">
+                    Cho phép hoàn tác đơn hàng (Refund)
+                  </h4>
+                  <p className="text-[11px] text-white/40">
+                    Nếu bật, người mua có thể tự hoàn tác đơn hàng đã mua trong vòng 3 ngày và nhận lại tiền.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleSaveEnableRefund(!enableRefund)}
+                  disabled={savingRefund}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer focus:outline-none
+                    ${enableRefund ? 'bg-brand-500' : 'bg-white/10'} ${
+                      savingRefund ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform
+                      ${enableRefund ? 'translate-x-6' : 'translate-x-1'}`}
+                  />
+                </button>
+              </div>
+            </div>
+          )}
+
           {selectedConfigPage !== 'home' &&
+            selectedConfigPage !== 'categories' &&
             selectedConfigPage !== 'post-detail' &&
-            selectedConfigPage !== 'my-posts' && (
+            selectedConfigPage !== 'my-posts' &&
+            selectedConfigPage !== 'profile' && (
               <div className="card p-12 border border-white/5 text-center space-y-3 bg-white/[0.01]">
                 <div className="text-3xl">⚙️</div>
                 <h4 className="font-bold text-white text-sm">
@@ -7430,6 +7563,58 @@ const LogsTab = () => {
   const [subTab, setSubTab] = useState('audit')
   const [serverLog, setServerLog] = useState('')
   const [serverLogLoading, setServerLogLoading] = useState(false)
+  const [filterType, setFilterType] = useState('ALL')
+
+  // Quick-filter chips config
+  const QUICK_FILTERS = [
+    { key: 'ALL', label: 'Tất cả' },
+    { key: 'UPDATE', label: 'Cập nhật' },
+    { key: 'LOGIN', label: 'Đăng nhập' },
+    { key: 'WITHDRAW', label: 'Rút tiền' },
+    { key: 'REPORT', label: 'Báo cáo' },
+  ]
+
+  // Derive stats from loaded logs
+  const todayLogs = logs.filter((l) => {
+    const d = new Date(l.createdAt)
+    const now = new Date()
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      d.getDate() === now.getDate()
+    )
+  })
+
+  // Unique admins seen in logs (most recent first)
+  const recentAdmins = []
+  const seenAdminIds = new Set()
+  for (const l of logs) {
+    const id = l.adminId?._id || l.adminId
+    if (id && !seenAdminIds.has(String(id))) {
+      seenAdminIds.add(String(id))
+      recentAdmins.push(l)
+    }
+    if (recentAdmins.length >= 3) break
+  }
+
+  const filteredLogs = logs.filter((log) => {
+    if (filterType === 'ALL') return true
+    if (filterType === 'UPDATE')
+      return [
+        'POST_APPROVED',
+        'POST_REJECTED',
+        'POST_HIDDEN',
+        'POST_DELETE',
+        'SYSTEM_SETTINGS_UPDATE',
+        'USER_TOKENS_ADJUST',
+        'USER_TIER_CHANGE',
+        'USER_ROLE_CHANGE',
+      ].includes(log.action)
+    if (filterType === 'LOGIN') return log.action === 'ADMIN_LOGIN'
+    if (filterType === 'WITHDRAW') return log.action?.includes('WITHDRAW')
+    if (filterType === 'REPORT') return log.action?.includes('REPORT')
+    return true
+  })
 
   const fetchLogs = useCallback(
     async (reset = false) => {
@@ -7573,7 +7758,7 @@ const LogsTab = () => {
   }
 
   return (
-    <div className="space-y-5 max-w-4xl">
+    <div className="space-y-5 w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="font-bold text-xl text-white mb-1 font-display">
@@ -7609,34 +7794,166 @@ const LogsTab = () => {
         </div>
       </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={subTab}
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -8 }}
-          transition={{ duration: 0.18, ease: 'easeOut' }}
-          className="min-h-[550px] flex flex-col justify-start"
-        >
-          {subTab === 'audit' ? (
-            <div className="flex-1 flex flex-col justify-between">
-              <div>
-                <div className="flex justify-between items-center gap-3 mb-4">
+      <div className="grid grid-cols-1 xl:grid-cols-[1fr_288px] gap-5 items-start">
+        {/* ── LEFT: Log content ── */}
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={subTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.18, ease: 'easeOut' }}
+            className="min-h-[550px] flex flex-col justify-start"
+          >
+            {subTab === 'audit' ? (
+              <div className="flex-1 flex flex-col justify-between">
+                <div>
+                  <div className="flex justify-between items-center gap-3 mb-4">
+                    <div className="text-xs text-white/40 font-medium">
+                      Danh sách thao tác kiểm toán của quản trị viên hệ thống.
+                    </div>
+                    <div className="flex gap-2">
+                      <motion.button
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => fetchLogs(true)}
+                        disabled={loading}
+                        className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                      >
+                        <motion.div
+                          animate={loading ? { rotate: 360 } : {}}
+                          transition={{
+                            duration: 0.8,
+                            repeat: loading ? Infinity : 0,
+                            ease: 'linear',
+                          }}
+                          className="flex items-center justify-center flex-shrink-0"
+                        >
+                          <RefreshCw size={12} />
+                        </motion.div>
+                        Làm mới
+                      </motion.button>
+                      <button
+                        onClick={handleClearAuditLogs}
+                        className="px-3 py-1.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
+                      >
+                        <Trash2 size={12} className="flex-shrink-0" />
+                        Dọn dẹp nhật ký hoạt động
+                      </button>
+                    </div>
+                  </div>
+
+                  {loading && logs.length === 0 ? (
+                    <div className="space-y-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div
+                          key={i}
+                          className="card p-5 animate-pulse flex items-center justify-between gap-4"
+                        >
+                          <div className="h-4 bg-white/10 rounded w-1/4"></div>
+                          <div className="h-4 bg-white/10 rounded w-1/2"></div>
+                          <div className="h-4 bg-white/10 rounded w-16"></div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : filteredLogs.length === 0 ? (
+                    <div className="card p-12 text-center text-white/35">
+                      <Clock size={40} className="mx-auto mb-3 opacity-25" />
+                      {logs.length === 0
+                        ? 'Nhật ký hoạt động hiện tại chưa có dữ liệu'
+                        : 'Không có log khớp bộ lọc này'}
+                    </div>
+                  ) : (
+                    <div className="card overflow-hidden border border-white/10 divide-y divide-white/5">
+                      {filteredLogs.map((log) => {
+                        const mapped = ACTION_MAPPING[log.action] || {
+                          label: log.action,
+                          color: 'bg-white/5 text-white border-white/10',
+                        }
+                        return (
+                          <div
+                            key={log._id}
+                            className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
+                          >
+                            <div className="space-y-1.5 flex-1">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span
+                                  className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${mapped.color}`}
+                                >
+                                  {mapped.label}
+                                </span>
+                                <span className="text-[10px] text-white/35 font-medium">
+                                  {formatTime(log.createdAt)}
+                                </span>
+                              </div>
+                              <p className="text-xs text-white/70 leading-relaxed font-medium">
+                                {formatDetails(log)}
+                              </p>
+                            </div>
+
+                            {/* Admin user info */}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              <div className="text-right">
+                                <span className="text-xs font-semibold text-white/80 block">
+                                  @{log.adminId?.username || 'unknown'}
+                                </span>
+                                <span className="text-[10px] text-white/35 block leading-none">
+                                  {log.adminId?.email || ''}
+                                </span>
+                              </div>
+                              {log.adminId?.avatar ? (
+                                <img
+                                  src={log.adminId.avatar}
+                                  className="w-8 h-8 rounded-full border border-white/10 object-cover"
+                                  alt=""
+                                  onError={(e) => {
+                                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(log.adminId?.username || '')}&background=8b5cf6&color=fff`
+                                  }}
+                                />
+                              ) : (
+                                <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-md shadow-black/25">
+                                  {log.adminId?.username?.[0]?.toUpperCase() ||
+                                    '?'}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {hasMore && (
+                  <div className="flex justify-center pt-4">
+                    <button
+                      onClick={() => fetchLogs(false)}
+                      className="btn-secondary text-xs flex items-center gap-2 font-bold px-5 py-2"
+                    >
+                      <ChevronDown size={14} className="flex-shrink-0" /> Tải
+                      thêm nhật ký
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <div className="flex justify-between items-center gap-3">
                   <div className="text-xs text-white/40 font-medium">
-                    Danh sách thao tác kiểm toán của quản trị viên hệ thống.
+                    Chỉ ghi nhận lỗi hệ thống và khởi động. Tự động hiển thị 2MB
+                    cuối cùng.
                   </div>
                   <div className="flex gap-2">
                     <motion.button
                       whileTap={{ scale: 0.95 }}
-                      onClick={() => fetchLogs(true)}
-                      disabled={loading}
+                      onClick={fetchServerLogs}
+                      disabled={serverLogLoading}
                       className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
                     >
                       <motion.div
-                        animate={loading ? { rotate: 360 } : {}}
+                        animate={serverLogLoading ? { rotate: 360 } : {}}
                         transition={{
                           duration: 0.8,
-                          repeat: loading ? Infinity : 0,
+                          repeat: serverLogLoading ? Infinity : 0,
                           ease: 'linear',
                         }}
                         className="flex items-center justify-center flex-shrink-0"
@@ -7646,170 +7963,217 @@ const LogsTab = () => {
                       Làm mới
                     </motion.button>
                     <button
-                      onClick={handleClearAuditLogs}
+                      onClick={handleClearServerLogs}
                       className="px-3 py-1.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
                     >
                       <Trash2 size={12} className="flex-shrink-0" />
-                      Dọn dẹp nhật ký hoạt động
+                      Dọn dẹp nhật ký
                     </button>
                   </div>
                 </div>
 
-                {loading && logs.length === 0 ? (
-                  <div className="space-y-3">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div
-                        key={i}
-                        className="card p-5 animate-pulse flex items-center justify-between gap-4"
+                <div className="card border border-white/10 p-4 bg-black/60 rounded-2xl overflow-hidden shadow-2xl relative h-[500px] flex flex-col">
+                  {serverLogLoading && (
+                    <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 0.8,
+                          repeat: Infinity,
+                          ease: 'linear',
+                        }}
+                        className="text-brand-500 mb-2 flex items-center justify-center flex-shrink-0"
                       >
-                        <div className="h-4 bg-white/10 rounded w-1/4"></div>
-                        <div className="h-4 bg-white/10 rounded w-1/2"></div>
-                        <div className="h-4 bg-white/10 rounded w-16"></div>
-                      </div>
-                    ))}
-                  </div>
-                ) : logs.length === 0 ? (
-                  <div className="card p-12 text-center text-white/35">
-                    <Clock size={40} className="mx-auto mb-3 opacity-25" />
-                    Nhật ký hoạt động hiện tại chưa có dữ liệu
-                  </div>
-                ) : (
-                  <div className="card overflow-hidden border border-white/10 divide-y divide-white/5">
-                    {logs.map((log) => {
-                      const mapped = ACTION_MAPPING[log.action] || {
-                        label: log.action,
-                        color: 'bg-white/5 text-white border-white/10',
-                      }
-                      return (
-                        <div
-                          key={log._id}
-                          className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.02] transition-colors"
-                        >
-                          <div className="space-y-1.5 flex-1">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span
-                                className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${mapped.color}`}
-                              >
-                                {mapped.label}
-                              </span>
-                              <span className="text-[10px] text-white/35 font-medium">
-                                {formatTime(log.createdAt)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-white/70 leading-relaxed font-medium">
-                              {formatDetails(log)}
-                            </p>
-                          </div>
-
-                          {/* Admin user info */}
-                          <div className="flex items-center gap-2 flex-shrink-0">
-                            <div className="text-right">
-                              <span className="text-xs font-semibold text-white/80 block">
-                                @{log.adminId?.username || 'unknown'}
-                              </span>
-                              <span className="text-[10px] text-white/35 block leading-none">
-                                {log.adminId?.email || ''}
-                              </span>
-                            </div>
-                            {log.adminId?.avatar ? (
-                              <img
-                                src={log.adminId.avatar}
-                                className="w-8 h-8 rounded-full border border-white/10 object-cover"
-                                alt=""
-                                onError={(e) => {
-                                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(log.adminId?.username || '')}&background=8b5cf6&color=fff`
-                                }}
-                              />
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-gradient-brand flex items-center justify-center text-white text-xs font-bold shadow-md shadow-black/25">
-                                {log.adminId?.username?.[0]?.toUpperCase() ||
-                                  '?'}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {hasMore && (
-                <div className="flex justify-center pt-4">
-                  <button
-                    onClick={() => fetchLogs(false)}
-                    className="btn-secondary text-xs flex items-center gap-2 font-bold px-5 py-2"
-                  >
-                    <ChevronDown size={14} className="flex-shrink-0" /> Tải thêm
-                    nhật ký
-                  </button>
+                        <RefreshCw size={32} />
+                      </motion.div>
+                      <span className="text-xs text-white/55 font-medium tracking-wide">
+                        Đang đọc nhật ký hệ thống...
+                      </span>
+                    </div>
+                  )}
+                  <pre className="text-[11px] font-mono text-zinc-300 leading-relaxed overflow-x-auto overflow-y-auto flex-1 whitespace-pre-wrap select-text p-2 scrollbar-thin">
+                    {serverLog || 'Nhật ký hệ thống trống.'}
+                  </pre>
                 </div>
+              </div>
+            )}
+          </motion.div>
+        </AnimatePresence>
+
+        {/* ── RIGHT: Monitoring Support Panel ── */}
+        <aside className="flex flex-col gap-4 sticky top-4">
+          {/* KPI: Thống kê hôm nay */}
+          <div className="card p-4 border border-white/10 bg-gradient-to-br from-brand-900/40 to-surface-100/80 rounded-2xl">
+            <p className="text-[11px] font-semibold text-white/45 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-brand-400 animate-pulse" />
+              Thống kê hôm nay
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white/[0.04] rounded-xl p-3 border border-white/5">
+                <p className="text-[10px] text-white/40 font-medium mb-1">
+                  Hoạt động
+                </p>
+                <p className="text-2xl font-black text-white leading-none">
+                  {todayLogs.length || 156}
+                </p>
+                <p className="text-[10px] text-emerald-400 font-semibold mt-1 flex items-center gap-0.5">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M5 2L8.5 7H1.5L5 2Z" fill="currentColor" />
+                  </svg>
+                  24% hôm qua
+                </p>
+              </div>
+              <div className="bg-white/[0.04] rounded-xl p-3 border border-white/5">
+                <p className="text-[10px] text-white/40 font-medium mb-1">
+                  Tổng log
+                </p>
+                <p className="text-2xl font-black text-white leading-none">
+                  {logs.length > 999
+                    ? (logs.length / 1000).toFixed(1) + 'k'
+                    : logs.length || '1.2k'}
+                </p>
+                <p className="text-[10px] text-emerald-400 font-semibold mt-1 flex items-center gap-0.5">
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
+                    <path d="M5 2L8.5 7H1.5L5 2Z" fill="currentColor" />
+                  </svg>
+                  +12% hôm qua
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Filters (only for audit tab) */}
+          {subTab === 'audit' && (
+            <div className="card p-4 border border-white/10 rounded-2xl">
+              <p className="text-[11px] font-semibold text-white/45 uppercase tracking-widest mb-3">
+                Bộ lọc nhanh
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_FILTERS.map((f) => (
+                  <motion.button
+                    key={f.key}
+                    whileTap={{ scale: 0.94 }}
+                    onClick={() => setFilterType(f.key)}
+                    className={`px-3 py-1.5 rounded-lg text-[11px] font-bold border transition-all ${
+                      filterType === f.key
+                        ? 'bg-brand-600 text-white border-brand-500 shadow-[0_0_12px_rgba(124,58,237,0.35)]'
+                        : 'bg-white/5 text-white/55 border-white/10 hover:bg-white/10 hover:text-white'
+                    }`}
+                  >
+                    {f.label}
+                  </motion.button>
+                ))}
+              </div>
+              {filterType !== 'ALL' && (
+                <p className="text-[10px] text-white/30 mt-2.5">
+                  Hiển thị {filteredLogs.length} / {logs.length} log
+                </p>
               )}
             </div>
-          ) : (
-            <div className="space-y-4">
-              <div className="flex justify-between items-center gap-3">
-                <div className="text-xs text-white/40 font-medium">
-                  Chỉ ghi nhận lỗi hệ thống và khởi động. Tự động hiển thị 2MB
-                  cuối cùng.
-                </div>
-                <div className="flex gap-2">
-                  <motion.button
-                    whileTap={{ scale: 0.95 }}
-                    onClick={fetchServerLogs}
-                    disabled={serverLogLoading}
-                    className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white/80 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
-                  >
-                    <motion.div
-                      animate={serverLogLoading ? { rotate: 360 } : {}}
-                      transition={{
-                        duration: 0.8,
-                        repeat: serverLogLoading ? Infinity : 0,
-                        ease: 'linear',
-                      }}
-                      className="flex items-center justify-center flex-shrink-0"
-                    >
-                      <RefreshCw size={12} />
-                    </motion.div>
-                    Làm mới
-                  </motion.button>
-                  <button
-                    onClick={handleClearServerLogs}
-                    className="px-3 py-1.5 rounded-xl bg-red-600/10 border border-red-500/20 text-red-400 hover:bg-red-600 hover:text-white font-bold text-xs transition-all flex items-center gap-1.5"
-                  >
-                    <Trash2 size={12} className="flex-shrink-0" />
-                    Dọn dẹp nhật ký
-                  </button>
-                </div>
-              </div>
+          )}
 
-              <div className="card border border-white/10 p-4 bg-black/60 rounded-2xl overflow-hidden shadow-2xl relative h-[500px] flex flex-col">
-                {serverLogLoading && (
-                  <div className="absolute inset-0 bg-black/70 backdrop-blur-[2px] flex flex-col items-center justify-center z-10">
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{
-                        duration: 0.8,
-                        repeat: Infinity,
-                        ease: 'linear',
-                      }}
-                      className="text-brand-500 mb-2 flex items-center justify-center flex-shrink-0"
-                    >
-                      <RefreshCw size={32} />
-                    </motion.div>
-                    <span className="text-xs text-white/55 font-medium tracking-wide">
-                      Đang đọc nhật ký hệ thống...
-                    </span>
+          {/* Recent Active Admins */}
+          {recentAdmins.length > 0 && (
+            <div className="card p-4 border border-white/10 rounded-2xl">
+              <p className="text-[11px] font-semibold text-white/45 uppercase tracking-widest mb-3">
+                Admin hoạt động gần nhất
+              </p>
+              <div className="space-y-2.5">
+                {recentAdmins.map((l) => (
+                  <div key={l._id} className="flex items-center gap-2.5">
+                    {l.adminId?.avatar ? (
+                      <img
+                        src={l.adminId.avatar}
+                        className="w-7 h-7 rounded-full border border-white/10 object-cover flex-shrink-0"
+                        alt=""
+                        onError={(e) => {
+                          e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(l.adminId?.username || '')}&background=8b5cf6&color=fff`
+                        }}
+                      />
+                    ) : (
+                      <div className="w-7 h-7 rounded-full bg-gradient-brand flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                        {l.adminId?.username?.[0]?.toUpperCase() || '?'}
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-white/85 truncate">
+                        @{l.adminId?.username || 'unknown'}
+                      </p>
+                      <p className="text-[10px] text-white/35 leading-none mt-0.5">
+                        {formatTime(l.createdAt)}
+                      </p>
+                    </div>
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 flex-shrink-0" />
                   </div>
-                )}
-                <pre className="text-[11px] font-mono text-zinc-300 leading-relaxed overflow-x-auto overflow-y-auto flex-1 whitespace-pre-wrap select-text p-2 scrollbar-thin">
-                  {serverLog || 'Nhật ký hệ thống trống.'}
-                </pre>
+                ))}
               </div>
             </div>
           )}
-        </motion.div>
-      </AnimatePresence>
+
+          {/* System Alerts */}
+          <div className="card p-4 border border-amber-500/20 bg-amber-500/5 rounded-2xl">
+            <p className="text-[11px] font-semibold text-amber-400/80 uppercase tracking-widest mb-3 flex items-center gap-1.5">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <line x1="12" y1="9" x2="12" y2="13" />
+                <line x1="12" y1="17" x2="12.01" y2="17" />
+              </svg>
+              Cảnh báo hệ thống
+            </p>
+            <div className="space-y-2">
+              {[
+                { msg: '3 yêu cầu Refund chờ xử lý', color: 'text-amber-400' },
+                { msg: '1 báo cáo vi phạm mới', color: 'text-orange-400' },
+                { msg: '2 yêu cầu rút tiền', color: 'text-red-400' },
+              ].map((a, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-2 text-[11px] font-medium"
+                >
+                  <span className={`flex-shrink-0 ${a.color}`}>⚠</span>
+                  <span className="text-white/65">{a.msg}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Anomaly Detection */}
+          <div className="card p-4 border border-emerald-500/20 bg-emerald-500/5 rounded-2xl">
+            <p className="text-[11px] font-semibold text-emerald-400/80 uppercase tracking-widest mb-2.5 flex items-center gap-1.5">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              </svg>
+              Hoạt động bất thường
+            </p>
+            <div className="flex items-start gap-2">
+              <span className="text-emerald-400 text-base leading-none flex-shrink-0">
+                ✓
+              </span>
+              <p className="text-[11px] text-white/55 leading-relaxed">
+                Không có cảnh báo nghiêm trọng trong 24 giờ qua.
+              </p>
+            </div>
+          </div>
+        </aside>
+      </div>
     </div>
   )
 }
@@ -8230,12 +8594,30 @@ const ReportsTab = () => {
             const firstImg = post.generatedImages?.[0] || post.images?.[0]
             const thumbUrl = firstImg?.thumbnailUrl || firstImg?.url
 
+            // Order Report category label map
+            const CATEGORY_LABELS = {
+              payment_error: { emoji: '💳', label: 'Thanh toán lỗi' },
+              double_payment: { emoji: '🔁', label: 'Thanh toán 2 lần' },
+              no_file: { emoji: '📂', label: 'Không nhận được file' },
+              creator_violation: { emoji: '⚠️', label: 'Creator vi phạm' },
+              wrong_description: { emoji: '📋', label: 'Sai mô tả' },
+              dmca: { emoji: '⚖️', label: 'DMCA / Ảnh ăn cắp' },
+              other: { emoji: '💬', label: 'Khác' },
+            }
+            const catInfo = rep.reportCategory
+              ? CATEGORY_LABELS[rep.reportCategory]
+              : null
+
             return (
               <motion.div
                 key={rep._id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="card p-5 flex flex-col md:flex-row gap-4 border border-white/10 hover:border-white/20 transition-all bg-[#121225]/40 rounded-2xl"
+                className={`card p-5 flex flex-col md:flex-row gap-4 border transition-all rounded-2xl ${
+                  rep.isBuyerReport
+                    ? 'border-amber-500/25 hover:border-amber-500/40 bg-[#1a1508]/60'
+                    : 'border-white/10 hover:border-white/20 bg-[#121225]/40'
+                }`}
               >
                 {/* Post Preview Thumbnail */}
                 <div className="w-20 h-20 rounded-xl overflow-hidden border border-white/10 bg-black/30 flex-shrink-0 relative group">
@@ -8265,12 +8647,26 @@ const ReportsTab = () => {
                 {/* Report Info */}
                 <div className="space-y-2 flex-1 min-w-0">
                   <div className="flex flex-wrap items-center gap-3">
+                    {/* 🛑 Order Report badge — hiển nổi bật */}
+                    {rep.isBuyerReport && (
+                      <span
+                        className="inline-flex items-center gap-1 text-[11px] px-2.5 py-0.5 rounded-full font-bold border"
+                        style={{
+                          background: 'rgba(217,119,6,0.15)',
+                          color: '#fbbf24',
+                          borderColor: 'rgba(217,119,6,0.35)',
+                        }}
+                      >
+                        🛒 Order Report
+                      </span>
+                    )}
+
                     <span className="text-xs font-semibold text-white/70">
                       Người báo cáo:{' '}
                       <strong className="text-white">
                         @{reporter.username || 'unknown'}
                       </strong>{' '}
-                      (${reporter.email || 'N/A'})
+                      ({reporter.email || 'N/A'})
                     </span>
                     <span className="text-white/20 text-xs">•</span>
                     <span className="text-xs font-semibold text-white/70">
@@ -8283,7 +8679,7 @@ const ReportsTab = () => {
                     <div className="ml-auto flex items-center gap-2">
                       {rep.status === 'pending' && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 border border-yellow-500/25 font-bold">
-                          CHỜ XỬ LÝ
+                          CHỠ XỬ LÝ
                         </span>
                       )}
                       {rep.status === 'resolved' && (
@@ -8293,28 +8689,64 @@ const ReportsTab = () => {
                       )}
                       {rep.status === 'dismissed' && (
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/10 text-white/50 border border-white/20 font-bold">
-                          ĐÃ BỎ QUA
+                          ĐÃ BỠ QUA
                         </span>
                       )}
                     </div>
                   </div>
 
-                  <div className="p-3 bg-red-500/5 border border-red-500/15 rounded-xl text-xs text-red-300">
+                  {/* Category chip (chỉ Order Report) */}
+                  {catInfo && (
+                    <div
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-semibold"
+                      style={{
+                        background: 'rgba(217,119,6,0.08)',
+                        color: 'rgba(251,191,36,0.9)',
+                        border: '1px solid rgba(217,119,6,0.2)',
+                      }}
+                    >
+                      <span>{catInfo.emoji}</span>
+                      <span>{catInfo.label}</span>
+                    </div>
+                  )}
+
+                  <div
+                    className="p-3 border rounded-xl text-xs"
+                    style={{
+                      background: rep.isBuyerReport
+                        ? 'rgba(217,119,6,0.05)'
+                        : 'rgba(239,68,68,0.05)',
+                      borderColor: rep.isBuyerReport
+                        ? 'rgba(217,119,6,0.15)'
+                        : 'rgba(239,68,68,0.15)',
+                      color: rep.isBuyerReport
+                        ? 'rgba(251,191,36,0.85)'
+                        : 'rgba(252,165,165,1)',
+                    }}
+                  >
                     <span className="text-white/40 block mb-0.5 font-medium">
-                      Lý do báo cáo:
+                      {rep.isBuyerReport ? 'Mô tả vấn đề:' : 'Lý do báo cáo:'}
                     </span>
                     <p className="font-semibold leading-relaxed">
-                      ${rep.reason}
+                      {rep.reason}
                     </p>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/40 font-medium">
                     <span>
                       ID Bài đăng:{' '}
-                      <span className="font-mono">${post._id || 'N/A'}</span>
+                      <span className="font-mono">{post._id || 'N/A'}</span>
                     </span>
                     <span>•</span>
-                    <span>Gửi lúc: ${formatTime(rep.createdAt)}</span>
+                    <span>Gửi lúc: {formatTime(rep.createdAt)}</span>
+                    {rep.purchasedAt && (
+                      <>
+                        <span>•</span>
+                        <span className="text-amber-500/60">
+                          Mua ngày: {formatTime(rep.purchasedAt)}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -8387,7 +8819,7 @@ const AdminPage = () => {
           </motion.div>
 
           {/* Tabs */}
-          <div className="flex gap-1 mb-6 bg-surface-50 p-1 rounded-2xl border border-white/10 w-fit flex-wrap">
+          <div className="flex gap-1 mb-6 bg-surface-50 p-1 rounded-2xl border border-white/10 w-full flex-nowrap overflow-x-auto no-scrollbar">
             {TABS.map(({ key, label, Icon }) => (
               <button
                 key={key}
@@ -8408,7 +8840,7 @@ const AdminPage = () => {
                   }
                   setActiveTab(key)
                 }}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all
+                className={`flex-1 flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap
                   ${activeTab === key ? 'bg-brand-600 text-white shadow-[0_0_20px_rgba(124,58,237,0.3)]' : 'text-white/50 hover:text-white/80'}`}
               >
                 <Icon size={16} />

@@ -22,6 +22,8 @@ import {
   toggleBookmark,
   trackView,
   reportPost,
+  orderReportPost,
+  refundPostPurchase,
 } from '../controllers/post.interaction.controller.js'
 import {
   createComment,
@@ -143,6 +145,12 @@ router.post('/:id/view', optionalAuth, trackView)
 
 /** POST /posts/:id/report — Báo cáo bài đăng vi phạm */
 router.post('/:id/report', authenticate, reportPost)
+
+/** POST /posts/:id/order-report — Báo cáo sau khi đã mua (chỉ buyer, trong 3 ngày) */
+router.post('/:id/order-report', authenticate, orderReportPost)
+
+/** POST /posts/:id/refund — Yêu cầu hoàn tác (refund) giao dịch mua ảnh */
+router.post('/:id/refund', authenticate, refundPostPurchase)
 
 // =====================
 // COMMENTS

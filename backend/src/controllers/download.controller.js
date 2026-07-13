@@ -57,12 +57,19 @@ export const downloadPost = async (req, res, next) => {
         const user = await User.findById(userId)
         if (!user) throw new AppError('UNAUTHORIZED', 'Người dùng không tồn tại', 401)
 
-        const priorPurchase = await VndTransaction.findOne({
+        const purchases = await VndTransaction.find({
           userId,
           type: 'purchase_post',
           relatedPostId: postId,
           fileType: 'bundle'
         })
+        const refunds = await VndTransaction.find({
+          userId,
+          type: 'refund',
+          relatedPostId: postId,
+          fileType: 'bundle'
+        })
+        const priorPurchase = purchases.length > refunds.length ? purchases[0] : null
 
         // Chỉ tính tiền và trừ số dư nếu chưa mua bundle trước đó và vẫn còn ảnh chưa sở hữu lẻ
         if (!priorPurchase && unownedCount > 0) {
@@ -198,6 +205,7 @@ export const downloadPost = async (req, res, next) => {
 
     // ─── Premium: kiểm tra và thanh toán bằng VNĐ (Ledger-based / ACID) ──
     let purchaseCompleted = false
+    const price = post.priceInVnd || 20000
 
     if (post.isPremium && !isOwner) {
       const WalletService = (await import('../services/WalletService.js')).default
@@ -205,16 +213,21 @@ export const downloadPost = async (req, res, next) => {
       const user = await User.findById(userId)
       if (!user) throw new AppError('UNAUTHORIZED', 'Người dùng không tồn tại', 401)
 
-      const price = post.priceInVnd || 20000
-
       // Kiểm tra xem đã mua ảnh cụ thể này của bài viết trước đó chưa (nếu đã mua rồi thì cho phép tải lại miễn phí)
       const VndTransaction = (await import('../models/VndTransaction.model.js')).default
-      const priorPurchase = await VndTransaction.findOne({
+      const purchases = await VndTransaction.find({
         userId,
         type: 'purchase_post',
         relatedPostId: postId,
-        fileType: { $in: [fileType, 'bundle'] } // bundle bao gồm tất cả ảnh trong collection
+        fileType: { $in: [fileType, 'bundle'] }
       })
+      const refunds = await VndTransaction.find({
+        userId,
+        type: 'refund',
+        relatedPostId: postId,
+        fileType: { $in: [fileType, 'bundle'] }
+      })
+      const priorPurchase = purchases.length > refunds.length ? purchases[0] : null
 
       if (!priorPurchase && user.vndBalance < price) {
         return res.status(402).json({
@@ -389,7 +402,6 @@ export const downloadPost = async (req, res, next) => {
         }).catch(err => console.error(err))
       }
 
-      const price = post.priceInVnd || 20000
       res.json({
         downloadUrl,
         filename: finalFilename,

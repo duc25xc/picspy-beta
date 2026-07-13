@@ -196,11 +196,19 @@ const NotificationPanel = () => {
         if (postId) navigate(`/posts/${postId}`)
         break
       case 'ADMIN_NEW_POST':
+        navigate('/admin?tab=posts')
+        break
       case 'ADMIN_NEW_USER':
+        navigate('/admin?tab=users')
+        break
       case 'ADMIN_NEW_WITHDRAW':
+        navigate('/admin?tab=withdrawals')
+        break
       case 'ADMIN_NEW_REPORT':
+        navigate('/admin?tab=reports')
+        break
       case 'ADMIN_STATS_SUMMARY':
-        navigate('/admin')
+        navigate('/admin?tab=dashboard')
         break
       default:
         break

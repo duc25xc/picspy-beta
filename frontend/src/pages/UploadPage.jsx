@@ -44,6 +44,7 @@ import {
   IoLanguage,
 } from 'react-icons/io5'
 import api from '../api/api'
+import useAuthStore from '../store/auth.store'
 import useTierAccess from '../hooks/useTierAccess'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import {
@@ -85,6 +86,7 @@ const defaultForm = () => ({
 export default function UploadPage() {
   const navigate = useNavigate()
   const tierAccess = useTierAccess()
+  const updateUser = useAuthStore((s) => s.updateUser)
 
   const [uploadType, setUploadType] = useState('ai') // 'ai' or 'digital'
   const [hasLut, setHasLut] = useState(false)
@@ -714,7 +716,6 @@ export default function UploadPage() {
     if (uploadType === 'digital') {
       fd.append('isCollection', String(isCollection))
     }
-
 
     if (dims.resolution) fd.append('resolution', dims.resolution)
     if (dims.orientation) fd.append('orientation', dims.orientation)
@@ -1974,7 +1975,12 @@ function Step3Generated({
 
 // ── STYLE OPTIONS CONSTANT FOR METADATA SUGGESTIONS ────────────────
 const STYLE_OPTIONS = [
-  { key: 'gioi_tre_y2k', label: 'Giới trẻ Y2K', shortLabel: 'Y2K', icon: <IoFlash className="text-yellow-400" size={13} /> },
+  {
+    key: 'gioi_tre_y2k',
+    label: 'Giới trẻ Y2K',
+    shortLabel: 'Y2K',
+    icon: <IoFlash className="text-yellow-400" size={13} />,
+  },
   {
     key: 'tho_mong',
     label: 'Thơ mộng thả thính',
@@ -1987,15 +1993,30 @@ const STYLE_OPTIONS = [
     shortLabel: 'Hài hước',
     icon: <IoChatbubbleEllipses className="text-sky-400" size={13} />,
   },
-  { key: 'ngau', label: 'Ngầu cá tính', shortLabel: 'Ngầu', icon: <IoFlame className="text-orange-500" size={13} /> },
+  {
+    key: 'ngau',
+    label: 'Ngầu cá tính',
+    shortLabel: 'Ngầu',
+    icon: <IoFlame className="text-orange-500" size={13} />,
+  },
   {
     key: 'sau_lang',
     label: 'Sâu lắng sâu sắc',
     shortLabel: 'Sâu sắc',
     icon: <IoLeaf className="text-emerald-400" size={13} />,
   },
-  { key: 'buon', label: 'Buồn - Cô đơn', shortLabel: 'Buồn', icon: <IoWater className="text-blue-400" size={13} /> },
-  { key: 'tet_le', label: 'Tết - Lễ - Noel', shortLabel: 'Tết/Lễ', icon: <IoGift className="text-red-400" size={13} /> },
+  {
+    key: 'buon',
+    label: 'Buồn - Cô đơn',
+    shortLabel: 'Buồn',
+    icon: <IoWater className="text-blue-400" size={13} />,
+  },
+  {
+    key: 'tet_le',
+    label: 'Tết - Lễ - Noel',
+    shortLabel: 'Tết/Lễ',
+    icon: <IoGift className="text-red-400" size={13} />,
+  },
   {
     key: 'dong_luc',
     label: 'Động lực học tập',
@@ -2014,7 +2035,12 @@ const STYLE_OPTIONS = [
     shortLabel: 'Tình bạn',
     icon: <IoHeart className="text-red-500" size={13} />,
   },
-  { key: 'do_an', label: 'Đăng ảnh đồ ăn', shortLabel: 'Đồ ăn', icon: <IoPizza className="text-amber-500" size={13} /> },
+  {
+    key: 'do_an',
+    label: 'Đăng ảnh đồ ăn',
+    shortLabel: 'Đồ ăn',
+    icon: <IoPizza className="text-amber-500" size={13} />,
+  },
   {
     key: 'du_lich',
     label: 'Du lịch dã ngoại',
@@ -2056,6 +2082,7 @@ function Step4Meta({
   const [aiLoading, setAiLoading] = useState(false)
   const tierAccess = useTierAccess()
   const isUltimate = tierAccess?.tier === 'ultimate'
+  const updateUser = useAuthStore((s) => s.updateUser)
 
   // Custom AI Meta generation states
   const [selectedStyle, setSelectedStyle] = useState(() => {
@@ -2141,6 +2168,10 @@ function Step4Meta({
           tags: data.tags.join(', '),
           styleKey: targetStyle,
         })
+
+        if (data.remainingTokens !== undefined) {
+          updateUser({ tokenBalance: data.remainingTokens })
+        }
 
         toast.success(
           `Đã tự động gợi ý mô tả và tags! (Tiêu tốn ${data.tokensCost} token)`
@@ -2753,7 +2784,9 @@ function Step1DigitalImage({
 
       {/* Upload Mode Selector */}
       <div className="space-y-2">
-        <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">Chế độ hiển thị ảnh</label>
+        <label className="text-xs font-semibold text-white/50 uppercase tracking-wider block">
+          Chế độ hiển thị ảnh
+        </label>
         <div className="grid grid-cols-3 gap-2 p-1 bg-white/5 border border-white/8 rounded-2xl">
           <button
             type="button"
@@ -2767,7 +2800,7 @@ function Step1DigitalImage({
             <ImageIcon size={13} />
             <span>Một ảnh duy nhất</span>
           </button>
-          
+
           <button
             type="button"
             onClick={() => {

@@ -71,7 +71,33 @@ export const getPostDetail = async (req, res, next) => {
         relatedPostId: post._id,
         walletType: 'available'
       }).select('fileType').lean()
-      purchasedFileTypes = txns.map(t => t.fileType || 'original')
+
+      const refundTxns = await VndTransaction.find({
+        userId: req.user._id,
+        type: 'refund',
+        relatedPostId: post._id,
+      }).select('fileType').lean()
+
+      // Count refunds per fileType
+      const refundCounts = {}
+      for (const r of refundTxns) {
+        const ft = r.fileType || 'original'
+        refundCounts[ft] = (refundCounts[ft] || 0) + 1
+      }
+
+      // Count buys per fileType
+      const buyCounts = {}
+      for (const t of txns) {
+        const ft = t.fileType || 'original'
+        buyCounts[ft] = (buyCounts[ft] || 0) + 1
+      }
+
+      // User owns the fileType if buyCount > refundCount
+      purchasedFileTypes = Object.keys(buyCounts).filter(ft => {
+        const buys = buyCounts[ft] || 0
+        const refunds = refundCounts[ft] || 0
+        return buys > refunds
+      })
     }
 
     res.json({
@@ -392,6 +418,140 @@ export const reportPost = async (req, res, next) => {
     res.json({
       success: true,
       message: 'Báo cáo vi phạm thành công. Ban quản trị sẽ kiểm duyệt bài viết này.',
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /posts/:id/order-report — Báo cáo sau khi đã mua ảnh (Order Report)
+ *
+ * Điều kiện:
+ * 1. User phải đã mua ảnh này (có VndTransaction type=purchase_post)
+ * 2. Chỉ được báo cáo trong vòng 3 ngày kể từ ngày mua
+ * 3. Mỗi user chỉ được báo cáo 1 lần / post (dùng chung unique index)
+ */
+export const orderReportPost = async (req, res, next) => {
+  try {
+    const { id: postId } = req.params
+    const reporterId = req.user._id
+    const { reason, reportCategory } = req.body
+
+    if (!reason || !reason.trim()) {
+      throw new AppError('BAD_REQUEST', 'Vui lòng mô tả vấn đề bạn gặp phải', 400)
+    }
+
+    const post = await Post.findById(postId)
+    if (!post) {
+      throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại', 404)
+    }
+
+    // Tìm giao dịch mua ảnh (lấy giao dịch sớm nhất để tính thời gian)
+    const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+    const purchaseTxn = await VndTransaction.findOne({
+      userId: reporterId,
+      type: 'purchase_post',
+      relatedPostId: postId,
+      walletType: 'available',
+    }).sort({ createdAt: 1 }).lean()
+
+    if (!purchaseTxn) {
+      throw new AppError(
+        'FORBIDDEN',
+        'Bạn chưa mua ảnh này. Chỉ người mua mới có thể gửi Order Report.',
+        403
+      )
+    }
+
+    // Kiểm tra cửa sổ 3 ngày
+    const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+    const purchasedAt = new Date(purchaseTxn.createdAt)
+    const now = new Date()
+    if (now - purchasedAt > THREE_DAYS_MS) {
+      throw new AppError(
+        'FORBIDDEN',
+        'Thời hạn Order Report (3 ngày kể từ ngày mua) đã hết.',
+        403
+      )
+    }
+
+    // Check if already reported (buyer report or regular — cùng unique index)
+    const existing = await Report.findOne({ reporterId, postId })
+    if (existing) {
+      throw new AppError('CONFLICT', 'Bạn đã gửi báo cáo cho bài đăng này rồi.', 409)
+    }
+
+    const validCategories = [
+      'payment_error',
+      'double_payment',
+      'no_file',
+      'creator_violation',
+      'wrong_description',
+      'dmca',
+      'other',
+    ]
+
+    await Report.create({
+      reporterId,
+      postId,
+      reason: reason.trim(),
+      isBuyerReport: true,
+      reportCategory: validCategories.includes(reportCategory) ? reportCategory : 'other',
+      purchasedAt,
+    })
+
+    // Thông báo admin — đánh dấu rõ đây là Order Report
+    const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
+    await triggerAdminNotificationEvent({
+      type: 'ADMIN_NEW_REPORT',
+      actorId: reporterId,
+      targetId: postId,
+      targetModel: 'Post',
+      metadata: {
+        postId,
+        message: `🛍 Order Report từ buyer @${req.user.username}: "${reason.trim()}"`,
+      },
+    }).catch(err => console.error(err))
+
+    res.json({
+      success: true,
+      message: 'Order Report đã được gửi. Ban quản trị sẽ xem xét và liên hệ với bạn.',
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /posts/:id/refund — Yêu cầu hoàn tác (refund) giao dịch mua ảnh
+ */
+export const refundPostPurchase = async (req, res, next) => {
+  try {
+    const { id: postId } = req.params
+    const { fileType = 'original' } = req.body
+    const buyerId = req.user._id
+
+    // 1. Kiểm tra cấu hình xem Refund có được bật trong Settings không
+    const Settings = (await import('../models/Settings.model.js')).default
+    const settings = await Settings.getSingleton()
+    if (!settings.enableRefund) {
+      throw new AppError('FORBIDDEN', 'Chức năng hoàn tiền (Refund) đã bị vô hiệu hóa bởi Admin.', 403)
+    }
+
+    // 2. Thực hiện hoàn tiền qua WalletService
+    const WalletService = (await import('../services/WalletService.js')).default
+    const result = await WalletService.refundPurchase({
+      buyerId,
+      postId,
+      fileType,
+      reason: 'Người dùng tự yêu cầu hoàn tác đơn hàng',
+    })
+
+    res.json({
+      success: true,
+      amount: result.amount,
+      message: `Hoàn tác thành công. Số tiền ${result.amount.toLocaleString('vi-VN')} VNĐ đã được hoàn lại vào ví khả dụng.`,
     })
   } catch (err) {
     next(err)

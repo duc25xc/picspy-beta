@@ -1,13 +1,6 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import {
-  Download,
-  Lock,
-  Loader2,
-  CheckCircle2,
-  Images,
-  Package,
-} from 'lucide-react'
+import { Download, Lock, Loader2, CheckCircle2, Images, Package } from 'lucide-react'
 import api from '../../api/api'
 import useAuthStore from '../../store/auth.store'
 import toast from 'react-hot-toast'
@@ -46,57 +39,21 @@ const DownloadButton = ({
   const [dropdownOpen, setDropdownOpen] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState('original')
 
-  // ── Local purchased state — tracks ownership within this session ──────────
-  //
-  // CRITICAL DESIGN:
-  //   • Initialized from server-provided post.purchasedFileTypes on mount
-  //   • After a successful purchase we ADD the fileType here immediately
-  //     so the button shows "Đã sở hữu" without a page reload
-  //   • We NEVER shrink this set during the session (refund requires navigation)
-  //   • We ONLY reset this set when the user switches to a DIFFERENT post
-  //     (postId changes) — prevents refreshMe() re-renders from wiping state
-  //
-  const [localPurchasedTypes, setLocalPurchasedTypes] = useState(
-    () => post?.purchasedFileTypes || []
-  )
-  // Ref keeps the latest value so setTimeout callbacks never read stale state
-  const localPurchasedTypesRef = useRef(localPurchasedTypes)
-  useEffect(() => { localPurchasedTypesRef.current = localPurchasedTypes }, [localPurchasedTypes])
+  // ── Local purchased state (persists within this component session) ──
+  const [localPurchasedTypes, setLocalPurchasedTypes] = useState(() => post?.purchasedFileTypes || [])
 
-  const trackedPostIdRef = useRef(postId)
-
+  // Sync localPurchasedTypes when post.purchasedFileTypes changes (e.g. parent re-fetches)
   useEffect(() => {
-    const serverTypes = post?.purchasedFileTypes || []
-
-    if (trackedPostIdRef.current !== postId) {
-      // Different post → full reset from server data
-      console.log('[DownloadButton] postId changed → resetting purchasedTypes', { postId, serverTypes })
-      trackedPostIdRef.current = postId
-      setLocalPurchasedTypes(serverTypes)
-    } else {
-      // Same post → MERGE only (never shrink). This ensures refreshMe() re-renders
-      // or parent re-renders can only ADD server-known purchases, never remove local ones.
-      setLocalPurchasedTypes((prev) => {
-        if (serverTypes.length === 0) return prev // server returned nothing new — keep local
-        const merged = Array.from(new Set([...prev, ...serverTypes]))
-        if (merged.length === prev.length) return prev // no change — skip re-render
-        console.log('[DownloadButton] merging server purchasedTypes into local', { prev, serverTypes, merged })
-        return merged
-      })
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [postId, post?.purchasedFileTypes])
+    setLocalPurchasedTypes(post?.purchasedFileTypes || [])
+  }, [post?.purchasedFileTypes])
 
   // Creator owns this post — treat as already purchased for all file types
-  const isOwner =
-    !!user &&
-    !!post?.authorId &&
+  const isOwner = !!user && !!post?.authorId &&
     (user._id === post.authorId || user._id === post.authorId?._id)
 
   // ── Collection detection ─────────────────────────────────────
-  const isCollection =
-    !!post?.isCollection && (post?.generatedImages?.length || 0) > 1
-  const collectionImages = isCollection ? post.generatedImages || [] : []
+  const isCollection = !!post?.isCollection && (post?.generatedImages?.length || 0) > 1
+  const collectionImages = isCollection ? (post.generatedImages || []) : []
   const collectionCount = collectionImages.length
 
   // Use local state so the button reflects purchase immediately after download
@@ -125,7 +82,10 @@ const DownloadButton = ({
   const getAvailableFileTypes = () => {
     if (isCollection) {
       // For collections: each image is gen_0, gen_1, ..., plus 'bundle'
-      return [...collectionImages.map((_, idx) => `gen_${idx}`), 'bundle']
+      return [
+        ...collectionImages.map((_, idx) => `gen_${idx}`),
+        'bundle',
+      ]
     }
     const types = ['original']
     if (post?.modelComparisons?.length) {
@@ -155,13 +115,7 @@ const DownloadButton = ({
     if (isOwner) return true
     if (purchasedTypes.includes('bundle')) return true // bundle covers all
     if (ft === 'bundle') {
-      return (
-        purchasedTypes.includes('bundle') ||
-        (collectionCount > 0 &&
-          collectionImages.every((_, idx) =>
-            purchasedTypes.includes(`gen_${idx}`)
-          ))
-      )
+      return purchasedTypes.includes('bundle') || (collectionCount > 0 && collectionImages.every((_, idx) => purchasedTypes.includes(`gen_${idx}`)))
     }
     return purchasedTypes.includes(ft)
   }
@@ -169,21 +123,11 @@ const DownloadButton = ({
   // Owner always treated as having purchased everything
   const isAllPurchased =
     isOwner ||
-    (isPremium &&
-      (isCollection
+    (isPremium && (
+      isCollection
         ? isTypePurchased('bundle')
-        : availableTypes.every((type) => purchasedTypes.includes(type))))
-
-  // Debug log — helps trace when isAllPurchased flips unexpectedly
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[DownloadButton] render', {
-      postId,
-      isAllPurchased,
-      purchasedTypes,
-      isOwner,
-      'post.purchasedFileTypes': post?.purchasedFileTypes,
-    })
-  }
+        : availableTypes.every((type) => purchasedTypes.includes(type))
+    ))
 
   // ── Download individual file ─────────────────────────────────
   const doDownload = async (fileType = selectedFileType) => {
@@ -194,9 +138,7 @@ const DownloadButton = ({
 
       // ─── Bundle: download multiple files sequentially ──────────
       if (data.isBundle && data.downloadItems) {
-        toast.success(`Đang tải ${data.downloadItems.length} ảnh...`, {
-          duration: 3000,
-        })
+        toast.success(`Đang tải ${data.downloadItems.length} ảnh...`, { duration: 3000 })
         for (const item of data.downloadItems) {
           await downloadFile(item.downloadUrl, item.filename)
           await new Promise((r) => setTimeout(r, 300)) // small delay between downloads
@@ -204,21 +146,21 @@ const DownloadButton = ({
         setDone(true)
         setTimeout(() => setDone(false), 4000)
         if (data.vndSpent > 0) {
-          // Mark bundle as purchased locally BEFORE anything else
-          setLocalPurchasedTypes((prev) => {
-            const updated = [...prev]
-            if (!updated.includes('bundle')) updated.push('bundle')
-            collectionImages.forEach((_, idx) => {
-              if (!updated.includes(`gen_${idx}`)) updated.push(`gen_${idx}`)
-            })
-            console.log('[DownloadButton] bundle purchased → localPurchasedTypes:', updated)
-            return updated
-          })
-          onPurchased?.('bundle')
           toast.success(
             `Mua thành công cả bộ sưu tập! Đã trừ ${data.vndSpent.toLocaleString('vi-VN')}đ`,
             { duration: 5000 }
           )
+          // Mark bundle as purchased locally so button reflects new ownership
+          setLocalPurchasedTypes((prev) => {
+            const updated = [...prev]
+            if (!updated.includes('bundle')) updated.push('bundle')
+            // Also add each gen_N if not present
+            collectionImages.forEach((_, idx) => {
+              if (!updated.includes(`gen_${idx}`)) updated.push(`gen_${idx}`)
+            })
+            return updated
+          })
+          onPurchased?.('bundle')
           await refreshMe()
         } else {
           toast.success(`Đã tải ${data.downloadItems.length} ảnh thành công!`)
@@ -233,9 +175,7 @@ const DownloadButton = ({
         if (!filename) {
           filename = `picspy-${postId}`
           if (fileType === 'original' || fileType.startsWith('gen_')) {
-            const idx = fileType.startsWith('gen_')
-              ? parseInt(fileType.replace('gen_', ''))
-              : 0
+            const idx = fileType.startsWith('gen_') ? parseInt(fileType.replace('gen_', '')) : 0
             const img = post?.generatedImages?.[idx]
             filename += img?.format ? `.${img.format}` : '.jpg'
           } else if (fileType.startsWith('comp_')) {
@@ -250,65 +190,45 @@ const DownloadButton = ({
           } else if (fileType === 'raw' && post?.rawFile?.originalName) {
             filename = post.rawFile.originalName
           } else if (fileType === 'raw') {
-            filename += post.rawFile?.format
-              ? `.${post.rawFile.format}`
-              : '.raw'
+            filename += post.rawFile?.format ? `.${post.rawFile.format}` : '.raw'
           } else if (fileType === 'color' && post?.colorFile?.originalName) {
             filename = post.colorFile.originalName
           } else if (fileType === 'color') {
-            filename += post.colorFile?.format
-              ? `.${post.colorFile.format}`
-              : '.lut'
+            filename += post.colorFile?.format ? `.${post.colorFile.format}` : '.lut'
           }
         }
 
         await downloadFile(data.downloadUrl, filename)
+        setDone(true)
+        setTimeout(() => setDone(false), 3000)
 
         // Call unlock callback
         onUnlock?.()
 
-        // ─── OWNERSHIP UPDATE ──────────────────────────────────────────
-        // A successful downloadUrl means user is entitled to this file.
-        // Update ownership state NOW regardless of vndSpent — this covers:
-        //   • New purchase  (vndSpent > 0)
-        //   • Re-download   (vndSpent = 0, alreadyPurchased: true)
-        //   • Token-based   (tokensSpent > 0)
-        if (isPremium && !isOwner) {
-          setLocalPurchasedTypes((prev) => {
-            if (prev.includes(fileType)) return prev
-            const next = [...prev, fileType]
-            console.log('[DownloadButton] premium download OK → marking owned:', { fileType, next, vndSpent: data.vndSpent, alreadyOwned: data.vndSpent === 0 && data.tokensSpent === 0 })
-            return next
-          })
-          // Notify parent so it can update its post state (profile tab etc.)
-          onPurchased?.(fileType)
-        }
-
-        // ─── TOAST + BALANCE SYNC ────────────────────────────────────
+        // Sync balance in navbar for both token and VNĐ deductions
         if (data.tokensSpent > 0) {
           toast.success(
-            `Mua thành công! Đã trừ ${data.tokensSpent} token.`,
+            `Mua thành công! Đã trừ ${data.tokensSpent} token. Đang chuẩn bị tệp...`,
             { duration: 4000 }
           )
           await refreshMe()
         } else if (data.vndSpent > 0) {
           toast.success(
-            `Mua thành công! Đã trừ ${data.vndSpent.toLocaleString('vi-VN')}đ.`,
+            `Mua thành công! Đã trừ ${data.vndSpent.toLocaleString('vi-VN')}đ. Đang chuẩn bị tệp...`,
             { duration: 4000 }
           )
-          // Refresh balance — localPurchasedTypes already updated above
+          // Update local purchased state immediately so button reflects new ownership
+          setLocalPurchasedTypes((prev) => {
+            if (prev.includes(fileType)) return prev
+            return [...prev, fileType]
+          })
+          // Notify parent so it can update its post state too
+          onPurchased?.(fileType)
           await refreshMe()
         } else {
-          // Re-download of already-owned file — no charge, no toast needed
+          toast.success('Đang chuẩn bị tệp tải xuống...')
         }
-
-        // Show done state AFTER all state updates are queued
-        setDone(true)
-        setTimeout(() => {
-          console.log('[DownloadButton] done timer fired. localPurchasedTypesRef.current:', localPurchasedTypesRef.current)
-          setDone(false)
-        }, 3000)
-      } // end if (data.downloadUrl)
+      }
     } catch (err) {
       const errData = err.response?.data
       if (err.response?.status === 402) {
@@ -332,8 +252,7 @@ const DownloadButton = ({
     const a = document.createElement('a')
     try {
       const response = await fetch(url)
-      if (!response.ok)
-        throw new Error('Network error or CORS restriction fetching file')
+      if (!response.ok) throw new Error('Network error or CORS restriction fetching file')
       const blob = await response.blob()
       const blobUrl = URL.createObjectURL(blob)
       a.href = blobUrl
@@ -343,10 +262,7 @@ const DownloadButton = ({
       document.body.removeChild(a)
       setTimeout(() => URL.revokeObjectURL(blobUrl), 100)
     } catch (fetchErr) {
-      console.error(
-        'Blob download failed, falling back to direct link',
-        fetchErr
-      )
+      console.error('Blob download failed, falling back to direct link', fetchErr)
       a.href = url
       a.download = filename
       a.target = '_blank'
@@ -411,34 +327,26 @@ const DownloadButton = ({
           {isBundleType ? (
             <Package size={14} className="text-amber-400 flex-shrink-0" />
           ) : (
-            <Download
-              size={14}
-              className="text-white/40 flex-shrink-0 group-hover:text-white/60"
-            />
+            <Download size={14} className="text-white/40 flex-shrink-0 group-hover:text-white/60" />
           )}
-          <span
-            className={`truncate ${isBundleType ? 'text-amber-300 font-semibold' : ''}`}
-          >
+          <span className={`truncate ${isBundleType ? 'text-amber-300 font-semibold' : ''}`}>
             {formatItemText(label, mediaItem)}
           </span>
         </div>
-        {isPremium &&
-          (purchased ? (
+        {isPremium && (
+          purchased ? (
             <span className="text-[9px] px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 font-semibold flex-shrink-0">
               Đã mua
             </span>
           ) : (
-            <span
-              className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0
-              ${
-                isBundleType
-                  ? 'bg-amber-500/20 text-amber-300'
-                  : 'bg-white/10 text-white/60'
-              }`}
-            >
+            <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold flex-shrink-0
+              ${isBundleType
+                ? 'bg-amber-500/20 text-amber-300'
+                : 'bg-white/10 text-white/60'}`}>
               {(price || priceInVnd).toLocaleString('vi-VN')}đ
             </span>
-          ))}
+          )
+        )}
       </button>
     )
   }
@@ -482,10 +390,7 @@ const DownloadButton = ({
                       className="flex items-center justify-between gap-3 w-full px-3 py-2.5 rounded-xl border border-green-500/20 hover:border-green-500/40 bg-green-500/5 hover:bg-green-500/10 mt-1 transition-all text-left group"
                     >
                       <div className="flex items-center gap-2 truncate">
-                        <Package
-                          size={14}
-                          className="text-green-400 flex-shrink-0"
-                        />
+                        <Package size={14} className="text-green-400 flex-shrink-0" />
                         <span className="text-green-300 font-bold text-xs truncate">
                           Tải toàn bộ sưu tập
                         </span>
@@ -504,10 +409,7 @@ const DownloadButton = ({
                     >
                       <div className="flex items-center justify-between w-full">
                         <div className="flex items-center gap-2 truncate">
-                          <Package
-                            size={14}
-                            className="text-amber-400 flex-shrink-0"
-                          />
+                          <Package size={14} className="text-amber-400 flex-shrink-0" />
                           <span className="text-amber-300 font-bold text-xs">
                             Mua cả bộ sưu tập (tiết kiệm 30%)
                           </span>
@@ -521,12 +423,11 @@ const DownloadButton = ({
                           </span>
                         </div>
                       </div>
-
+                      
                       <div className="text-[9px] text-white/35 flex items-center gap-1 mt-0.5">
                         <span>Chi tiết:</span>
                         <span className="font-medium text-white/50">
-                          {priceInVnd.toLocaleString('vi-VN')}đ × {unownedCount}{' '}
-                          ảnh chưa mua × 70%
+                          {priceInVnd.toLocaleString('vi-VN')}đ × {unownedCount} ảnh chưa mua × 70%
                         </span>
                       </div>
                     </button>
@@ -812,16 +713,7 @@ const DownloadButton = ({
 }
 
 /* ─── Confirm Purchase Dialog ───────────────────────────────── */
-const ConfirmModal = ({
-  open,
-  price,
-  balance,
-  onConfirm,
-  onCancel,
-  isBundle,
-  collectionCount,
-  loading,
-}) => (
+const ConfirmModal = ({ open, price, balance, onConfirm, onCancel, isBundle, collectionCount, loading }) => (
   <AnimatePresence>
     {open && (
       <motion.div
@@ -840,15 +732,9 @@ const ConfirmModal = ({
           className="relative bg-[#121225]/95 border border-white/10 rounded-[2rem] p-6 max-w-sm w-full shadow-2xl noise"
         >
           <div className="text-center mb-5">
-            <div
-              className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4
-              ${isBundle ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'}`}
-            >
-              {isBundle ? (
-                <Package size={24} className="stroke-[2]" />
-              ) : (
-                <Lock size={24} className="stroke-[2]" />
-              )}
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4
+              ${isBundle ? 'bg-amber-500/10 border border-amber-500/20 text-amber-400' : 'bg-amber-500/10 border border-amber-500/20 text-amber-400'}`}>
+              {isBundle ? <Package size={24} className="stroke-[2]" /> : <Lock size={24} className="stroke-[2]" />}
             </div>
             <h3 className="text-lg font-bold text-white mb-1">
               {isBundle ? 'Mua cả bộ sưu tập' : 'Xác nhận sở hữu'}
@@ -864,9 +750,7 @@ const ConfirmModal = ({
             {isBundle && (
               <div className="flex justify-between items-center py-1.5">
                 <span className="text-white/50 text-xs">Số ảnh</span>
-                <span className="text-white/80 font-bold text-xs">
-                  {collectionCount} ảnh
-                </span>
+                <span className="text-white/80 font-bold text-xs">{collectionCount} ảnh</span>
               </div>
             )}
             <div className="flex justify-between items-center py-1.5 border-t border-white/5 first:border-0">
@@ -907,9 +791,7 @@ const ConfirmModal = ({
               disabled={loading}
               className="w-1/2 py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-neutral-950 font-black text-xs uppercase tracking-wider shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:from-amber-400 hover:to-yellow-400 transition-all cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading && (
-                <Loader2 size={13} className="animate-spin text-neutral-950" />
-              )}
+              {loading && <Loader2 size={13} className="animate-spin text-neutral-950" />}
               <span>Xác nhận</span>
             </motion.button>
           </div>

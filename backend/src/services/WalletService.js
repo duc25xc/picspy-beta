@@ -127,15 +127,24 @@ class WalletService {
       }
 
       // 3. Kiểm tra xem người dùng đã mua ảnh cụ thể này của bài viết chưa
-      const priorPurchase = await VndTransaction.findOne({
+      const purchases = await VndTransaction.find({
         userId: buyerId,
         type: 'purchase_post',
         relatedPostId: postId,
         fileType: fileType === 'bundle' ? 'bundle' : { $in: [fileType, 'bundle'] }
       }).session(session)
 
+      const refunds = await VndTransaction.find({
+        userId: buyerId,
+        type: 'refund',
+        relatedPostId: postId,
+        fileType: fileType === 'bundle' ? 'bundle' : { $in: [fileType, 'bundle'] }
+      }).session(session)
+
+      const priorPurchase = purchases.length > refunds.length ? purchases[0] : null
+
       if (priorPurchase) {
-        console.log(`[WalletService DEBUG] Prior purchase found: transactionId=${priorPurchase._id}`)
+        console.log(`[WalletService DEBUG] Prior purchase found and active: transactionId=${priorPurchase._id}`)
         return { alreadyPurchased: true }
       }
 
@@ -321,29 +330,38 @@ class WalletService {
    */
   static async refundPurchase({ buyerId, postId, fileType = 'original', reason }) {
     return runInTransaction(async (session) => {
-      // 1. Kiểm tra xem người mua đã mua chưa và có giao dịch hay không
+      // 1. Đếm số lượng giao dịch mua và hoàn tiền để kiểm tra quyền hoàn tiền
+      const queryFileType = fileType === 'original' ? { $in: ['original', null, undefined] } : fileType
+
+      const purchaseCount = await VndTransaction.countDocuments({
+        userId: buyerId,
+        type: 'purchase_post',
+        relatedPostId: postId,
+        fileType: queryFileType
+      }).session(session)
+
+      if (purchaseCount === 0) {
+        throw new AppError('NOT_FOUND', 'Không tìm thấy giao dịch mua ảnh này để hoàn tiền', 404)
+      }
+
+      const refundCount = await VndTransaction.countDocuments({
+        userId: buyerId,
+        type: 'refund',
+        relatedPostId: postId,
+        fileType: queryFileType
+      }).session(session)
+
+      if (refundCount >= purchaseCount) {
+        throw new AppError('BAD_REQUEST', 'Giao dịch này đã được hoàn tiền trước đó', 400)
+      }
+
+      // Lấy giao dịch mua gần nhất để hoàn trả đúng số tiền
       const purchaseTxn = await VndTransaction.findOne({
         userId: buyerId,
         type: 'purchase_post',
         relatedPostId: postId,
-        fileType: fileType
-      }).session(session)
-
-      if (!purchaseTxn) {
-        throw new AppError('NOT_FOUND', 'Không tìm thấy giao dịch mua ảnh này để hoàn tiền', 404)
-      }
-
-      // Xem đã có giao dịch hoàn tiền chưa
-      const priorRefund = await VndTransaction.findOne({
-        userId: buyerId,
-        type: 'refund',
-        relatedPostId: postId,
-        fileType: fileType
-      }).session(session)
-
-      if (priorRefund) {
-        throw new AppError('BAD_REQUEST', 'Giao dịch này đã được hoàn tiền trước đó', 400)
-      }
+        fileType: queryFileType
+      }).sort({ createdAt: -1 }).session(session)
 
       const price = Math.abs(purchaseTxn.amount)
 
@@ -369,7 +387,7 @@ class WalletService {
         balanceAfter: buyerAfter,
         walletType: 'available',
         relatedPostId: postId,
-        fileType: fileType,
+        fileType: fileType, // keep original fileType for log
         description: `Hoàn tiền tự động mua ảnh Premium (${fileType}): ${reason || 'Sự cố hệ thống'}`,
       }], { session })
 
@@ -377,27 +395,43 @@ class WalletService {
       const holdTxn = await VndTransaction.findOne({
         type: 'earn_hold',
         relatedPostId: postId,
-        fileType: fileType,
-        relatedUserId: buyerId,
-        isHoldReleased: false
+        fileType: queryFileType,
+        relatedUserId: buyerId
       }).session(session)
 
-      if (holdTxn) {
-        // Đánh dấu hold này đã bị hủy/thu hồi
-        holdTxn.isHoldReleased = true
-        await holdTxn.save({ session })
+      let creatorId = null
+      let deductAmount = 0
 
-        const creator = await User.findById(holdTxn.userId).session(session)
+      if (holdTxn) {
+        creatorId = holdTxn.userId
+        deductAmount = holdTxn.amount
+        if (!holdTxn.isHoldReleased) {
+          holdTxn.isHoldReleased = true
+          await holdTxn.save({ session })
+        }
+      } else {
+        const post = await Post.findById(postId).session(session)
+        if (post && post.authorId.toString() !== buyerId.toString()) {
+          creatorId = post.authorId
+          const Settings = (await import('../models/Settings.model.js')).default
+          const settings = await Settings.getSingleton()
+          const sharePercent = settings.creatorSharePercent || 70
+          deductAmount = Math.floor(price * (sharePercent / 100))
+        }
+      }
+
+      if (creatorId && deductAmount > 0) {
+        const creator = await User.findById(creatorId).session(session)
         if (creator) {
           const holdBefore = creator.holdingBalance || 0
-          const holdAfter = Math.max(0, holdBefore - holdTxn.amount)
+          const holdAfter = holdBefore - deductAmount
 
           await User.findOneAndUpdate(
-            { _id: holdTxn.userId },
+            { _id: creatorId },
             { 
               $inc: { 
-                holdingBalance: -holdTxn.amount,
-                totalEarned: -holdTxn.amount
+                holdingBalance: -deductAmount,
+                totalEarned: -deductAmount
               } 
             },
             { new: true, session }
@@ -405,9 +439,9 @@ class WalletService {
 
           // Ghi nhận dòng thu hồi trong sổ cái creator
           await VndTransaction.create([{
-            userId: holdTxn.userId,
+            userId: creatorId,
             type: 'refund_creator_hold',
-            amount: -holdTxn.amount,
+            amount: -deductAmount,
             balanceBefore: holdBefore,
             balanceAfter: holdAfter,
             walletType: 'holding',

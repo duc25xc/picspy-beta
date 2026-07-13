@@ -1,6 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
-import { motion, AnimatePresence } from 'framer-motion' // eslint-disable-line no-unused-vars
+import { motion, AnimatePresence } from 'framer-motion'
 import {
   Heart,
   Download,
@@ -16,6 +17,10 @@ import {
   Loader2,
   Camera,
   Film,
+  ShoppingBag,
+  Flag,
+  Clock,
+  ArrowUpRight,
 } from 'lucide-react'
 import { IoImages, IoSparkles } from 'react-icons/io5'
 import { GiCutDiamond } from 'react-icons/gi'
@@ -26,6 +31,8 @@ import ConfirmModal from '../components/common/ConfirmModal'
 import toast from 'react-hot-toast'
 import EditProfileModal from '../components/profile/EditProfileModal'
 import FollowListModal from '../components/profile/FollowListModal'
+import OrderReportModal from '../components/common/OrderReportModal'
+import { useSettings } from '../context/SettingsContext'
 
 // ─── Tier config (đồng bộ với useTierAccess + AdminPage) ────────
 const TIER_META = {
@@ -114,6 +121,15 @@ const TierBadge = ({ tier }) => {
   )
 }
 
+// ─── Helper: tính ngày còn lại trong cửa sổ 3 ngày ──────────────
+const orderReportDaysLeft = (purchasedAt) => {
+  if (!purchasedAt) return 0
+  const THREE_DAYS_MS = 3 * 24 * 60 * 60 * 1000
+  const elapsed = Date.now() - new Date(purchasedAt).getTime()
+  const remaining = THREE_DAYS_MS - elapsed
+  return Math.max(0, Math.ceil(remaining / (1000 * 60 * 60 * 24)))
+}
+
 // ─── Profile Page ────────────────────────────────────────────────
 const ProfilePage = () => {
   const { username } = useParams()
@@ -128,15 +144,35 @@ const ProfilePage = () => {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
-  const [activeTab, setActiveTab] = useState('posts')
   const [avatarError, setAvatarError] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
   const [showFollowModal, setShowFollowModal] = useState(false)
   const [followModalType, setFollowModalType] = useState('followers') // 'followers' | 'following'
-  
+  // ── Order Report modal ─────────────────────────────────────────
+  const [orderReportTarget, setOrderReportTarget] = useState(null) // { post, purchasedAt }
+
+  // ── Refund settings and modal state ────────────────────────────
+  const { enableRefund } = useSettings()
+  const [showRefundConfirm, setShowRefundConfirm] = useState(false)
+  const [refundTarget, setRefundTarget] = useState(null)
+  const [refundLoading, setRefundLoading] = useState(false)
+
   const [searchParams, setSearchParams] = useSearchParams()
   const showEdit = searchParams.get('edit') === 'true'
-  const editTab = searchParams.get('tab') || 'info'
+  // 'editsubtab' drives EditProfileModal's internal tab (info | password)
+  const editTab = searchParams.get('editsubtab') || 'info'
+  // 'tab' drives the profile content grid (posts | bookmarks | purchases)
+  const urlTab = searchParams.get('tab')
+  const activeTab =
+    !showEdit && ['posts', 'bookmarks', 'purchases'].includes(urlTab)
+      ? urlTab
+      : 'posts'
+
+  const handleTabChange = (tabKey) => {
+    const nextParams = new URLSearchParams(searchParams)
+    nextParams.set('tab', tabKey)
+    setSearchParams(nextParams)
+  }
 
   const isOwnProfile = currentUser?.username === username
 
@@ -301,6 +337,30 @@ const ProfilePage = () => {
       }
     }
   }, [currentUser, navigate, isFollowing, followLoading, profile])
+
+  // ── Refund handling ─────────────────────────────────────────────
+  const handleRefundConfirm = async () => {
+    if (!refundTarget || refundLoading) return
+    setRefundLoading(true)
+    try {
+      const { data } = await api.post(`/posts/${refundTarget._id}/refund`, {
+        fileType: refundTarget.purchasedFileType || 'original',
+      })
+      toast.success(data.message || 'Hoàn tác đơn hàng thành công!')
+      // Xóa khỏi danh sách hiện tại
+      setPosts((prev) => prev.filter((p) => p._id !== refundTarget._id))
+      // Cập nhật ví khả dụng trong header
+      if (useAuthStore.getState().refreshMe) {
+        await useAuthStore.getState().refreshMe()
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Hoàn tác thất bại')
+    } finally {
+      setRefundLoading(false)
+      setShowRefundConfirm(false)
+      setRefundTarget(null)
+    }
+  }
 
   // ── Error / Loading states ─────────────────────────────────────
   if (loadingProfile) return <ProfileSkeleton />
@@ -561,7 +621,7 @@ const ProfilePage = () => {
           ].map(({ key, label }) => (
             <button
               key={key}
-              onClick={() => setActiveTab(key)}
+              onClick={() => handleTabChange(key)}
               className={`px-5 py-2.5 text-sm font-medium transition-all duration-200 border-b-2 -mb-px
                 ${
                   activeTab === key
@@ -602,82 +662,178 @@ const ProfilePage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3 pb-8">
-              {posts.map((post, i) => (
-                <motion.div
-                  key={post._id}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ delay: i * 0.04, duration: 0.3 }}
-                  className="group relative overflow-hidden rounded-2xl bg-surface-50 cursor-pointer aspect-square"
-                  onClick={() => navigate(`/posts/${post._id}`)}
-                >
-                  <img
-                    src={getOptimizedWebpUrl(
-                      post.images?.[0]?.thumbnailUrl ||
-                        post.images?.[0]?.url ||
-                        post.generatedImages?.[0]?.thumbnailUrl ||
-                        post.generatedImages?.[0]?.url ||
-                        post.thumbnail,
-                      400
-                    )}
-                    alt={post.caption}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    loading="lazy"
-                  />
+              {posts.map((post, i) => {
+                const isPurchasesTab = activeTab === 'purchases'
+                const daysLeft = isPurchasesTab
+                  ? orderReportDaysLeft(post.purchasedAt)
+                  : 0
+                const canOrderReport = isPurchasesTab && daysLeft > 0
 
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-4">
-                    <div className="flex items-center gap-1.5 text-white font-medium text-sm">
-                      <Heart size={15} className="text-red-400" />
-                      {(post.stats?.likesCount ?? 0).toLocaleString('vi-VN')}
-                    </div>
-                    <div className="flex items-center gap-1.5 text-white font-medium text-sm">
-                      <Download size={15} className="text-blue-400" />
-                      {(post.stats?.downloadsCount ?? 0).toLocaleString(
-                        'vi-VN'
+                return (
+                  <motion.div
+                    key={post._id}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: i * 0.04, duration: 0.3 }}
+                    className="group relative overflow-hidden rounded-2xl bg-surface-50 cursor-pointer aspect-square"
+                    onClick={() => navigate(`/posts/${post._id}`)}
+                  >
+                    <img
+                      src={getOptimizedWebpUrl(
+                        post.images?.[0]?.thumbnailUrl ||
+                          post.images?.[0]?.url ||
+                          post.generatedImages?.[0]?.thumbnailUrl ||
+                          post.generatedImages?.[0]?.url ||
+                          post.thumbnail,
+                        400
                       )}
-                    </div>
-                  </div>
+                      alt={post.caption}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      loading="lazy"
+                    />
 
-                  {/* TOP Badges */}
-                  <div className="absolute top-2 left-2 flex gap-1 z-10 flex-wrap">
-                    {post.isPremium && (
-                      <div className="relative overflow-hidden text-[9px] px-2 py-0.5 rounded-full font-bold bg-black/60 border border-amber-500/35 text-amber-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
-                        {/* shimmer sweep on hover */}
-                        <span
-                          className="absolute inset-0 -translate-x-full group-hover:translate-x-full
-                          transition-transform duration-700
-                          bg-gradient-to-r from-transparent via-amber-300/20 to-transparent"
-                        />
-                        <GiCutDiamond
-                          size={10}
-                          className="text-amber-400 shrink-0"
-                        />
-                        <span>PREMIUM</span>
+                    {/* Hover overlay — mặc định (stats) */}
+                    <div
+                      className={`absolute inset-0 bg-black/55 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center gap-2 ${
+                        isPurchasesTab ? 'pb-16' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1.5 text-white font-medium text-sm">
+                          <Heart size={15} className="text-red-400" />
+                          {(post.stats?.likesCount ?? 0).toLocaleString(
+                            'vi-VN'
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5 text-white font-medium text-sm">
+                          <Download size={15} className="text-blue-400" />
+                          {(post.stats?.downloadsCount ?? 0).toLocaleString(
+                            'vi-VN'
+                          )}
+                        </div>
                       </div>
-                    )}
-                    {(post.postType === 'ai' || post.isAI) && (
-                      <div
-                        className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5"
-                        style={{
-                          background: 'rgba(121,134,235,0.85)',
-                          color: '#fff',
-                        }}
-                      >
-                        <IoSparkles size={9} className="text-white" />
-                        <span>AI</span>
-                      </div>
-                    )}
-                    {post.isCollection &&
-                      (post.generatedImages?.length || 0) > 1 && (
-                        <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm flex items-center gap-0.5">
-                          <IoImages size={10} className="text-indigo-150" />
-                          <span>{post.generatedImages.length}</span>
+
+                      {/* Action buttons (chỉ trong purchases tab) */}
+                      {isPurchasesTab && (
+                        <div className="absolute bottom-2 left-2 right-2 flex flex-col gap-1.5 z-20">
+                          {canOrderReport ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setOrderReportTarget({
+                                  post,
+                                  purchasedAt: post.purchasedAt,
+                                })
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold text-white transition-all cursor-pointer hover:scale-[1.02]"
+                              style={{
+                                background:
+                                  'linear-gradient(135deg, rgba(217,119,6,0.85) 0%, rgba(180,83,9,0.85) 100%)',
+                                backdropFilter: 'blur(8px)',
+                                border: '1px solid rgba(217,119,6,0.4)',
+                              }}
+                            >
+                              <Flag size={10} />
+                              Order Report
+                              <span
+                                className="ml-1 px-1.5 py-0.5 rounded-full text-[8px] font-bold"
+                                style={{ background: 'rgba(255,255,255,0.2)' }}
+                              >
+                                <Clock size={8} className="inline mr-0.5" />
+                                {daysLeft}d
+                              </span>
+                            </button>
+                          ) : (
+                            <div
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-medium"
+                              style={{
+                                background: 'rgba(255,255,255,0.06)',
+                                color: 'rgba(255,255,255,0.3)',
+                              }}
+                            >
+                              <Flag size={10} />
+                              Hết hạn báo cáo
+                            </div>
+                          )}
+
+                          {/* Hoàn tác button */}
+                          {enableRefund && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                setRefundTarget(post)
+                                setShowRefundConfirm(true)
+                              }}
+                              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-[10px] font-bold text-white transition-all cursor-pointer hover:scale-[1.02]"
+                              style={{
+                                background:
+                                  'linear-gradient(135deg, rgba(239,68,68,0.85) 0%, rgba(185,28,28,0.85) 100%)',
+                                backdropFilter: 'blur(8px)',
+                                border: '1px solid rgba(239,68,68,0.4)',
+                              }}
+                            >
+                              <ArrowUpRight size={10} />
+                              Hoàn tác / Hoàn tiền
+                            </button>
+                          )}
                         </div>
                       )}
-                  </div>
-                </motion.div>
-              ))}
+                    </div>
+
+                    {/* TOP Badges */}
+                    <div className="absolute top-2 left-2 flex gap-1 z-10 flex-wrap">
+                      {post.isPremium && (
+                        <div className="relative overflow-hidden text-[9px] px-2 py-0.5 rounded-full font-bold bg-black/60 border border-amber-500/35 text-amber-400 backdrop-blur-sm flex items-center gap-1 shadow-md">
+                          {/* shimmer sweep on hover */}
+                          <span
+                            className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+                            transition-transform duration-700
+                            bg-gradient-to-r from-transparent via-amber-300/20 to-transparent"
+                          />
+                          <GiCutDiamond
+                            size={10}
+                            className="text-amber-400 shrink-0"
+                          />
+                          <span>PREMIUM</span>
+                        </div>
+                      )}
+                      {(post.postType === 'ai' || post.isAI) && (
+                        <div
+                          className="text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-0.5"
+                          style={{
+                            background: 'rgba(121,134,235,0.85)',
+                            color: '#fff',
+                          }}
+                        >
+                          <IoSparkles size={9} className="text-white" />
+                          <span>AI</span>
+                        </div>
+                      )}
+                      {post.isCollection &&
+                        (post.generatedImages?.length || 0) > 1 && (
+                          <div className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-indigo-500/85 text-indigo-100 backdrop-blur-sm flex items-center gap-0.5">
+                            <IoImages size={10} className="text-indigo-150" />
+                            <span>{post.generatedImages.length}</span>
+                          </div>
+                        )}
+
+                      {/* Purchased badge */}
+                      {isPurchasesTab && (
+                        <div
+                          className="text-[9px] px-1.5 py-0.5 rounded-full font-bold flex items-center gap-0.5"
+                          style={{
+                            background: 'rgba(34,197,94,0.75)',
+                            color: '#fff',
+                          }}
+                        >
+                          <ShoppingBag size={8} />
+                          <span>Đã mua</span>
+                        </div>
+                      )}
+                    </div>
+                  </motion.div>
+                )
+              })}
             </div>
           )}
         </AnimatePresence>
@@ -716,7 +872,7 @@ const ProfilePage = () => {
           if (showEdit) {
             const nextParams = new URLSearchParams(searchParams)
             nextParams.delete('edit')
-            nextParams.delete('tab')
+            nextParams.delete('editsubtab')
             setSearchParams(nextParams)
           }
         }}
@@ -732,6 +888,48 @@ const ProfilePage = () => {
         userId={profile._id}
         type={followModalType}
         username={profile.username}
+      />
+
+      {/* Order Report Modal */}
+      <OrderReportModal
+        isOpen={!!orderReportTarget}
+        onClose={() => setOrderReportTarget(null)}
+        post={orderReportTarget?.post}
+        purchasedAt={orderReportTarget?.purchasedAt}
+      />
+
+      {/* Confirm Refund Modal */}
+      <ConfirmModal
+        isOpen={showRefundConfirm}
+        onClose={() => {
+          if (!refundLoading) {
+            setShowRefundConfirm(false)
+            setRefundTarget(null)
+          }
+        }}
+        onConfirm={handleRefundConfirm}
+        title="Xác nhận hoàn tác?"
+        message={
+          refundTarget ? (
+            <>
+              Bạn có chắc chắn muốn hoàn tác việc mua ảnh{' '}
+              <span className="text-white font-bold break-words">
+                "{refundTarget.caption || 'Chất lượng cao'}"
+              </span>
+              ?
+              <br />
+              <span className="block mt-3 text-white/50 text-[11px] leading-relaxed">
+                Khoản xu đã thanh toán sẽ được hoàn lại, quyền truy cập tệp tin của bạn đối với ảnh này sẽ bị thu hồi.
+              </span>
+            </>
+          ) : (
+            ''
+          )
+        }
+        confirmText={refundLoading ? 'Đang hoàn tác...' : 'Xác nhận hoàn tác'}
+        cancelText="Hủy bỏ"
+        type="danger"
+        zIndex={250}
       />
     </div>
   )
