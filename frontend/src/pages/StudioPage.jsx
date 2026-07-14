@@ -290,7 +290,7 @@ const PostRow = ({ post, rank }) => (
       <p className="text-xs font-semibold text-emerald-400 tabular-nums">
         {(post.totalTokensEarned || 0).toLocaleString()}
       </p>
-      <p className="text-[9px] text-white/30 font-medium">tokens</p>
+      <p className="text-[9px] text-white/30 font-medium">AI Credits</p>
     </div>
   </Link>
 )
@@ -516,7 +516,7 @@ const StudioPage = () => {
   const METRIC_LABELS = {
     views: 'Lượt xem',
     downloads: 'Lượt tải xuống',
-    earnings: 'Token',
+    earnings: 'AI Credits',
     likes: 'Thích',
   }
 
@@ -572,7 +572,7 @@ const StudioPage = () => {
                   {(overview?.earnings?.currentBalance || 0).toLocaleString()}
                 </p>
                 <p className="text-[9px] text-emerald-500/60 font-bold uppercase tracking-wider mt-0.5">
-                  tokens
+                  AI Credits
                 </p>
               </div>
             </div>
@@ -758,7 +758,7 @@ const StudioPage = () => {
                   icon: Coins,
                   label: 'Thu nhập',
                   primary: `+${fmt(overview?.earnings?.last30Days)}`,
-                  unit: 'tokens / 30 ngày',
+                  unit: 'AI Credits / 30 ngày',
                   secondary: `Tích lũy: ${fmt(overview?.earnings?.totalEarned)}`,
                 },
                 {
@@ -827,7 +827,7 @@ const StudioPage = () => {
                   Thích
                 </span>
                 <span className="text-[9px] font-bold text-white/20 uppercase text-right">
-                  Token
+                  AI Credits
                 </span>
               </div>
 

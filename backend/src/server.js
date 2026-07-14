@@ -1,6 +1,10 @@
 import express from 'express'
 import http from 'http'
 import dotenv from 'dotenv'
+import { expand } from 'dotenv-expand'
+
+const myEnv = dotenv.config()
+expand(myEnv)
 import cors from 'cors'
 import helmet from 'helmet'
 import morgan from 'morgan'
@@ -8,7 +12,6 @@ import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 
-dotenv.config()
 
 import connectDB from './config/db.js'
 import { initSocket } from './socket/index.js'

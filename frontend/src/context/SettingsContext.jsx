@@ -48,7 +48,7 @@ function hexToHsl(hex) {
 
 // Cập nhật bảng màu CSS variables cho brand từ HEX
 // Cập nhật bảng màu CSS variables cho brand từ HEX
-export function applyThemeBrandColors(
+function applyThemeBrandColors(
   primaryHex,
   gradientEndHex,
   opacity = 1,

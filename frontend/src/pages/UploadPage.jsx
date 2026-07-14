@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Upload,
@@ -88,7 +88,18 @@ export default function UploadPage() {
   const tierAccess = useTierAccess()
   const updateUser = useAuthStore((s) => s.updateUser)
 
-  const [uploadType, setUploadType] = useState('ai') // 'ai' or 'digital'
+  const [searchParams, setSearchParams] = useSearchParams()
+  const uploadType = searchParams.get('tab') === 'digital' ? 'digital' : 'ai'
+
+  useEffect(() => {
+    if (!searchParams.has('tab')) {
+      setSearchParams({ tab: 'ai' }, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  const setUploadType = (type) => {
+    setSearchParams({ tab: type })
+  }
   const [hasLut, setHasLut] = useState(false)
   const [isCollection, setIsCollection] = useState(false)
   const [rawFile, setRawFile] = useState(null)
@@ -2174,7 +2185,7 @@ function Step4Meta({
         }
 
         toast.success(
-          `Đã tự động gợi ý mô tả và tags! (Tiêu tốn ${data.tokensCost} token)`
+          `Đã tự động gợi ý mô tả và tags! (Tiêu tốn ${data.tokensCost} AI Credits)`
         )
       }
     } catch (err) {
@@ -2322,30 +2333,59 @@ function Step4Meta({
               </div>
 
               {/* AI Call Button */}
-              <button
+              <motion.button
                 type="button"
                 onClick={() => handleAiSuggestMeta()}
                 disabled={aiLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 disabled:opacity-50"
+                whileHover={!aiLoading ? { scale: 1.03 } : undefined}
+                whileTap={!aiLoading ? { scale: 0.97 } : undefined}
+                className={`relative overflow-hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all border disabled:cursor-not-allowed
+                  ${aiLoading
+                    ? 'bg-[#7986eb]/10 border-[#7986eb]/30 text-[#a5b0f5]'
+                    : 'bg-white/5 border-white/10 hover:bg-[#7986eb]/10 hover:border-[#7986eb]/30'
+                  }`}
               >
-                {aiLoading ? (
-                  <>
-                    <Loader2
-                      size={13}
-                      className="animate-spin text-[#7986eb]"
-                    />
-                    Đang phân tích...
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={13} className="text-yellow-400" />
-                    Gợi ý mô tả & tags{' '}
-                    <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal">
-                      <Coins size={9} /> {isUltimate ? 'Free' : '-2 xu'}
-                    </span>
-                  </>
+                {/* Shimmer sweep when loading */}
+                {aiLoading && (
+                  <div
+                    className="absolute inset-0 pointer-events-none"
+                    style={{
+                      background:
+                        'linear-gradient(105deg, transparent 35%, rgba(121,134,235,0.15) 50%, transparent 65%)',
+                      backgroundSize: '200% 100%',
+                      animation: 'ai-shimmer 1.4s ease-in-out infinite',
+                    }}
+                  />
                 )}
-              </button>
+                <span className="relative z-10 flex items-center gap-1.5">
+                  {aiLoading ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{
+                          duration: 1,
+                          repeat: Infinity,
+                          ease: 'linear',
+                        }}
+                      >
+                        <Loader2
+                          size={13}
+                          className="text-[#7986eb]"
+                        />
+                      </motion.div>
+                      Đang phân tích...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={13} className="text-yellow-400" />
+                      Gợi ý mô tả &amp; tags{' '}
+                      <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal">
+                        <Coins size={9} /> -2 xu
+                      </span>
+                    </>
+                  )}
+                </span>
+              </motion.button>
             </div>
           </div>
 
@@ -2539,7 +2579,7 @@ function Step4Meta({
             <div>
               <p className="text-sm font-semibold">Premium Download</p>
               <p className="text-xs text-white/40">
-                Người dùng tốn token để tải ảnh full-res
+                Người dùng tốn AI Credits để tải ảnh full-res
               </p>
             </div>
           </div>

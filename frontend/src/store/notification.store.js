@@ -3,7 +3,7 @@ import { io } from 'socket.io-client'
 import api from '../api/api'
 import { toast } from 'sonner'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+const SOCKET_URL = import.meta.env.VITE_SOCKET_URL
 
 const useNotificationStore = create((set, get) => ({
   notifications: [],

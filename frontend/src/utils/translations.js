@@ -20,13 +20,13 @@ export const translations = {
       langVi: 'Tiếng Việt',
       langEn: 'Tiếng Anh',
       logout: 'Đăng xuất',
-      tokens: 'Token',
+      tokens: 'AI Credits',
     },
     common: {
       loading: 'Đang tải...',
       success: 'Thành công',
       error: 'Lỗi',
-    }
+    },
   },
   en: {
     nav: {
@@ -49,17 +49,17 @@ export const translations = {
       langVi: 'Vietnamese',
       langEn: 'English',
       logout: 'Log out',
-      tokens: 'Tokens',
+      tokens: 'AI Credits',
     },
     common: {
       loading: 'Loading...',
       success: 'Success',
       error: 'Error',
-    }
-  }
-};
+    },
+  },
+}
 
 export const useTranslation = (lang) => {
-  const currentLang = lang === 'en' ? 'en' : 'vi';
-  return translations[currentLang];
-};
+  const currentLang = lang === 'en' ? 'en' : 'vi'
+  return translations[currentLang]
+}

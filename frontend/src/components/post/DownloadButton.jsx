@@ -61,7 +61,9 @@ const DownloadButton = ({
   )
   // Ref keeps the latest value so setTimeout callbacks never read stale state
   const localPurchasedTypesRef = useRef(localPurchasedTypes)
-  useEffect(() => { localPurchasedTypesRef.current = localPurchasedTypes }, [localPurchasedTypes])
+  useEffect(() => {
+    localPurchasedTypesRef.current = localPurchasedTypes
+  }, [localPurchasedTypes])
 
   const trackedPostIdRef = useRef(postId)
 
@@ -70,7 +72,10 @@ const DownloadButton = ({
 
     if (trackedPostIdRef.current !== postId) {
       // Different post → full reset from server data
-      console.log('[DownloadButton] postId changed → resetting purchasedTypes', { postId, serverTypes })
+      console.log(
+        '[DownloadButton] postId changed → resetting purchasedTypes',
+        { postId, serverTypes }
+      )
       trackedPostIdRef.current = postId
       setLocalPurchasedTypes(serverTypes)
     } else {
@@ -80,11 +85,14 @@ const DownloadButton = ({
         if (serverTypes.length === 0) return prev // server returned nothing new — keep local
         const merged = Array.from(new Set([...prev, ...serverTypes]))
         if (merged.length === prev.length) return prev // no change — skip re-render
-        console.log('[DownloadButton] merging server purchasedTypes into local', { prev, serverTypes, merged })
+        console.log(
+          '[DownloadButton] merging server purchasedTypes into local',
+          { prev, serverTypes, merged }
+        )
         return merged
       })
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId, post?.purchasedFileTypes])
 
   // Creator owns this post — treat as already purchased for all file types
@@ -211,7 +219,10 @@ const DownloadButton = ({
             collectionImages.forEach((_, idx) => {
               if (!updated.includes(`gen_${idx}`)) updated.push(`gen_${idx}`)
             })
-            console.log('[DownloadButton] bundle purchased → localPurchasedTypes:', updated)
+            console.log(
+              '[DownloadButton] bundle purchased → localPurchasedTypes:',
+              updated
+            )
             return updated
           })
           onPurchased?.('bundle')
@@ -277,7 +288,15 @@ const DownloadButton = ({
           setLocalPurchasedTypes((prev) => {
             if (prev.includes(fileType)) return prev
             const next = [...prev, fileType]
-            console.log('[DownloadButton] premium download OK → marking owned:', { fileType, next, vndSpent: data.vndSpent, alreadyOwned: data.vndSpent === 0 && data.tokensSpent === 0 })
+            console.log(
+              '[DownloadButton] premium download OK → marking owned:',
+              {
+                fileType,
+                next,
+                vndSpent: data.vndSpent,
+                alreadyOwned: data.vndSpent === 0 && data.tokensSpent === 0,
+              }
+            )
             return next
           })
           // Notify parent so it can update its post state (profile tab etc.)
@@ -287,7 +306,7 @@ const DownloadButton = ({
         // ─── TOAST + BALANCE SYNC ────────────────────────────────────
         if (data.tokensSpent > 0) {
           toast.success(
-            `Mua thành công! Đã trừ ${data.tokensSpent} token.`,
+            `Mua thành công! Đã trừ ${data.tokensSpent} AI Credits.`,
             { duration: 4000 }
           )
           await refreshMe()
@@ -305,7 +324,10 @@ const DownloadButton = ({
         // Show done state AFTER all state updates are queued
         setDone(true)
         setTimeout(() => {
-          console.log('[DownloadButton] done timer fired. localPurchasedTypesRef.current:', localPurchasedTypesRef.current)
+          console.log(
+            '[DownloadButton] done timer fired. localPurchasedTypesRef.current:',
+            localPurchasedTypesRef.current
+          )
           setDone(false)
         }, 3000)
       } // end if (data.downloadUrl)
@@ -314,11 +336,11 @@ const DownloadButton = ({
       if (err.response?.status === 402) {
         if (errData?.error === 'INSUFFICIENT_TOKENS') {
           toast.error(
-            `Không đủ token! Cần ${errData.required} token, bạn có ${errData.balance} token.`,
+            `Không đủ AI Credits! Cần ${errData.required} AI Credits, bạn có ${errData.balance} AI Credits.`,
             { duration: 5000 }
           )
         } else {
-          toast.error(errData?.message || 'Cần token để tải tệp này')
+          toast.error(errData?.message || 'Cần AI Credits để tải tệp này')
         }
       } else {
         toast.error(errData?.message || 'Không thể tải tệp')

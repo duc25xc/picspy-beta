@@ -1,8 +1,19 @@
 import { useState, useCallback, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
-  Sparkles, Lock, Camera, Lightbulb, Palette, Target, MessageSquare,
-  ShoppingBag, ChevronRight, Loader2, Eye, Compass, Zap,
+  Sparkles,
+  Lock,
+  Camera,
+  Lightbulb,
+  Palette,
+  Target,
+  MessageSquare,
+  ShoppingBag,
+  ChevronRight,
+  Loader2,
+  Eye,
+  Compass,
+  Zap,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../../api/api'
@@ -16,9 +27,13 @@ const renderMarkdownBold = (text) => {
   if (!text || typeof text !== 'string') return text
   const parts = text.split(/\*\*(.*?)\*\*/g)
   return parts.map((part, i) =>
-    i % 2 === 1
-      ? <strong key={i} className="text-white/90 font-semibold">{part}</strong>
-      : part
+    i % 2 === 1 ? (
+      <strong key={i} className="text-white/90 font-semibold">
+        {part}
+      </strong>
+    ) : (
+      part
+    )
   )
 }
 
@@ -26,17 +41,49 @@ const renderMarkdownBold = (text) => {
    SECTION ICONS & COLORS MAP
 ───────────────────────────────────────────────────────────────── */
 const SECTION_META = {
-  cameraAndLens:     { icon: Camera,      color: 'violet',  label: '📷 Ống Kính & Máy Ảnh' },
-  lighting:          { icon: Lightbulb,   color: 'amber',   label: '💡 Sơ Đồ  Ánh Sáng' },
-  compositionAndPose:{ icon: Target,      color: 'cyan',    label: '📐 Bố Cục & Dáng Chụp' },
-  colorGrading:      { icon: Palette,     color: 'emerald', label: '🎨 Phân Tích Màu & Hậu Kỳ' },
+  cameraAndLens: {
+    icon: Camera,
+    color: 'violet',
+    label: '📷 Ống Kính & Máy Ảnh',
+  },
+  lighting: { icon: Lightbulb, color: 'amber', label: '💡 Sơ Đồ  Ánh Sáng' },
+  compositionAndPose: {
+    icon: Target,
+    color: 'cyan',
+    label: '📐 Bố Cục & Dáng Chụp',
+  },
+  colorGrading: {
+    icon: Palette,
+    color: 'emerald',
+    label: '🎨 Phân Tích Màu & Hậu Kỳ',
+  },
 }
 
 const COLOR_CLASSES = {
-  violet:  { bg: 'bg-violet-500/10', border: 'border-violet-500/25', text: 'text-violet-400', accent: 'text-violet-300' },
-  amber:   { bg: 'bg-amber-500/10',  border: 'border-amber-500/25',  text: 'text-amber-400',  accent: 'text-amber-300' },
-  cyan:    { bg: 'bg-cyan-500/10',   border: 'border-cyan-500/25',   text: 'text-cyan-400',   accent: 'text-cyan-300' },
-  emerald: { bg: 'bg-emerald-500/10',border: 'border-emerald-500/25',text: 'text-emerald-400', accent: 'text-emerald-300' },
+  violet: {
+    bg: 'bg-violet-500/10',
+    border: 'border-violet-500/25',
+    text: 'text-violet-400',
+    accent: 'text-violet-300',
+  },
+  amber: {
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/25',
+    text: 'text-amber-400',
+    accent: 'text-amber-300',
+  },
+  cyan: {
+    bg: 'bg-cyan-500/10',
+    border: 'border-cyan-500/25',
+    text: 'text-cyan-400',
+    accent: 'text-cyan-300',
+  },
+  emerald: {
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/25',
+    text: 'text-emerald-400',
+    accent: 'text-emerald-300',
+  },
 }
 
 /* ─────────────────────────────────────────────────────────────────
@@ -54,7 +101,13 @@ const AnalysisSection = ({ sectionKey, data, delay = 0 }) => {
   const entries = Object.entries(data).filter(([k, v]) => {
     if (k === 'type') return false
     if (v === null || v === undefined) return false
-    if (typeof v === 'string' && (v.trim() === '' || v.toLowerCase() === 'null' || v.toLowerCase() === 'undefined')) return false
+    if (
+      typeof v === 'string' &&
+      (v.trim() === '' ||
+        v.toLowerCase() === 'null' ||
+        v.toLowerCase() === 'undefined')
+    )
+      return false
     if (Array.isArray(v) && v.length === 0) return false
     return true
   })
@@ -68,7 +121,9 @@ const AnalysisSection = ({ sectionKey, data, delay = 0 }) => {
     >
       {/* Section Header */}
       <div className="flex items-center gap-2">
-        <div className={`w-7 h-7 rounded-lg flex items-center justify-center ${cls.bg} border ${cls.border}`}>
+        <div
+          className={`w-7 h-7 rounded-lg flex items-center justify-center ${cls.bg} border ${cls.border}`}
+        >
           <Icon size={14} className={cls.text} />
         </div>
         <h3 className={`text-sm font-bold ${cls.accent}`}>{meta.label}</h3>
@@ -76,8 +131,10 @@ const AnalysisSection = ({ sectionKey, data, delay = 0 }) => {
 
       {/* Lighting type badge nếu có */}
       {sectionKey === 'lighting' && data.type && (
-        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold
-          bg-amber-500/20 border border-amber-500/30 text-amber-300 uppercase tracking-wider`}>
+        <span
+          className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold
+          bg-amber-500/20 border border-amber-500/30 text-amber-300 uppercase tracking-wider`}
+        >
           <Lightbulb size={10} />
           {data.type}
         </span>
@@ -90,11 +147,16 @@ const AnalysisSection = ({ sectionKey, data, delay = 0 }) => {
           if (key === 'vibeKeywords' && Array.isArray(value)) {
             return (
               <div key={key}>
-                <p className="text-[10px] text-white/25 uppercase tracking-wider font-medium mb-1.5">Vibe</p>
+                <p className="text-[10px] text-white/25 uppercase tracking-wider font-medium mb-1.5">
+                  Vibe
+                </p>
                 <div className="flex flex-wrap gap-1.5">
                   {value.map((kw, i) => (
-                    <span key={i} className={`px-2 py-0.5 rounded-full text-[10px] font-semibold
-                      ${cls.bg} border ${cls.border} ${cls.text}`}>
+                    <span
+                      key={i}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-semibold
+                      ${cls.bg} border ${cls.border} ${cls.text}`}
+                    >
                       #{kw}
                     </span>
                   ))}
@@ -105,12 +167,23 @@ const AnalysisSection = ({ sectionKey, data, delay = 0 }) => {
 
           // Format nhãn hiển thị từ camelCase
           const labelMap = {
-            evaluation: 'Đánh giá', focusPoint: 'Điểm nét', dofAnalysis: 'Chiều sâu (DOF)',
-            evAnalysis: 'Phơi sáng (EV)', keyLight: 'Ánh sáng chính', fillLight: 'Bù sáng',
-            rimLight: 'Sáng viền', mood: 'Cảm xúc', lightingDiagram: 'Sơ đồ đèn',
-            ruleUsed: 'Quy tắc bố cục', cameraAngle: 'Góc máy', subjectDistance: 'Khoảng cách',
-            poseAnalysis: 'Phân tích dáng', vibe: 'Phong cách', technique: 'Kỹ thuật',
-            whiteBalance: 'Cân bằng trắng', filterRecommend: 'Bộ lọc đề xuất',
+            evaluation: 'Đánh giá',
+            focusPoint: 'Điểm nét',
+            dofAnalysis: 'Chiều sâu (DOF)',
+            evAnalysis: 'Phơi sáng (EV)',
+            keyLight: 'Ánh sáng chính',
+            fillLight: 'Bù sáng',
+            rimLight: 'Sáng viền',
+            mood: 'Cảm xúc',
+            lightingDiagram: 'Sơ đồ đèn',
+            ruleUsed: 'Quy tắc bố cục',
+            cameraAngle: 'Góc máy',
+            subjectDistance: 'Khoảng cách',
+            poseAnalysis: 'Phân tích dáng',
+            vibe: 'Phong cách',
+            technique: 'Kỹ thuật',
+            whiteBalance: 'Cân bằng trắng',
+            filterRecommend: 'Bộ lọc đề xuất',
             lutSuggestion: 'LUT gợi ý',
           }
           const displayLabel = labelMap[key] || key
@@ -135,7 +208,14 @@ const AnalysisSection = ({ sectionKey, data, delay = 0 }) => {
    Gear Suggestion Card — Thiết bị gợi ý (Affiliate-ready)
 ───────────────────────────────────────────────────────────────── */
 const GearCard = ({ gear, index }) => {
-  const typeIcons = { lens: Camera, light: Lightbulb, reflector: Eye, filter: Palette, tripod: Compass, accessory: Zap }
+  const typeIcons = {
+    lens: Camera,
+    light: Lightbulb,
+    reflector: Eye,
+    filter: Palette,
+    tripod: Compass,
+    accessory: Zap,
+  }
   const Icon = typeIcons[gear.type] || ShoppingBag
 
   return (
@@ -146,13 +226,19 @@ const GearCard = ({ gear, index }) => {
       className="flex items-start gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/8
         hover:bg-white/[0.06] hover:border-white/15 transition-all group cursor-pointer"
     >
-      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500/20 to-orange-500/20
-        border border-rose-500/25 flex items-center justify-center flex-shrink-0">
+      <div
+        className="w-8 h-8 rounded-lg bg-gradient-to-br from-rose-500/20 to-orange-500/20
+        border border-rose-500/25 flex items-center justify-center flex-shrink-0"
+      >
         <Icon size={14} className="text-rose-400" />
       </div>
       <div className="flex-1 min-w-0">
-        <p className="text-[12px] text-white/80 font-semibold truncate">{gear.name}</p>
-        <p className="text-[10px] text-white/40 leading-snug mt-0.5">{gear.reason}</p>
+        <p className="text-[12px] text-white/80 font-semibold truncate">
+          {gear.name}
+        </p>
+        <p className="text-[10px] text-white/40 leading-snug mt-0.5">
+          {gear.reason}
+        </p>
         {gear.searchKeyword && (
           <a
             href={`https://shopee.vn/search?keyword=${encodeURIComponent(gear.searchKeyword)}`}
@@ -181,11 +267,11 @@ const LENSSPY_COST = 2
 
 const LensSpyPanel = ({ postId }) => {
   const user = useAuthStore((s) => s.user)
-  const [analysis, setAnalysis]   = useState(null)
-  const [loading, setLoading]     = useState(false)
+  const [analysis, setAnalysis] = useState(null)
+  const [loading, setLoading] = useState(false)
   const [loadingStep, setLoadingStep] = useState('') // Trạng thái phân tích AI
-  const [checking, setChecking]   = useState(true)
-  const [hasCache, setHasCache]   = useState(false)
+  const [checking, setChecking] = useState(true)
+  const [hasCache, setHasCache] = useState(false)
 
   // Kiểm tra xem user đã mở khoá chưa (chạy khi mount)
   const checkAnalysis = useCallback(async () => {
@@ -203,14 +289,17 @@ const LensSpyPanel = ({ postId }) => {
   }, [postId])
 
   // Bug fix: dùng useEffect thay vì useState — mới chạy đúng khi component mount
-  useEffect(() => { checkAnalysis() }, [checkAnalysis])
+  useEffect(() => {
+    checkAnalysis()
+  }, [checkAnalysis])
 
   // Cảnh báo khi user đang load AI mà có ý định đóng/rời trang
   useEffect(() => {
     if (!loading) return
     const handleBeforeUnload = (e) => {
       e.preventDefault()
-      e.returnValue = 'LensSpy AI đang phân tích ảnh. Rời trang bây giờ có thể mất xu mà không nhận được kết quả!'
+      e.returnValue =
+        'LensSpy AI đang phân tích ảnh. Rời trang bây giờ có thể mất xu mà không nhận được kết quả!'
       return e.returnValue
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -229,8 +318,8 @@ const LensSpyPanel = ({ postId }) => {
 
     // Dùng timeout 90s riêng — AI phân tích ảnh thường mất 20-60 giây
     const STEPS = [
-      { ms: 3000,  text: 'AI đang nhận dạng bố cục ảnh...' },
-      { ms: 8000,  text: 'Đang phân tích ánh sáng & màu sắc...' },
+      { ms: 3000, text: 'AI đang nhận dạng bố cục ảnh...' },
+      { ms: 8000, text: 'Đang phân tích ánh sáng & màu sắc...' },
       { ms: 18000, text: 'Đang tổng hợp lời khuyên thực chiến...' },
       { ms: 30000, text: 'Gần xong! AI đang viết phân tích chi tiết...' },
     ]
@@ -240,24 +329,33 @@ const LensSpyPanel = ({ postId }) => {
     const clearTimers = () => timers.forEach(clearTimeout)
 
     try {
-      const { data } = await api.post(`/ai/lensspy/${postId}`, {}, {
-        timeout: 90000, // 90 giây — AI mất thời gian phân tích ảnh lớn
-      })
+      const { data } = await api.post(
+        `/ai/lensspy/${postId}`,
+        {},
+        {
+          timeout: 90000, // 90 giây — AI mất thời gian phân tích ảnh lớn
+        }
+      )
       clearTimers()
       setAnalysis(data.analysis)
       setHasCache(true)
       if (data.fromCache) {
         toast.success('Đã tải phân tích từ bộ nhớ (miễn phí)!')
       } else {
-        toast.success(`LensSpy phân tích xong! Đã trừ ${data.tokensCost} token.`)
+        toast.success(
+          `LensSpy phân tích xong! Đã trừ ${data.tokensCost} AI Credits.`
+        )
       }
     } catch (err) {
       clearTimers()
       const code = err.response?.data?.error
-      const msg  = err.response?.data?.message
+      const msg = err.response?.data?.message
       if (code === 'INSUFFICIENT_TOKENS') {
-        toast.error(msg || 'Bạn không đủ token. Vui lòng nạp thêm.')
-      } else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout')) {
+        toast.error(msg || 'Bạn không đủ AI Credits. Vui lòng nạp thêm.')
+      } else if (
+        err.code === 'ECONNABORTED' ||
+        err.message?.includes('timeout')
+      ) {
         toast.error('AI đang bận, vui lòng thử lại sau ít phút.')
       } else {
         toast.error(msg || 'Không thể phân tích. Thử lại sau.')
@@ -292,8 +390,10 @@ const LensSpyPanel = ({ postId }) => {
 
         <div className="relative z-10 p-6 text-center space-y-4">
           {/* Icon */}
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20
-            border border-violet-500/30 flex items-center justify-center">
+          <div
+            className="w-14 h-14 mx-auto rounded-2xl bg-gradient-to-br from-violet-500/20 to-indigo-500/20
+            border border-violet-500/30 flex items-center justify-center"
+          >
             <Sparkles size={24} className="text-violet-400" />
           </div>
 
@@ -303,7 +403,8 @@ const LensSpyPanel = ({ postId }) => {
               🔮 LensSpy AI — Giải Phẫu Bức Ảnh
             </h3>
             <p className="text-white/40 text-sm leading-relaxed max-w-sm mx-auto">
-              AI sẽ phân tích góc máy, ánh sáng, bố cục, hậu kỳ và chỉ bạn cách chụp lại y hệt bức ảnh này.
+              AI sẽ phân tích góc máy, ánh sáng, bố cục, hậu kỳ và chỉ bạn cách
+              chụp lại y hệt bức ảnh này.
             </p>
           </div>
 
@@ -312,15 +413,21 @@ const LensSpyPanel = ({ postId }) => {
             <div className="filter blur-[6px] select-none pointer-events-none space-y-2">
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded bg-violet-500/30" />
-                <span className="text-[10px] text-white/30">Ống kính 85mm f/1.4 tạo bokeh...</span>
+                <span className="text-[10px] text-white/30">
+                  Ống kính 85mm f/1.4 tạo bokeh...
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded bg-amber-500/30" />
-                <span className="text-[10px] text-white/30">Key light cửa sổ hướng 45°...</span>
+                <span className="text-[10px] text-white/30">
+                  Key light cửa sổ hướng 45°...
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-5 h-5 rounded bg-cyan-500/30" />
-                <span className="text-[10px] text-white/30">Rule of Thirds, mắt ở giao điểm...</span>
+                <span className="text-[10px] text-white/30">
+                  Rule of Thirds, mắt ở giao điểm...
+                </span>
               </div>
             </div>
             {/* Lock overlay */}
@@ -347,12 +454,14 @@ const LensSpyPanel = ({ postId }) => {
               {loading ? (
                 <>
                   <Loader2 size={16} className="animate-spin flex-shrink-0" />
-                  <span className="truncate">{loadingStep || 'AI đang khởi động...'}</span>
+                  <span className="truncate">
+                    {loadingStep || 'AI đang khởi động...'}
+                  </span>
                 </>
               ) : (
                 <>
                   <Sparkles size={16} />
-                  Mở Khóa LensSpy Masterclass · {LENSSPY_COST} Token
+                  Mở Khóa LensSpy Masterclass · {LENSSPY_COST} AI Credits
                 </>
               )}
             </motion.button>
@@ -375,10 +484,9 @@ const LensSpyPanel = ({ postId }) => {
             )}
           </div>
 
-
           {user && (
             <p className="text-[11px] text-white/25">
-              Số dư: {user.tokenBalance ?? 0} token
+              Số dư: {user.tokenBalance ?? 0} AI Credits
             </p>
           )}
         </div>
@@ -395,8 +503,10 @@ const LensSpyPanel = ({ postId }) => {
     >
       {/* Header */}
       <div className="flex items-center gap-2.5">
-        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/25 to-indigo-500/25
-          border border-violet-500/30 flex items-center justify-center">
+        <div
+          className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-500/25 to-indigo-500/25
+          border border-violet-500/30 flex items-center justify-center"
+        >
           <Sparkles size={16} className="text-violet-400" />
         </div>
         <div>
@@ -408,7 +518,9 @@ const LensSpyPanel = ({ postId }) => {
               </span>
             )}
           </h3>
-          <p className="text-[10px] text-white/30">Phân tích chuyên sâu bởi AI</p>
+          <p className="text-[10px] text-white/30">
+            Phân tích chuyên sâu bởi AI
+          </p>
         </div>
       </div>
 
@@ -434,7 +546,9 @@ const LensSpyPanel = ({ postId }) => {
         >
           <div className="flex items-center gap-2">
             <MessageSquare size={14} className="text-blue-400" />
-            <h3 className="text-sm font-bold text-blue-300">💡 Lời Khuyên Thực Chiến</h3>
+            <h3 className="text-sm font-bold text-blue-300">
+              💡 Lời Khuyên Thực Chiến
+            </h3>
           </div>
           <ul className="space-y-2">
             {analysis.actionableAdvice.map((advice, i) => (
@@ -445,8 +559,10 @@ const LensSpyPanel = ({ postId }) => {
                 transition={{ delay: i * 0.08 + 0.6 }}
                 className="flex items-start gap-2 text-[12px] text-white/70 leading-relaxed"
               >
-                <span className="mt-0.5 w-5 h-5 rounded-md bg-blue-500/20 border border-blue-500/25
-                  flex items-center justify-center flex-shrink-0 text-blue-400 text-[10px] font-bold">
+                <span
+                  className="mt-0.5 w-5 h-5 rounded-md bg-blue-500/20 border border-blue-500/25
+                  flex items-center justify-center flex-shrink-0 text-blue-400 text-[10px] font-bold"
+                >
                   {i + 1}
                 </span>
                 <span>{renderMarkdownBold(advice)}</span>
@@ -466,7 +582,9 @@ const LensSpyPanel = ({ postId }) => {
         >
           <div className="flex items-center gap-2">
             <ShoppingBag size={14} className="text-rose-400" />
-            <h3 className="text-sm font-bold text-rose-300">🛒 Thiết Bị Gợi Ý</h3>
+            <h3 className="text-sm font-bold text-rose-300">
+              🛒 Thiết Bị Gợi Ý
+            </h3>
           </div>
           <div className="space-y-2">
             {analysis.gearSuggestions.map((gear, i) => (

@@ -4,10 +4,24 @@
  */
 import { useDropzone } from 'react-dropzone'
 import { motion, AnimatePresence } from 'framer-motion'
-import { X, Plus, Copy, Check, ChevronDown, Sparkles, Coins, History, HelpCircle, Loader2, Star, Crown } from 'lucide-react'
+import {
+  X,
+  Plus,
+  Copy,
+  Check,
+  ChevronDown,
+  Sparkles,
+  Coins,
+  History,
+  HelpCircle,
+  Loader2,
+  Star,
+  Crown,
+} from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
+import useAuthStore from '../store/auth.store'
 import { AI_TOOLS } from './uploadConstants.js'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 
@@ -234,6 +248,7 @@ export function PromptField({
   required,
 }) {
   const [copied, setCopied] = useState(false)
+  const updateUser = useAuthStore((s) => s.updateUser)
   const pct = Math.min((value.length / maxLength) * 100, 100)
   const near = value.length > maxLength * 0.85
 
@@ -258,7 +273,8 @@ export function PromptField({
     const textarea = textareaRef.current
     if (textarea) {
       textarea.style.height = 'auto'
-      const minH = label === 'Prompt' ? 280 : (label === 'Negative Prompt' ? 90 : 150)
+      const minH =
+        label === 'Prompt' ? 280 : label === 'Negative Prompt' ? 90 : 150
       textarea.style.height = `${Math.max(minH, textarea.scrollHeight)}px`
     }
   }
@@ -288,21 +304,29 @@ export function PromptField({
 
   const handleMakeDynamic = () => {
     if (!selection.text) return
-    const name = prompt('Nhập tên biến (Ví dụ: location, subject, camera, medium, accent_color...):')
+    const name = prompt(
+      'Nhập tên biến (Ví dụ: location, subject, camera, medium, accent_color...):'
+    )
     if (name) {
-      const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+      const cleanName = name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
       if (!cleanName) return
-      
+
       const replacement = `{argument name="${cleanName}" default="${selection.text}"}`
-      const newValue = value.slice(0, selection.start) + replacement + value.slice(selection.end)
+      const newValue =
+        value.slice(0, selection.start) +
+        replacement +
+        value.slice(selection.end)
       onChange(newValue)
-      
+
       // Save original version to history if empty
       if (scanHistory.length === 0) {
         setScanHistory([{ prompt: value, variables: parseVariables(value) }])
         setActiveHistoryIndex(0)
       }
-      
+
       setSelection({ start: 0, end: 0, text: '' })
     }
   }
@@ -313,18 +337,27 @@ export function PromptField({
       return
     }
 
-    const targetWord = prompt('Nhập từ khóa trong prompt cần đổi thành biến số (Ví dụ: NEW YORK):')
+    const targetWord = prompt(
+      'Nhập từ khóa trong prompt cần đổi thành biến số (Ví dụ: NEW YORK):'
+    )
     if (!targetWord || !targetWord.trim()) return
 
     const trimmedTarget = targetWord.trim()
     if (!value.includes(trimmedTarget)) {
-      toast.error(`Không tìm thấy từ khóa "${trimmedTarget}" trong prompt của bạn!`)
+      toast.error(
+        `Không tìm thấy từ khóa "${trimmedTarget}" trong prompt của bạn!`
+      )
       return
     }
 
-    const name = prompt(`Nhập tên biến cho từ khóa "${trimmedTarget}" (Ví dụ: location, subject, camera...):`)
+    const name = prompt(
+      `Nhập tên biến cho từ khóa "${trimmedTarget}" (Ví dụ: location, subject, camera...):`
+    )
     if (name) {
-      const cleanName = name.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_')
+      const cleanName = name
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '_')
       if (!cleanName) return
 
       const replacement = `{argument name="${cleanName}" default="${trimmedTarget}"}`
@@ -335,7 +368,9 @@ export function PromptField({
         setScanHistory([{ prompt: value, variables: parseVariables(value) }])
         setActiveHistoryIndex(0)
       }
-      toast.success(`Đã chuyển đổi "${trimmedTarget}" thành biến số "${cleanName}"!`)
+      toast.success(
+        `Đã chuyển đổi "${trimmedTarget}" thành biến số "${cleanName}"!`
+      )
     }
   }
 
@@ -344,7 +379,7 @@ export function PromptField({
     const list = []
     let match
     while ((match = regex.exec(txt || '')) !== null) {
-      if (!list.some(item => item.fullTag === match[0])) {
+      if (!list.some((item) => item.fullTag === match[0])) {
         list.push({ fullTag: match[0], name: match[1], default: match[2] })
       }
     }
@@ -365,24 +400,36 @@ export function PromptField({
     }
     setLoading(true)
     try {
-      const { data } = await api.post('/ai/extract-arguments', { prompt: value })
+      const { data } = await api.post('/ai/extract-arguments', {
+        prompt: value,
+      })
       if (data.success) {
         let currentHistory = [...scanHistory]
         if (currentHistory.length === 0) {
           currentHistory = [{ prompt: value, variables: parseVariables(value) }]
         }
-        const newScan = { prompt: data.formatted_prompt, variables: data.variables }
+        const newScan = {
+          prompt: data.formatted_prompt,
+          variables: data.variables,
+        }
         const updatedHistory = [...currentHistory, newScan]
-        
+
         setScanHistory(updatedHistory)
         setActiveHistoryIndex(updatedHistory.length - 1)
         onChange(data.formatted_prompt)
-        
-        toast.success(`Tự động trích xuất từ khóa động thành công! (Tiêu tốn ${data.tokensCost} token)`)
+
+        if (data.remainingTokens !== undefined) {
+          updateUser({ tokenBalance: data.remainingTokens })
+        }
+
+        toast.success(
+          `Tự động trích xuất từ khóa động thành công! (Tiêu tốn ${data.tokensCost} AI Credits)`
+        )
       }
     } catch (err) {
       console.error(err)
-      const msg = err.response?.data?.message || 'Có lỗi xảy ra khi quét từ khóa'
+      const msg =
+        err.response?.data?.message || 'Có lỗi xảy ra khi quét từ khóa'
       toast.error(msg)
     } finally {
       setLoading(false)
@@ -426,6 +473,41 @@ export function PromptField({
       </div>
 
       <div className="relative w-full rounded-xl overflow-hidden border border-white/10 bg-black/20 focus-within:border-[#7986eb]">
+        {/* Loading shimmer overlay — blocks editing while AI is running */}
+        {loading && (
+          <div className="absolute inset-0 z-20 rounded-xl overflow-hidden pointer-events-auto">
+            {/* Frosted backdrop */}
+            <div className="absolute inset-0 bg-[#0d0d14]/70 backdrop-blur-[2px] rounded-xl" />
+            {/* Shimmer sweep */}
+            <div
+              className="absolute inset-0 rounded-xl"
+              style={{
+                background:
+                  'linear-gradient(105deg, transparent 40%, rgba(121,134,235,0.08) 50%, transparent 60%)',
+                backgroundSize: '200% 100%',
+                animation: 'ai-shimmer 1.6s ease-in-out infinite',
+              }}
+            />
+            {/* Center indicator */}
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="relative">
+                <div className="w-9 h-9 rounded-full border-2 border-[#7986eb]/30 border-t-[#7986eb] animate-spin" />
+                <Sparkles
+                  size={14}
+                  className="absolute inset-0 m-auto text-[#a5b0f5]"
+                  style={{ animation: 'pulse 1.6s ease-in-out infinite' }}
+                />
+              </div>
+              <p className="text-xs font-bold text-[#a5b0f5] tracking-wide">
+                AI đang trích xuất từ khóa...
+              </p>
+              <p className="text-[10px] text-white/30">
+                Vui lòng chờ trong giây lát
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Backdrop highlights */}
         {isPrimaryPrompt && (
           <div
@@ -443,10 +525,13 @@ export function PromptField({
           >
             {(() => {
               // Regex supporting escaped quotes (e.g. \"NĂNG LƯỢNG\")
-              const regex = /(\{argument\s+name="[^"]+"\s+default="(?:[^"\\]|\\.)*"\})/g
+              const regex =
+                /(\{argument\s+name="[^"]+"\s+default="(?:[^"\\]|\\.)*"\})/g
               const parts = (value || '').split(regex)
               return parts.map((part, index) => {
-                const match = part.match(/\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/)
+                const match = part.match(
+                  /\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/
+                )
                 if (match) {
                   return (
                     <span
@@ -474,11 +559,17 @@ export function PromptField({
           onSelect={handleSelect}
           placeholder={placeholder}
           maxLength={maxLength}
-          rows={label === 'Prompt' ? 10 : (label === 'Negative Prompt' ? 4 : 5)}
-          className="w-full resize-none leading-relaxed font-mono text-sm pr-10 focus:ring-0 focus:outline-none bg-transparent border-none p-3.5"
+          disabled={loading}
+          rows={label === 'Prompt' ? 10 : label === 'Negative Prompt' ? 4 : 5}
+          className="w-full resize-none leading-relaxed font-mono text-sm pr-10 focus:ring-0 focus:outline-none bg-transparent border-none p-3.5 disabled:opacity-50"
           style={{
             ...sharedStyle,
-            minHeight: label === 'Prompt' ? '280px' : (label === 'Negative Prompt' ? '90px' : '150px'),
+            minHeight:
+              label === 'Prompt'
+                ? '280px'
+                : label === 'Negative Prompt'
+                  ? '90px'
+                  : '150px',
             position: 'relative',
             zIndex: 1,
             color: 'rgba(255, 255, 255, 0.85)',
@@ -514,29 +605,62 @@ export function PromptField({
         <div className="space-y-3 pt-1">
           {/* Action buttons row */}
           <div className="flex flex-wrap items-center gap-3">
-            <button
+            <motion.button
               type="button"
               onClick={handleAiScan}
               disabled={loading}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 disabled:opacity-50"
+              whileHover={!loading ? { scale: 1.03 } : undefined}
+              whileTap={!loading ? { scale: 0.97 } : undefined}
+              className={`relative overflow-hidden flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all border disabled:cursor-not-allowed
+                ${loading
+                  ? 'bg-[#7986eb]/10 border-[#7986eb]/30 text-[#a5b0f5]'
+                  : 'bg-white/5 border-white/10 hover:bg-[#7986eb]/10 hover:border-[#7986eb]/30'
+                }`}
             >
-              {loading ? (
-                <>
-                  <Loader2 size={13} className="animate-spin text-[#7986eb]" />
-                  Đang quét...
-                </>
-              ) : (
-                <>
-                  <Sparkles size={13} className="text-yellow-400" />
-                  Tự động tìm từ khóa <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal"><Coins size={9} /> -2 xu</span>
-                </>
+              {/* Shimmer sweep when loading */}
+              {loading && (
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    background:
+                      'linear-gradient(105deg, transparent 35%, rgba(121,134,235,0.15) 50%, transparent 65%)',
+                    backgroundSize: '200% 100%',
+                    animation: 'ai-shimmer 1.4s ease-in-out infinite',
+                  }}
+                />
               )}
-            </button>
+              <span className="relative z-10 flex items-center gap-1.5">
+                {loading ? (
+                  <>
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        duration: 1,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
+                    >
+                      <Loader2 size={13} className="text-[#7986eb]" />
+                    </motion.div>
+                    Đang quét...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={13} className="text-yellow-400" />
+                    Tự động tìm từ khóa{' '}
+                    <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal">
+                      <Coins size={9} /> -2 xu
+                    </span>
+                  </>
+                )}
+              </span>
+            </motion.button>
 
             <button
               type="button"
               onClick={handleMakeDynamicManual}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20"
+              disabled={loading}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all bg-white/5 border border-white/10 enabled:hover:bg-white/10 enabled:hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus size={13} className="text-[#a5b0f5]" />
               Đặt biến số thủ công
@@ -560,12 +684,13 @@ export function PromptField({
                   <button
                     key={idx}
                     type="button"
-                    onClick={() => handleRestoreHistory(idx)}
+                    onClick={() => !loading && handleRestoreHistory(idx)}
+                    disabled={loading}
                     className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
                       idx === activeHistoryIndex
                         ? 'bg-[#7986eb]/25 border border-[#7986eb]/50 text-[#a5b0f5]'
-                        : 'bg-white/5 border border-white/10 text-white/50 hover:bg-white/10'
-                    }`}
+                        : 'bg-white/5 border border-white/10 text-white/50 enabled:hover:bg-white/10'
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {idx === 0 ? 'Bản gốc' : `Lần quét ${idx}`}
                   </button>
@@ -576,7 +701,7 @@ export function PromptField({
 
           {/* Active Variable tags list */}
           {activeVariables.length > 0 && (
-            <div className="space-y-1.5 p-3 rounded-xl border border-white/5 bg-white/2">
+            <div className={`space-y-1.5 p-3 rounded-xl border border-white/5 bg-white/2 transition-opacity duration-200 ${loading ? 'opacity-60' : ''}`}>
               <div className="text-[10px] font-bold uppercase tracking-widest text-white/30">
                 Danh sách từ khóa động ({activeVariables.length})
               </div>
@@ -591,13 +716,18 @@ export function PromptField({
                       color: '#a5b0f5',
                     }}
                   >
-                    <span className="font-bold text-white/40">{variable.name}:</span>
+                    <span className="font-bold text-white/40">
+                      {variable.name}:
+                    </span>
                     <span>{variable.default}</span>
                     <button
                       type="button"
-                      onClick={() => handleDeleteVariable(variable.fullTag, variable.default)}
+                      onClick={() =>
+                        !loading && handleDeleteVariable(variable.fullTag, variable.default)
+                      }
+                      disabled={loading}
                       title="Xóa biến số"
-                      className="p-0.5 rounded-full hover:bg-red-500/10 hover:text-red-400 transition-colors text-white/30"
+                      className="p-0.5 rounded-full enabled:hover:bg-red-500/10 enabled:hover:text-red-400 transition-colors text-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <X size={10} />
                     </button>
@@ -656,10 +786,13 @@ export function SourceHistoryPanel({ images, selectedIds, onToggle, loading }) {
   return (
     <div className="space-y-2">
       <p className="text-xs text-white/40">
-        Click để chọn / bỏ chọn · <span className="text-brand-400">{selectedIds.size}</span> đã chọn
+        Click để chọn / bỏ chọn ·{' '}
+        <span className="text-brand-400">{selectedIds.size}</span> đã chọn
       </p>
-      <div className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1
-        scrollbar-thin scrollbar-thumb-white/10">
+      <div
+        className="grid grid-cols-5 sm:grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1
+        scrollbar-thin scrollbar-thumb-white/10"
+      >
         {images.map((img) => {
           const isSelected = selectedIds.has(img.publicId)
           return (
@@ -668,9 +801,11 @@ export function SourceHistoryPanel({ images, selectedIds, onToggle, loading }) {
               type="button"
               onClick={() => onToggle(img)}
               className={`relative aspect-square rounded-lg overflow-hidden border-2 transition-all duration-150
-                ${isSelected
-                  ? 'border-brand-500 ring-2 ring-brand-500/30 scale-[0.96]'
-                  : 'border-white/8 hover:border-white/25'}`}
+                ${
+                  isSelected
+                    ? 'border-brand-500 ring-2 ring-brand-500/30 scale-[0.96]'
+                    : 'border-white/8 hover:border-white/25'
+                }`}
             >
               <img
                 src={img.thumbnailUrl || getOptimizedWebpUrl(img.url, 150)}
@@ -738,7 +873,11 @@ export function ModelSlot({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
       className="card p-4 space-y-3 relative"
-      style={{ borderLeft: selectedTool ? `3px solid ${selectedTool.color}` : '3px solid rgba(255,255,255,0.08)' }}
+      style={{
+        borderLeft: selectedTool
+          ? `3px solid ${selectedTool.color}`
+          : '3px solid rgba(255,255,255,0.08)',
+      }}
     >
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -780,7 +919,9 @@ export function ModelSlot({
         >
           <option value="">Chọn công cụ AI...</option>
           {AI_TOOLS.map((t) => (
-            <option key={t.value} value={t.value}>{t.icon} {t.label}</option>
+            <option key={t.value} value={t.value}>
+              {t.icon} {t.label}
+            </option>
           ))}
         </select>
       </div>
@@ -795,7 +936,11 @@ export function ModelSlot({
               className={`relative w-16 h-16 rounded-lg overflow-hidden border group bg-black/30 transition-all duration-150
                 ${isImagePrimary && onSetPrimaryImage ? 'border-brand-500 ring-1 ring-brand-500/30' : 'border-white/10'}`}
             >
-              <img src={img.preview} alt="" className="w-full h-full object-cover" />
+              <img
+                src={img.preview}
+                alt=""
+                className="w-full h-full object-cover"
+              />
 
               {/* Cover indicator */}
               {isImagePrimary && onSetPrimaryImage && (
@@ -837,7 +982,10 @@ export function ModelSlot({
               ${isDragActive ? 'border-brand-400 bg-brand-900/30' : 'border-white/12 hover:border-white/25'}`}
           >
             <input {...getInputProps()} />
-            <Plus size={16} className={isDragActive ? 'text-brand-400' : 'text-white/25'} />
+            <Plus
+              size={16}
+              className={isDragActive ? 'text-brand-400' : 'text-white/25'}
+            />
           </div>
         )}
       </div>

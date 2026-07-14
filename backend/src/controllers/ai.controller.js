@@ -162,12 +162,21 @@ export const extractArguments = async (req, res, next) => {
     }
 
     const userId = req.user._id
-    const isUltimate = req.user.subscriptionTier === 'ultimate'
-    const EXTRACT_COST = isUltimate ? 0 : 2 // 2 tokens for dynamic keyword scan
+    const EXTRACT_COST = 2 // 2 tokens for dynamic keyword scan
+
+    console.log(`\n${'='.repeat(60)}`)
+    console.log(`[EXTRACT-KEYWORDS] ► Request received`)
+    console.log(`[EXTRACT-KEYWORDS]   userId: ${userId}`)
+    console.log(`[EXTRACT-KEYWORDS]   promptLength: ${prompt.trim().length} chars`)
 
     // ── 1. Kiểm tra số dư xu ──────────────────────────────────────
-    const user = await User.findById(userId).select('tokenBalance')
-    if (!isUltimate && (!user || user.tokenBalance < EXTRACT_COST)) {
+    const user = await User.findById(userId).select('tokenBalance subscriptionTier username')
+    console.log(`[EXTRACT-KEYWORDS]   username: ${user?.username}`)
+    console.log(`[EXTRACT-KEYWORDS]   tier: ${user?.subscriptionTier}`)
+    console.log(`[EXTRACT-KEYWORDS]   DB tokenBalance BEFORE: ${user?.tokenBalance}`)
+    console.log(`[EXTRACT-KEYWORDS]   costToDeduct: ${EXTRACT_COST}`)
+
+    if (!user || user.tokenBalance < EXTRACT_COST) {
       throw new AppError(
         'INSUFFICIENT_TOKENS',
         `Bạn cần ít nhất ${EXTRACT_COST} token để tự động tìm từ khóa động`,
@@ -179,29 +188,29 @@ export const extractArguments = async (req, res, next) => {
     const aiResult = await extractPromptArguments(prompt)
 
     // ── 3. Trừ xu + Ghi nhận Transaction ─────────────────────────
-    let remainingTokens = user?.tokenBalance || 0
-    if (!isUltimate && EXTRACT_COST > 0) {
-      const updatedUser = await User.findOneAndUpdate(
-        { _id: userId, tokenBalance: { $gte: EXTRACT_COST } },
-        { $inc: { tokenBalance: -EXTRACT_COST } },
-        { returnDocument: 'after', select: 'tokenBalance' }
-      )
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId, tokenBalance: { $gte: EXTRACT_COST } },
+      { $inc: { tokenBalance: -EXTRACT_COST } },
+      { returnDocument: 'after', select: 'tokenBalance' }
+    )
 
-      if (!updatedUser) {
-        throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
-      }
-      remainingTokens = updatedUser.tokenBalance
-
-      // Ghi nhận lịch sử giao dịch xu
-      await TokenTransaction.create({
-        userId,
-        type: 'spend_lensspy', // Dùng chung phân loại của LensSpy như yêu cầu
-        amount: -EXTRACT_COST,
-        balanceBefore: user.tokenBalance,
-        balanceAfter: remainingTokens,
-        description: 'Tự động tìm từ khóa động cho prompt',
-      }).catch(err => console.error('Failed to log TokenTransaction for dynamic prompt scan:', err))
+    if (!updatedUser) {
+      throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
     }
+    const remainingTokens = updatedUser.tokenBalance
+    console.log(`[EXTRACT-KEYWORDS]   DB tokenBalance AFTER: ${remainingTokens}`)
+    console.log(`[EXTRACT-KEYWORDS]   Deducted: -${EXTRACT_COST} ✓`)
+    console.log(`${'='.repeat(60)}\n`)
+
+    // Ghi nhận lịch sử giao dịch xu
+    await TokenTransaction.create({
+      userId,
+      type: 'spend_lensspy', // Dùng chung phân loại của LensSpy như yêu cầu
+      amount: -EXTRACT_COST,
+      balanceBefore: user.tokenBalance,
+      balanceAfter: remainingTokens,
+      description: 'Tự động tìm từ khóa động cho prompt',
+    }).catch(err => console.error('Failed to log TokenTransaction for dynamic prompt scan:', err))
 
     return res.json({
       success: true,
@@ -231,12 +240,21 @@ export const suggestMeta = async (req, res, next) => {
 
     const chosenStyle = style || 'gioi_tre_y2k'
     const userId = req.user._id
-    const isUltimate = req.user.subscriptionTier === 'ultimate'
-    const META_COST = isUltimate ? 0 : 2
+    const META_COST = 2
+
+    console.log(`\n${'='.repeat(60)}`)
+    console.log(`[SUGGEST-META] ► Request received`)
+    console.log(`[SUGGEST-META]   userId: ${userId}`)
+    console.log(`[SUGGEST-META]   style: ${chosenStyle}`)
 
     // 1. Kiểm tra số dư xu
-    const user = await User.findById(userId).select('tokenBalance')
-    if (!isUltimate && (!user || user.tokenBalance < META_COST)) {
+    const user = await User.findById(userId).select('tokenBalance subscriptionTier username')
+    console.log(`[SUGGEST-META]   username: ${user?.username}`)
+    console.log(`[SUGGEST-META]   tier: ${user?.subscriptionTier}`)
+    console.log(`[SUGGEST-META]   DB tokenBalance BEFORE: ${user?.tokenBalance}`)
+    console.log(`[SUGGEST-META]   costToDeduct: ${META_COST}`)
+
+    if (!user || user.tokenBalance < META_COST) {
       throw new AppError(
         'INSUFFICIENT_TOKENS',
         `Bạn cần ít nhất ${META_COST} token để tự động gợi ý mô tả và tags`,
@@ -254,29 +272,30 @@ export const suggestMeta = async (req, res, next) => {
     }
 
     // 3. Trừ xu + Ghi nhận Transaction
-    let remainingTokens = user?.tokenBalance || 0
-    if (!isUltimate && META_COST > 0) {
-      const updatedUser = await User.findOneAndUpdate(
-        { _id: userId, tokenBalance: { $gte: META_COST } },
-        { $inc: { tokenBalance: -META_COST } },
-        { returnDocument: 'after', select: 'tokenBalance' }
-      )
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId, tokenBalance: { $gte: META_COST } },
+      { $inc: { tokenBalance: -META_COST } },
+      { returnDocument: 'after', select: 'tokenBalance' }
+    )
 
-      if (!updatedUser) {
-        throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
-      }
-      remainingTokens = updatedUser.tokenBalance
-
-      // Ghi nhận lịch sử giao dịch xu
-      await TokenTransaction.create({
-        userId,
-        type: 'spend_lensspy',
-        amount: -META_COST,
-        balanceBefore: user.tokenBalance,
-        balanceAfter: remainingTokens,
-        description: `Tự động gợi ý mô tả và tags (Style: ${chosenStyle}) bằng AI`,
-      }).catch(err => console.error('Failed to log TokenTransaction for suggestMeta:', err))
+    if (!updatedUser) {
+      throw new AppError('INSUFFICIENT_TOKENS', 'Token không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
     }
+    const remainingTokens = updatedUser.tokenBalance
+    console.log(`[SUGGEST-META]   DB tokenBalance AFTER: ${remainingTokens}`)
+    console.log(`[SUGGEST-META]   Deducted: -${META_COST} ✓`)
+    console.log(`${'='.repeat(60)}\n`)
+
+
+    // Ghi nhận lịch sử giao dịch xu
+    await TokenTransaction.create({
+      userId,
+      type: 'spend_lensspy',
+      amount: -META_COST,
+      balanceBefore: user.tokenBalance,
+      balanceAfter: remainingTokens,
+      description: `Tự động gợi ý mô tả và tags (Style: ${chosenStyle}) bằng AI`,
+    }).catch(err => console.error('Failed to log TokenTransaction for suggestMeta:', err))
 
     return res.json({
       success: true,

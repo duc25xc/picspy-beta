@@ -252,14 +252,14 @@ const DashboardTab = () => {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-sm font-bold text-violet-400 mb-1">
-              Số dư token của Admin
+              Số dư AI Credits của Admin
             </p>
             <p className="text-4xl font-black text-white">
               {adminUser?.tokenBalance?.toLocaleString() ?? 0}{' '}
-              <span className="text-violet-400 text-2xl">token</span>
+              <span className="text-violet-400 text-2xl">AI Credits</span>
             </p>
             <p className="text-xs text-white/40 mt-1">
-              Dùng để test download Premium
+              Sử dụng các tính năng AI sẽ tiêu tốn AI Credits.
             </p>
           </div>
           <div className="w-16 h-16 rounded-2xl bg-violet-600/20 flex items-center justify-center">
@@ -2336,7 +2336,7 @@ const UsersTab = () => {
                     setCoinAmount('')
                   }}
                   className="p-2 rounded-xl bg-violet-600/20 border border-violet-500/30 text-violet-400 hover:bg-violet-600/30 transition-all cursor-pointer"
-                  title="Điều chỉnh token"
+                  title="Điều chỉnh AI Credits"
                 >
                   <Coins size={14} />
                 </button>
@@ -2430,11 +2430,11 @@ const UsersTab = () => {
                   <Coins size={24} className="text-violet-400" />
                 </div>
                 <div>
-                  <h3 className="font-bold text-lg">Điều chỉnh token</h3>
+                  <h3 className="font-bold text-lg">Điều chỉnh AI Credits</h3>
                   <p className="text-sm text-white/40">
                     @{coinModal.username} —{' '}
                     <span className="text-violet-400 font-bold">
-                      {coinModal.tokenBalance || 0} token
+                      {coinModal.tokenBalance || 0} AI Credits
                     </span>
                   </p>
                 </div>
@@ -2679,7 +2679,7 @@ const UsersTab = () => {
                           {key === 'founder'
                             ? '200 slot'
                             : key === 'pro'
-                              ? '1K token/th'
+                              ? '1K AI Credits/th'
                               : 'Unlimited'}
                         </p>
                       )}
@@ -3307,7 +3307,7 @@ const UsersTab = () => {
                   }}
                   className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-lg text-xs font-bold bg-violet-600/20 border border-violet-500/35 text-violet-400 hover:bg-violet-600/30 transition-all cursor-pointer font-display"
                 >
-                  <Coins size={13} /> Chỉnh sửa Token
+                  <Coins size={13} /> Chỉnh sửa AI Credits
                 </button>
                 <button
                   onClick={() => {
@@ -3674,7 +3674,7 @@ const UsersTab = () => {
 
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="input-label">Ví Token</label>
+                    <label className="input-label">Ví AI Credits</label>
                     <input
                       type="number"
                       required
@@ -4399,9 +4399,15 @@ const SettingsTab = ({ onDirtyChange }) => {
         setBlurPremiumImages(data.settings?.blurPremiumImages || false)
         setEnableRefund(data.settings?.enableRefund || false)
         setPostDetailLayout(data.settings?.postDetailLayout || 'left-image')
-        setTrendingCarouselInterval(data.settings?.trendingCarouselInterval ?? 5000)
-        setDiscoveryAutoScrollInterval(data.settings?.discoveryAutoScrollInterval ?? 10000)
-        setDiscoveryAutoScrollStagger(data.settings?.discoveryAutoScrollStagger ?? 1000)
+        setTrendingCarouselInterval(
+          data.settings?.trendingCarouselInterval ?? 5000
+        )
+        setDiscoveryAutoScrollInterval(
+          data.settings?.discoveryAutoScrollInterval ?? 10000
+        )
+        setDiscoveryAutoScrollStagger(
+          data.settings?.discoveryAutoScrollStagger ?? 1000
+        )
 
         setSavedColors({
           primary,
@@ -7282,7 +7288,8 @@ const SettingsTab = ({ onDirtyChange }) => {
                       Cài đặt Trang cá nhân (Profile Page)
                     </h3>
                     <p className="text-sm text-white/50 leading-relaxed">
-                      Quản lý thiết lập và tính năng hiển thị trên trang cá nhân của người dùng.
+                      Quản lý thiết lập và tính năng hiển thị trên trang cá nhân
+                      của người dùng.
                     </p>
                   </div>
                 </div>
@@ -7299,7 +7306,8 @@ const SettingsTab = ({ onDirtyChange }) => {
                     Cho phép hoàn tác đơn hàng (Refund)
                   </h4>
                   <p className="text-[11px] text-white/40">
-                    Nếu bật, người mua có thể tự hoàn tác đơn hàng đã mua trong vòng 3 ngày và nhận lại tiền.
+                    Nếu bật, người mua có thể tự hoàn tác đơn hàng đã mua trong
+                    vòng 3 ngày và nhận lại tiền.
                   </p>
                 </div>
                 <button
@@ -7524,7 +7532,7 @@ const ACTION_MAPPING = {
     color: 'bg-red-500/20 text-red-300 border-red-500/30',
   },
   USER_TOKENS_ADJUST: {
-    label: 'Điều chỉnh Token',
+    label: 'Điều chỉnh AI Credits',
     color: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/20',
   },
   USER_BAN: {
@@ -7725,7 +7733,7 @@ const LogsTab = () => {
       case 'POST_DELETE':
         return `Bài đăng: "${details.caption || 'Không tiêu đề'}" (Tác giả ID: ${details.authorId || 'unknown'})`
       case 'USER_TOKENS_ADJUST':
-        return `Người dùng: @${details.username || 'unknown'} (${details.amount > 0 ? '+' : ''}${details.amount} tokens) - ${details.reason || 'không lý do'}`
+        return `Người dùng: @${details.username || 'unknown'} (${details.amount > 0 ? '+' : ''}${details.amount} AI Credits) - ${details.reason || 'không lý do'}`
       case 'USER_BAN':
         return `Người dùng: @${details.username || 'unknown'} ${details.durationDays ? `trong ${details.durationDays} ngày` : 'vĩnh viễn'} - Lý do: ${details.reason || 'không lý do'}`
       case 'USER_UNBAN':

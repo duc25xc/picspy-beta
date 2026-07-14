@@ -995,6 +995,9 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
                 src={c.avatar}
                 alt={c.displayName || c.username}
                 className="w-12 h-12 rounded-full object-cover border border-[var(--color-border)]"
+                onError={(e) => {
+                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.displayName || c.username || '')}&background=8b5cf6&color=fff`
+                }}
               />
             ) : (
               <div
