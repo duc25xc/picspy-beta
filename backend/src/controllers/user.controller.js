@@ -1,6 +1,6 @@
 import User from '../models/User.model.js'
 import AppError from '../utils/AppError.js'
-import { uploadBuffer } from '../config/cloudinary.js'
+import { uploadBuffer, deleteImage } from '../config/cloudinary.js'
 import Settings from '../models/Settings.model.js'
 
 /**
@@ -61,6 +61,35 @@ export const updateMe = async (req, res, next) => {
 }
 
 /**
+ * Trích xuất public_id của Cloudinary từ URL ảnh
+ */
+const getCloudinaryPublicId = (url) => {
+  if (!url || !url.includes('cloudinary.com')) return null
+  try {
+    const parts = url.split('/image/upload/')
+    if (parts.length < 2) return null
+    
+    const pathAndOptions = parts[1]
+    const pathParts = pathAndOptions.split('/')
+    
+    // Bỏ phần version (vd: v1712345678)
+    if (pathParts[0].startsWith('v') && !isNaN(pathParts[0].substring(1))) {
+      pathParts.shift()
+    }
+    
+    const publicIdWithExtension = pathParts.join('/')
+    const lastDotIndex = publicIdWithExtension.lastIndexOf('.')
+    if (lastDotIndex !== -1) {
+      return publicIdWithExtension.substring(0, lastDotIndex)
+    }
+    return publicIdWithExtension
+  } catch (error) {
+    console.error('Lỗi trích xuất public_id Cloudinary:', error)
+    return null
+  }
+}
+
+/**
  * PUT /users/me/avatar
  */
 export const uploadAvatar = async (req, res, next) => {
@@ -68,10 +97,16 @@ export const uploadAvatar = async (req, res, next) => {
     if (!req.file)
       throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh', 400)
 
+    // 1. Tìm user hiện tại để lấy avatar cũ
+    const currentUser = await User.findById(req.user._id)
+    const oldAvatarUrl = currentUser?.avatar
+
+    // 2. Upload ảnh mới với public_id duy nhất có timestamp để tránh lỗi cache CDN/trình duyệt
+    const uniquePublicId = `avatar_${req.user._id}_${Date.now()}`
     const result = await uploadBuffer(
       req.file.buffer,
       'picspy/avatars',
-      `avatar_${req.user._id}`,
+      uniquePublicId,
       {
         transformation: [
           { width: 400, height: 400, crop: 'fill', gravity: 'face' },
@@ -80,11 +115,24 @@ export const uploadAvatar = async (req, res, next) => {
       }
     )
 
+    // 3. Cập nhật URL ảnh mới trong DB
     const user = await User.findByIdAndUpdate(
       req.user._id,
       { avatar: result.secure_url },
       { new: true }
     )
+
+    // 4. Xoá ảnh cũ trên Cloudinary nếu đó là ảnh thuộc Cloudinary của chúng ta
+    if (oldAvatarUrl) {
+      const oldPublicId = getCloudinaryPublicId(oldAvatarUrl)
+      if (oldPublicId) {
+        // Gọi xoá bất đồng bộ, không chặn luồng response để tối ưu tốc độ phản hồi
+        deleteImage(oldPublicId).catch((err) => {
+          console.error(`Lỗi khi xoá ảnh cũ ${oldPublicId} trên Cloudinary:`, err)
+        })
+      }
+    }
+
     res.json({ avatar: user.avatar })
   } catch (err) {
     next(err)

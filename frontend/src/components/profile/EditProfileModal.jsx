@@ -4,6 +4,7 @@ import { X, Camera, Loader2, User, Lock, Globe, FileText, Check } from 'lucide-r
 import api from '../../api/api'
 import toast from 'react-hot-toast'
 import useAuthStore from '../../store/auth.store'
+import ConfirmModal from '../common/ConfirmModal'
 
 const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultTab }) => {
   const { updateUser } = useAuthStore()
@@ -19,7 +20,18 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
 
   // Avatar state
   const [avatarPreview, setAvatarPreview] = useState(profile?.avatar || null)
-  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const [avatarFile, setAvatarFile] = useState(null) // File object not yet uploaded
+  const [avatarBlobUrl, setAvatarBlobUrl] = useState(null) // Blob URL for preview
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [showConfirmClose, setShowConfirmClose] = useState(false)
+
+  // Custom Cropper states and refs
+  const [cropSrc, setCropSrc] = useState(null)
+  const [cropZoom, setCropZoom] = useState(1)
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 })
+  const [imgDims, setImgDims] = useState({ w: 0, h: 0 })
+  const dragStartRef = useRef({ x: 0, y: 0 })
+  const isDraggingRef = useRef(false)
 
   // Password tab state
   const [currentPassword, setCurrentPassword] = useState('')
@@ -27,7 +39,7 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
   const [confirmPassword, setConfirmPassword] = useState('')
   const [changingPassword, setChangingPassword] = useState(false)
 
-  // Reset state when modal opens/closes
+  // Reset state when modal opens
   useEffect(() => {
     if (isOpen && profile) {
       setDisplayName(profile.displayName || '')
@@ -39,19 +51,35 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
       setCurrentPassword('')
       setNewPassword('')
       setConfirmPassword('')
+      // Reset avatar upload states
+      setAvatarFile(null)
+      setHasUnsavedChanges(false)
+      setShowConfirmClose(false)
     }
   }, [isOpen, profile, defaultTab])
+  
+  // Cleanup blob URL when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      if (avatarBlobUrl) {
+        URL.revokeObjectURL(avatarBlobUrl)
+        setAvatarBlobUrl(null)
+      }
+      setAvatarFile(null)
+      setHasUnsavedChanges(false)
+      setShowConfirmClose(false)
+    }
+  }, [isOpen, avatarBlobUrl])
 
   if (!isOpen) return null
 
   // Handle avatar click to trigger input file selection
   const handleAvatarClick = () => {
-    if (uploadingAvatar) return
     fileInputRef.current?.click()
   }
 
-  // Handle avatar upload to server
-  const handleAvatarChange = async (e) => {
+  // Handle avatar file selection - trigger custom cropper
+  const handleAvatarChange = (e) => {
     const file = e.target.files?.[0]
     if (!file) return
 
@@ -61,38 +89,206 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
       return
     }
 
-    const formData = new FormData()
-    formData.append('avatar', file)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setCropSrc(reader.result)
+      setCropZoom(1)
+      setCropOffset({ x: 0, y: 0 })
+    }
+    reader.readAsDataURL(file)
 
-    setUploadingAvatar(true)
-    const uploadToastId = toast.loading('Đang tải ảnh lên...')
+    // Reset input value to allow selecting same file again
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
 
-    try {
-      const { data } = await api.put('/me/avatar', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
+  // Get base width and height of image in container coordinates based on cover-mode
+  const getBaseDimensions = (dims) => {
+    if (!dims || dims.w === 0 || dims.h === 0) return { w: 320, h: 320 }
+    const containerSize = 320
+    const ratio = dims.w / dims.h
+    if (ratio > 1) {
+      return {
+        h: containerSize,
+        w: containerSize * ratio
+      }
+    } else {
+      return {
+        w: containerSize,
+        h: containerSize / ratio
+      }
+    }
+  }
+
+  const baseDims = getBaseDimensions(imgDims)
+
+  // Helper to restrict dragging coordinates so the image always covers the crop box
+  const clampOffset = (x, y, zoom, dims) => {
+    if (!dims || dims.w === 0 || dims.h === 0) return { x, y }
+    
+    const containerSize = 320
+    const ratio = dims.w / dims.h
+    let baseW, baseH
+    
+    if (ratio > 1) {
+      baseH = containerSize
+      baseW = containerSize * ratio
+    } else {
+      baseW = containerSize
+      baseH = containerSize / ratio
+    }
+    
+    const scaledW = baseW * zoom
+    const scaledH = baseH * zoom
+    
+    const minX = (containerSize - scaledW) / 2
+    const maxX = (scaledW - containerSize) / 2
+    const minY = (containerSize - scaledH) / 2
+    const maxY = (scaledH - containerSize) / 2
+    
+    return {
+      x: Math.max(minX, Math.min(maxX, x)),
+      y: Math.max(minY, Math.min(maxY, y)),
+    }
+  }
+
+  // Handle image load to extract natural dimensions and reset cropper params
+  const handleImageLoad = (e) => {
+    const { naturalWidth, naturalHeight } = e.target
+    const dims = { w: naturalWidth, h: naturalHeight }
+    setImgDims(dims)
+    setCropOffset({ x: 0, y: 0 })
+    setCropZoom(1)
+  }
+
+  // Handle zoom level change and clamp current offset to avoid empty borders
+  const handleZoomChange = (newZoom) => {
+    setCropZoom(newZoom)
+    setCropOffset((prev) => clampOffset(prev.x, prev.y, newZoom, imgDims))
+  }
+
+  // Dragging event handlers for the image cropper
+  const handleDragStart = (e) => {
+    isDraggingRef.current = true
+    dragStartRef.current = {
+      x: e.clientX - cropOffset.x,
+      y: e.clientY - cropOffset.y,
+    }
+  }
+
+  const handleDragMove = (e) => {
+    if (!isDraggingRef.current) return
+    const newX = e.clientX - dragStartRef.current.x
+    const newY = e.clientY - dragStartRef.current.y
+    const clamped = clampOffset(newX, newY, cropZoom, imgDims)
+    setCropOffset(clamped)
+  }
+
+  const handleDragEnd = () => {
+    isDraggingRef.current = false
+  }
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length !== 1) return
+    isDraggingRef.current = true
+    dragStartRef.current = {
+      x: e.touches[0].clientX - cropOffset.x,
+      y: e.touches[0].clientY - cropOffset.y,
+    }
+  }
+
+  const handleTouchMove = (e) => {
+    if (!isDraggingRef.current || e.touches.length !== 1) return
+    const newX = e.touches[0].clientX - dragStartRef.current.x
+    const newY = e.touches[0].clientY - dragStartRef.current.y
+    const clamped = clampOffset(newX, newY, cropZoom, imgDims)
+    setCropOffset(clamped)
+  }
+
+  const handleTouchEnd = () => {
+    isDraggingRef.current = false
+  }
+
+  // Draw crop preview onto a 400x400 canvas and convert to WebP Blob/File
+  const handleCropApply = () => {
+    const canvas = document.createElement('canvas')
+    canvas.width = 400
+    canvas.height = 400
+    const ctx = canvas.getContext('2d')
+    if (!ctx) return
+
+    const img = new Image()
+    img.src = cropSrc
+    img.onload = () => {
+      const cw = canvas.width
+      const ch = canvas.height
+
+      ctx.fillStyle = '#000000'
+      ctx.fillRect(0, 0, cw, ch)
+
+      const containerSize = 320
+      const scaleFactor = cw / containerSize
+
+      const imgWidth = img.naturalWidth
+      const imgHeight = img.naturalHeight
+
+      const ratio = imgWidth / imgHeight
+      let renderW, renderH
+      if (ratio > 1) {
+        renderH = containerSize
+        renderW = containerSize * ratio
+      } else {
+        renderW = containerSize
+        renderH = containerSize / ratio
+      }
+
+      const canvasCenterX = cw / 2 + cropOffset.x * scaleFactor
+      const canvasCenterY = ch / 2 + cropOffset.y * scaleFactor
       
-      const newAvatarUrl = data.user?.avatar || data.avatar
-      setAvatarPreview(newAvatarUrl)
-      
-      // Update local states & global store
-      onProfileUpdated({ avatar: newAvatarUrl })
-      updateUser({ avatar: newAvatarUrl })
+      const wOnCanvas = renderW * cropZoom * scaleFactor
+      const hOnCanvas = renderH * cropZoom * scaleFactor
 
-      toast.success('Cập nhật ảnh đại diện thành công', { id: uploadToastId })
-    } catch (err) {
-      console.error(err)
-      toast.error(err.response?.data?.message || 'Không thể tải ảnh lên', { id: uploadToastId })
-    } finally {
-      setUploadingAvatar(false)
-      // Reset input value to allow uploading same file
-      if (fileInputRef.current) fileInputRef.current.value = ''
+      ctx.drawImage(
+        img,
+        canvasCenterX - wOnCanvas / 2,
+        canvasCenterY - hOnCanvas / 2,
+        wOnCanvas,
+        hOnCanvas
+      )
+
+      canvas.toBlob(
+        (blob) => {
+          if (!blob) {
+            toast.error('Không thể cắt ảnh')
+            return
+          }
+
+          const croppedFile = new File([blob], 'avatar.webp', {
+            type: 'image/webp',
+          })
+
+          if (avatarBlobUrl) {
+            URL.revokeObjectURL(avatarBlobUrl)
+          }
+
+          const blobUrl = URL.createObjectURL(croppedFile)
+          setAvatarFile(croppedFile)
+          setAvatarBlobUrl(blobUrl)
+          setAvatarPreview(blobUrl)
+          setHasUnsavedChanges(true)
+          setCropSrc(null)
+          toast.success('Đã cắt ảnh đại diện thành công')
+        },
+        'image/webp',
+        0.9
+      )
     }
   }
 
   // Save profile information
   const handleSaveInfo = async (e) => {
     e.preventDefault()
+    
+    // Validation
     if (displayName.length > 50) {
       toast.error('Tên hiển thị tối đa 50 ký tự')
       return
@@ -103,16 +299,53 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
     }
 
     setUpdatingInfo(true)
+    
     try {
-      const { data } = await api.put('/me', {
+      let newAvatarUrl = null
+
+      // Step 1: Upload avatar if changed
+      if (avatarFile) {
+        const formData = new FormData()
+        formData.append('avatar', avatarFile)
+        
+        const uploadToastId = toast.loading('Đang tải ảnh lên...')
+        try {
+          const { data } = await api.put('/users/me/avatar', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          })
+          newAvatarUrl = data.user?.avatar || data.avatar
+          toast.success('Đã tải ảnh lên', { id: uploadToastId })
+        } catch (err) {
+          toast.error('Không thể tải ảnh lên', { id: uploadToastId })
+          throw err // Stop if avatar upload fails
+        }
+      }
+
+      // Step 2: Update profile info
+      const { data } = await api.put('/users/me', {
         displayName,
         bio,
         website,
       })
 
       const updatedUser = data.user
+      
+      // If avatar was uploaded, merge it into user object
+      if (newAvatarUrl) {
+        updatedUser.avatar = newAvatarUrl
+      }
+
       onProfileUpdated(updatedUser)
       updateUser(updatedUser)
+      
+      // Cleanup blob URL
+      if (avatarBlobUrl) {
+        URL.revokeObjectURL(avatarBlobUrl)
+        setAvatarBlobUrl(null)
+      }
+      setAvatarFile(null)
+      setHasUnsavedChanges(false)
+      
       toast.success('Đã cập nhật thông tin cá nhân')
       onClose()
     } catch (err) {
@@ -142,7 +375,7 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
     setChangingPassword(true)
     try {
       const payload = hasPassword ? { currentPassword, newPassword } : { newPassword }
-      await api.put('/me/password', payload)
+      await api.put('/users/me/password', payload)
 
       toast.success(hasPassword ? 'Đổi mật khẩu thành công' : 'Đặt mật khẩu thành công')
       
@@ -160,18 +393,49 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
     }
   }
 
+  // Handle modal close with unsaved changes check
+  const handleClose = () => {
+    // Check if there are unsaved changes (avatar, form fields, or passwords)
+    const hasFormChanges = 
+      displayName !== (profile?.displayName || '') ||
+      bio !== (profile?.bio || '') ||
+      website !== (profile?.website || '') ||
+      avatarFile !== null ||
+      currentPassword !== '' ||
+      newPassword !== '' ||
+      confirmPassword !== ''
+
+    if (hasFormChanges) {
+      setShowConfirmClose(true)
+    } else {
+      forceClose()
+    }
+  }
+
+  const forceClose = () => {
+    // Cleanup blob URL before closing
+    if (avatarBlobUrl) {
+      URL.revokeObjectURL(avatarBlobUrl)
+      setAvatarBlobUrl(null)
+    }
+    setAvatarFile(null)
+    setHasUnsavedChanges(false)
+    setShowConfirmClose(false)
+    onClose()
+  }
+
   return (
     <AnimatePresence>
       <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md z-[200]">
         {/* Backdrop Close Click */}
-        <div className="fixed inset-0 w-full h-full cursor-default" onClick={onClose} />
+        <div className="fixed inset-0 w-full h-full cursor-default" onClick={handleClose} />
 
         <motion.div
           initial={{ opacity: 0, scale: 0.93, y: 15 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.93, y: 15 }}
           transition={{ duration: 0.22, ease: 'easeOut' }}
-          className="relative bg-[#121220]/95 border border-white/10 rounded-[2.5rem] w-full max-w-lg overflow-hidden shadow-2xl z-10 flex flex-col max-h-[90vh]"
+          className="relative bg-[#121220]/95 border border-white/10 rounded-[2.5rem] w-full max-w-xl overflow-hidden shadow-2xl z-10 flex flex-col max-h-[90vh]"
           style={{ backdropFilter: 'blur(32px)' }}
         >
           {/* Header */}
@@ -180,7 +444,7 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
               <span>👤 Thiết lập tài khoản</span>
             </h2>
             <button
-              onClick={onClose}
+              onClick={handleClose}
               className="p-2 rounded-full hover:bg-white/10 text-white/50 hover:text-white transition-colors cursor-pointer"
             >
               <X size={20} />
@@ -219,8 +483,13 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
               <form onSubmit={handleSaveInfo} className="space-y-6">
                 {/* Avatar upload */}
                 <div className="flex flex-col items-center justify-center mb-6">
-                  <div className="relative group cursor-pointer" onClick={handleAvatarClick}>
-                    <div className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-white/10 group-hover:border-brand-500/50 transition-all duration-300 relative shadow-inner bg-surface-100 flex items-center justify-center">
+                  <div className="relative cursor-pointer select-none" onClick={handleAvatarClick}>
+                    {/* Main Avatar Container */}
+                    <motion.div
+                      whileHover={{ scale: 1.05, borderColor: 'rgba(139, 92, 246, 0.4)' }}
+                      whileTap={{ scale: 0.96 }}
+                      className="w-24 h-24 rounded-3xl overflow-hidden border-2 border-white/10 transition-all duration-300 relative shadow-lg bg-[#18182a] flex items-center justify-center group"
+                    >
                       {avatarPreview ? (
                         <img
                           src={avatarPreview}
@@ -236,21 +505,50 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
                         </span>
                       )}
 
-                      {/* Loading spinner */}
-                      {uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                          <Loader2 className="text-brand-400 animate-spin" size={24} />
-                        </div>
-                      )}
-
                       {/* Hover Overlay */}
-                      {!uploadingAvatar && (
-                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white/90 gap-1">
-                          <Camera size={18} />
-                          <span className="text-[10px] font-medium">Thay đổi</span>
+                      <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center text-white/90 gap-1">
+                        <Camera size={18} />
+                        <span className="text-[10px] font-medium">Thay đổi</span>
+                      </div>
+
+                      {/* Uploading Overlay */}
+                      {updatingInfo && (
+                        <div className="absolute inset-0 bg-black/75 backdrop-blur-[2px] flex flex-col items-center justify-center text-brand-400 gap-1.5 z-10">
+                          <motion.div
+                            animate={{ rotate: 360 }}
+                            transition={{
+                              duration: 0.8,
+                              repeat: Infinity,
+                              ease: 'linear',
+                            }}
+                            className="text-brand-400 flex items-center justify-center"
+                          >
+                            <Loader2 size={24} />
+                          </motion.div>
+                          <span className="text-[9px] font-bold tracking-wider uppercase text-white/90">Đang lưu</span>
                         </div>
                       )}
-                    </div>
+                    </motion.div>
+
+                    {/* Camera Edit Badge at bottom right */}
+                    <motion.div
+                      whileHover={{ scale: 1.12 }}
+                      whileTap={{ scale: 0.9 }}
+                      className="absolute -bottom-1 -right-1 bg-brand-600 border border-white/10 text-white p-1.5 rounded-xl shadow-lg flex items-center justify-center hover:bg-brand-500 transition-colors z-20"
+                    >
+                      <Camera size={13} />
+                    </motion.div>
+
+                    {/* Draft tag if selected but unsaved */}
+                    {avatarFile && (
+                      <motion.span
+                        initial={{ opacity: 0, scale: 0.8 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        className="absolute -top-2 left-1/2 -translate-x-1/2 bg-amber-500 text-black font-extrabold px-2 py-0.5 rounded-full text-[9px] shadow-lg select-none z-20 whitespace-nowrap tracking-wider uppercase border border-amber-400/20"
+                      >
+                        Chưa lưu
+                      </motion.span>
+                    )}
                   </div>
                   <p className="text-[11px] text-white/30 mt-2.5">Nhấp vào ảnh để thay đổi. Tối đa 2MB.</p>
                   <input
@@ -274,7 +572,10 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
                       className="input"
                       placeholder="Nhập tên hiển thị..."
                       value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
+                      onChange={(e) => {
+                        setDisplayName(e.target.value)
+                        setHasUnsavedChanges(true)
+                      }}
                       maxLength={50}
                       required
                     />
@@ -295,7 +596,10 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
                       className="input min-h-[90px] py-3 resize-none"
                       placeholder="Giới thiệu ngắn về bản thân..."
                       value={bio}
-                      onChange={(e) => setBio(e.target.value)}
+                      onChange={(e) => {
+                        setBio(e.target.value)
+                        setHasUnsavedChanges(true)
+                      }}
                       maxLength={200}
                     />
                     <span className="absolute right-3.5 bottom-3.5 text-xs text-white/30 font-medium">
@@ -315,7 +619,10 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
                     className="input"
                     placeholder="https://yourwebsite.com"
                     value={website}
-                    onChange={(e) => setWebsite(e.target.value)}
+                    onChange={(e) => {
+                      setWebsite(e.target.value)
+                      setHasUnsavedChanges(true)
+                    }}
                   />
                 </div>
 
@@ -323,7 +630,7 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
                 <div className="pt-4 border-t border-white/5 flex gap-3">
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm font-semibold cursor-pointer"
                   >
                     Bỏ qua
@@ -405,7 +712,7 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
                 <div className="pt-4 border-t border-white/5 flex gap-3">
                   <button
                     type="button"
-                    onClick={onClose}
+                    onClick={handleClose}
                     className="flex-1 py-3 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-sm font-semibold cursor-pointer"
                   >
                     Bỏ qua
@@ -432,6 +739,102 @@ const EditProfileModal = ({ isOpen, onClose, profile, onProfileUpdated, defaultT
             )}
           </div>
         </motion.div>
+        
+        {/* Hộp thoại xác nhận khi có thay đổi chưa lưu */}
+        <ConfirmModal
+          isOpen={showConfirmClose}
+          onClose={() => setShowConfirmClose(false)}
+          onConfirm={forceClose}
+          title="Thay đổi chưa được lưu"
+          message="Ảnh đã chọn hoặc thông tin thay đổi chưa được lưu. Bạn có chắc chắn muốn bỏ qua các thay đổi này và thoát không?"
+          confirmText="Thoát và huỷ"
+          cancelText="Ở lại thiết lập"
+          type="warning"
+          zIndex={300}
+        />
+
+        {/* Custom Cropper Modal */}
+        <AnimatePresence>
+          {cropSrc && (
+                <div className="fixed inset-0 flex items-center justify-center p-4 bg-black/90 backdrop-blur-md z-[350]">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95, y: 15 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.95, y: 15 }}
+                className="bg-[#121220] border border-white/10 rounded-[2.5rem] w-full max-w-md overflow-hidden shadow-2xl p-6 flex flex-col items-center"
+              >
+                <h3 className="text-lg font-bold text-white mb-4">Cắt ảnh đại diện</h3>
+                
+                {/* Crop Box Container */}
+                <div 
+                  className="w-80 h-80 border border-white/10 rounded-3xl overflow-hidden relative bg-[#080812] cursor-grab active:cursor-grabbing select-none"
+                  onMouseDown={handleDragStart}
+                  onMouseMove={handleDragMove}
+                  onMouseUp={handleDragEnd}
+                  onMouseLeave={handleDragEnd}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  {/* Visual Squircle Crop Overlay Mask */}
+                  <div className="absolute inset-0 border-2 border-brand-500 rounded-3xl pointer-events-none z-10 shadow-[0_0_0_9999px_rgba(0,0,0,0.5)]" />
+                  
+                  {/* The Image */}
+                  <img
+                    src={cropSrc}
+                    alt="Crop Target"
+                    onLoad={handleImageLoad}
+                    style={{
+                      width: `${baseDims.w}px`,
+                      height: `${baseDims.h}px`,
+                      position: 'absolute',
+                      top: '50%',
+                      left: '50%',
+                      transform: `translate(-50%, -50%) translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})`,
+                      transformOrigin: 'center',
+                    }}
+                    className="pointer-events-none select-none max-w-none max-h-none transition-transform duration-75"
+                  />
+                </div>
+                
+                {/* Zoom Slider */}
+                <div className="w-full mt-6 space-y-2">
+                  <div className="flex justify-between text-xs text-white/50">
+                    <span>Thu nhỏ</span>
+                    <span>Phóng to</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="1"
+                    max="3"
+                    step="0.05"
+                    value={cropZoom}
+                    onChange={(e) => handleZoomChange(parseFloat(e.target.value))}
+                    className="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-brand-500"
+                  />
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-3 w-full mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setCropSrc(null)}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-white/60 hover:text-white hover:bg-white/5 transition-all text-xs font-semibold"
+                  >
+                    Hủy
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCropApply}
+                    className="flex-1 py-2.5 rounded-xl bg-brand-600 hover:bg-brand-500 text-white font-bold transition-all text-xs flex items-center justify-center gap-1.5 shadow-lg shadow-brand-600/20"
+                  >
+                    Áp dụng
+                  </button>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     </AnimatePresence>
   )
