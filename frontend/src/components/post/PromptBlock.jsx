@@ -171,7 +171,7 @@ const JsonExportButton = ({ text }) => {
 const parseArguments = (txt) => {
   const vars = {}
   if (!txt) return vars
-  const regex = /\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/g
+  const regex = /\{?argument\s+name\s*=?\s*"([^"]+)"\s+default\s*=?\s*"((?:[^"\\]|\\.)*)"\}?/g
   let match
   while ((match = regex.exec(txt)) !== null) {
     const [_, name, defaultValue] = match
@@ -230,7 +230,7 @@ export default function PromptBlock({
     if (!canCopy || !text) return
     try {
       let copyText = text
-      const regex = /\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/g
+      const regex = /\{?argument\s+name\s*=?\s*"([^"]+)"\s+default\s*=?\s*"((?:[^"\\]|\\.)*)"\}?/g
       let match
       regex.lastIndex = 0
       while ((match = regex.exec(text)) !== null) {
@@ -380,10 +380,10 @@ export default function PromptBlock({
             if (variant !== 'prompt' || isGuestLocked || locked) {
               return visibleText
             }
-            const regex = /(\{argument\s+name="[^"]+"\s+default="(?:[^"\\]|\\.)*"\})/g
+            const regex = /(\{?argument\s+name\s*=?\s*"[^"]+"\s+default\s*=?\s*"(?:[^"\\]|\\.)*"\}?)/g
             const parts = (visibleText || '').split(regex)
             return parts.map((part, idx) => {
-              const match = part.match(/\{argument\s+name="([^"]+)"\s+default="((?:[^"\\]|\\.)*)"\}/)
+              const match = part.match(/\{?argument\s+name\s*=?\s*"([^"]+)"\s+default\s*=?\s*"((?:[^"\\]|\\.)*)"\}?/)
               if (match) {
                 const [_, name, defaultValue] = match
                 const val = variables[name] ?? defaultValue
