@@ -86,6 +86,7 @@ export default function RemixEditorPage() {
   // ── Editor states ─────────────────────────────────────────────────────────
   const [remixPrompt, setRemixPrompt] = useState('')
   const [checkingPrompt, setCheckingPrompt] = useState(false)
+  const [suggestingPrompt, setSuggestingPrompt] = useState(false)
   const [promptCheck, setPromptCheck] = useState(null)      // result of free prompt check
 
   const [generating, setGenerating] = useState(false)
@@ -380,6 +381,31 @@ export default function RemixEditorPage() {
     }
   }
 
+  // ── Step 2.5: Suggest Prompt (costs 2 AI Credits) ─────────────────────────
+  const handleSuggestPrompt = async () => {
+    if (suggestingPrompt || checkingPrompt || generating || isPublished) return
+    setSuggestingPrompt(true)
+    try {
+      const { data } = await api.post(`/remix/sessions/${sessionId}/suggest-prompt`, {
+        userPrompt: remixPrompt
+      })
+      if (data.success) {
+        setRemixPrompt(data.suggestedPrompt)
+        setPromptCheck(null) // Reset free check since prompt changed
+        if (data.tokenBalance !== undefined) updateUser({ tokenBalance: data.tokenBalance })
+        toast.success('Đã áp dụng gợi ý prompt đạt chuẩn! ✓ (-2 AI Credits)')
+        if (data.explanation) {
+          toast(data.explanation, { duration: 6500, icon: '💡' })
+        }
+      }
+    } catch (err) {
+      console.error('[Remix] suggest prompt error:', err)
+      toast.error(err.response?.data?.message || 'Không thể lấy gợi ý prompt. Vui lòng thử lại.')
+    } finally {
+      setSuggestingPrompt(false)
+    }
+  }
+
   // ── Step 3: Generate image (costs 10 AI Credits) ─────────────────────────
   const handleGenerate = async () => {
     if (!remixPrompt.trim()) { toast.error('Vui lòng nhập prompt'); return }
@@ -412,6 +438,7 @@ export default function RemixEditorPage() {
       })
       setLastGenUrl(data.imageUrl)
       setGenAiCheck(data.aiCheckResult)
+      setSession(prev => prev ? { ...prev, remixImageUrl: data.imageUrl } : { remixImageUrl: data.imageUrl })
       if (data.tokenBalance !== undefined) updateUser({ tokenBalance: data.tokenBalance })
       toast.success('Sinh ảnh thành công! (-10 AI Credits) 🚀')
     } catch (err) {
@@ -935,6 +962,32 @@ export default function RemixEditorPage() {
                     <>
                       <Check size={14} className="text-emerald-400" />
                       <span>Kiểm duyệt Prompt (Miễn phí)</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Secondary: Suggest prompt (costs 2 Credits) */}
+                <button
+                  type="button"
+                  onClick={handleSuggestPrompt}
+                  disabled={suggestingPrompt || checkingPrompt || generating || isPublished}
+                  className="w-full py-3 rounded-xl border border-violet-500/25 bg-violet-600/10 hover:bg-violet-600/20 text-violet-300 font-semibold text-sm transition-all flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {suggestingPrompt ? (
+                    <>
+                      <motion.div
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                        className="flex items-center justify-center"
+                      >
+                        <RefreshCw size={14} />
+                      </motion.div>
+                      <span>Đang tạo gợi ý...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles size={14} className="text-violet-400" />
+                      <span>Gợi ý Prompt Đạt Chuẩn (2 AI Credits)</span>
                     </>
                   )}
                 </button>

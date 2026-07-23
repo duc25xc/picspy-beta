@@ -1,6 +1,6 @@
 import express from 'express'
 import { authenticate } from '../middlewares/authenticate.js'
-import { createSession, getSession, generateImage, publishRemix, purchasePost, checkPromptOnly, uploadRemixImage } from '../controllers/remix.controller.js'
+import { createSession, getSession, generateImage, publishRemix, purchasePost, checkPromptOnly, uploadRemixImage, suggestPrompt } from '../controllers/remix.controller.js'
 
 import upload, { handleMulterError } from '../middlewares/upload.js'
 
@@ -18,6 +18,7 @@ router.post(
   generateImage
 )
 router.post('/sessions/:id/check-prompt', checkPromptOnly)
+router.post('/sessions/:id/suggest-prompt', suggestPrompt)
 router.post('/sessions/:id/publish', publishRemix)
 router.post('/upload-image', upload.single('image'), handleMulterError, uploadRemixImage)
 

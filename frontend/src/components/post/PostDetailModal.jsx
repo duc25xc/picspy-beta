@@ -211,7 +211,17 @@ const PostDetailModal = ({
         ...data.post,
         purchasedFileTypes: data.purchasedFileTypes || [],
       })
-      setSiblingRemixes(data.siblingRemixes || [])
+      let siblingList = data.siblingRemixes || []
+      if (data.post?.parentPostId) {
+        siblingList = [
+          {
+            ...data.post.parentPostId,
+            isOriginalParent: true
+          },
+          ...siblingList
+        ]
+      }
+      setSiblingRemixes(siblingList)
       setRemixes(data.remixes || [])
       setIsLiked(data.isLiked || false)
       setIsBookmarked(data.isBookmarked || false)
@@ -863,7 +873,7 @@ const PostDetailModal = ({
               <div className="px-5 py-4 border-t border-white/5 space-y-3">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-violet-400">
                   <IoSparkles className="animate-pulse" />
-                  <span>Bản Remix khác ({siblingRemixes.length})</span>
+                  <span>Bản gốc & Remix khác ({siblingRemixes.length})</span>
                 </div>
                 <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
                   {siblingRemixes.map((rem) => {
@@ -873,9 +883,22 @@ const PostDetailModal = ({
                         key={rem._id}
                         to={`/posts/${rem._id}`}
                         onClick={() => onClose?.()}
-                        className="flex-shrink-0 group relative w-12 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-violet-500/50 transition-colors"
-                        title={`Remix bởi @${rem.authorId?.username || 'unknown'}: ${rem.caption || 'Không tiêu đề'}`}
+                        className={`flex-shrink-0 group relative w-12 h-16 rounded-lg overflow-hidden border transition-colors ${
+                          rem.isOriginalParent
+                            ? 'border-amber-500/50 hover:border-amber-400'
+                            : 'border-white/10 hover:border-violet-500/50'
+                        }`}
+                        title={
+                          rem.isOriginalParent
+                            ? `Tác phẩm gốc: ${rem.caption || 'Không tiêu đề'}`
+                            : `Remix bởi @${rem.authorId?.username || 'unknown'}: ${rem.caption || 'Không tiêu đề'}`
+                        }
                       >
+                        {rem.isOriginalParent && (
+                          <div className="absolute top-1 left-1 bg-amber-500 text-white rounded-full p-0.5 z-10 shadow-sm" title="Tác phẩm gốc">
+                            <IoSparkles size={8} />
+                          </div>
+                        )}
                         {thumb ? (
                           <img src={thumb} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="" />
                         ) : (

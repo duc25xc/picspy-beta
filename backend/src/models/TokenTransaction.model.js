@@ -27,6 +27,8 @@ const tokenTransactionSchema = new mongoose.Schema(
         'topup',             // User mua token lẻ (chưa tích hợp payment gateway)
         'admin_adjust',      // Admin nạp/trừ thủ công
         'spend_lensspy',     // Tiêu token mở khóa LensSpy AI
+        'spend_remix',       // Tiêu token tạo ảnh Remix AI
+        'spend_remix_suggest',// Tiêu token gợi ý prompt Remix
         'spend_download',    // Tiêu token tải ảnh Premium
         'earn_download',     // Creator nhận khi ảnh được tải (70% giá)
         'referral_bonus',    // Thưởng referral (+200 token)

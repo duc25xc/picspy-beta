@@ -279,6 +279,7 @@ export const generateImage = async (req, res, next) => {
     // Log giao dịch token
     await TokenTransaction.create({
       userId,
+      type: 'spend_remix',
       amount: -tokensCost,
       balanceBefore: user.tokenBalance,
       balanceAfter: updatedUser.tokenBalance,
@@ -512,7 +513,12 @@ export const publishRemix = async (req, res, next) => {
 
     // Tạo bài viết Remix mới
     const parsedTags = Array.isArray(tags) ? tags : typeof tags === 'string' ? JSON.parse(tags) : []
-    let finalAiTool = req.body.aiTool || originalPost.aiTool || 'picspy'
+    let finalAiTool = req.body.aiTool || 'picspy'
+    if (session.remixImageUrl) {
+      finalAiTool = 'picspy'
+    } else if (!req.body.aiTool) {
+      finalAiTool = originalPost.aiTool || 'picspy'
+    }
     if (!AI_TOOLS.includes(finalAiTool)) {
       finalAiTool = 'picspy'
     }
@@ -635,6 +641,75 @@ export const uploadRemixImage = async (req, res, next) => {
       success: true,
       url: result.secure_url,
       publicId: result.public_id
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /v1/remix/sessions/:id/suggest-prompt
+ * Gợi ý prompt đạt chuẩn (tốn 2 AI credit)
+ */
+export const suggestPrompt = async (req, res, next) => {
+  try {
+    const userId = req.user._id
+    const { userPrompt } = req.body
+
+    const session = await RemixSession.findById(req.params.id)
+    if (!session) {
+      throw new AppError('NOT_FOUND', 'Không tìm thấy phiên Remix', 404)
+    }
+
+    if (session.userId.toString() !== userId.toString()) {
+      throw new AppError('FORBIDDEN', 'Bạn không có quyền chỉnh sửa phiên Remix này', 403)
+    }
+
+    if (session.status !== 'active') {
+      throw new AppError('BAD_REQUEST', 'Phiên Remix này đã kết thúc hoặc không khả dụng', 400)
+    }
+
+    const originalPost = await Post.findById(session.originalPostId)
+    if (!originalPost) {
+      throw new AppError('NOT_FOUND', 'Không tìm thấy tác phẩm gốc để đối chiếu', 404)
+    }
+
+    // 1. Trừ phí 2 token
+    const tokensCost = 2
+    const user = await User.findById(userId).select('tokenBalance subscriptionTier')
+    if (!user || user.tokenBalance < tokensCost) {
+      throw new AppError('INSUFFICIENT_TOKENS', `Bạn cần ít nhất ${tokensCost} AI Credit để sử dụng tính năng gợi ý prompt.`, 402)
+    }
+
+    const updatedUser = await User.findOneAndUpdate(
+      { _id: userId, tokenBalance: { $gte: tokensCost } },
+      { $inc: { tokenBalance: -tokensCost } },
+      { returnDocument: 'after', select: 'tokenBalance' }
+    )
+    if (!updatedUser) {
+      throw new AppError('INSUFFICIENT_TOKENS', 'Số dư AI Credit không đủ hoặc đã thay đổi. Vui lòng thử lại.', 402)
+    }
+
+    // Log giao dịch token
+    await TokenTransaction.create({
+      userId,
+      type: 'spend_remix_suggest',
+      amount: -tokensCost,
+      balanceBefore: user.tokenBalance,
+      balanceAfter: updatedUser.tokenBalance,
+      description: `Gợi ý prompt đạt chuẩn cho bài Remix`
+    }).catch(err => console.error('Failed to log TokenTransaction for suggestPrompt:', err))
+
+    // 2. Gọi AI gợi ý prompt
+    console.log(`🤖 Remix suggestPrompt: calling AI to suggest prompt compliance...`)
+    const { suggestRemixPrompt } = await import('../services/ai.service.js')
+    const suggestion = await suggestRemixPrompt(originalPost.prompt, userPrompt || '')
+
+    return res.json({
+      success: true,
+      suggestedPrompt: suggestion.suggestedPrompt,
+      explanation: suggestion.explanation,
+      tokenBalance: updatedUser.tokenBalance
     })
   } catch (err) {
     next(err)

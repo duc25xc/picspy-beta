@@ -166,6 +166,11 @@ const DiscoveryPostCard = ({ post, onClick }) => {
 
       {/* Badges */}
       <div className="absolute top-2 left-2 flex gap-1 flex-wrap pointer-events-none">
+        {post.isOriginalParent && (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-600/90 text-white backdrop-blur-sm shadow-md">
+            🌟 BẢN GỐC
+          </span>
+        )}
         {post.isPremium && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/85 text-white backdrop-blur-sm shadow-md">
             <GiCutDiamond size={10} className="text-amber-300" />
@@ -385,7 +390,17 @@ const PostDetailPage = () => {
         isBookmarked: data.isBookmarked || false,
         purchasedFileTypes: data.purchasedFileTypes || [],
       })
-      setSiblingRemixes(data.siblingRemixes || [])
+      let siblingList = data.siblingRemixes || []
+      if (data.post?.parentPostId) {
+        siblingList = [
+          {
+            ...data.post.parentPostId,
+            isOriginalParent: true
+          },
+          ...siblingList
+        ]
+      }
+      setSiblingRemixes(siblingList)
       setRemixes(data.remixes || [])
       if (!data.post.isPremium) setIsUnlocked(true)
       if (data.post.colorPalette?.length) setPalette(data.post.colorPalette)

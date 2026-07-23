@@ -17,7 +17,7 @@ export const getPostDetail = async (req, res, next) => {
       )
       .populate({
         path: 'parentPostId',
-        select: 'caption authorId generatedImages isPremium priceInVnd',
+        select: 'caption authorId generatedImages isPremium priceInVnd aiTool stats',
         populate: { path: 'authorId', select: 'username displayName avatar' }
       })
       .lean()
