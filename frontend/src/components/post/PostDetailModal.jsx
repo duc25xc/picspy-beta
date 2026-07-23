@@ -170,6 +170,8 @@ const PostDetailModal = ({
   const [showUnfollowConfirm, setShowUnfollowConfirm] = useState(false)
   const [imgLoaded, setImgLoaded] = useState(false)
   const [ambientReady, setAmbientReady] = useState(false)
+  const [siblingRemixes, setSiblingRemixes] = useState([])
+  const [remixes, setRemixes] = useState([])
 
   // Feedback states
   const [copied, setCopied] = useState(false)
@@ -202,12 +204,15 @@ const PostDetailModal = ({
     setError(null)
     setImgLoaded(false)
     setAmbientReady(false)
+    setRemixes([])
     try {
       const { data } = await api.get(`/posts/${id}`)
       setPost({
         ...data.post,
         purchasedFileTypes: data.purchasedFileTypes || [],
       })
+      setSiblingRemixes(data.siblingRemixes || [])
+      setRemixes(data.remixes || [])
       setIsLiked(data.isLiked || false)
       setIsBookmarked(data.isBookmarked || false)
       setIsFollowing(data.isFollowingAuthor || false)
@@ -547,6 +552,34 @@ const PostDetailModal = ({
                 </div>
               )}
 
+              {post?.isRemix && post?.parentPostId && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-transparent border border-violet-500/15 flex items-center justify-between gap-3 backdrop-blur-sm shadow-xl transition-all duration-300 hover:border-violet-500/30">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center text-violet-300 font-extrabold shadow-inner flex-shrink-0">
+                      <IoSparkles className="w-4 h-4 animate-pulse text-violet-300" />
+                    </div>
+                    <div className="space-y-0.5 min-w-0">
+                      <p className="text-[9px] text-violet-400 font-bold uppercase tracking-wider">Tác phẩm gốc (Remixed from)</p>
+                      <Link
+                        to={`/posts/${post.parentPostId._id}`}
+                        onClick={() => onClose?.()}
+                        className="text-xs font-bold text-white/90 hover:text-violet-300 transition-colors flex items-center gap-1.5 truncate"
+                      >
+                        @{post.parentPostId.authorId?.username || 'creator'}
+                        <span className="text-[10px] text-white/40 font-normal italic truncate">({post.parentPostId.caption || 'Bài viết gốc'})</span>
+                      </Link>
+                    </div>
+                  </div>
+                  <Link
+                    to={`/posts/${post.parentPostId._id}`}
+                    onClick={() => onClose?.()}
+                    className="px-2.5 py-1.5 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-semibold shadow-lg shadow-violet-600/20 transition-all active:scale-95 flex-shrink-0"
+                  >
+                    Xem bài gốc
+                  </Link>
+                </div>
+              )}
+
               {post?.caption && (
                 <p className="text-sm text-white/70 leading-relaxed line-clamp-3">
                   {post.caption}
@@ -785,6 +818,78 @@ const PostDetailModal = ({
                       <span>Báo cáo</span>
                     </motion.button>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Child Remixes list */}
+            {remixes.length > 0 && (
+              <div className="px-5 py-4 border-t border-white/5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-violet-400">
+                  <IoSparkles className="animate-pulse" />
+                  <span>Bản Remix từ tác phẩm này ({remixes.length})</span>
+                </div>
+                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                  {remixes.map((rem) => {
+                    const thumb = rem.generatedImages?.[0]?.thumbnailUrl || rem.generatedImages?.[0]?.url
+                    return (
+                      <Link
+                        key={rem._id}
+                        to={`/posts/${rem._id}`}
+                        onClick={() => onClose?.()}
+                        className="flex-shrink-0 group relative w-12 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-violet-500/50 transition-colors"
+                        title={`Remix bởi @${rem.authorId?.username || 'unknown'}: ${rem.caption || 'Không tiêu đề'}`}
+                      >
+                        {thumb ? (
+                          <img src={thumb} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="" />
+                        ) : (
+                          <div className="w-full h-full bg-violet-950/40 flex items-center justify-center text-[10px] text-violet-300">
+                            Remix
+                          </div>
+                        )}
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <img src={rem.authorId?.avatar} className="w-5 h-5 rounded-full border border-white/20" alt="" />
+                        </div>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Sibling Remixes list */}
+            {siblingRemixes.length > 0 && (
+              <div className="px-5 py-4 border-t border-white/5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-violet-400">
+                  <IoSparkles className="animate-pulse" />
+                  <span>Bản Remix khác ({siblingRemixes.length})</span>
+                </div>
+                <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
+                  {siblingRemixes.map((rem) => {
+                    const thumb = rem.generatedImages?.[0]?.thumbnailUrl || rem.generatedImages?.[0]?.url
+                    return (
+                      <Link
+                        key={rem._id}
+                        to={`/posts/${rem._id}`}
+                        onClick={() => onClose?.()}
+                        className="flex-shrink-0 group relative w-12 h-16 rounded-lg overflow-hidden border border-white/10 hover:border-violet-500/50 transition-colors"
+                        title={`Remix bởi @${rem.authorId?.username || 'unknown'}: ${rem.caption || 'Không tiêu đề'}`}
+                      >
+                        {thumb ? (
+                          <img src={thumb} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="" />
+                        ) : (
+                          <div className="w-full h-full bg-violet-950/40 flex items-center justify-center text-[10px] text-violet-300">
+                            Remix
+                          </div>
+                        )}
+                        {/* Hover Overlay */}
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                          <img src={rem.authorId?.avatar} className="w-5 h-5 rounded-full border border-white/20" alt="" />
+                        </div>
+                      </Link>
+                    )
+                  })}
                 </div>
               </div>
             )}

@@ -28,6 +28,7 @@ import subscriptionRoutes from './routes/subscription.routes.js'
 import studioRoutes from './routes/studio.routes.js'
 import notificationRoutes from './routes/notification.routes.js'
 import securityRoutes from './routes/security.routes.js'
+import remixRoutes from './routes/remix.routes.js'
 import {
   getPublicCategories,
   getPublicCategoriesDetails,
@@ -59,6 +60,15 @@ app.use((req, res, next) => {
   })
   next()
 })
+
+// Disable caching for all API endpoints to ensure fresh feeds and settings
+app.use('/v1', (req, res, next) => {
+  res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate')
+  res.setHeader('Pragma', 'no-cache')
+  res.setHeader('Expires', '0')
+  next()
+})
+
 app.use(
   cors({
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
@@ -123,6 +133,7 @@ app.use('/v1/subscriptions', subscriptionRoutes)
 app.use('/v1/studio', studioRoutes)
 app.use('/v1/notifications', notificationRoutes)
 app.use('/v1/security', securityRoutes)
+app.use('/v1/remix', remixRoutes)
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
 app.get('/v1/categories/details', getPublicCategoriesDetails)

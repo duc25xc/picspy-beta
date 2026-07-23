@@ -52,6 +52,11 @@ export const getAllPosts = async (req, res, next) => {
       .sort({ _id: -1 })
       .limit(parseInt(limit) + 1)
       .populate('authorId', 'username displayName avatar email')
+      .populate({
+        path: 'parentPostId',
+        select: 'caption authorId generatedImages',
+        populate: { path: 'authorId', select: 'username' }
+      })
       .lean()
 
     // Fetch report counts for these posts

@@ -248,6 +248,141 @@ class WalletService {
   }
 
   /**
+   * Mua tác phẩm để Remix (Ví khả dụng Buyer -> Ví Holding của Creator với Discount Remix %)
+   */
+  static async purchasePostForRemix({ buyerId, postId, idempotencyKey, ip, userAgent }) {
+    console.log(`[WalletService DEBUG] Starting purchasePostForRemix: buyerId=${buyerId}, postId=${postId}`)
+    return runInTransaction(async (session) => {
+      // 1. Chống trùng lặp
+      if (idempotencyKey) {
+        const existingTxn = await VndTransaction.findOne({ idempotencyKey }).session(session)
+        if (existingTxn) {
+          console.log(`[WalletService DEBUG] Duplicate purchase post for Remix caught: ${idempotencyKey}`)
+          return { alreadyProcessed: true, transaction: existingTxn }
+        }
+      }
+
+      // 2. Kiểm tra bài đăng
+      const post = await Post.findById(postId).session(session)
+      if (!post || post.status !== 'approved') {
+        throw new AppError('NOT_FOUND', 'Bài đăng không tồn tại hoặc chưa được duyệt', 404)
+      }
+
+      if (!post.allowRemix) {
+        throw new AppError('BAD_REQUEST', 'Bài đăng này không hỗ trợ Remix', 400)
+      }
+
+      // 3. Kiểm tra xem đã mua chưa
+      const purchases = await VndTransaction.find({
+        userId: buyerId,
+        type: 'purchase_post',
+        relatedPostId: postId
+      }).session(session)
+
+      const refunds = await VndTransaction.find({
+        userId: buyerId,
+        type: 'refund',
+        relatedPostId: postId
+      }).session(session)
+
+      const priorPurchase = purchases.length > refunds.length ? purchases[0] : null
+      if (priorPurchase) {
+        console.log(`[WalletService DEBUG] Prior purchase found: ${priorPurchase._id}`)
+        return { alreadyPurchased: true }
+      }
+
+      // 4. Tính toán giá sau chiết khấu Remix
+      const basePrice = post.priceInVnd || 20000
+      const discountPercent = post.remixDiscountPercent !== undefined ? post.remixDiscountPercent : 10
+      const price = Math.round((basePrice * (1 - discountPercent / 100)) / 1000) * 1000
+
+      const buyer = await User.findById(buyerId).session(session)
+      if (!buyer) {
+        throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
+      }
+
+      const buyerBefore = buyer.vndBalance || 0
+      if (buyerBefore < price) {
+        throw new AppError('INSUFFICIENT_FUNDS', `Số dư tài khoản không đủ. Yêu cầu: ${price.toLocaleString('vi-VN')} VNĐ, Hiện có: ${buyerBefore.toLocaleString('vi-VN')} VNĐ.`, 402)
+      }
+
+      // Trừ tiền người mua
+      const updatedBuyer = await User.findOneAndUpdate(
+        { _id: buyerId, vndBalance: { $gte: price } },
+        { $inc: { vndBalance: -price } },
+        { new: true, session }
+      )
+
+      if (!updatedBuyer) {
+        throw new AppError('INSUFFICIENT_FUNDS', 'Số dư tài khoản không đủ (Lỗi đồng thời)', 402)
+      }
+
+      // 5. Ghi nhận giao dịch mua vào Sổ cái người mua
+      const buyerTxn = await VndTransaction.create([{
+        userId: buyerId,
+        type: 'purchase_post',
+        amount: -price,
+        balanceBefore: buyerBefore,
+        balanceAfter: updatedBuyer.vndBalance,
+        walletType: 'available',
+        relatedPostId: postId,
+        fileType: 'original',
+        idempotencyKey,
+        description: `Mua ảnh gốc để Remix (đã giảm ${discountPercent}%): ${post.caption || 'Chất lượng cao'}`,
+        meta: { ip, userAgent, isRemixPurchase: true }
+      }], { session })
+
+      // 6. Cộng tiền vào ví Holding của Creator (A)
+      let creatorTxn = null
+      if (post.authorId.toString() !== buyerId.toString()) {
+        const settings = await Settings.getSingleton()
+        const sharePercent = settings.creatorSharePercent || 70
+        const authorShare = Math.floor(price * (sharePercent / 100))
+
+        const author = await User.findById(post.authorId).session(session)
+        if (author) {
+          const authBefore = author.holdingBalance || 0
+          const authAfter = authBefore + authorShare
+
+          await User.findOneAndUpdate(
+            { _id: post.authorId },
+            { 
+              $inc: { 
+                holdingBalance: authorShare,
+                totalEarned: authorShare
+              } 
+            },
+            { new: true, session }
+          )
+
+          const holdDays = 3
+          const holdUntil = new Date()
+          holdUntil.setDate(holdUntil.getDate() + holdDays)
+
+          const creatorTxns = await VndTransaction.create([{
+            userId: post.authorId,
+            type: 'earn_hold',
+            amount: authorShare,
+            balanceBefore: authBefore,
+            balanceAfter: authAfter,
+            walletType: 'holding',
+            relatedPostId: postId,
+            fileType: 'original',
+            relatedUserId: buyerId,
+            holdUntil,
+            isHoldReleased: false,
+            description: `Tạm nhận ${sharePercent}% doanh thu bán ảnh để Remix (đã giảm ${discountPercent}%)`,
+          }], { session })
+
+          creatorTxn = creatorTxns[0]
+        }
+      }
+
+      return { buyer: updatedBuyer, transaction: buyerTxn[0], creatorTransaction: creatorTxn }
+    })
+  }
+
+  /**
    * Giải ngân các giao dịch tạm giữ (holding) đã hết hạn đối soát
    */
   static async releasePendingHolds() {

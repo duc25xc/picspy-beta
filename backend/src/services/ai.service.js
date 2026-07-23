@@ -18,19 +18,30 @@ const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
 
 /** Lấy ảnh từ URL về base64 (Gemini cần inline_data) */
 const fetchImageAsBase64 = async (imageUrl) => {
+  const transparent1x1 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII='
+  if (!imageUrl || typeof imageUrl !== 'string' || !imageUrl.trim().startsWith('http')) {
+    console.warn('⚠️ fetchImageAsBase64: Invalid or empty image URL, using transparent fallback.')
+    return { base64: transparent1x1, mimeType: 'image/png' }
+  }
+
   // Dùng Cloudinary transform để resize về 800px — đủ chất cho AI, tiết kiệm token
   let sampleUrl = imageUrl
-  if (imageUrl && imageUrl.includes('/upload/')) {
+  if (imageUrl.includes('/upload/')) {
     const [base, rest] = imageUrl.split('/upload/')
     sampleUrl = `${base}/upload/w_800,f_jpg,q_75/${rest}`
   }
 
-  const response = await axios.get(sampleUrl, {
-    responseType: 'arraybuffer',
-    timeout: 20000,
-  })
-  const base64 = Buffer.from(response.data).toString('base64')
-  return { base64, mimeType: 'image/jpeg' }
+  try {
+    const response = await axios.get(sampleUrl, {
+      responseType: 'arraybuffer',
+      timeout: 15000,
+    })
+    const base64 = Buffer.from(response.data).toString('base64')
+    return { base64, mimeType: 'image/jpeg' }
+  } catch (err) {
+    console.error(`⚠️ fetchImageAsBase64: Failed to fetch "${sampleUrl}": ${err.message}. Using transparent fallback.`)
+    return { base64: transparent1x1, mimeType: 'image/png' }
+  }
 }
 
 /** Build EXIF context string để inject vào prompt */
@@ -517,3 +528,230 @@ ${styleCorpus}
     new Error('Tất cả AI model đều hết quota. Vui lòng thử lại sau.')
   )
 }
+
+/**
+ * AI Check: So sánh prompt và ảnh của bản Remix so với bản Gốc
+ * Phân tích 3 tầng: Semantic Prompt Score, Image Similarity, Change Category
+ */
+export const verifyRemix = async (originalPrompt, remixPrompt, originalImageUrl, remixImageUrl) => {
+  console.log(`🤖 AI Check Remix: fetching images...`)
+  const [origImg, remixImg] = await Promise.all([
+    fetchImageAsBase64(originalImageUrl),
+    fetchImageAsBase64(remixImageUrl)
+  ])
+
+  const systemPrompt = `Bạn là một Chuyên Gia Kiểm Duyệt Nghệ Thuật AI (AI Art Moderation Expert).
+Nhiệm vụ của bạn là đánh giá bản Remix của người dùng so với tác phẩm Gốc dựa trên 3 tiêu chí chính:
+
+1. Semantic Prompt Score: Độ tương đồng về ý nghĩa/ngữ cảnh giữa hai đoạn prompt (0-100%).
+2. Image Similarity: Độ tương đồng thị giác giữa ảnh gốc và ảnh remix (0-100%).
+3. Change Category: Xem xét các khía cạnh đã thay đổi: Subject (Chủ thể), Outfit (Trang phục), Background (Bối cảnh), Lighting (Ánh sáng), Style (Phong cách), Camera (Góc máy/Thông số).
+
+Quy tắc về thay đổi khía cạnh (changedCategories):
+- Đối với mỗi trường (subject, outfit, background, lighting, style, camera), bạn PHẢI đánh giá kỹ xem nó có thực sự thay đổi khác biệt so với tác phẩm gốc hay không.
+- Nếu chi tiết đó giống hệt hoặc không thay đổi gì trong prompt và hình ảnh, bạn PHẢI trả về false cho trường đó. Không được trả về true nếu chi tiết đó không được thay đổi rõ rệt!
+- Ví dụ: Nếu prompt gốc và prompt remix đều ghi là "anime style" thì style=false. Nếu cả hai đều chụp "selfie" hay "looking at camera" thì camera=false. Nếu prompt gốc giống hệt prompt remix 100%, toàn bộ changedCategories PHẢI là false cho tất cả 6 trường!
+
+Quy tắc quyết định (Decision rules):
+- REJECT (Từ chối):
+  * Nếu Semantic Prompt Score >= 88% (ví dụ: chỉ đổi 1 vài từ như "white hoodie" thành "black hoodie").
+  * Hoặc nếu Image Similarity >= 90%.
+  * Hoặc nếu số nhóm thay đổi (changedCategories có giá trị true) ít hơn 3 nhóm (ví dụ: chỉ đổi mỗi Outfit và Hair).
+- WARNING (Cảnh báo):
+  * Nếu không thuộc diện bị REJECT nhưng prompt hoặc ảnh có độ tương đồng khá cao (ví dụ: 80% - 87%), hoặc số nhóm thay đổi (true) chỉ bằng 2.
+  * Thông điệp cảnh báo: "Hãy thay đổi thêm bối cảnh, phong cách hoặc góc máy để tạo sự khác biệt."
+- PASS (Chấp nhận):
+  * Thay đổi rõ rệt (hơn 3 nhóm thay đổi, prompt/ảnh khác biệt đáng kể, tương đồng < 80%).
+
+Hãy trả về duy nhất một đối tượng JSON khớp với cấu trúc được yêu cầu.`
+
+  const promptText = `
+TÁC PHẨM GỐC:
+- Prompt: "${originalPrompt}"
+
+BẢN REMIX CỦA USER:
+- Prompt: "${remixPrompt}"
+
+Hãy so sánh hai prompt trên và hai bức ảnh được đính kèm (ảnh 1 là Gốc, ảnh 2 là Remix).
+`
+
+  const content = [
+    { text: systemPrompt },
+    { text: promptText },
+    { inlineData: { data: origImg.base64, mimeType: origImg.mimeType } },
+    { inlineData: { data: remixImg.base64, mimeType: remixImg.mimeType } },
+  ]
+
+  let lastError = null
+
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      console.log(`🤖 verifyRemix: Trying model "${modelName}"...`)
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              semanticScore: {
+                type: 'INTEGER',
+                description: 'Semantic similarity percentage of prompt meaning (0-100)'
+              },
+              imageScore: {
+                type: 'INTEGER',
+                description: 'Visual similarity percentage of both images (0-100)'
+              },
+              changedCategories: {
+                type: 'OBJECT',
+                properties: {
+                  subject: { type: 'BOOLEAN', description: 'Whether the core subject changed' },
+                  outfit: { type: 'BOOLEAN', description: 'Whether clothing/outfit changed' },
+                  background: { type: 'BOOLEAN', description: 'Whether background/location changed' },
+                  lighting: { type: 'BOOLEAN', description: 'Whether light color/time of day changed' },
+                  style: { type: 'BOOLEAN', description: 'Whether artistic style/medium changed' },
+                  camera: { type: 'BOOLEAN', description: 'Whether lens/camera angle/settings changed' }
+                },
+                required: ['subject', 'outfit', 'background', 'lighting', 'style', 'camera']
+              },
+              decision: {
+                type: 'STRING',
+                enum: ['pass', 'warning', 'reject'],
+                description: 'Final moderation action: pass, warning, or reject'
+              },
+              message: {
+                type: 'STRING',
+                description: 'Detailed explanation or warning guidelines in Vietnamese'
+              }
+            },
+            required: ['semanticScore', 'imageScore', 'changedCategories', 'decision', 'message']
+          }
+        }
+      })
+
+      const result = await model.generateContent(content)
+      const rawText = result.response.text().trim()
+      const parsed = JSON.parse(rawText)
+      console.log(`✅ verifyRemix: Success with model "${modelName}". Decision: ${parsed.decision}`)
+      return parsed
+    } catch (err) {
+      lastError = err
+      console.error(`⚠️ verifyRemix error with ${modelName}:`, err.message)
+      const errMsg = err.message || ''
+      const shouldFallback =
+        errMsg.includes('429') ||
+        errMsg.includes('quota') ||
+        errMsg.includes('Too Many Requests') ||
+        errMsg.includes('404') ||
+        errMsg.includes('not found') ||
+        errMsg.includes('503') ||
+        errMsg.includes('500') ||
+        errMsg.includes('high demand') ||
+        errMsg.includes('overloaded')
+      if (shouldFallback) {
+        continue
+      }
+      throw err
+    }
+  }
+
+  throw lastError || new Error('Tất cả AI model đều hết quota để thực hiện AI Check. Thử lại sau.')
+}
+
+/**
+ * AI Check: So sánh prompt Remix so với Gốc (chỉ kiểm tra text, không tốn credit, không cần ảnh)
+ */
+export const verifyRemixPrompt = async (originalPrompt, remixPrompt) => {
+  const systemPrompt = `Bạn là một Chuyên Gia Kiểm Duyệt Nghệ Thuật AI (AI Art Moderation Expert).
+Nhiệm vụ của bạn là đánh giá bản prompt Remix của người dùng so với tác phẩm Gốc dựa trên 2 tiêu chí:
+
+1. Semantic Prompt Score: Độ tương đồng về ý nghĩa/ngữ cảnh giữa hai đoạn prompt (0-100%).
+2. Change Category: Xem xét các khía cạnh đã thay đổi: Subject (Chủ thể), Outfit (Trang phục), Background (Bối cảnh), Lighting (Ánh sáng), Style (Phong cách), Camera (Góc máy/Thông số).
+
+Quy tắc về thay đổi khía cạnh (changedCategories):
+- Đối với mỗi trường (subject, outfit, background, lighting, style, camera), bạn PHẢI đánh giá kỹ xem nó có thực sự thay đổi khác biệt hay không.
+- Nếu chi tiết đó giống hệt hoặc không thay đổi gì trong prompt, bạn PHẢI trả về false cho trường đó. Không được trả về true nếu chi tiết đó không được thay đổi rõ rệt!
+- Ví dụ: Nếu prompt gốc và prompt remix đều ghi là "anime style" thì style=false. Nếu cả hai đều chụp "selfie" thì camera=false. Nếu prompt gốc giống hệt prompt remix 100%, toàn bộ changedCategories PHẢI là false cho tất cả 6 trường!
+
+Quy tắc quyết định (Decision rules):
+- REJECT (Từ chối):
+  * Nếu Semantic Prompt Score >= 88%.
+  * Hoặc nếu số nhóm thay đổi (changedCategories có giá trị true) ít hơn 3 nhóm.
+- WARNING (Cảnh báo):
+  * Nếu không thuộc diện bị REJECT nhưng prompt có độ tương đồng khá cao (ví dụ: 80% - 87%), hoặc số nhóm thay đổi (true) chỉ bằng 2.
+  * Thông điệp cảnh báo: "Hãy thay đổi thêm bối cảnh, phong cách hoặc góc máy để tạo sự kết quả khác biệt."
+- PASS (Chấp nhận):
+  * Thay đổi rõ rệt (hơn 3 nhóm thay đổi, prompt khác biệt đáng kể, tương đồng < 80%).
+
+Hãy trả về duy nhất một đối tượng JSON khớp với cấu trúc được yêu cầu.`
+
+  const promptText = `
+TÁC PHẨM GỐC:
+- Prompt: "${originalPrompt}"
+
+BẢN REMIX CỦA USER:
+- Prompt: "${remixPrompt}"
+`
+
+  const content = [
+    { text: systemPrompt },
+    { text: promptText },
+  ]
+
+  let lastError = null
+
+  for (const modelName of MODEL_CHAIN) {
+    try {
+      console.log(`🤖 verifyRemixPrompt: Trying model "${modelName}"...`)
+      const model = genAI.getGenerativeModel({
+        model: modelName,
+        generationConfig: {
+          responseMimeType: 'application/json',
+          responseSchema: {
+            type: 'OBJECT',
+            properties: {
+              semanticScore: {
+                type: 'INTEGER',
+                description: 'Semantic similarity percentage of prompt meaning (0-100)'
+              },
+              changedCategories: {
+                type: 'OBJECT',
+                properties: {
+                  subject: { type: 'BOOLEAN', description: 'Whether the core subject changed' },
+                  outfit: { type: 'BOOLEAN', description: 'Whether clothing/outfit changed' },
+                  background: { type: 'BOOLEAN', description: 'Whether background/location changed' },
+                  lighting: { type: 'BOOLEAN', description: 'Whether light color/time of day changed' },
+                  style: { type: 'BOOLEAN', description: 'Whether artistic style/medium changed' },
+                  camera: { type: 'BOOLEAN', description: 'Whether lens/camera angle/settings changed' }
+                },
+                required: ['subject', 'outfit', 'background', 'lighting', 'style', 'camera']
+              },
+              decision: {
+                type: 'STRING',
+                enum: ['pass', 'warning', 'reject'],
+                description: 'Final moderation action: pass, warning, or reject'
+              },
+              message: {
+                type: 'STRING',
+                description: 'Detailed explanation or warning guidelines in Vietnamese'
+              }
+            },
+            required: ['semanticScore', 'changedCategories', 'decision', 'message']
+          }
+        }
+      })
+
+      const result = await model.generateContent(content)
+      const rawText = result.response.text().trim()
+      const parsed = JSON.parse(rawText)
+      console.log(`✅ verifyRemixPrompt: Success with model "${modelName}". Decision: ${parsed.decision}`)
+      return parsed
+    } catch (err) {
+      lastError = err
+      console.error(`⚠️ verifyRemixPrompt error with ${modelName}:`, err.message)
+    }
+  }
+
+  throw lastError || new Error('Tất cả AI model đều hết quota để thực hiện AI Prompt Check. Thử lại sau.')
+}
+

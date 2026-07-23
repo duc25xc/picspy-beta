@@ -9,120 +9,193 @@ import VndTransaction from '../models/VndTransaction.model.js'
  * 1. Hàm thực hiện quyết toán doanh thu lượt xem cho toàn bộ creator (Chạy 00:00 hàng đêm)
  */
 export const runDailySettlement = async () => {
-  console.log('[Settlement Job] Starting daily views payout settlement...')
+  console.log('[Settlement Job] Starting daily Creator Fund settlement...')
   const start = Date.now()
 
   try {
     const settings = await Settings.getSingleton()
-    const ratePerView = settings.payoutRatePerView || 10 // Đơn giá VNĐ trên mỗi view
+    const dailyPool = settings.creatorFundDailyPool || 1000000 // default 1,000,000 VNĐ
 
-    // Lấy tất cả interaction views chưa quyết toán
-    const unsettledViews = await Interaction.find({
-      type: 'view',
+    // Lấy tất cả interaction chưa quyết toán (view, download, like, bookmark)
+    const unsettledInteractions = await Interaction.find({
       settled: false,
     }).lean()
 
-    if (unsettledViews.length === 0) {
-      console.log('[Settlement Job] No unsettled views found. Finished.')
+    if (unsettledInteractions.length === 0) {
+      console.log('[Settlement Job] No unsettled interactions found. Finished.')
       return { status: 'success', settledCount: 0, totalAmount: 0 }
     }
 
-    // Tra cứu tác giả (authorId) của các bài đăng này
-    const postIds = [...new Set(unsettledViews.map((v) => v.postId.toString()))]
+    // Tra cứu thông tin bài viết để lấy tác giả và các cấu hình Remix
+    const postIds = [...new Set(unsettledInteractions.map((v) => v.postId.toString()))]
     const posts = await Post.find({ _id: { $in: postIds } })
-      .select('authorId')
+      .select('authorId isRemix originalPostId parentPostId')
       .lean()
 
-    const postAuthorMap = {}
+    const postMap = {}
     posts.forEach((post) => {
-      postAuthorMap[post._id.toString()] = post.authorId.toString()
+      postMap[post._id.toString()] = post
     })
 
-    // Gom nhóm theo creator và ngày (YYYY-MM-DD)
-    const creatorDailyGroup = {}
-    unsettledViews.forEach((view) => {
-      const pid = view.postId.toString()
-      const creatorId = postAuthorMap[pid]
-      if (!creatorId) return
+    // gom nhóm interactions theo postId
+    const postInteractions = {}
+    unsettledInteractions.forEach((inter) => {
+      const pid = inter.postId.toString()
+      if (!postMap[pid]) return // bài đăng không tồn tại hoặc đã bị xóa
 
-      const dateStr = new Date(view.createdAt).toISOString().slice(0, 10)
-
-      if (!creatorDailyGroup[creatorId]) creatorDailyGroup[creatorId] = {}
-      if (!creatorDailyGroup[creatorId][dateStr]) {
-        creatorDailyGroup[creatorId][dateStr] = { views: 0, viewIds: [] }
+      if (!postInteractions[pid]) {
+        postInteractions[pid] = { views: 0, downloads: 0, likes: 0, saves: 0, ids: [] }
       }
 
-      creatorDailyGroup[creatorId][dateStr].views++
-      creatorDailyGroup[creatorId][dateStr].viewIds.push(view._id)
+      postInteractions[pid].ids.push(inter._id)
+      if (inter.type === 'view') postInteractions[pid].views++
+      else if (inter.type === 'download') postInteractions[pid].downloads++
+      else if (inter.type === 'like') postInteractions[pid].likes++
+      else if (inter.type === 'bookmark') postInteractions[pid].saves++
     })
 
-    let totalAmountDisbursed = 0
-    let processedViewsCount = 0
-    const creatorsAffected = Object.keys(creatorDailyGroup).length
+    // Tính điểm chất lượng cho từng bài viết
+    // Score = (View * 0.2) + (Download * 5) + (Like * 1) + (Save * 3)
+    let totalSystemScore = 0
+    const postScores = {}
 
-    // Cộng tiền vào ví VNĐ của từng creator theo từng ngày dồn lại
-    for (const [creatorId, datesMap] of Object.entries(creatorDailyGroup)) {
+    for (const [pid, stats] of Object.entries(postInteractions)) {
+      const score = (stats.views * 0.2) + (stats.downloads * 5) + (stats.likes * 1) + (stats.saves * 3)
+      if (score > 0) {
+        postScores[pid] = score
+        totalSystemScore += score
+      }
+    }
+
+    if (totalSystemScore === 0) {
+      // Đánh dấu các interaction này là đã quyết toán để tránh dồn ứ (nhưng không disburse vì score = 0)
+      const allIds = unsettledInteractions.map(i => i._id)
+      await Interaction.updateMany(
+        { _id: { $in: allIds } },
+        { $set: { settled: true } }
+      )
+      console.log('[Settlement Job] Total system score is 0. All interactions marked settled.')
+      return { status: 'success', settledCount: allIds.length, totalAmount: 0 }
+    }
+
+    let totalAmountDisbursed = 0
+    let processedCount = 0
+
+    // Gom góp số tiền được chia của mỗi creator để cập nhật DB một lần hoặc theo tuần tự
+    const creatorPayouts = {} // userId -> { availableChange: 0, totalEarnedChange: 0, transactions: [] }
+
+    for (const [pid, score] of Object.entries(postScores)) {
+      const post = postMap[pid]
+      const payout = Math.floor(dailyPool * (score / totalSystemScore))
+      if (payout <= 0) continue
+
+      const percentage = (score / totalSystemScore * 100).toFixed(2)
+      
+      if (post.isRemix && post.originalPostId) {
+        // Đây là bài viết Remix -> Cần chia doanh thu cho Creator A (Royalty) và Creator B (Phần còn lại)
+        // Lấy bài gốc để xem cấu hình royalty
+        const originalPost = await Post.findById(post.originalPostId).select('authorId remixRoyaltyPercent').lean()
+        const royaltyPercent = originalPost?.remixRoyaltyPercent !== undefined ? originalPost.remixRoyaltyPercent : 15
+        
+        const royaltyAmount = Math.floor(payout * (royaltyPercent / 100))
+        const remixAmount = payout - royaltyAmount
+
+        const creatorAId = originalPost?.authorId?.toString()
+        const creatorBId = post.authorId.toString()
+
+        // 1. Creator A (Tác quyền gốc)
+        if (creatorAId) {
+          if (!creatorPayouts[creatorAId]) {
+            creatorPayouts[creatorAId] = { availableChange: 0, totalEarnedChange: 0, transactions: [] }
+          }
+          creatorPayouts[creatorAId].availableChange += royaltyAmount
+          creatorPayouts[creatorAId].totalEarnedChange += royaltyAmount
+          creatorPayouts[creatorAId].transactions.push({
+            type: 'earn_views', // Dùng type earn_views tương thích
+            amount: royaltyAmount,
+            description: `Tác quyền Remix: bài viết của @${creatorBId.slice(-6)} đóng góp ${score} điểm (${percentage}%)`
+          })
+        }
+
+        // 2. Creator B (Remix)
+        if (creatorBId) {
+          if (!creatorPayouts[creatorBId]) {
+            creatorPayouts[creatorBId] = { availableChange: 0, totalEarnedChange: 0, transactions: [] }
+          }
+          creatorPayouts[creatorBId].availableChange += remixAmount
+          creatorPayouts[creatorBId].totalEarnedChange += remixAmount
+          creatorPayouts[creatorBId].transactions.push({
+            type: 'earn_views',
+            amount: remixAmount,
+            description: `Quỹ Creator từ bản Remix (Đóng góp ${score} điểm, trừ ${royaltyPercent}% tác quyền)`
+          })
+        }
+
+        totalAmountDisbursed += payout
+      } else {
+        // Bài viết thường -> Nhận 100% doanh thu
+        const creatorId = post.authorId.toString()
+        if (!creatorPayouts[creatorId]) {
+          creatorPayouts[creatorId] = { availableChange: 0, totalEarnedChange: 0, transactions: [] }
+        }
+        creatorPayouts[creatorId].availableChange += payout
+        creatorPayouts[creatorId].totalEarnedChange += payout
+        creatorPayouts[creatorId].transactions.push({
+          type: 'earn_views',
+          amount: payout,
+          description: `Quỹ Creator từ bài viết chính chủ (Đóng góp ${score} điểm, tỷ lệ ${percentage}%)`
+        })
+
+        totalAmountDisbursed += payout
+      }
+
+      // Đánh dấu các interaction của bài viết này là đã quyết toán
+      const stats = postInteractions[pid]
+      await Interaction.updateMany(
+        { _id: { $in: stats.ids } },
+        { $set: { settled: true } }
+      )
+      processedCount += stats.ids.length
+    }
+
+    // Tiến hành cập nhật số dư cho các creators
+    for (const [creatorId, data] of Object.entries(creatorPayouts)) {
       const creator = await User.findById(creatorId)
       if (!creator) continue
 
-      // Sắp xếp ngày tăng dần
-      const sortedDates = Object.keys(datesMap).sort()
+      const balanceBefore = creator.vndBalance || 0
+      const balanceAfter = balanceBefore + data.availableChange
 
-      for (const dateStr of sortedDates) {
-        const stats = datesMap[dateStr]
-        const amount = stats.views * ratePerView
+      creator.vndBalance = balanceAfter
+      creator.totalEarned = (creator.totalEarned || 0) + data.totalEarnedChange
+      await creator.save()
 
-        const balanceBefore = creator.vndBalance || 0
-        const balanceAfter = balanceBefore + amount
-
-        // Cập nhật ví creator (để vndBalance cộng dồn cho ngày tiếp theo)
-        creator.vndBalance = balanceAfter
-        creator.totalEarned = (creator.totalEarned || 0) + amount
-        await creator.save()
-
-        // Định dạng ngày hiển thị VN: DD-MM-YYYY
-        const [y, m, d] = dateStr.split('-')
-        const formattedDate = `${d}-${m}-${y}`
-
-        // Ghi log giao dịch VNĐ cho ngày này
+      // Tạo các bản ghi giao dịch trong ví
+      for (const txn of data.transactions) {
         await VndTransaction.create({
           userId: creatorId,
-          type: 'earn_views',
-          amount,
-          balanceBefore,
-          balanceAfter,
-          description: `Quyết toán lượt xem ngày ${formattedDate}: ${stats.views.toLocaleString()} lượt xem x ${ratePerView}đ`,
-        }).catch((err) =>
-          console.error(
-            `[Settlement Job] Error logging transaction for creator ${creatorId}:`,
-            err
-          )
-        )
-
-        // Đánh dấu các views của ngày này là đã quyết toán
-        await Interaction.updateMany(
-          { _id: { $in: stats.viewIds } },
-          { $set: { settled: true } }
-        )
-
-        totalAmountDisbursed += amount
-        processedViewsCount += stats.viewIds.length
+          type: txn.type,
+          amount: txn.amount,
+          balanceBefore, // approximate
+          balanceAfter: balanceAfter, // approximate final
+          description: txn.description
+        }).catch(err => console.error('Failed to log Creator Fund transaction:', err))
       }
     }
 
     const duration = Date.now() - start
     console.log(
-      `[Settlement Job] Successfully settled ${unsettledViews.length} views for a total of ${totalAmountDisbursed.toLocaleString()} VNĐ in ${duration}ms`
+      `[Settlement Job] Successfully settled ${processedCount} interactions for a total of ${totalAmountDisbursed.toLocaleString()} VNĐ in ${duration}ms`
     )
 
     return {
       status: 'success',
-      settledCount: unsettledViews.length,
+      settledCount: processedCount,
       totalAmount: totalAmountDisbursed,
-      creatorsAffected,
+      totalScore: totalSystemScore
     }
   } catch (error) {
-    console.error('[Settlement Job] Daily views settlement failed:', error)
+    console.error('[Settlement Job] Daily Creator Fund settlement failed:', error)
     return { status: 'failed', error: error.message }
   }
 }

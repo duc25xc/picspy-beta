@@ -73,6 +73,7 @@ const AdminPage = lazy(() => import('./pages/AdminPage'))
 const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
+const RemixEditorPage = lazy(() => import('./pages/RemixEditorPage'))
 // PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
 
 // Animation wrapper cho page transitions
@@ -92,9 +93,7 @@ const MainLayout = ({ children }) => (
   <div className="flex flex-col min-h-screen">
     <AnnouncementBanner />
     <Header />
-    <main className="flex-1 pb-20 md:pb-0">
-      {children}
-    </main>
+    <main className="flex-1 pb-20 md:pb-0">{children}</main>
     <BottomNav />
   </div>
 )
@@ -263,6 +262,19 @@ export default function App() {
                   <MainLayout>
                     <PageTransition>
                       <UploadPage />
+                    </PageTransition>
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/remix/:sessionId"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PageTransition>
+                      <RemixEditorPage />
                     </PageTransition>
                   </MainLayout>
                 </ProtectedRoute>

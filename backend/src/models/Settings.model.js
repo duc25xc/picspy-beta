@@ -107,6 +107,10 @@ const settingsSchema = new mongoose.Schema(
       type: Number,
       default: 10, // 10 VNĐ / view
     },
+    creatorFundDailyPool: {
+      type: Number,
+      default: 1000000, // 1,000,000 VNĐ daily reward pool
+    },
     creatorSharePercent: {
       type: Number,
       default: 70, // 70% share to creator

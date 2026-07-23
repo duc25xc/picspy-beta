@@ -857,6 +857,21 @@ const PostsTab = () => {
                         </span>
                       )}
                     </p>
+
+                    {post.isRemix && post.parentPostId && (
+                      <div className="text-[10px] text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
+                        <span>🌀 Remix từ <b>@{post.parentPostId.authorId?.username || 'unknown'}</b></span>
+                        <a
+                          href={`/posts/${post.parentPostId._id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-violet-300 hover:text-white underline font-semibold"
+                        >
+                          Xem bài gốc
+                        </a>
+                      </div>
+                    )}
+
                     {post.rejectionReason && (
                       <p className="text-xs text-red-400/70 italic">
                         ⚠ {post.rejectionReason}

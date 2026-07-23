@@ -202,7 +202,7 @@ const ColorPaletteTable = ({ palette }) => {
         {/* Rows */}
         {colors.map(({ hex, rgb, hsl, name }, i) => (
           <motion.div
-            key={hex}
+            key={`${hex}-${i}`}
             initial={{ opacity: 0, x: -8 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: i * 0.06 + 0.15 }}

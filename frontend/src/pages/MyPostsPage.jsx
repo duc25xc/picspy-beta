@@ -179,6 +179,9 @@ const EditModal = ({
     // Pricing tab
     isPremium: post.isPremium || false,
     priceInVnd: post.priceInVnd || 20000,
+    allowRemix: post.allowRemix !== false,
+    remixRoyaltyPercent: post.remixRoyaltyPercent !== undefined ? post.remixRoyaltyPercent : 15,
+    remixDiscountPercent: post.remixDiscountPercent !== undefined ? post.remixDiscountPercent : 10,
   })
   const [tag, setTag] = useState('')
   const [saving, setSaving] = useState(false)
@@ -568,6 +571,9 @@ const EditModal = ({
         fd.append('parameters', form.parameters.trim())
       fd.append('isPremium', String(form.isPremium))
       fd.append('priceInVnd', String(Number(form.priceInVnd)))
+      fd.append('allowRemix', String(form.allowRemix))
+      fd.append('remixRoyaltyPercent', String(Number(form.remixRoyaltyPercent)))
+      fd.append('remixDiscountPercent', String(Number(form.remixDiscountPercent)))
       if (!isAiPost) {
         fd.append('isCollection', String(!hasLut))
       }
@@ -949,13 +955,13 @@ const EditModal = ({
                   <textarea
                     className="input resize-none font-mono text-sm"
                     rows={5}
-                    maxLength={2000}
+                    maxLength={5000}
                     value={form.prompt}
                     onChange={(e) => set('prompt', e.target.value)}
                     placeholder="Nhập prompt đã dùng để tạo ảnh..."
                   />
                   <p className="text-xs text-white/30 text-right mt-1">
-                    {form.prompt.length}/2000
+                    {form.prompt.length}/5000
                   </p>
                 </div>
 
@@ -1298,6 +1304,75 @@ const EditModal = ({
                       </div>
                     </div>
                   </motion.div>
+                )}
+
+                {/* Remix Configuration */}
+                {isAiPost && (
+                  <>
+                    <div className="flex items-center justify-between p-4 rounded-xl bg-white/[0.02] border border-white/5 mt-4">
+                      <div>
+                        <p className="text-sm font-semibold text-white">Cho phép Remix</p>
+                        <p className="text-xs text-white/40">
+                          Cho phép các creator khác sáng tạo lại dựa trên tác phẩm này
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => set('allowRemix', !form.allowRemix)}
+                        className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
+                        ${form.allowRemix ? 'bg-violet-600' : 'bg-white/15'}`}
+                      >
+                        <div
+                          className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
+                        ${form.allowRemix ? 'translate-x-6' : 'translate-x-1'}`}
+                        />
+                      </button>
+                    </div>
+
+                    {form.allowRemix && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: 'auto' }}
+                        className="space-y-4 p-4 rounded-xl bg-white/[0.01] border border-white/5 mt-2"
+                      >
+                        <div>
+                          <label className="text-xs font-semibold text-white/60 flex justify-between">
+                            <span>Royalty tác quyền (%)</span>
+                            <span className="text-violet-400 font-bold">{form.remixRoyaltyPercent}%</span>
+                          </label>
+                          <div className="flex items-center gap-3 mt-2">
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={form.remixRoyaltyPercent}
+                              onChange={(e) => set('remixRoyaltyPercent', Number(e.target.value))}
+                              className="flex-1 accent-violet-500"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="text-xs font-semibold text-white/60 flex justify-between">
+                            <span>Chiết khấu mua ảnh để Remix (%)</span>
+                            <span className="text-violet-400 font-bold">{form.remixDiscountPercent}%</span>
+                          </label>
+                          <div className="flex items-center gap-3 mt-2">
+                            <input
+                              type="range"
+                              min={0}
+                              max={100}
+                              step={1}
+                              value={form.remixDiscountPercent}
+                              onChange={(e) => set('remixDiscountPercent', Number(e.target.value))}
+                              className="flex-1 accent-violet-500"
+                            />
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </>
                 )}
 
                 <div className="rounded-xl bg-surface-50 border border-white/5 p-4 space-y-2 text-sm">

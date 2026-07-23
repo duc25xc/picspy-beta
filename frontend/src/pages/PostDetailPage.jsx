@@ -360,6 +360,12 @@ const PostDetailPage = () => {
   const [discoveryLoading, setDiscoveryLoading] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
 
+  const [remixLoading, setRemixLoading] = useState(false)
+  const [showRemixModal, setShowRemixModal] = useState(false)
+  const [remixPayInfo, setRemixPayInfo] = useState(null)
+  const [siblingRemixes, setSiblingRemixes] = useState([])
+  const [remixes, setRemixes] = useState([])
+
   // Tier access — đặt ở đây để không vi phạm Rules of Hooks
   const tierAccess = useTierAccess()
   const { discoveryAutoScrollInterval, discoveryAutoScrollStagger } =
@@ -368,6 +374,7 @@ const PostDetailPage = () => {
   const fetchPost = useCallback(async () => {
     setLoading(true)
     setPalette([])
+    setRemixes([])
     setAmbientReady(false)
     setImgLoaded(false)
     try {
@@ -378,6 +385,8 @@ const PostDetailPage = () => {
         isBookmarked: data.isBookmarked || false,
         purchasedFileTypes: data.purchasedFileTypes || [],
       })
+      setSiblingRemixes(data.siblingRemixes || [])
+      setRemixes(data.remixes || [])
       if (!data.post.isPremium) setIsUnlocked(true)
       if (data.post.colorPalette?.length) setPalette(data.post.colorPalette)
     } catch (err) {
@@ -402,6 +411,50 @@ const PostDetailPage = () => {
   const handleCardClick = (postId) => {
     navigate(`/posts/${postId}`)
     window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+
+  const handleRemixClick = async () => {
+    if (!user) {
+      toast('Vui lòng đăng nhập để bắt đầu Remix 🔒')
+      return
+    }
+
+    const allowedTiers = ['pro', 'ultimate', 'founder']
+    if (!allowedTiers.includes(tierAccess.tier)) {
+      toast.error('Chính sách Remix chỉ dành cho thành viên PRO trở lên. Vui lòng nâng cấp tài khoản! 🔒')
+      return
+    }
+
+    setRemixLoading(true)
+    try {
+      const { data } = await api.post('/remix/sessions', { postId: post._id })
+      navigate(`/remix/${data.sessionId}`)
+      toast.success('Khởi tạo phiên Remix thành công! 🚀')
+    } catch (err) {
+      if (err.response?.status === 402) {
+        setRemixPayInfo(err.response.data)
+        setShowRemixModal(true)
+      } else {
+        toast.error(err.response?.data?.message || 'Không thể bắt đầu Remix')
+      }
+    } finally {
+      setRemixLoading(false)
+    }
+  }
+
+  const handleConfirmRemixPurchase = async () => {
+    setRemixLoading(true)
+    setShowRemixModal(false)
+    try {
+      await api.post('/remix/purchase', { postId: post._id })
+      toast.success('Thanh toán thành công! Đang chuyển sang trình chỉnh sửa...')
+      const { data } = await api.post('/remix/sessions', { postId: post._id })
+      navigate(`/remix/${data.sessionId}`)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Mua tác phẩm thất bại')
+    } finally {
+      setRemixLoading(false)
+    }
   }
 
   useEffect(() => {
@@ -759,6 +812,32 @@ const PostDetailPage = () => {
               </Link>
             </div>
 
+            {post.isRemix && post.parentPostId && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 via-purple-500/5 to-transparent border border-violet-500/15 flex items-center justify-between gap-4 backdrop-blur-sm shadow-xl transition-all duration-300 hover:border-violet-500/30">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-violet-300 font-extrabold shadow-inner relative overflow-hidden transition-transform">
+                    <Sparkles className="w-5 h-5 animate-pulse text-violet-300" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <p className="text-[10px] text-violet-400 font-bold uppercase tracking-wider">Tác phẩm gốc (Remixed from)</p>
+                    <Link
+                      to={`/posts/${post.parentPostId._id}`}
+                      className="text-sm font-bold text-white/90 hover:text-violet-300 transition-colors flex items-center gap-1.5"
+                    >
+                      @{post.parentPostId.authorId?.username || 'creator'}
+                      <span className="text-xs text-white/40 font-normal italic">({post.parentPostId.caption || 'Bài viết gốc'})</span>
+                    </Link>
+                  </div>
+                </div>
+                <Link
+                  to={`/posts/${post.parentPostId._id}`}
+                  className="px-3.5 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-semibold shadow-lg shadow-violet-600/20 transition-all active:scale-95"
+                >
+                  Xem bài gốc
+                </Link>
+              </div>
+            )}
+
             {/* ── Caption ─────────────────────────────── */}
             {post.caption && (
               <h1
@@ -1003,6 +1082,58 @@ const PostDetailPage = () => {
                   })
                 }}
               />
+
+              {/* Remix Info & Button */}
+              {isAiPost && (
+                <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-3">
+                  <div className="flex justify-between items-center text-xs">
+                    <span className="text-white/40">Cho phép Remix:</span>
+                    <span className={`font-bold ${post.allowRemix !== false ? 'text-emerald-400' : 'text-red-400'}`}>
+                      {post.allowRemix !== false ? '✓ Có' : '✗ Không'}
+                    </span>
+                  </div>
+                  {post.allowRemix !== false && (
+                    <>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-white/40">Tỷ lệ Royalty (tác quyền):</span>
+                        <span className="text-violet-400 font-bold">{post.remixRoyaltyPercent || 15}%</span>
+                      </div>
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-white/40">Chiết khấu mua Remix:</span>
+                        <span className="text-violet-400 font-bold">{post.remixDiscountPercent || 10}%</span>
+                      </div>
+                    </>
+                  )}
+
+                  {post.allowRemix !== false && !isOwnPost && (
+                    <div className="pt-2">
+                      {['pro', 'ultimate', 'founder'].includes(tierAccess.tier) ? (
+                        <motion.button
+                          whileTap={{ scale: 0.98 }}
+                          onClick={handleRemixClick}
+                          disabled={remixLoading}
+                          className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold text-white bg-gradient-to-r from-violet-600 via-indigo-600 to-brand-600 shadow-[0_0_12px_rgba(124,58,237,0.25)] hover:shadow-[0_0_18px_rgba(124,58,237,0.4)] transition-all cursor-pointer min-h-[40px]"
+                        >
+                          <Sparkles size={14} className="animate-pulse" />
+                          {remixLoading ? 'Đang khởi tạo...' : 'Remix Tác Phẩm'}
+                        </motion.button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            toast.error('Chính sách Remix chỉ dành cho thành viên PRO trở lên. Vui lòng nâng cấp tài khoản! 🔒')
+                            navigate('/pricing')
+                          }}
+                          className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold bg-[#1a1a24] border border-white/10 text-white/40 cursor-pointer min-h-[40px] hover:border-white/20 transition-all"
+                        >
+                          <Sparkles size={14} />
+                          <span>Remix 🔒 PRO Only</span>
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div
                 className={`grid ${isOwnPost ? 'grid-cols-3' : 'grid-cols-4'} gap-2`}
               >
@@ -1198,6 +1329,76 @@ const PostDetailPage = () => {
                 </motion.div>
               )}
             </AnimatePresence>
+
+            {/* Remix Purchase Confirmation Modal */}
+            <AnimatePresence>
+              {showRemixModal && remixPayInfo && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-[350] flex items-center justify-center p-4"
+                  style={{
+                    background: 'rgba(0, 0, 0, 0.75)',
+                    backdropFilter: 'blur(10px)',
+                  }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.9, y: 20 }}
+                    animate={{ scale: 1, y: 0 }}
+                    exit={{ scale: 0.9, y: 20 }}
+                    transition={{ type: 'spring', duration: 0.5 }}
+                    className="w-full max-w-md bg-[#161426]/90 border border-white/10 rounded-2xl p-6 shadow-2xl relative overflow-hidden"
+                  >
+                    {/* Glow effect */}
+                    <div className="absolute -top-10 -right-10 w-[150px] h-[150px] bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
+
+                    <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                      <Sparkles className="text-violet-400 animate-pulse" size={20} /> Mua tác phẩm để Remix
+                    </h3>
+                    <p className="text-xs text-white/50 mb-6 leading-relaxed">
+                      Để thực hiện Remix, bạn cần sở hữu tác phẩm gốc này. Bạn sẽ được áp dụng mức giá chiết khấu dành riêng cho creator.
+                    </p>
+
+                    <div className="space-y-4 mb-6">
+                      <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
+                        <span className="text-white/40">Giá gốc:</span>
+                        <span className="text-white/60 line-through">{(remixPayInfo.priceInVnd || 0).toLocaleString('vi-VN')} VNĐ</span>
+                      </div>
+                      <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
+                        <span className="text-white/40">Chiết khấu creator:</span>
+                        <span className="text-emerald-400 font-semibold">-{remixPayInfo.discountPercent}%</span>
+                      </div>
+                      <div className="flex justify-between items-center py-3 text-base font-bold">
+                        <span className="text-white">Giá thanh toán:</span>
+                        <span className="text-violet-400">{(remixPayInfo.discountedPrice || 0).toLocaleString('vi-VN')} VNĐ</span>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRemixModal(false)
+                          setRemixPayInfo(null)
+                        }}
+                        className="px-4 py-2.5 rounded-xl text-xs font-semibold text-white/55 hover:text-white/80 border border-white/8 hover:bg-white/5 transition-colors cursor-pointer"
+                      >
+                        Hủy bỏ
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleConfirmRemixPurchase}
+                        disabled={remixLoading}
+                        className="px-5 py-2.5 rounded-xl text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white shadow-lg shadow-violet-600/20 hover:shadow-violet-600/35 transition-all cursor-pointer disabled:opacity-40"
+                      >
+                        {remixLoading ? 'Đang xử lý...' : 'Xác nhận thanh toán'}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </div>
 
@@ -1222,6 +1423,32 @@ const PostDetailPage = () => {
             </div>
           ) : discoveryData ? (
             <>
+              {remixes.length > 0 && (
+                <DiscoveryRow
+                  title="Các bản Remix từ tác phẩm này"
+                  icon={Sparkles}
+                  posts={remixes}
+                  onCardClick={handleCardClick}
+                  countText={`${remixes.length} bài đăng`}
+                  rowIndex={0}
+                  discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                  discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+                />
+              )}
+
+              {siblingRemixes.length > 0 && (
+                <DiscoveryRow
+                  title="Các bản Remix khác từ tác phẩm gốc"
+                  icon={Sparkles}
+                  posts={siblingRemixes}
+                  onCardClick={handleCardClick}
+                  countText={`${siblingRemixes.length} bài đăng`}
+                  rowIndex={0}
+                  discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                  discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+                />
+              )}
+
               {/* 1. Ảnh tương tự (Category + Tag + Title) */}
               <DiscoveryRow
                 title="Ảnh tương tự"

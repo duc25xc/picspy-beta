@@ -26,6 +26,7 @@ export const AI_TOOLS = [
   'chatgpt',
   'seedream',
   'grok',
+  'picspy',
 ]
 
 const postSchema = new mongoose.Schema(
@@ -113,7 +114,7 @@ const postSchema = new mongoose.Schema(
         },
         message: 'Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.',
       },
-      maxlength: [2000, 'Prompt tối đa 2000 ký tự'],
+      maxlength: [5000, 'Prompt tối đa 5000 ký tự'],
       trim: true,
     },
     negativePrompt: {
@@ -253,6 +254,16 @@ const postSchema = new mongoose.Schema(
       enum: ['free', 'pro', 'ultimate'],
       default: 'free',
     },
+
+    // === REMIX SETTINGS ===
+    allowRemix: { type: Boolean, default: true },
+    remixRoyaltyPercent: { type: Number, default: 15, min: 0, max: 100 },
+    remixDiscountPercent: { type: Number, default: 10, min: 0, max: 100 },
+
+    // === REMIX RELATIONSHIPS ===
+    isRemix: { type: Boolean, default: false },
+    parentPostId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
+    originalPostId: { type: mongoose.Schema.Types.ObjectId, ref: 'Post' },
 
     // === STATS (denormalized) ===
     stats: {

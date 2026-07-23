@@ -244,7 +244,7 @@ export function PromptField({
   onChange,
   label,
   placeholder,
-  maxLength = 2000,
+  maxLength = 5000,
   required,
 }) {
   const [copied, setCopied] = useState(false)

@@ -80,6 +80,9 @@ const defaultForm = () => ({
   category: '',
   isPremium: false,
   priceInVnd: 20000,
+  allowRemix: false,
+  remixRoyaltyPercent: 15,
+  remixDiscountPercent: 10,
 })
 
 // ── Main component ───────────────────────────────────────────────
@@ -724,6 +727,9 @@ export default function UploadPage() {
     fd.append('category', form.category)
     fd.append('isPremium', String(form.isPremium))
     fd.append('priceInVnd', String(Number(form.priceInVnd)))
+    fd.append('allowRemix', String(form.allowRemix))
+    fd.append('remixRoyaltyPercent', String(Number(form.remixRoyaltyPercent)))
+    fd.append('remixDiscountPercent', String(Number(form.remixDiscountPercent)))
     if (uploadType === 'digital') {
       fd.append('isCollection', String(isCollection))
     }
@@ -1308,7 +1314,7 @@ function Step1Prompt({ form, setForm, tierAccess }) {
         value={form.prompt}
         onChange={set('prompt')}
         placeholder="Mô tả chi tiết nội dung bạn muốn tạo..."
-        maxLength={2000}
+        maxLength={5000}
       />
 
       {/* Negative prompt */}
@@ -2682,6 +2688,83 @@ function Step4Meta({
                   </button>
                 ))}
               </div>
+            </div>
+          </motion.div>
+        )}
+
+        {/* Remix Configuration */}
+        <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/5 mt-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400">
+              <Sparkles size={20} />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">Cho phép Remix</p>
+              <p className="text-xs text-white/40">
+                Cho phép các creator khác sáng tạo lại dựa trên tác phẩm này
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => set('allowRemix')(!form.allowRemix)}
+            className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
+            ${form.allowRemix ? 'bg-violet-600' : 'bg-white/15'}`}
+          >
+            <div
+              className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
+            ${form.allowRemix ? 'translate-x-6' : 'translate-x-1'}`}
+            />
+          </button>
+        </div>
+
+        {form.allowRemix && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="space-y-4 p-4 rounded-2xl bg-white/[0.01] border border-white/5 mt-2"
+          >
+            <div>
+              <label className="text-xs font-semibold text-white/60 flex justify-between">
+                <span>Royalty tác quyền (%)</span>
+                <span className="text-violet-400 font-bold">{form.remixRoyaltyPercent}%</span>
+              </label>
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={form.remixRoyaltyPercent}
+                  onChange={(e) => set('remixRoyaltyPercent')(Number(e.target.value))}
+                  className="flex-1 accent-violet-500"
+                />
+              </div>
+              <p className="text-[10px] text-white/30 mt-1">
+                Phần trăm doanh thu bạn nhận được từ mỗi lần người khác bán bản Remix của bạn
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-semibold text-white/60 flex justify-between">
+                <span>Chiết khấu mua ảnh để Remix (%)</span>
+                <span className="text-violet-400 font-bold">{form.remixDiscountPercent}%</span>
+              </label>
+              <div className="flex items-center gap-3 mt-2">
+                <input
+                  type="range"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={form.remixDiscountPercent}
+                  onChange={(e) => set('remixDiscountPercent')(Number(e.target.value))}
+                  className="flex-1 accent-violet-500"
+                />
+              </div>
+              <p className="text-[10px] text-white/30 mt-1">
+                Giảm giá cho các creator khác khi mua tác phẩm gốc của bạn để thực hiện Remix
+              </p>
             </div>
           </motion.div>
         )}

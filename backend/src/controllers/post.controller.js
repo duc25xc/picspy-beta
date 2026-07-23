@@ -28,7 +28,7 @@ const createPostSchema = z.object({
   // Phân loại bài viết
   postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).default('ai'),
   // AI generation (core) - optional ở Zod, validate thủ công sau dựa trên postType
-  prompt: sanitizeText.pipe(z.string().max(2000)).optional(),
+  prompt: sanitizeText.pipe(z.string().max(5000)).optional(),
   negativePrompt: sanitizeText.pipe(z.string().max(1000)).optional(),
   aiTool: z.enum(AI_TOOLS).optional(),
   aiModel: z.string().trim().optional(),
@@ -59,6 +59,9 @@ const createPostSchema = z.object({
   // Monetization
   isPremium: z.boolean().optional().default(false),
   priceInVnd: z.number().min(1000).optional().default(20000),
+  allowRemix: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional().default(true),
+  remixRoyaltyPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)).optional().default(15),
+  remixDiscountPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)).optional().default(10),
 
   // Compat (legacy)
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
@@ -68,7 +71,7 @@ const createPostSchema = z.object({
 
 const updatePostSchema = z.object({
   postType: z.enum(['ai', 'digital', 'digital-raw', 'digital-normal']).optional(),
-  prompt: sanitizeText.pipe(z.string().max(2000)).optional()
+  prompt: sanitizeText.pipe(z.string().max(5000)).optional()
     .refine(hasRealContent, { message: 'Prompt cần chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số)' }),
   negativePrompt: sanitizeText.pipe(z.string().max(1000)).optional(),
   aiTool: z.enum(AI_TOOLS).optional(),
@@ -95,6 +98,9 @@ const updatePostSchema = z.object({
   category: z.string().min(1).toLowerCase().trim().optional(),
   isPremium: z.boolean().optional(),
   priceInVnd: z.number().min(1000).optional(),
+  allowRemix: z.preprocess((val) => val === 'true' || val === true, z.boolean()).optional(),
+  remixRoyaltyPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)).optional(),
+  remixDiscountPercent: z.preprocess((val) => Number(val), z.number().min(0).max(100)).optional(),
   resolution: z.enum(['sd', 'hd', '2k', '4k']).optional(),
   orientation: z.enum(['portrait', 'landscape', 'square']).optional(),
   aspectRatio: z.string().optional(),
@@ -517,6 +523,9 @@ export const createPost = async (req, res, next) => {
       category: data.category,
       isPremium: data.isPremium,
       priceInVnd: data.priceInVnd,
+      allowRemix: data.allowRemix,
+      remixRoyaltyPercent: data.remixRoyaltyPercent,
+      remixDiscountPercent: data.remixDiscountPercent,
       resolution: data.resolution,
       orientation: data.orientation,
       aspectRatio: data.aspectRatio,
@@ -663,9 +672,25 @@ export const getApprovedPosts = async (req, res, next) => {
       hasExif,
       color,
       colorThreshold,
+      includeRemix,
     } = req.query
 
     const baseMatch = { status: 'approved' }
+
+    // Logic ẩn/hiện Remix posts ở trang khám phá chung:
+    let excludeRemix = false
+    if (includeRemix === 'false') {
+      excludeRemix = true
+    } else if (includeRemix !== 'true') {
+      // Mặc định: nếu không lọc theo tác giả hoặc không tìm kiếm từ khóa, ẩn bài viết Remix
+      if (!authorId && !q) {
+        excludeRemix = true
+      }
+    }
+
+    if (excludeRemix) {
+      baseMatch.isRemix = { $ne: true }
+    }
 
     // =====================
     // Free-text search (q)
@@ -748,6 +773,9 @@ export const getApprovedPosts = async (req, res, next) => {
 
     // Dynamic facet counts matching (excludes postType & hasExif)
     const countsMatch = { status: 'approved' }
+    if (excludeRemix) {
+      countsMatch.isRemix = { $ne: true }
+    }
     if (typeof q === 'string' && q.trim().length > 0) {
       const queryText = q.trim().slice(0, 80)
       const escaped = queryText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -1344,6 +1372,9 @@ export const updatePost = async (req, res, next) => {
     post.category = data.category !== undefined ? data.category : post.category
     post.isPremium = data.isPremium !== undefined ? data.isPremium : post.isPremium
     post.priceInVnd = data.priceInVnd !== undefined ? data.priceInVnd : post.priceInVnd
+    post.allowRemix = data.allowRemix !== undefined ? data.allowRemix : post.allowRemix
+    post.remixRoyaltyPercent = data.remixRoyaltyPercent !== undefined ? data.remixRoyaltyPercent : post.remixRoyaltyPercent
+    post.remixDiscountPercent = data.remixDiscountPercent !== undefined ? data.remixDiscountPercent : post.remixDiscountPercent
     post.isCollection = activePostType !== 'ai' ? (body.isCollection === true) : false
     
     // Resolution, orientation, aspectRatio
@@ -2100,6 +2131,7 @@ export const getSourceHistory = async (req, res, next) => {
     const historyMap = {}
 
     posts.forEach(post => {
+      // Ảnh gốc / tham khảo đã upload
       if (post.sourceImages && post.sourceImages.length > 0) {
         post.sourceImages.forEach(img => {
           if (img.publicId) {
@@ -2113,17 +2145,37 @@ export const getSourceHistory = async (req, res, next) => {
                 fileSize: img.fileSize,
                 previewUrl: img.previewUrl || img.url,
                 thumbnailUrl: img.thumbnailUrl || img.url,
+                type: 'source',
                 linkedPosts: [],
                 useCount: 0
               }
             }
-            // Thêm bài viết liên kết
             historyMap[img.publicId].linkedPosts.push({
               _id: post._id,
               caption: post.caption || 'Bài viết không tiêu đề',
               status: post.status
             })
             historyMap[img.publicId].useCount = historyMap[img.publicId].linkedPosts.length
+          }
+        })
+      }
+
+      // Ảnh kết quả đã sinh (AI generated) — dùng url làm key vì không có publicId
+      if (post.generatedImages && post.generatedImages.length > 0) {
+        post.generatedImages.forEach(img => {
+          const key = img.publicId || img.url
+          if (key && !historyMap[key]) {
+            historyMap[key] = {
+              url: img.url,
+              publicId: img.publicId || img.url,
+              format: img.format || 'jpg',
+              previewUrl: img.previewUrl || img.url,
+              thumbnailUrl: img.thumbnailUrl || img.url,
+              type: 'generated',
+              postCaption: post.caption || 'Bài viết không tiêu đề',
+              linkedPosts: [{ _id: post._id, caption: post.caption || 'Bài viết không tiêu đề', status: post.status }],
+              useCount: 1
+            }
           }
         })
       }
@@ -2135,6 +2187,7 @@ export const getSourceHistory = async (req, res, next) => {
     next(err)
   }
 }
+
 
 /**
  * DELETE /posts/me/source-history

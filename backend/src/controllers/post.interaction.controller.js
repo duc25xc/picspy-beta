@@ -15,10 +15,31 @@ export const getPostDetail = async (req, res, next) => {
         'authorId',
         'username displayName avatar isVerified subscriptionTier stats.followersCount stats.postsCount'
       )
+      .populate({
+        path: 'parentPostId',
+        select: 'caption authorId generatedImages isPremium priceInVnd',
+        populate: { path: 'authorId', select: 'username displayName avatar' }
+      })
       .lean()
 
     if (!post) {
       throw new AppError('NOT_FOUND', 'Không tìm thấy bài đăng', 404)
+    }
+
+    let siblingRemixes = []
+    if (post.isRemix) {
+      const targetOriginalId = post.originalPostId || post.parentPostId
+      if (targetOriginalId) {
+        siblingRemixes = await Post.find({
+          originalPostId: targetOriginalId,
+          status: 'approved',
+          _id: { $ne: post._id }
+        })
+        .select('caption authorId generatedImages stats')
+        .populate('authorId', 'username displayName avatar')
+        .limit(10)
+        .lean()
+      }
     }
 
     // Chỉ xem được approved post (hoặc chính chủ)
@@ -100,12 +121,28 @@ export const getPostDetail = async (req, res, next) => {
       })
     }
 
+    // Lấy các bản Remix trực tiếp từ tác phẩm này
+    const remixes = await Post.find({
+      $or: [
+        { parentPostId: post._id },
+        { originalPostId: post._id }
+      ],
+      status: 'approved'
+    })
+    .select('caption authorId generatedImages stats createdAt')
+    .populate('authorId', 'username displayName avatar')
+    .sort({ createdAt: -1 })
+    .limit(10)
+    .lean()
+
     res.json({
       post,
       isLiked,
       isBookmarked,
       isFollowingAuthor,
       purchasedFileTypes,
+      siblingRemixes,
+      remixes
     })
   } catch (err) {
     next(err)
