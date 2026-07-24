@@ -103,6 +103,8 @@ export default function RemixEditorPage() {
   const [publishing, setPublishing] = useState(false)
   const [categories, setCategories] = useState(['anime', 'portrait', 'landscape', 'cyberpunk', 'fantasy', 'realistic', 'other'])
 
+  const [isScrolled, setIsScrolled] = useState(false)
+
   // Derived: is any AI operation in progress?
   const isBusy = checkingPrompt || generating
   const isPublished = session?.status === 'published'
@@ -113,6 +115,25 @@ export default function RemixEditorPage() {
       if (data?.categories?.length) setCategories(data.categories.map(c => c.name || c))
     }).catch(() => {})
   }, [sessionId])
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setIsScrolled(window.scrollY > 80)
+    }
+    window.addEventListener('scroll', handleScroll)
+    return () => window.removeEventListener('scroll', handleScroll)
+  }, [])
+
+  const handleBack = () => {
+    if (isBusy || hasDirtyData) {
+      const msg = isBusy
+        ? 'AI đang xử lý... Rời trang sẽ mất tiến trình hiện tại. Bạn có chắc?'
+        : 'Bạn có các thay đổi chưa xuất bản. Rời trang bây giờ sẽ hủy phiên Remix hiện tại của bạn. Bạn có chắc chắn muốn rời đi?'
+      const ok = window.confirm(msg)
+      if (!ok) return
+    }
+    navigate(-1)
+  }
 
   const hasDirtyData = useMemo(() => {
     if (isPublished) return false
@@ -512,24 +533,41 @@ export default function RemixEditorPage() {
 
   return (
     <div className="min-h-screen bg-[#0b0a12] text-white pb-24 pt-4 px-4 md:px-6" style={{ fontFamily: 'Outfit, sans-serif' }}>
+      
+      {/* Floating Back Button */}
+      <AnimatePresence>
+        {isScrolled && (
+          <motion.button
+            initial={{ opacity: 0, scale: 0.8, x: -10 }}
+            animate={{ opacity: 1, scale: 1, x: 0 }}
+            exit={{ opacity: 0, scale: 0.8, x: -10 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            onClick={handleBack}
+            className="fixed top-[84px] left-4 md:left-8 z-50 w-10 h-10 rounded-xl flex items-center justify-center text-[#f5f3ff] hover:text-white shadow-xl cursor-pointer"
+            style={{
+              background: 'rgba(255, 255, 255, 0.04)',
+              backdropFilter: 'blur(28px) saturate(180%)',
+              border: '1px solid rgba(255, 255, 255, 0.09)',
+              boxShadow:
+                'inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 8px 32px rgba(0, 0, 0, 0.35)',
+            }}
+            title="Quay lại"
+          >
+            <ArrowLeft size={18} />
+          </motion.button>
+        )}
+      </AnimatePresence>
+
       <div className="max-w-6xl mx-auto space-y-5">
 
         {/* ── Header ─────────────────────────────────────────────────── */}
         <div className="flex items-center justify-between py-2">
           <button
-            onClick={() => {
-              if (isBusy || hasDirtyData) {
-                const msg = isBusy
-                  ? 'AI đang xử lý... Rời trang sẽ mất tiến trình hiện tại. Bạn có chắc?'
-                  : 'Bạn có các thay đổi chưa xuất bản. Rời trang bây giờ sẽ hủy phiên Remix hiện tại của bạn. Bạn có chắc chắn muốn rời đi?'
-                const ok = window.confirm(msg)
-                if (!ok) return
-              }
-              navigate(-1)
-            }}
-            className="flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm font-semibold"
+            onClick={handleBack}
+            className="flex items-center gap-2 text-white/40 hover:text-white transition-colors text-sm font-semibold group"
           >
-            <ArrowLeft size={15} /> Quay lại
+            <ArrowLeft size={15} className="group-hover:-translate-x-0.5 transition-transform duration-150" />
+            <span>Quay lại</span>
           </button>
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-1.5 text-xs text-white/60 bg-white/[0.03] border border-white/8 px-3 py-1 rounded-full">
