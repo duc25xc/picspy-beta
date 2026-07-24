@@ -7,7 +7,6 @@ const myEnv = dotenv.config()
 expand(myEnv)
 import cors from 'cors'
 import helmet from 'helmet'
-import morgan from 'morgan'
 import compression from 'compression'
 import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
@@ -49,14 +48,27 @@ const httpServer = http.createServer(app)
 // =====================
 app.use(helmet())
 app.use(compression())
-app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'))
 
-// Request logger middleware (writes to logs/server.log)
+// Request logger middleware (Clean & professional log output)
 app.use((req, res, next) => {
+  // Bỏ qua log cho HTTP OPTIONS (CORS preflight) thành công để tránh rác console
+  if (req.method === 'OPTIONS' && res.statusCode < 400) return next()
+
   const start = Date.now()
   res.on('finish', () => {
+    // Nếu OPTIONS thành công thì bỏ qua không log
+    if (req.method === 'OPTIONS' && res.statusCode < 400) return
+
     const duration = Date.now() - start
-    logger.info(`HTTP ${req.method} ${req.originalUrl} | Status: ${res.statusCode} | Duration: ${duration}ms | IP: ${req.ip}`)
+    const status = res.statusCode
+
+    if (status >= 500) {
+      logger.error(`HTTP ${req.method} ${req.originalUrl} | Status: ${status} | Duration: ${duration}ms`)
+    } else if (status >= 400) {
+      logger.warn(`HTTP ${req.method} ${req.originalUrl} | Status: ${status} | Duration: ${duration}ms`)
+    } else {
+      logger.info(`HTTP ${req.method} ${req.originalUrl} | Status: ${status} | Duration: ${duration}ms`)
+    }
   })
   next()
 })

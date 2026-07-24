@@ -111,26 +111,27 @@ export default function App() {
   const initSocket = useNotificationStore((s) => s.initSocket)
   const disconnectSocket = useNotificationStore((s) => s.disconnectSocket)
 
-  // Khởi tạo kết nối socket.io real-time
+  // Khởi tạo kết nối socket.io real-time (chỉ ngắt khi logout / đổi token)
   useEffect(() => {
     if (accessToken) {
       initSocket(accessToken)
     } else {
       disconnectSocket()
     }
-    return () => disconnectSocket()
+    return () => {
+      // Clean up socket when component unmounts or token changes
+      disconnectSocket()
+    }
   }, [accessToken, initSocket, disconnectSocket])
 
-  // Sync user data (coin, stats) mỗi khi userId thay đổi (kể cả khi switch account)
-  // Dùng userId thay vì isAuth để effect re-run khi đăng nhập tài khoản khác
-  // mà không cần logout trước
+  // Sync user data (coin, stats) mỗi khi userId thay đổi (khi đăng nhập / switch account)
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !accessToken) return
     const onFocus = () => refreshMe()
     window.addEventListener('focus', onFocus)
     refreshMe()
     return () => window.removeEventListener('focus', onFocus)
-  }, [userId]) // eslint-disable-line
+  }, [userId, accessToken]) // eslint-disable-line
 
   return (
     <>

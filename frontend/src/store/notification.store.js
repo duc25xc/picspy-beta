@@ -20,10 +20,15 @@ const useNotificationStore = create((set, get) => ({
   fetchNotifications: async (page = 1, limit = 20) => {
     set({ loading: true })
     try {
-      const { data } = await api.get(`/notifications?page=${page}&limit=${limit}`)
+      const res = await api.get(`/notifications?page=${page}&limit=${limit}`)
+      const data = res?.data
+      if (!data) {
+        set({ loading: false })
+        return
+      }
       set({
-        notifications: page === 1 ? data.notifications : [...get().notifications, ...data.notifications],
-        unreadCount: data.unreadCount,
+        notifications: page === 1 ? (data.notifications || []) : [...get().notifications, ...(data.notifications || [])],
+        unreadCount: data.unreadCount ?? 0,
         loading: false,
       })
     } catch (err) {
@@ -62,7 +67,7 @@ const useNotificationStore = create((set, get) => ({
         notifications: state.notifications.map((n) =>
           n._id === id ? { ...n, isRead: true } : n
         ),
-        unreadCount: Math.max(state.unreadCount - 1, 0),
+        unreadCount: Math.max((state.unreadCount || 0) - 1, 0),
       }))
     } catch (err) {
       console.error('Failed to mark notification as read:', err)
@@ -71,7 +76,15 @@ const useNotificationStore = create((set, get) => ({
 
   // Init Socket connection
   initSocket: (token) => {
-    if (get().socket) return
+    const existingSocket = get().socket
+    if (existingSocket) {
+      if (existingSocket.auth?.token === token && existingSocket.connected) {
+        return
+      }
+      get().disconnectSocket()
+    }
+
+    if (!token) return
 
     const socket = io(SOCKET_URL, {
       auth: { token },
@@ -82,20 +95,27 @@ const useNotificationStore = create((set, get) => ({
       console.log('🔌 Client socket connected')
     })
 
-    socket.on('notification', ({ notification, unreadCount, shouldToast }) => {
+    socket.on('notification', (payload) => {
+      if (!payload || !payload.notification) return
+      const { notification, unreadCount, shouldToast } = payload
+
       // Add notification to state
       set((state) => ({
         notifications: [notification, ...state.notifications],
-        unreadCount,
+        unreadCount: unreadCount ?? state.unreadCount,
       }))
 
       // Sync local storage user model count to avoid stale badge on page reload
       const authState = localStorage.getItem('picspy-auth')
       if (authState) {
-        const parsed = JSON.parse(authState)
-        if (parsed?.state?.user) {
-          parsed.state.user.notificationCount = unreadCount
-          localStorage.setItem('picspy-auth', JSON.stringify(parsed))
+        try {
+          const parsed = JSON.parse(authState)
+          if (parsed?.state?.user) {
+            parsed.state.user.notificationCount = unreadCount ?? 0
+            localStorage.setItem('picspy-auth', JSON.stringify(parsed))
+          }
+        } catch {
+          // Ignore JSON parse error
         }
       }
 
@@ -123,7 +143,16 @@ const useNotificationStore = create((set, get) => ({
   disconnectSocket: () => {
     const socket = get().socket
     if (socket) {
-      socket.disconnect()
+      try {
+        socket.removeAllListeners()
+        if (socket.connected) {
+          socket.disconnect()
+        } else {
+          socket.close()
+        }
+      } catch {
+        // Safe silence during StrictMode unmount
+      }
       set({ socket: null })
     }
   }

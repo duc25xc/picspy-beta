@@ -5,8 +5,6 @@ import { logger } from '../utils/logger.js'
  * Phân biệt operational errors (AppError) vs programming bugs
  */
 const errorHandler = (err, req, res, next) => {
-  // Log the error to log file
-  logger.error(`API Exception on ${req.method} ${req.originalUrl}`, err)
   // Mongoose validation error
   if (err.name === 'ValidationError') {
     const details = Object.values(err.errors).map((e) => ({
@@ -39,7 +37,7 @@ const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Custom AppError (operational errors)
+  // Custom AppError (operational errors: 400, 401, 403, 404, 409, 422)
   if (err.isOperational) {
     return res.status(err.statusCode).json({
       error: err.code,
@@ -48,8 +46,8 @@ const errorHandler = (err, req, res, next) => {
     })
   }
 
-  // Unknown/unexpected error — không lộ thông tin nhạy cảm
-  console.error('💥 Unexpected error:', err)
+  // Unknown/unexpected error (500) — log full stack trace
+  logger.error(`💥 Unexpected Exception on ${req.method} ${req.originalUrl}`, err)
   res.status(500).json({
     error: 'INTERNAL_ERROR',
     message: 'Đã xảy ra lỗi. Vui lòng thử lại sau.',

@@ -167,7 +167,10 @@ const AuthInput = ({ icon: Icon, rightSlot, error, ...inputProps }) => (
 
 /* ─────────────────────────── Main ─────────────────────────── */
 const LoginPage = () => {
-  const [form, setForm] = useState({ email: 'duduc@mail.com', password: 'conmeocute123' })
+  const [form, setForm] = useState({
+    email: 'duduc@mail.com',
+    password: 'Conmeocute123',
+  })
   const [showPass, setShowPass] = useState(false)
   const [mounted, setMounted] = useState(false)
   const { login, isLoading } = useAuthStore()
@@ -175,7 +178,9 @@ const LoginPage = () => {
   const location = useLocation()
   const from = location.state?.from?.pathname || '/'
 
-  useEffect(() => { setMounted(true) }, [])
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -195,7 +200,10 @@ const LoginPage = () => {
   return (
     <div
       className="min-h-screen flex overflow-x-hidden auth-grid pj"
-      style={{ fontFamily: "'Plus Jakarta Sans', sans-serif", background: '#0d0d12' }}
+      style={{
+        fontFamily: "'Plus Jakarta Sans', sans-serif",
+        background: '#0d0d12',
+      }}
     >
       <FontLoader />
 
@@ -210,12 +218,18 @@ const LoginPage = () => {
         style={{ background: 'rgba(10,9,14,0.98)' }}
       >
         {/* Ambient orbs */}
-        <div className="orb-a absolute top-[-8%] left-[-6%] w-[55%] h-[55%] rounded-full pointer-events-none"
-          style={{ background: 'rgba(124,58,237,0.12)', filter: 'blur(120px)' }} />
-        <div className="orb-b absolute bottom-[-10%] right-[-8%] w-[45%] h-[45%] rounded-full pointer-events-none"
-          style={{ background: 'rgba(59,130,246,0.10)', filter: 'blur(110px)' }} />
-        <div className="orb-c absolute top-[35%] left-[55%] w-[25%] h-[25%] rounded-full pointer-events-none"
-          style={{ background: 'rgba(217,70,239,0.07)', filter: 'blur(90px)' }} />
+        <div
+          className="orb-a absolute top-[-8%] left-[-6%] w-[55%] h-[55%] rounded-full pointer-events-none"
+          style={{ background: 'rgba(124,58,237,0.12)', filter: 'blur(120px)' }}
+        />
+        <div
+          className="orb-b absolute bottom-[-10%] right-[-8%] w-[45%] h-[45%] rounded-full pointer-events-none"
+          style={{ background: 'rgba(59,130,246,0.10)', filter: 'blur(110px)' }}
+        />
+        <div
+          className="orb-c absolute top-[35%] left-[55%] w-[25%] h-[25%] rounded-full pointer-events-none"
+          style={{ background: 'rgba(217,70,239,0.07)', filter: 'blur(90px)' }}
+        />
 
         {/* Image cards masonry */}
         <div className="relative z-10 w-full max-w-lg px-10 grid grid-cols-2 gap-5">
@@ -226,15 +240,25 @@ const LoginPage = () => {
                 key={item.label}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: item.delay + 0.3, duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-                style={{ animation: `floatCard ${5 + i * 1.5}s ease-in-out infinite`, animationDelay: `${i * 0.8}s` }}
+                transition={{
+                  delay: item.delay + 0.3,
+                  duration: 0.7,
+                  ease: [0.23, 1, 0.32, 1],
+                }}
+                style={{
+                  animation: `floatCard ${5 + i * 1.5}s ease-in-out infinite`,
+                  animationDelay: `${i * 0.8}s`,
+                }}
                 className="lg-glass noise-overlay rounded-2xl overflow-hidden group cursor-pointer
                   transition-all duration-500 hover:-translate-y-2
                   hover:shadow-[0_20px_60px_rgba(124,58,237,0.2)]"
               >
-                <div className={`overflow-hidden ${i === 0 ? 'aspect-[4/5]' : 'aspect-square'}`}>
+                <div
+                  className={`overflow-hidden ${i === 0 ? 'aspect-[4/5]' : 'aspect-square'}`}
+                >
                   <img
-                    src={item.src} alt={item.label}
+                    src={item.src}
+                    alt={item.label}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     loading="lazy"
                   />
@@ -245,7 +269,9 @@ const LoginPage = () => {
                       {item.tag}
                     </span>
                   )}
-                  <p className="text-sm font-bold text-white/80 pj mt-0.5">{item.label}</p>
+                  <p className="text-sm font-bold text-white/80 pj mt-0.5">
+                    {item.label}
+                  </p>
                 </div>
               </motion.div>
             ))}
@@ -257,15 +283,25 @@ const LoginPage = () => {
                 key={item.label}
                 initial={{ opacity: 0, y: 30 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: item.delay + 0.3, duration: 0.7, ease: [0.23, 1, 0.32, 1] }}
-                style={{ animation: `floatCard ${6 + i * 2}s ease-in-out infinite`, animationDelay: `${i * 1.2}s` }}
+                transition={{
+                  delay: item.delay + 0.3,
+                  duration: 0.7,
+                  ease: [0.23, 1, 0.32, 1],
+                }}
+                style={{
+                  animation: `floatCard ${6 + i * 2}s ease-in-out infinite`,
+                  animationDelay: `${i * 1.2}s`,
+                }}
                 className="lg-glass noise-overlay rounded-2xl overflow-hidden group cursor-pointer
                   transition-all duration-500 hover:-translate-y-2
                   hover:shadow-[0_20px_60px_rgba(59,130,246,0.2)]"
               >
-                <div className={`overflow-hidden ${i === 0 ? 'aspect-square' : 'aspect-[4/5]'}`}>
+                <div
+                  className={`overflow-hidden ${i === 0 ? 'aspect-square' : 'aspect-[4/5]'}`}
+                >
                   <img
-                    src={item.src} alt={item.label}
+                    src={item.src}
+                    alt={item.label}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
                     loading="lazy"
                   />
@@ -276,7 +312,9 @@ const LoginPage = () => {
                       {item.tag}
                     </span>
                   )}
-                  <p className="text-sm font-bold text-white/80 pj mt-0.5">{item.label}</p>
+                  <p className="text-sm font-bold text-white/80 pj mt-0.5">
+                    {item.label}
+                  </p>
                 </div>
               </motion.div>
             ))}
@@ -292,9 +330,15 @@ const LoginPage = () => {
         >
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-brand flex items-center justify-center shadow-2xl shadow-brand-900/40 p-2">
-              <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
+              <img
+                src="/picspy-icon.svg"
+                alt="PicSpy Logo"
+                className="w-full h-full object-contain"
+              />
             </div>
-            <h1 className="text-5xl font-black tracking-tighter hero-gradient-text pj">PICSPY</h1>
+            <h1 className="text-5xl font-black tracking-tighter hero-gradient-text pj">
+              PICSPY
+            </h1>
           </div>
           <p className="text-white/30 text-sm mt-1.5 max-w-xs font-medium pj">
             Curate your visual universe with AI-powered precision.
@@ -307,8 +351,10 @@ const LoginPage = () => {
       ══════════════════════════════════════ */}
       <section className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 relative overflow-hidden">
         {/* Subtle ambient glow behind form */}
-        <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full pointer-events-none"
-          style={{ background: 'rgba(124,58,237,0.06)', filter: 'blur(100px)' }} />
+        <div
+          className="absolute top-1/4 left-1/2 -translate-x-1/2 w-96 h-96 rounded-full pointer-events-none"
+          style={{ background: 'rgba(124,58,237,0.06)', filter: 'blur(100px)' }}
+        />
 
         <motion.div
           initial={{ opacity: 0, y: 28 }}
@@ -325,11 +371,19 @@ const LoginPage = () => {
           >
             <div className="flex items-center justify-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-gradient-brand flex items-center justify-center shadow-lg p-1.5">
-                <img src="/picspy-icon.svg" alt="PicSpy Logo" className="w-full h-full object-contain" />
+                <img
+                  src="/picspy-icon.svg"
+                  alt="PicSpy Logo"
+                  className="w-full h-full object-contain"
+                />
               </div>
-              <h1 className="text-4xl font-black tracking-tighter hero-gradient-text pj">PICSPY</h1>
+              <h1 className="text-4xl font-black tracking-tighter hero-gradient-text pj">
+                PICSPY
+              </h1>
             </div>
-            <p className="text-white/30 text-sm mt-1 pj">Visual curator platform</p>
+            <p className="text-white/30 text-sm mt-1 pj">
+              Visual curator platform
+            </p>
           </motion.div>
 
           {/* Header */}
@@ -350,7 +404,8 @@ const LoginPage = () => {
               transition={{ delay: 0.2 }}
               className="text-4xl font-black tracking-tight text-white pj"
             >
-              Chào mừng<br />
+              Chào mừng
+              <br />
               <span className="hero-gradient-text">trở lại! 👋</span>
             </motion.h2>
             <motion.p
@@ -384,20 +439,45 @@ const LoginPage = () => {
                 minHeight: '52px',
               }}
             >
-              <svg width="20" height="20" viewBox="0 0 24 24" className="shrink-0">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                className="shrink-0"
+              >
+                <path
+                  fill="#4285F4"
+                  d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                />
+                <path
+                  fill="#34A853"
+                  d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                />
+                <path
+                  fill="#FBBC05"
+                  d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
+                />
+                <path
+                  fill="#EA4335"
+                  d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                />
               </svg>
               Tiếp tục với Google
             </motion.button>
 
             {/* Divider */}
             <div className="flex items-center gap-4">
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
-              <span className="text-[10px] font-black uppercase tracking-widest text-white/20 pj">hoặc email</span>
-              <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.06)' }} />
+              <div
+                className="flex-1 h-px"
+                style={{ background: 'rgba(255,255,255,0.06)' }}
+              />
+              <span className="text-[10px] font-black uppercase tracking-widest text-white/20 pj">
+                hoặc email
+              </span>
+              <div
+                className="flex-1 h-px"
+                style={{ background: 'rgba(255,255,255,0.06)' }}
+              />
             </div>
 
             {/* Inputs */}
@@ -433,7 +513,9 @@ const LoginPage = () => {
                   type={showPass ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
+                  onChange={(e) =>
+                    setForm({ ...form, password: e.target.value })
+                  }
                   required
                   rightSlot={
                     <button
@@ -456,7 +538,8 @@ const LoginPage = () => {
                 className="w-full py-4 rounded-2xl font-bold text-sm text-white pj
                   flex items-center justify-center gap-2 mt-2"
                 style={{
-                  background: 'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
+                  background:
+                    'linear-gradient(135deg, #7c3aed 0%, #3b82f6 100%)',
                   minHeight: '52px',
                   boxShadow: '0 10px 30px -5px rgba(124,58,237,0.4)',
                 }}
@@ -464,7 +547,9 @@ const LoginPage = () => {
                 {isLoading ? (
                   <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  <>ĐĂNG NHẬP <ArrowRight size={16} /></>
+                  <>
+                    ĐĂNG NHẬP <ArrowRight size={16} />
+                  </>
                 )}
               </motion.button>
             </form>
@@ -478,7 +563,10 @@ const LoginPage = () => {
             className="text-center text-white/30 mt-6 text-sm pj"
           >
             Chưa có tài khoản?{' '}
-            <Link to="/register" className="text-violet-400 hover:text-violet-300 font-bold transition-colors">
+            <Link
+              to="/register"
+              className="text-violet-400 hover:text-violet-300 font-bold transition-colors"
+            >
               Đăng ký ngay
             </Link>
           </motion.p>

@@ -17,6 +17,7 @@ import {
   Film,
   Wallet,
   Shield,
+  Sparkles,
 } from 'lucide-react'
 import useAuthStore from '../../store/auth.store'
 import useNotificationStore from '../../store/notification.store'

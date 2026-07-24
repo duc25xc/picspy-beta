@@ -6,6 +6,7 @@ const imageSchema = new mongoose.Schema(
     url: String,
     thumbnailUrl: String,
     previewUrl: String,
+    localPath: String,
     publicId: String,
     width: Number,
     height: Number,
@@ -24,6 +25,8 @@ export const AI_TOOLS = [
   'gemini-nano-banana-pro',
   'gemini-nano-banana-2',
   'chatgpt',
+  'gpt-image-1-5',
+  'gpt-1.5',
   'seedream',
   'grok',
   'picspy',
@@ -283,6 +286,23 @@ const postSchema = new mongoose.Schema(
     // === SPONSORED ===
     isSponsored: { type: Boolean, default: false },
     sponsorExpiry: { type: Date },
+
+    // === EXTERNAL IMPORT (dữ liệu tổng hợp từ nguồn ngoài) ===
+    isExternal: { type: Boolean, default: false },
+    externalId: { type: String },
+    sourceUrl: { type: String },
+    authorUrl: { type: String },
+    citedFrom: { type: String },
+    originalLanguage: { type: String, default: 'EN' },
+    originalCreatedAt: { type: Date },
+    publishedAt: { type: Date },
+    baseStats: {
+      likesCount: { type: Number, default: 0 },
+      viewsCount: { type: Number, default: 0 },
+      sharesCount: { type: Number, default: 0 },
+      commentsCount: { type: Number, default: 0 },
+      bookmarksCount: { type: Number, default: 0 },
+    },
   },
   {
     timestamps: true,
@@ -301,6 +321,8 @@ postSchema.index({ colorPalette: 1 })
 postSchema.index({ isNSFW: 1, status: 1 })
 postSchema.index({ aiTool: 1, status: 1 })
 postSchema.index({ contentType: 1, status: 1 })
+postSchema.index({ isExternal: 1, createdAt: -1 })
+postSchema.index({ externalId: 1 })
 postSchema.index({ prompt: 'text', caption: 'text', tags: 'text' })
 
 const Post = mongoose.model('Post', postSchema)

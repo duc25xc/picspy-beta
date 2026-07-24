@@ -15,6 +15,9 @@ import {
   Maximize2,
   Flag,
   Check,
+  ExternalLink,
+  Globe,
+  Shield,
 } from 'lucide-react'
 import { IoSparkles } from 'react-icons/io5'
 import { GiCutDiamond } from 'react-icons/gi'
@@ -58,9 +61,9 @@ const formatDate = (dateInput) => {
   if (!dateInput) return ''
   const date = new Date(dateInput)
   if (isNaN(date.getTime())) return ''
-  const day = String(date.getDate()).padStart(2, '0')
-  const month = String(date.getMonth() + 1).padStart(2, '0')
-  const year = date.getFullYear()
+  const day = String(date.getUTCDate()).padStart(2, '0')
+  const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+  const year = date.getUTCFullYear()
   return `${day}/${month}/${year}`
 }
 
@@ -216,9 +219,9 @@ const PostDetailModal = ({
         siblingList = [
           {
             ...data.post.parentPostId,
-            isOriginalParent: true
+            isOriginalParent: true,
           },
-          ...siblingList
+          ...siblingList,
         ]
       }
       setSiblingRemixes(siblingList)
@@ -569,14 +572,18 @@ const PostDetailModal = ({
                       <IoSparkles className="w-4 h-4 animate-pulse text-violet-300" />
                     </div>
                     <div className="space-y-0.5 min-w-0">
-                      <p className="text-[9px] text-violet-400 font-bold uppercase tracking-wider">Tác phẩm gốc (Remixed from)</p>
+                      <p className="text-[9px] text-violet-400 font-bold uppercase tracking-wider">
+                        Tác phẩm gốc (Remixed from)
+                      </p>
                       <Link
                         to={`/posts/${post.parentPostId._id}`}
                         onClick={() => onClose?.()}
                         className="text-xs font-bold text-white/90 hover:text-violet-300 transition-colors flex items-center gap-1.5 truncate"
                       >
                         @{post.parentPostId.authorId?.username || 'creator'}
-                        <span className="text-[10px] text-white/40 font-normal italic truncate">({post.parentPostId.caption || 'Bài viết gốc'})</span>
+                        <span className="text-[10px] text-white/40 font-normal italic truncate">
+                          ({post.parentPostId.caption || 'Bài viết gốc'})
+                        </span>
                       </Link>
                     </div>
                   </div>
@@ -608,6 +615,92 @@ const PostDetailModal = ({
                       <Tag size={9} />#{tag}
                     </Link>
                   ))}
+                </div>
+              )}
+
+              {/* External AI Source & Timestamps Block */}
+              {post?.isExternal && (
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent border border-violet-500/20 space-y-2.5 backdrop-blur-md">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <ExternalLink size={13} className="text-violet-400" />
+                      <span className="text-xs font-bold text-violet-300">
+                        Nguồn bài viết AI
+                      </span>
+                    </div>
+                    {post.sourceUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isLoggedIn) {
+                            toast.error(
+                              'Vui lòng đăng nhập để xem liên kết bài viết gốc!',
+                              {
+                                icon: '🔒',
+                                duration: 3000,
+                              }
+                            )
+                            return
+                          }
+                          window.open(
+                            post.sourceUrl,
+                            '_blank',
+                            'noopener,noreferrer'
+                          )
+                        }}
+                        className="px-2.5 py-1 rounded-lg bg-violet-600 hover:bg-violet-500 text-white text-[11px] font-bold shadow-md transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                      >
+                        <Globe size={11} />
+                        Xem bản gốc ↗
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Các mốc thời gian & Ngôn ngữ gốc */}
+                  <div className="grid grid-cols-3 gap-2 pt-2 border-t border-white/10 text-[10px]">
+                    <div className="flex flex-col">
+                      <span className="text-white/40 font-medium">
+                        🚀 Ngày xuất bản
+                      </span>
+                      <span className="font-bold text-white/80">
+                        {post.publishedAt ? formatDate(post.publishedAt) : '—'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-white/40 font-medium">
+                        📅 Ngày cập nhật gần đây
+                      </span>
+                      <span className="font-bold text-white/80">
+                        {post.originalCreatedAt
+                          ? formatDate(post.originalCreatedAt)
+                          : '—'}
+                      </span>
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-white/40 font-medium">
+                        🌐 Ngôn ngữ gốc
+                      </span>
+                      <span className="font-bold text-white/80 uppercase">
+                        {post.originalLanguage || 'EN'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Admin Only: citedFrom */}
+                  {currentUser?.role === 'admin' && post.citedFrom && (
+                    <div className="pt-2 border-t border-amber-500/20 text-[10px] text-amber-300 flex items-center gap-1.5">
+                      <Shield size={11} className="text-amber-400 shrink-0" />
+                      <span className="font-bold">Trích dẫn (Admin):</span>
+                      <a
+                        href={post.citedFrom}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline truncate hover:text-amber-200"
+                      >
+                        {post.citedFrom}
+                      </a>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -762,7 +855,10 @@ const PostDetailModal = ({
                         if (!prev) return prev
                         const already = prev.purchasedFileTypes || []
                         if (already.includes(fileType)) return prev
-                        return { ...prev, purchasedFileTypes: [...already, fileType] }
+                        return {
+                          ...prev,
+                          purchasedFileTypes: [...already, fileType],
+                        }
                       })
                     }}
                   />
@@ -841,7 +937,9 @@ const PostDetailModal = ({
                 </div>
                 <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
                   {remixes.map((rem) => {
-                    const thumb = rem.generatedImages?.[0]?.thumbnailUrl || rem.generatedImages?.[0]?.url
+                    const thumb =
+                      rem.generatedImages?.[0]?.thumbnailUrl ||
+                      rem.generatedImages?.[0]?.url
                     return (
                       <Link
                         key={rem._id}
@@ -851,7 +949,11 @@ const PostDetailModal = ({
                         title={`Remix bởi @${rem.authorId?.username || 'unknown'}: ${rem.caption || 'Không tiêu đề'}`}
                       >
                         {thumb ? (
-                          <img src={thumb} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="" />
+                          <img
+                            src={thumb}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            alt=""
+                          />
                         ) : (
                           <div className="w-full h-full bg-violet-950/40 flex items-center justify-center text-[10px] text-violet-300">
                             Remix
@@ -859,7 +961,11 @@ const PostDetailModal = ({
                         )}
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <img src={rem.authorId?.avatar} className="w-5 h-5 rounded-full border border-white/20" alt="" />
+                          <img
+                            src={rem.authorId?.avatar}
+                            className="w-5 h-5 rounded-full border border-white/20"
+                            alt=""
+                          />
                         </div>
                       </Link>
                     )
@@ -877,7 +983,9 @@ const PostDetailModal = ({
                 </div>
                 <div className="flex gap-2.5 overflow-x-auto pb-1 scrollbar-none">
                   {siblingRemixes.map((rem) => {
-                    const thumb = rem.generatedImages?.[0]?.thumbnailUrl || rem.generatedImages?.[0]?.url
+                    const thumb =
+                      rem.generatedImages?.[0]?.thumbnailUrl ||
+                      rem.generatedImages?.[0]?.url
                     return (
                       <Link
                         key={rem._id}
@@ -895,12 +1003,19 @@ const PostDetailModal = ({
                         }
                       >
                         {rem.isOriginalParent && (
-                          <div className="absolute top-1 left-1 bg-amber-500 text-white rounded-full p-0.5 z-10 shadow-sm" title="Tác phẩm gốc">
+                          <div
+                            className="absolute top-1 left-1 bg-amber-500 text-white rounded-full p-0.5 z-10 shadow-sm"
+                            title="Tác phẩm gốc"
+                          >
                             <IoSparkles size={8} />
                           </div>
                         )}
                         {thumb ? (
-                          <img src={thumb} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" alt="" />
+                          <img
+                            src={thumb}
+                            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                            alt=""
+                          />
                         ) : (
                           <div className="w-full h-full bg-violet-950/40 flex items-center justify-center text-[10px] text-violet-300">
                             Remix
@@ -908,7 +1023,11 @@ const PostDetailModal = ({
                         )}
                         {/* Hover Overlay */}
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                          <img src={rem.authorId?.avatar} className="w-5 h-5 rounded-full border border-white/20" alt="" />
+                          <img
+                            src={rem.authorId?.avatar}
+                            className="w-5 h-5 rounded-full border border-white/20"
+                            alt=""
+                          />
                         </div>
                       </Link>
                     )

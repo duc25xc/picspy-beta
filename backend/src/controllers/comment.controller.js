@@ -124,8 +124,9 @@ export const createComment = async (req, res, next) => {
     res.status(201).json({ comment: populated })
   } catch (err) {
     if (err instanceof z.ZodError) {
+      const issues = err.issues || err.errors || []
       return next(
-        new AppError('VALIDATION_ERROR', err.errors[0].message, 422)
+        new AppError('VALIDATION_ERROR', issues[0]?.message || 'Dữ liệu không hợp lệ', 422)
       )
     }
     next(err)

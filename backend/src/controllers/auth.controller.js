@@ -95,8 +95,9 @@ export const register = async (req, res, next) => {
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const errMsg = 'Dữ liệu không hợp lệ: ' + err.errors.map(e => `${e.path.join('.') || 'auth'} (${e.message})`).join(', ')
-      return next(new AppError('VALIDATION_ERROR', errMsg, 422, err.errors))
+      const issues = err.issues || err.errors || []
+      const errMsg = 'Dữ liệu không hợp lệ: ' + issues.map(e => `${e.path.join('.') || 'auth'} (${e.message})`).join(', ')
+      return next(new AppError('VALIDATION_ERROR', errMsg, 422, issues))
     }
     next(err)
   }
@@ -155,8 +156,9 @@ export const login = async (req, res, next) => {
     })
   } catch (err) {
     if (err instanceof z.ZodError) {
-      const errMsg = 'Dữ liệu không hợp lệ: ' + err.errors.map(e => `${e.path.join('.') || 'auth'} (${e.message})`).join(', ')
-      return next(new AppError('VALIDATION_ERROR', errMsg, 422, err.errors))
+      const issues = err.issues || err.errors || []
+      const errMsg = 'Dữ liệu không hợp lệ: ' + issues.map(e => `${e.path.join('.') || 'auth'} (${e.message})`).join(', ')
+      return next(new AppError('VALIDATION_ERROR', errMsg, 422, issues))
     }
     next(err)
   }

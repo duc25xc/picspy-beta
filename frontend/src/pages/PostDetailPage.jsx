@@ -18,6 +18,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Heart,
+  ExternalLink,
+  Globe,
+  Shield,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -122,7 +125,14 @@ const extractColorsFromImg = (src, count = 4) =>
 
 /* ─── Download Button Wrapper ───────────────────────────────── */
 const PostDownloadButton = ({ post, onUnlock, onPurchased }) => {
-  return <DownloadButton post={post} variant="detail" onUnlock={onUnlock} onPurchased={onPurchased} />
+  return (
+    <DownloadButton
+      post={post}
+      variant="detail"
+      onUnlock={onUnlock}
+      onPurchased={onPurchased}
+    />
+  )
 }
 
 /* ─── Discovery Post Card ───────────────────────────────────── */
@@ -395,9 +405,9 @@ const PostDetailPage = () => {
         siblingList = [
           {
             ...data.post.parentPostId,
-            isOriginalParent: true
+            isOriginalParent: true,
           },
-          ...siblingList
+          ...siblingList,
         ]
       }
       setSiblingRemixes(siblingList)
@@ -436,7 +446,9 @@ const PostDetailPage = () => {
 
     const allowedTiers = ['pro', 'ultimate', 'founder']
     if (!allowedTiers.includes(tierAccess.tier)) {
-      toast.error('Chính sách Remix chỉ dành cho thành viên PRO trở lên. Vui lòng nâng cấp tài khoản! 🔒')
+      toast.error(
+        'Chính sách Remix chỉ dành cho thành viên PRO trở lên. Vui lòng nâng cấp tài khoản! 🔒'
+      )
       return
     }
 
@@ -462,7 +474,9 @@ const PostDetailPage = () => {
     setShowRemixModal(false)
     try {
       await api.post('/remix/purchase', { postId: post._id })
-      toast.success('Thanh toán thành công! Đang chuyển sang trình chỉnh sửa...')
+      toast.success(
+        'Thanh toán thành công! Đang chuyển sang trình chỉnh sửa...'
+      )
       const { data } = await api.post('/remix/sessions', { postId: post._id })
       navigate(`/remix/${data.sessionId}`)
     } catch (err) {
@@ -571,9 +585,9 @@ const PostDetailPage = () => {
     if (!dateInput) return ''
     const date = new Date(dateInput)
     if (isNaN(date.getTime())) return ''
-    const day = String(date.getDate()).padStart(2, '0')
-    const month = String(date.getMonth() + 1).padStart(2, '0')
-    const year = date.getFullYear()
+    const day = String(date.getUTCDate()).padStart(2, '0')
+    const month = String(date.getUTCMonth() + 1).padStart(2, '0')
+    const year = date.getUTCFullYear()
     return `${day}/${month}/${year}`
   }
 
@@ -834,13 +848,17 @@ const PostDetailPage = () => {
                     <Sparkles className="w-5 h-5 animate-pulse text-violet-300" />
                   </div>
                   <div className="space-y-0.5">
-                    <p className="text-[10px] text-violet-400 font-bold uppercase tracking-wider">Tác phẩm gốc (Remixed from)</p>
+                    <p className="text-[10px] text-violet-400 font-bold uppercase tracking-wider">
+                      Tác phẩm gốc (Remixed from)
+                    </p>
                     <Link
                       to={`/posts/${post.parentPostId._id}`}
                       className="text-sm font-bold text-white/90 hover:text-violet-300 transition-colors flex items-center gap-1.5"
                     >
                       @{post.parentPostId.authorId?.username || 'creator'}
-                      <span className="text-xs text-white/40 font-normal italic">({post.parentPostId.caption || 'Bài viết gốc'})</span>
+                      <span className="text-xs text-white/40 font-normal italic">
+                        ({post.parentPostId.caption || 'Bài viết gốc'})
+                      </span>
                     </Link>
                   </div>
                 </div>
@@ -897,6 +915,92 @@ const PostDetailPage = () => {
                     </motion.div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ── External AI Source Block ──── */}
+            {post?.isExternal && (
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-500/10 via-indigo-500/5 to-transparent border border-violet-500/20 space-y-3 backdrop-blur-md">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <ExternalLink size={15} className="text-violet-400" />
+                    <span className="text-sm font-bold text-violet-300">
+                      Nguồn bài viết AI
+                    </span>
+                  </div>
+                  {post.sourceUrl && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (!user) {
+                          toast.error(
+                            'Vui lòng đăng nhập để xem liên kết bài viết gốc!',
+                            {
+                              icon: '🔒',
+                              duration: 3000,
+                            }
+                          )
+                          return
+                        }
+                        window.open(
+                          post.sourceUrl,
+                          '_blank',
+                          'noopener,noreferrer'
+                        )
+                      }}
+                      className="px-3 py-1.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white text-xs font-bold shadow-lg shadow-violet-600/20 transition-all flex items-center gap-1.5 active:scale-95 cursor-pointer"
+                    >
+                      <Globe size={13} />
+                      Xem bản gốc ↗
+                    </button>
+                  )}
+                </div>
+
+                {/* Các mốc thời gian & Ngôn ngữ gốc */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-2 border-t border-white/10 text-xs">
+                  <div className="flex flex-col">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">
+                      🚀 Ngày xuất bản
+                    </span>
+                    <span className="font-semibold text-white/90 mt-0.5">
+                      {post.publishedAt ? formatDate(post.publishedAt) : '—'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">
+                      📅 Ngày cập nhật gần đây
+                    </span>
+                    <span className="font-semibold text-white/90 mt-0.5">
+                      {post.originalCreatedAt
+                        ? formatDate(post.originalCreatedAt)
+                        : '—'}
+                    </span>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-white/40 text-[10px] uppercase font-bold tracking-wider">
+                      🌐 Ngôn ngữ gốc
+                    </span>
+                    <span className="font-semibold text-white/90 mt-0.5 uppercase">
+                      {post.originalLanguage || 'EN'}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Admin Only: citedFrom */}
+                {user?.role === 'admin' && post.citedFrom && (
+                  <div className="pt-2 border-t border-amber-500/20 text-xs text-amber-300 flex items-center gap-1.5">
+                    <Shield size={13} className="text-amber-400 shrink-0" />
+                    <span className="font-bold">Trích dẫn (Admin):</span>
+                    <a
+                      href={post.citedFrom}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline truncate hover:text-amber-200"
+                    >
+                      {post.citedFrom}
+                    </a>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1093,7 +1197,10 @@ const PostDetailPage = () => {
                     if (!prev) return prev
                     const already = prev.purchasedFileTypes || []
                     if (already.includes(fileType)) return prev
-                    return { ...prev, purchasedFileTypes: [...already, fileType] }
+                    return {
+                      ...prev,
+                      purchasedFileTypes: [...already, fileType],
+                    }
                   })
                 }}
               />
@@ -1103,26 +1210,38 @@ const PostDetailPage = () => {
                 <div className="p-4 rounded-xl bg-white/[0.02] border border-white/5 space-y-3">
                   <div className="flex justify-between items-center text-xs">
                     <span className="text-white/40">Cho phép Remix:</span>
-                    <span className={`font-bold ${post.allowRemix !== false ? 'text-emerald-400' : 'text-red-400'}`}>
+                    <span
+                      className={`font-bold ${post.allowRemix !== false ? 'text-emerald-400' : 'text-red-400'}`}
+                    >
                       {post.allowRemix !== false ? '✓ Có' : '✗ Không'}
                     </span>
                   </div>
                   {post.allowRemix !== false && (
                     <>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-white/40">Tỷ lệ Royalty (tác quyền):</span>
-                        <span className="text-violet-400 font-bold">{post.remixRoyaltyPercent || 15}%</span>
+                        <span className="text-white/40">
+                          Tỷ lệ Royalty (tác quyền):
+                        </span>
+                        <span className="text-violet-400 font-bold">
+                          {post.remixRoyaltyPercent || 15}%
+                        </span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
-                        <span className="text-white/40">Chiết khấu mua Remix:</span>
-                        <span className="text-violet-400 font-bold">{post.remixDiscountPercent || 10}%</span>
+                        <span className="text-white/40">
+                          Chiết khấu mua Remix:
+                        </span>
+                        <span className="text-violet-400 font-bold">
+                          {post.remixDiscountPercent || 10}%
+                        </span>
                       </div>
                     </>
                   )}
 
                   {post.allowRemix !== false && !isOwnPost && (
                     <div className="pt-2">
-                      {['pro', 'ultimate', 'founder'].includes(tierAccess.tier) ? (
+                      {['pro', 'ultimate', 'founder'].includes(
+                        tierAccess.tier
+                      ) ? (
                         <motion.button
                           whileTap={{ scale: 0.98 }}
                           onClick={handleRemixClick}
@@ -1135,7 +1254,9 @@ const PostDetailPage = () => {
                       ) : (
                         <button
                           onClick={() => {
-                            toast.error('Chính sách Remix chỉ dành cho thành viên PRO trở lên. Vui lòng nâng cấp tài khoản! 🔒')
+                            toast.error(
+                              'Chính sách Remix chỉ dành cho thành viên PRO trở lên. Vui lòng nâng cấp tài khoản! 🔒'
+                            )
                             navigate('/pricing')
                           }}
                           className="w-full py-2.5 rounded-xl flex items-center justify-center gap-2 text-xs font-bold bg-[#1a1a24] border border-white/10 text-white/40 cursor-pointer min-h-[40px] hover:border-white/20 transition-all"
@@ -1369,24 +1490,43 @@ const PostDetailPage = () => {
                     <div className="absolute -top-10 -right-10 w-[150px] h-[150px] bg-violet-600/10 rounded-full blur-3xl pointer-events-none" />
 
                     <h3 className="text-lg font-bold text-white mb-2 flex items-center gap-2">
-                      <Sparkles className="text-violet-400 animate-pulse" size={20} /> Mua tác phẩm để Remix
+                      <Sparkles
+                        className="text-violet-400 animate-pulse"
+                        size={20}
+                      />{' '}
+                      Mua tác phẩm để Remix
                     </h3>
                     <p className="text-xs text-white/50 mb-6 leading-relaxed">
-                      Để thực hiện Remix, bạn cần sở hữu tác phẩm gốc này. Bạn sẽ được áp dụng mức giá chiết khấu dành riêng cho creator.
+                      Để thực hiện Remix, bạn cần sở hữu tác phẩm gốc này. Bạn
+                      sẽ được áp dụng mức giá chiết khấu dành riêng cho creator.
                     </p>
 
                     <div className="space-y-4 mb-6">
                       <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
                         <span className="text-white/40">Giá gốc:</span>
-                        <span className="text-white/60 line-through">{(remixPayInfo.priceInVnd || 0).toLocaleString('vi-VN')} VNĐ</span>
+                        <span className="text-white/60 line-through">
+                          {(remixPayInfo.priceInVnd || 0).toLocaleString(
+                            'vi-VN'
+                          )}{' '}
+                          VNĐ
+                        </span>
                       </div>
                       <div className="flex justify-between items-center py-2 border-b border-white/5 text-sm">
-                        <span className="text-white/40">Chiết khấu creator:</span>
-                        <span className="text-emerald-400 font-semibold">-{remixPayInfo.discountPercent}%</span>
+                        <span className="text-white/40">
+                          Chiết khấu creator:
+                        </span>
+                        <span className="text-emerald-400 font-semibold">
+                          -{remixPayInfo.discountPercent}%
+                        </span>
                       </div>
                       <div className="flex justify-between items-center py-3 text-base font-bold">
                         <span className="text-white">Giá thanh toán:</span>
-                        <span className="text-violet-400">{(remixPayInfo.discountedPrice || 0).toLocaleString('vi-VN')} VNĐ</span>
+                        <span className="text-violet-400">
+                          {(remixPayInfo.discountedPrice || 0).toLocaleString(
+                            'vi-VN'
+                          )}{' '}
+                          VNĐ
+                        </span>
                       </div>
                     </div>
 

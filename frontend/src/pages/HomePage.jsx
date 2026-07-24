@@ -1,7 +1,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from 'react'
 import api from '../api/api'
 import toast from 'react-hot-toast'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import PostDetailModal from '../components/post/PostDetailModal'
 import ContentLoader, { BrandLogo } from '../components/ui/ContentLoader'
 import { createPortal } from 'react-dom'
@@ -1032,28 +1032,28 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
         </Link>
       </div>
 
-      {isMe ? (
-        <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 font-bold select-none pj flex-shrink-0">
-          Tôi
-        </span>
-      ) : (
-        <button
-          type="button"
-          onClick={() => onFollow?.(c)}
-          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border flex-shrink-0
-            ${
-              c.isFollowing
-                ? 'bg-green-500/10 border-green-500/30 text-green-500'
-                : 'liquid-glass border-white/10 text-foreground/30 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/20'
-            }`}
-          title={c.isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
-        >
-          {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
-        </button>
-      )}
-    </motion.div>
-  )
-}
+        {isMe ? (
+          <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 font-bold select-none pj flex-shrink-0">
+            Tôi
+          </span>
+        ) : (
+          <button
+            type="button"
+            onClick={() => onFollow?.(c)}
+            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border flex-shrink-0
+              ${
+                c.isFollowing
+                  ? 'bg-green-500/10 border-green-500/30 text-green-500'
+                  : 'liquid-glass border-white/10 text-foreground/30 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/20'
+              }`}
+            title={c.isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+          >
+            {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
+          </button>
+        )}
+      </motion.div>
+    )
+  }
 
 /* ─── Community Gallery Section với Feed Tabs ────────────── */
 const FEED_TABS = [
@@ -1099,6 +1099,13 @@ const POST_TYPE_TABS = [
     widthClass: 'w-[210px]',
   },
   {
+    key: 'external_ai',
+    label: 'Khám phá AI',
+    icon: Sparkles,
+    countKey: 'externalAi',
+    widthClass: 'w-[210px]',
+  },
+  {
     key: 'digital-normal',
     label: 'Ảnh Camera (EXIF)',
     icon: Camera,
@@ -1118,11 +1125,9 @@ const GALLERY_CATEGORIES = [
   { key: 'all', label: 'Tất cả danh mục', emoji: '🌟' },
   { key: 'nature', label: 'Thiên nhiên', emoji: '🌿' },
   { key: 'cyberpunk', label: 'Cyberpunk', emoji: '🤖' },
-  { key: 'minimal', label: 'Tối giản', emoji: '⬜' },
-  { key: 'street', label: 'Đường phố', emoji: '🛣️' },
-  { key: 'studio', label: 'Studio', emoji: '📸' },
-  { key: 'anime', label: 'Anime', emoji: '🌸' },
-  { key: 'other', label: 'Khác', emoji: '✨' },
+  { key: 'portrait', label: 'Chân dung', emoji: '👤' },
+  { key: 'landscape', label: 'Phong cảnh', emoji: '🏔️' },
+  { key: 'architecture', label: 'Kiến trúc', emoji: '🏛️' },
 ]
 
 const getFewPostsPattern = (count, index) => {
@@ -1176,8 +1181,16 @@ const getFewPostsPattern = (count, index) => {
 const CommunityGallerySection = () => {
   const { postLoadingDelayMs } = useSettings()
   const isLoggedIn = useAuthStore((s) => !!s.user && !!s.accessToken)
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('new')
   const [activePostType, setActivePostType] = useState('all')
+
+  useEffect(() => {
+    const tabParam = searchParams.get('tab')
+    if (tabParam === 'ai_explore' || tabParam === 'external_ai') {
+      setActivePostType('external_ai')
+    }
+  }, [searchParams])
   const [activeCategory, setActiveCategory] = useState('all')
   const [onlyShowExif, setOnlyShowExif] = useState(true)
   const [tabStats, setTabStats] = useState({
@@ -1273,8 +1286,14 @@ const CommunityGallerySection = () => {
           params.category = activeCategory
         }
 
-        if (activePostType !== 'all') {
+        if (activePostType === 'external_ai') {
+          params.postType = 'ai'
+          params.isExternal = 'true'
+        } else if (activePostType !== 'all') {
           params.postType = activePostType
+          if (activePostType === 'ai') {
+            params.isExternal = 'false'
+          }
         }
 
         if (activePostType === 'digital-normal' && onlyShowExif) {

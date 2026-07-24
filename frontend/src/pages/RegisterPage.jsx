@@ -174,6 +174,7 @@ const STRENGTH_META = [
 const RegisterPage = () => {
   const [form, setForm] = useState({ username: '', email: '', password: '', confirm: '' })
   const [showPass, setShowPass] = useState(false)
+  const [showConfirmPass, setShowConfirmPass] = useState(false)
   const [success, setSuccess] = useState(false)
   const { register, isLoading } = useAuthStore()
 
@@ -184,6 +185,14 @@ const RegisterPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (mismatch) { toast.error('Mật khẩu xác nhận không khớp'); return }
+    if (!/[A-Z]/.test(form.password)) {
+      toast.error('Mật khẩu cần ít nhất 1 chữ hoa (Ví dụ: Conmeocute123)')
+      return
+    }
+    if (!/[0-9]/.test(form.password)) {
+      toast.error('Mật khẩu cần ít nhất 1 chữ số')
+      return
+    }
     const result = await register(form.username, form.email, form.password)
     if (result.success) setSuccess(true)
     else toast.error(result.message)
@@ -440,7 +449,7 @@ const RegisterPage = () => {
                 <AuthInput
                   icon={Lock}
                   type={showPass ? 'text' : 'password'}
-                  placeholder="Tối thiểu 8 ký tự"
+                  placeholder="Tối thiểu 8 ký tự, 1 chữ hoa, 1 số"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
                   minLength={8}
@@ -478,9 +487,16 @@ const RegisterPage = () => {
                           />
                         ))}
                       </div>
-                      <p className="text-[10px] pj ml-0.5" style={{ color: meta?.color || 'rgba(255,255,255,0.3)' }}>
-                        Mật khẩu: <span className="font-bold">{meta?.label}</span>
-                      </p>
+                      <div className="flex items-center justify-between text-[10px] pj px-0.5">
+                        <span style={{ color: meta?.color || 'rgba(255,255,255,0.3)' }}>
+                          Độ mạnh: <span className="font-bold">{meta?.label}</span>
+                        </span>
+                        <div className="flex gap-2 text-[10px]">
+                          <span className={form.password.length >= 8 ? 'text-emerald-400 font-bold' : 'text-white/30'}>✓ 8+ ký tự</span>
+                          <span className={/[A-Z]/.test(form.password) ? 'text-emerald-400 font-bold' : 'text-rose-400/80 font-medium'}>✓ 1 chữ HOA</span>
+                          <span className={/[0-9]/.test(form.password) ? 'text-emerald-400 font-bold' : 'text-rose-400/80 font-medium'}>✓ 1 số</span>
+                        </div>
+                      </div>
                     </motion.div>
                   )}
                 </AnimatePresence>
@@ -493,12 +509,21 @@ const RegisterPage = () => {
                 </label>
                 <AuthInput
                   icon={Lock}
-                  type="password"
+                  type={showConfirmPass ? 'text' : 'password'}
                   placeholder="••••••••"
                   value={form.confirm}
                   onChange={(e) => setForm({ ...form, confirm: e.target.value })}
                   error={mismatch}
                   required
+                  rightSlot={
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPass(!showConfirmPass)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-white/25 hover:text-white/60 transition-colors z-10"
+                    >
+                      {showConfirmPass ? <EyeOff size={16} /> : <Eye size={16} />}
+                    </button>
+                  }
                 />
                 <AnimatePresence>
                   {mismatch && (

@@ -673,9 +673,17 @@ export const getApprovedPosts = async (req, res, next) => {
       color,
       colorThreshold,
       includeRemix,
+      isExternal,
+      tab,
     } = req.query
 
     const baseMatch = { status: 'approved' }
+
+    if (isExternal === 'true' || tab === 'external' || tab === 'ai_explore' || tab === 'explore') {
+      baseMatch.isExternal = true
+    } else if (isExternal === 'false') {
+      baseMatch.isExternal = { $ne: true }
+    }
 
     // Logic ẩn/hiện Remix posts ở trang khám phá chung:
     let excludeRemix = false
@@ -796,9 +804,10 @@ export const getApprovedPosts = async (req, res, next) => {
 
     // Calculate dynamic stats using highly optimized parallel countDocuments (index-covered scans)
     const countsMatchAll = { ...countsMatch }
-    const [totalCount, aiCount, rawCount, cameraExifCount] = await Promise.all([
+    const [totalCount, aiCount, externalAiCount, rawCount, cameraExifCount] = await Promise.all([
       Post.countDocuments(countsMatchAll),
-      Post.countDocuments({ ...countsMatchAll, postType: 'ai' }),
+      Post.countDocuments({ ...countsMatchAll, postType: 'ai', isExternal: { $ne: true } }),
+      Post.countDocuments({ ...countsMatchAll, isExternal: true }),
       Post.countDocuments({ ...countsMatchAll, postType: 'digital-raw' }),
       Post.countDocuments({
         ...countsMatchAll,
@@ -811,6 +820,7 @@ export const getApprovedPosts = async (req, res, next) => {
     const stats = {
       all: totalCount,
       ai: aiCount,
+      externalAi: externalAiCount,
       raw: rawCount,
       cameraExif: cameraExifCount,
     }

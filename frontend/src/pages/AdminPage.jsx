@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 /* eslint-disable react-hooks/exhaustive-deps */
 /* eslint-disable react-hooks/set-state-in-effect */
-import { useState, useEffect, useCallback, useRef } from 'react'
+import React, { useState, useEffect, useCallback, useRef, Component } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
@@ -52,6 +52,8 @@ import {
   ArrowUpDown,
   Image,
   Hourglass,
+  Bot,
+  Sparkles,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
@@ -60,6 +62,49 @@ import { Navigate, useSearchParams } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 import ExifPanel from '../components/post/ExifPanel'
+
+// ─── Error Boundary ────────────────────────────────────────────
+class ComponentErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error(`🔥 [${this.props.tabName || 'AdminTab'} Render Error]:`, error, errorInfo)
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 rounded-2xl bg-red-950/40 border border-red-500/30 text-red-200 space-y-3 my-4">
+          <div className="flex items-center gap-2 text-red-400 font-bold text-base">
+            <AlertTriangle size={20} />
+            <span>Đã xảy ra lỗi tại tab: {this.props.tabName || 'Quản trị'}</span>
+          </div>
+          <p className="text-xs text-red-300 font-mono bg-black/40 p-3 rounded-xl overflow-x-auto select-all">
+            {this.state.error?.toString() || 'Unknown Component Error'}
+          </p>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null })
+              window.location.reload()
+            }}
+            className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            🔄 Tải lại trang
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
+
 // ─── Guard ─────────────────────────────────────────────────────
 const AdminGuard = ({ children }) => {
   const user = useAuthStore((s) => s.user)
@@ -442,7 +487,7 @@ const PostsTab = () => {
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [stats, setStats] = useState({})
-  const [activeStatus, setActiveStatus] = useState('pending')
+  const [activeStatus, setActiveStatus] = useState('all')
   const [hasMore, setHasMore] = useState(false)
   const [cursor, setCursor] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
@@ -570,11 +615,14 @@ const PostsTab = () => {
         const params = { status: activeStatus, limit: 12 }
         if (!reset && cursor) params.cursor = cursor
         const { data } = await api.get('/admin/posts', { params })
-        setPosts(reset ? data.posts : (p) => [...p, ...data.posts])
+        if (!data) return
+        const newPosts = data.posts || []
+        setPosts(reset ? newPosts : (p) => [...p, ...newPosts])
         setStats(data.stats || {})
-        setHasMore(data.pagination.hasMore)
-        setCursor(data.pagination.nextCursor)
-      } catch {
+        setHasMore(Boolean(data.pagination?.hasMore))
+        setCursor(data.pagination?.nextCursor || null)
+      } catch (err) {
+        console.error('Fetch posts error:', err)
         toast.error('Không thể tải bài đăng')
       } finally {
         setLoading(false)
@@ -656,25 +704,55 @@ const PostsTab = () => {
     }
   }
 
+  const [importingCsv, setImportingCsv] = useState(false)
+
+  const handleImportCsv = async () => {
+    setImportingCsv(true)
+    try {
+      const { data } = await api.post('/admin/posts/import-csv')
+      toast.success(
+        `🎉 ${data.message}\n` +
+        `✅ Thêm mới: ${data.data.importedCount} bài | ⏭️ Trùng: ${data.data.skippedCount} | 👤 User mới (Pass: Minhduc@123): ${data.data.createdUsersCount}`,
+        { duration: 6000 }
+      )
+      fetchPosts(true)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Không thể nhập CSV')
+    } finally {
+      setImportingCsv(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       {/* Status tabs */}
-      <div className="flex gap-2 flex-wrap">
-        {STATUS_TABS.map(({ key, label, color }) => (
-          <button
-            key={key}
-            onClick={() => setActiveStatus(key)}
-            className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border flex items-center gap-2
-              ${activeStatus === key ? 'bg-brand-600 border-brand-500 text-white' : 'bg-surface-50 border-white/10 text-white/60 hover:border-white/20'}`}
-          >
-            <span className={color}>{label}</span>
-            {stats[key] > 0 && (
-              <span className="bg-white/15 text-xs px-1.5 py-0.5 rounded-full font-bold">
-                {stats[key]}
-              </span>
-            )}
-          </button>
-        ))}
+      <div className="flex gap-2 flex-wrap items-center justify-between">
+        <div className="flex gap-2 flex-wrap">
+          {STATUS_TABS.map(({ key, label, color }) => (
+            <button
+              key={key}
+              onClick={() => setActiveStatus(key)}
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all border flex items-center gap-2
+                ${activeStatus === key ? 'bg-brand-600 border-brand-500 text-white' : 'bg-surface-50 border-white/10 text-white/60 hover:border-white/20'}`}
+            >
+              <span className={color}>{label}</span>
+              {stats[key] > 0 && (
+                <span className="bg-white/15 text-xs px-1.5 py-0.5 rounded-full font-bold">
+                  {stats[key]}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={handleImportCsv}
+          disabled={importingCsv}
+          className="px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-violet-600 to-indigo-600 text-white border border-violet-500/30 hover:shadow-lg hover:shadow-violet-900/30 transition-all flex items-center gap-2 cursor-pointer"
+        >
+          {importingCsv ? <Loader2 size={16} className="animate-spin" /> : <Sparkles size={16} />}
+          Import Bài Đăng AI (CSV)
+        </button>
       </div>
 
       {/* Bulk action bar */}
@@ -860,9 +938,9 @@ const PostsTab = () => {
 
                     {post.isRemix && post.parentPostId && (
                       <div className="text-[10px] text-violet-400 bg-violet-500/10 border border-violet-500/20 px-2 py-1.5 rounded-lg flex items-center justify-between">
-                        <span>🌀 Remix từ <b>@{post.parentPostId.authorId?.username || 'unknown'}</b></span>
+                        <span>🌀 Remix từ <b>@{typeof post.parentPostId === 'object' ? (post.parentPostId.authorId?.username || 'unknown') : 'unknown'}</b></span>
                         <a
-                          href={`/posts/${post.parentPostId._id}`}
+                          href={`/posts/${typeof post.parentPostId === 'object' ? post.parentPostId._id : post.parentPostId}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-violet-300 hover:text-white underline font-semibold"
@@ -1749,6 +1827,27 @@ const UsersTab = () => {
   const [sortBy, setSortBy] = useState('default')
   const [page, setPage] = useState(1)
   const [isSortDropdownOpen, setIsSortDropdownOpen] = useState(false)
+  const [hideAiUsers, setHideAiUsers] = useState(() => {
+    try {
+      return localStorage.getItem('picspy_admin_hide_csv_users') === 'true'
+    } catch {
+      return false
+    }
+  })
+
+  const toggleHideAiUsers = () => {
+    setHideAiUsers((prev) => {
+      const next = !prev
+      try {
+        localStorage.setItem('picspy_admin_hide_csv_users', String(next))
+      } catch {
+        // Suppress localStorage exception if disabled
+      }
+      return next
+    })
+  }
+
+  const isAiUser = (u) => u?.email?.endsWith('@picspy.ai') || u?.username?.startsWith('_')
 
   const renderDynamicBadge = (user) => {
     if (sortBy === 'createdAt') {
@@ -2236,6 +2335,19 @@ const UsersTab = () => {
           </div>
 
           <button
+            onClick={toggleHideAiUsers}
+            className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+              hideAiUsers
+                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-md shadow-amber-500/10'
+                : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+            }`}
+            title="Ẩn/Hiện các tài khoản tác giả tạo tự động từ file CSV"
+          >
+            <Bot size={14} className={hideAiUsers ? 'text-amber-400' : 'text-white/40'} />
+            <span>{hideAiUsers ? 'Đã ẩn Tác giả CSV' : 'Ẩn Tác giả CSV'}</span>
+          </button>
+
+          <button
             onClick={() => {
               setCreateUserForm({
                 username: '',
@@ -2262,49 +2374,56 @@ const UsersTab = () => {
         </div>
       ) : (
         <div className="space-y-2">
-          {users.map((user) => (
-            <motion.div
-              key={user._id}
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              onClick={() => setDetailModal(user)}
-              className={`card p-4 flex items-center gap-3 cursor-pointer group transition-all duration-300 border-white/5 bg-white/[0.01] hover:bg-white/[0.04] hover:border-white/12 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] ${
-                user.isBanned ? 'border-red-500/20' : ''
-              }`}
-            >
-              <div className="flex-1 flex items-center gap-3 min-w-0">
-                {user.avatar ? (
-                  <img
-                    src={user.avatar}
-                    className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
-                    alt=""
-                    onError={(e) => {
-                      e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
-                    }}
-                  />
-                ) : (
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                    {user.username?.[0]?.toUpperCase()}
-                  </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="font-semibold text-sm group-hover:text-brand-300 transition-colors duration-300">
-                      {user.displayName || user.username}
-                    </span>
-                    <span className="text-xs text-white/40">
-                      @{user.username}
-                    </span>
-                    {user.role === 'admin' && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-400 font-bold">
-                        ADMIN
+          {users
+            .filter((user) => (hideAiUsers ? !isAiUser(user) : true))
+            .map((user) => (
+              <motion.div
+                key={user._id}
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                onClick={() => setDetailModal(user)}
+                className={`card p-4 flex items-center gap-3 cursor-pointer group transition-all duration-300 border-white/5 bg-white/[0.01] hover:bg-white/[0.04] hover:border-white/12 hover:shadow-[0_8px_30px_rgb(0,0,0,0.5)] ${
+                  user.isBanned ? 'border-red-500/20' : ''
+                }`}
+              >
+                <div className="flex-1 flex items-center gap-3 min-w-0">
+                  {user.avatar ? (
+                    <img
+                      src={user.avatar}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
+                      alt=""
+                      onError={(e) => {
+                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
+                      }}
+                    />
+                  ) : (
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
+                      {user.username?.[0]?.toUpperCase()}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm group-hover:text-brand-300 transition-colors duration-300">
+                        {user.displayName || user.username}
                       </span>
-                    )}
-                    {user.isBanned && (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-600/30 text-red-400 font-bold">
-                        BANNED
+                      <span className="text-xs text-white/40">
+                        @{user.username}
                       </span>
-                    )}
+                      {isAiUser(user) && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-900/50 text-violet-300 font-bold border border-violet-500/30 flex items-center gap-1">
+                          <Bot size={10} /> Tác giả CSV
+                        </span>
+                      )}
+                      {user.role === 'admin' && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-600/30 text-violet-400 font-bold">
+                          ADMIN
+                        </span>
+                      )}
+                      {user.isBanned && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-600/30 text-red-400 font-bold">
+                          BANNED
+                        </span>
+                      )}
                     {/* Tier badge — click to change */}
                     <button
                       onClick={(e) => {
@@ -8881,16 +9000,46 @@ const AdminPage = () => {
               transition={{ duration: 0.15 }}
               className="min-h-[600px] flex flex-col justify-start w-full relative"
             >
-              {activeTab === 'dashboard' && <DashboardTab />}
-              {activeTab === 'posts' && <PostsTab />}
-              {activeTab === 'users' && <UsersTab />}
-              {activeTab === 'withdrawals' && <WithdrawalsTab />}
-              {activeTab === 'reports' && <ReportsTab />}
-              {activeTab === 'categories' && <CategoriesTab />}
-              {activeTab === 'settings' && (
-                <SettingsTab onDirtyChange={setHasUnsavedColors} />
+              {activeTab === 'dashboard' && (
+                <ComponentErrorBoundary tabName="Tổng quan">
+                  <DashboardTab />
+                </ComponentErrorBoundary>
               )}
-              {activeTab === 'logs' && <LogsTab />}
+              {activeTab === 'posts' && (
+                <ComponentErrorBoundary tabName="Bài đăng">
+                  <PostsTab />
+                </ComponentErrorBoundary>
+              )}
+              {activeTab === 'users' && (
+                <ComponentErrorBoundary tabName="Người dùng">
+                  <UsersTab />
+                </ComponentErrorBoundary>
+              )}
+              {activeTab === 'withdrawals' && (
+                <ComponentErrorBoundary tabName="Rút tiền">
+                  <WithdrawalsTab />
+                </ComponentErrorBoundary>
+              )}
+              {activeTab === 'reports' && (
+                <ComponentErrorBoundary tabName="Báo cáo">
+                  <ReportsTab />
+                </ComponentErrorBoundary>
+              )}
+              {activeTab === 'categories' && (
+                <ComponentErrorBoundary tabName="Danh mục">
+                  <CategoriesTab />
+                </ComponentErrorBoundary>
+              )}
+              {activeTab === 'settings' && (
+                <ComponentErrorBoundary tabName="Cấu hình">
+                  <SettingsTab onDirtyChange={setHasUnsavedColors} />
+                </ComponentErrorBoundary>
+              )}
+              {activeTab === 'logs' && (
+                <ComponentErrorBoundary tabName="Nhật ký">
+                  <LogsTab />
+                </ComponentErrorBoundary>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>

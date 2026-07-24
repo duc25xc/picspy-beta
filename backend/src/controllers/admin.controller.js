@@ -6,6 +6,7 @@ import AuditLog from '../models/AuditLog.model.js'
 import Report from '../models/Report.model.js'
 import AppError from '../utils/AppError.js'
 import { logAdminAction } from '../utils/auditLogger.js'
+import { processCsvImport } from '../services/csvImport.service.js'
 import bcrypt from 'bcryptjs'
 import fs from 'fs'
 import path from 'path'
@@ -97,7 +98,7 @@ export const getAllPosts = async (req, res, next) => {
       },
       pagination: {
         hasMore,
-        nextCursor: hasMore ? posts[posts.length - 1]._id : null,
+        nextCursor: hasMore && posts.length > 0 ? posts[posts.length - 1]._id : null,
         count: posts.length,
       },
     })
@@ -1585,6 +1586,44 @@ export const getBypassKeys = async (req, res, next) => {
     res.json({
       bypassPassword: rawSettings?.bypassPasswordPlain || null,
       bypassPin: rawSettings?.bypassPinPlain || null
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/import-csv — Import hàng loạt bài viết AI từ file CSV */
+export const importCsvPosts = async (req, res, next) => {
+  try {
+    let csvContent = ''
+
+    if (req.file) {
+      csvContent = req.file.buffer.toString('utf8')
+    } else if (req.body && req.body.csvContent) {
+      csvContent = req.body.csvContent
+    } else {
+      // Mặc định đọc file CSV youmind_export mới nhất trong thư mục plant/datas
+      const defaultCsvPath = path.join(__dirname, '../../../plant/datas/youmind_export_20260725_022113.csv')
+      if (fs.existsSync(defaultCsvPath)) {
+        csvContent = fs.readFileSync(defaultCsvPath, 'utf8')
+      } else {
+        throw new AppError('FILE_NOT_FOUND', 'Vui lòng tải lên file CSV hợp lệ', 400)
+      }
+    }
+
+    const result = await processCsvImport(csvContent)
+
+    await logAdminAction(req.user._id, 'POST_IMPORT_CSV', null, 'Post', {
+      by: req.user.username,
+      totalRows: result.totalRows,
+      importedCount: result.importedCount,
+      skippedCount: result.skippedCount,
+      createdUsersCount: result.createdUsersCount,
+    })
+
+    res.json({
+      message: 'Nhập dữ liệu bài đăng AI từ CSV thành công!',
+      data: result,
     })
   } catch (err) {
     next(err)
