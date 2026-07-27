@@ -977,11 +977,11 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
       whileInView={{ opacity: 1, x: 0 }}
       viewport={{ once: true }}
       transition={{ delay, duration: 0.4 }}
-      className="flex items-center justify-between group py-2"
+      className="flex items-center justify-between group py-2 px-2 hover:bg-white/[0.03] rounded-xl transition-all gap-3"
     >
-      <div className="flex items-center gap-4 flex-1 min-w-0">
+      <div className="flex items-center gap-3 flex-1 min-w-0">
         <span
-          className={`font-black italic text-xl w-7 pj ${rankColors[rank - 1] || 'text-foreground/30'}`}
+          className={`font-black italic text-lg w-6 text-center flex-shrink-0 font-mono ${rankColors[rank - 1] || 'text-white/30'}`}
         >
           {rankText}
         </span>
@@ -994,64 +994,62 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
               <img
                 src={c.avatar}
                 alt={c.displayName || c.username}
-                className="w-12 h-12 rounded-full object-cover border border-[var(--color-border)]"
+                className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-sm"
                 onError={(e) => {
-                  e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(c.displayName || c.username || '')}&background=8b5cf6&color=fff`
+                  e.target.style.display = 'none'
+                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'
                 }}
               />
-            ) : (
-              <div
-                className="w-12 h-12 rounded-full bg-gradient-brand
-                flex items-center justify-center text-white text-sm font-black pj border border-[var(--color-border)]"
-              >
-                {(c.displayName || c.username || 'U').slice(0, 2).toUpperCase()}
-              </div>
-            )}
+            ) : null}
+            <div
+              style={{ display: c.avatar ? 'none' : 'flex' }}
+              className="w-10 h-10 rounded-full bg-gradient-to-tr from-brand-600 to-violet-600 items-center justify-center text-white text-xs font-black border border-white/10 shadow-sm"
+            >
+              {(c.displayName || c.username || 'U').slice(0, 2).toUpperCase()}
+            </div>
             {c.isVerified && (
               <span
-                className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black
-                px-1.5 py-0.5 rounded-sm text-white pj tracking-wide"
+                className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black px-1 py-0.2 rounded text-white tracking-wide shadow-sm"
               >
                 PRO
               </span>
             )}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="font-bold text-sm text-foreground pj truncate">
+            <div className="font-bold text-xs text-white truncate">
               {c.displayName || c.username}
             </div>
-            <div className="text-[10px] text-[var(--color-text-muted)] font-bold uppercase tracking-wider pj truncate">
+            <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider truncate font-mono">
               {metricType === 'followers' &&
-                `${(c.stats?.followersCount || 0).toLocaleString()} followers`}
+                `${(c.stats?.followersCount || 0).toLocaleString()} người theo dõi`}
               {metricType === 'views' &&
-                `${(c.scoreValue || c.stats?.viewsCount || 0).toLocaleString()} views`}
+                `${(c.scoreValue || c.stats?.viewsCount || 0).toLocaleString()} lượt xem`}
               {metricType === 'downloads' &&
-                `${(c.scoreValue || c.stats?.downloadsCount || 0).toLocaleString()} downloads`}
+                `${(c.scoreValue || c.stats?.downloadsCount || 0).toLocaleString()} lượt tải`}
             </div>
           </div>
         </Link>
       </div>
 
-        {isMe ? (
-          <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/40 font-bold select-none pj flex-shrink-0">
-            Tôi
-          </span>
-        ) : (
-          <button
-            type="button"
-            onClick={() => onFollow?.(c)}
-            className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border flex-shrink-0
-              ${
-                c.isFollowing
-                  ? 'bg-green-500/10 border-green-500/30 text-green-500'
-                  : 'liquid-glass border-white/10 text-foreground/30 hover:text-brand-600 dark:hover:text-brand-400 hover:border-brand-500/20'
-              }`}
-            title={c.isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
-          >
-            {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
-          </button>
-        )}
-      </motion.div>
+      {isMe ? (
+        <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/10 border border-white/15 text-white/60 font-bold select-none flex-shrink-0 font-mono">
+          Tôi
+        </span>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onFollow?.(c)}
+          className={`w-8 h-8 rounded-full flex items-center justify-center transition-all cursor-pointer border flex-shrink-0 ${
+            c.isFollowing
+              ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400'
+              : 'bg-white/5 border-white/10 text-white/40 hover:text-white hover:border-brand-500/40 hover:bg-brand-600/20'
+          }`}
+          title={c.isFollowing ? 'Đang theo dõi' : 'Theo dõi'}
+        >
+          {c.isFollowing ? <Check size={14} /> : <Plus size={14} />}
+        </button>
+      )}
+    </motion.div>
     )
   }
 
@@ -2603,7 +2601,7 @@ const HomePage = () => {
                 </div>
 
                 {/* Leaderboard Rows */}
-                <div className="divide-y divide-[var(--color-border)] h-[320px] flex flex-col justify-between overflow-hidden">
+                <div className="divide-y divide-white/5 min-h-[180px] max-h-[360px] flex flex-col space-y-1 overflow-y-auto overflow-x-hidden [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden pr-1">
                   {leaderboardLoading ? (
                     <div className="flex-1 flex flex-col items-center justify-center py-10 gap-2">
                       <motion.div
@@ -2620,7 +2618,7 @@ const HomePage = () => {
                     leaderboard.map((c, i) => (
                       <div
                         key={c._id}
-                        className="py-1.5 flex-1 flex flex-col justify-center"
+                        className="py-1"
                       >
                         <LeaderRow
                           c={c}

@@ -117,7 +117,7 @@ const postSchema = new mongoose.Schema(
         },
         message: 'Prompt phải chứa nội dung có nghĩa (ít nhất 2 ký tự chữ/số). Không được chỉ toàn dấu cách hoặc ký tự đặc biệt.',
       },
-      maxlength: [5000, 'Prompt tối đa 5000 ký tự'],
+      maxlength: [8000, 'Prompt tối đa 8000 ký tự'],
       trim: true,
     },
     negativePrompt: {
@@ -231,6 +231,12 @@ const postSchema = new mongoose.Schema(
       trim: true,
       lowercase: true,
     },
+    requestedCategory: { type: String, trim: true, default: null },
+    requestedCategoryStatus: {
+      type: String,
+      enum: ['none', 'pending', 'approved', 'rejected'],
+      default: 'none',
+    },
     resolution: { type: String, enum: ['sd', 'hd', '2k', '4k'] },
     orientation: { type: String, enum: ['portrait', 'landscape', 'square'] },
     aspectRatio: { type: String, trim: true },
@@ -290,6 +296,7 @@ const postSchema = new mongoose.Schema(
     // === EXTERNAL IMPORT (dữ liệu tổng hợp từ nguồn ngoài) ===
     isExternal: { type: Boolean, default: false },
     externalId: { type: String },
+    batchImportId: { type: String, index: true },
     sourceUrl: { type: String },
     authorUrl: { type: String },
     citedFrom: { type: String },

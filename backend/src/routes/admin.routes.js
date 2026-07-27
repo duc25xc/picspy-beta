@@ -1,11 +1,13 @@
 import { Router } from 'express'
 import { authenticate, requireAdmin } from '../middlewares/authenticate.js'
+import multer from 'multer'
 import {
-  getAllPosts, updatePostStatus, bulkUpdatePosts, buffPostStats, importCsvPosts,
+  getAllPosts, updatePostStatus, bulkUpdatePosts, buffPostStats, importCsvPosts, getCsvImportHistory, analyzeCsvPosts, undoCsvImportBatch, analyzeReclassifyCsvPosts, batchApplyReclassifications, batchApplyCategoryProposals,
   getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole,
   createAdminUser, updateAdminUser, deleteAdminUser,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
+  getCategoryRequests, approveCategoryRequest, rejectCategoryRequest,
   getSettings, updateSettings, getBypassKeys, getAuditLogs, triggerSettlement, triggerScoreDecay, triggerSubscriptionCleanup,
   depositUserVnd, getWithdrawalRequests, approveWithdrawal, rejectWithdrawal,
   getAdminReports, updateReportStatus,
@@ -13,6 +15,7 @@ import {
 } from '../controllers/admin.controller.js'
 
 const router = Router()
+const uploadCsv = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
 
 // Tất cả admin routes đều cần authenticate + requireAdmin
 router.use(authenticate, requireAdmin)
@@ -27,10 +30,16 @@ router.post('/server-logs/clear', clearServerLogs)
 
 // ── Posts management ──────────────────────────────────────────
 router.get('/posts', getAllPosts)
+router.get('/posts/import-history', getCsvImportHistory)
 router.patch('/posts/:id/status', updatePostStatus)
 router.post('/posts/bulk', bulkUpdatePosts)
 router.post('/posts/buff', buffPostStats)
-router.post('/posts/import-csv', importCsvPosts)
+router.post('/posts/analyze-csv', uploadCsv.single('file'), analyzeCsvPosts)
+router.post('/posts/import-csv', uploadCsv.single('file'), importCsvPosts)
+router.post('/posts/undo-import', undoCsvImportBatch)
+router.post('/posts/analyze-reclassify-csv', analyzeReclassifyCsvPosts)
+router.post('/posts/batch-apply-reclassifications', batchApplyReclassifications)
+router.post('/posts/batch-apply-category-proposals', batchApplyCategoryProposals)
 
 // ── Reports management ────────────────────────────────────────
 router.get('/reports', getAdminReports)
@@ -58,6 +67,9 @@ router.post('/categories', createCategory)
 router.put('/categories/:id', updateCategory)
 router.patch('/categories/:id/toggle', toggleCategory)
 router.delete('/categories/:id', deleteCategory)
+router.get('/category-requests', getCategoryRequests)
+router.post('/category-requests/:postId/approve', approveCategoryRequest)
+router.post('/category-requests/:postId/reject', rejectCategoryRequest)
 
 // ── System Settings ───────────────────────────────────────────
 router.get('/settings', getSettings)

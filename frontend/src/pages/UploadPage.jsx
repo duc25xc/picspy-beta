@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef, Component } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -86,7 +86,7 @@ const defaultForm = () => ({
 })
 
 // ── Main component ───────────────────────────────────────────────
-export default function UploadPage() {
+function UploadPageContent() {
   const navigate = useNavigate()
   const tierAccess = useTierAccess()
   const updateUser = useAuthStore((s) => s.updateUser)
@@ -123,8 +123,34 @@ export default function UploadPage() {
   ])
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
   const [uploading, setUploading] = useState(false)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [showCancelAiConfirmModal, setShowCancelAiConfirmModal] = useState(false)
+  const pendingNavRef = useRef(null)
+  const abortControllerRef = useRef(null)
   const [progress, setProgress] = useState(0)
   const [done, setDone] = useState(false)
+
+  // Auto close confirm modal if AI finishes while user is hesitating
+  useEffect(() => {
+    if (!aiLoading) {
+      setShowCancelAiConfirmModal(false)
+    }
+  }, [aiLoading])
+
+  // Browser refresh / tab close confirm dialog during active AI loading
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (aiLoading) {
+        const msg =
+          '⚠️ AI đang phân tích tác phẩm của bạn và 2 AI Credits đã được khấu trừ. Nếu bạn rời khỏi hoặc làm mới trang lúc này, quá trình gợi ý sẽ bị dừng lại và AI Credits sẽ KHÔNG được hoàn lại.'
+        e.preventDefault()
+        e.returnValue = msg
+        return msg
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [aiLoading])
 
   // ── Dynamic Steps ────────────────────────────────────────────────
   const steps =
@@ -144,8 +170,8 @@ export default function UploadPage() {
   useEffect(() => {
     api
       .get('/categories')
-      .then(({ data }) => {
-        if (data?.categories?.length) setCategories(data.categories)
+      .then((res) => {
+        if (res?.data?.categories?.length) setCategories(res.data.categories)
       })
       .catch(() => {})
   }, [])
@@ -155,10 +181,11 @@ export default function UploadPage() {
     setHistoryLoading(true)
     api
       .get('/posts/me?limit=50')
-      .then(({ data }) => {
-        const imgs = (data?.posts || [])
-          .flatMap((p) => p.sourceImages || [])
-          .filter((img) => img.url && img.publicId)
+      .then((res) => {
+        if (!res?.data) return
+        const imgs = (res.data.posts || [])
+          .flatMap((p) => p?.sourceImages || [])
+          .filter((img) => img?.url && img?.publicId)
         setSourceHistory(deduplicateByPublicId(imgs))
       })
       .catch(() => {})
@@ -185,8 +212,42 @@ export default function UploadPage() {
     return () => window.removeEventListener('beforeunload', h)
   }, [isDirty, done])
 
+  const requestNavWithAiCheck = useCallback(
+    (action) => {
+      if (aiLoading) {
+        pendingNavRef.current = action
+        setShowCancelAiConfirmModal(true)
+        return false
+      }
+      action()
+      return true
+    },
+    [aiLoading]
+  )
+
+  const handleConfirmCancelAi = useCallback(() => {
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort()
+      } catch (err) {
+        console.error('Failed to abort AI request:', err)
+      }
+      abortControllerRef.current = null
+    }
+    setAiLoading(false)
+    setShowCancelAiConfirmModal(false)
+    toast.error('⚠️ Đã hủy quá trình gợi ý AI. (2 AI Credits đã được sử dụng)', {
+      duration: 5000,
+    })
+    if (pendingNavRef.current) {
+      const action = pendingNavRef.current
+      pendingNavRef.current = null
+      action()
+    }
+  }, [setAiLoading])
+
   useEffect(() => {
-    if (!isDirty || done) return
+    if ((!isDirty && !aiLoading) || done) return
     const handleCaptureClick = (e) => {
       const link = e.target.closest('a')
       if (!link) return
@@ -206,13 +267,21 @@ export default function UploadPage() {
         }
 
         if (isInternal) {
-          if (
-            !window.confirm(
-              'Bài đăng của bạn chưa hoàn tất. Bạn có chắc chắn muốn rời đi?'
-            )
-          ) {
+          if (aiLoading) {
             e.preventDefault()
             e.stopPropagation()
+            requestNavWithAiCheck(() => {
+              navigate(href)
+            })
+          } else if (isDirty) {
+            if (
+              !window.confirm(
+                'Bài đăng của bạn chưa hoàn tất. Bạn có chắc chắn muốn rời đi?'
+              )
+            ) {
+              e.preventDefault()
+              e.stopPropagation()
+            }
           }
         }
       }
@@ -220,9 +289,15 @@ export default function UploadPage() {
 
     window.addEventListener('click', handleCaptureClick, true)
     return () => window.removeEventListener('click', handleCaptureClick, true)
-  }, [isDirty, done])
+  }, [isDirty, done, aiLoading, navigate, requestNavWithAiCheck])
 
   const safeNavigate = (path) => {
+    if (aiLoading && !done) {
+      requestNavWithAiCheck(() => {
+        navigate(path)
+      })
+      return
+    }
     if (isDirty && !done) {
       if (
         !window.confirm(
@@ -618,10 +693,19 @@ export default function UploadPage() {
     setStep((s) => Math.min(s + 1, maxStep))
   }
 
-  const goBack = () => setStep((s) => Math.max(s - 1, 1))
+  const goBack = () => {
+    requestNavWithAiCheck(() => {
+      setStep((s) => Math.max(s - 1, 1))
+    })
+  }
 
   // ── Submit ─────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    if (aiLoading) {
+      return toast.error(
+        'Vui lòng chờ AI gợi ý phân tích hoàn tất trước khi đăng bài!'
+      )
+    }
     // Validate caption (Mô tả)
     if (!form.caption.trim()) {
       return toast.error('Vui lòng nhập Mô tả cho bài đăng.')
@@ -633,6 +717,9 @@ export default function UploadPage() {
     }
 
     if (!form.category) return toast.error('Vui lòng chọn danh mục')
+    if (form.category === 'custom' && !form.requestedCategory?.trim()) {
+      return toast.error('Vui lòng nhập tên danh mục bạn muốn đề xuất!')
+    }
 
     if (uploadType === 'ai') {
       // Validate prompt
@@ -724,7 +811,12 @@ export default function UploadPage() {
           .filter(Boolean)
       )
     )
-    fd.append('category', form.category)
+    if (form.category === 'custom' || form.requestedCategory?.trim()) {
+      fd.append('category', 'khac')
+      fd.append('requestedCategory', form.requestedCategory.trim())
+    } else {
+      fd.append('category', form.category)
+    }
     fd.append('isPremium', String(form.isPremium))
     fd.append('priceInVnd', String(Number(form.priceInVnd)))
     fd.append('allowRemix', String(form.allowRemix))
@@ -921,15 +1013,17 @@ export default function UploadPage() {
           <button
             type="button"
             onClick={() => {
-              if (
-                isDirty &&
-                !window.confirm(
-                  'Thay đổi chế độ sẽ đặt lại form. Bạn có chắc chắn?'
+              requestNavWithAiCheck(() => {
+                if (
+                  isDirty &&
+                  !window.confirm(
+                    'Thay đổi chế độ sẽ đặt lại form. Bạn có chắc chắn?'
+                  )
                 )
-              )
-                return
-              resetForm()
-              setUploadType('ai')
+                  return
+                resetForm()
+                setUploadType('ai')
+              })
             }}
             className={`relative flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 z-10 cursor-pointer select-none
               ${
@@ -953,15 +1047,17 @@ export default function UploadPage() {
           <button
             type="button"
             onClick={() => {
-              if (
-                isDirty &&
-                !window.confirm(
-                  'Thay đổi chế độ sẽ đặt lại form. Bạn có chắc chắn?'
+              requestNavWithAiCheck(() => {
+                if (
+                  isDirty &&
+                  !window.confirm(
+                    'Thay đổi chế độ sẽ đặt lại form. Bạn có chắc chắn?'
+                  )
                 )
-              )
-                return
-              resetForm()
-              setUploadType('digital')
+                  return
+                resetForm()
+                setUploadType('digital')
+              })
             }}
             className={`relative flex-1 py-3 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all duration-300 z-10 cursor-pointer select-none
               ${
@@ -1043,6 +1139,9 @@ export default function UploadPage() {
                       modelSlots={modelSlots}
                       multiModelMode={multiModelMode}
                       uploadType={uploadType}
+                      aiLoading={aiLoading}
+                      setAiLoading={setAiLoading}
+                      abortControllerRef={abortControllerRef}
                     />
                   )}
                 </>
@@ -1084,6 +1183,9 @@ export default function UploadPage() {
                       modelSlots={modelSlots}
                       multiModelMode={multiModelMode}
                       uploadType={uploadType}
+                      aiLoading={aiLoading}
+                      setAiLoading={setAiLoading}
+                      abortControllerRef={abortControllerRef}
                     />
                   )}
                 </>
@@ -1115,13 +1217,39 @@ export default function UploadPage() {
             <button
               type="button"
               onClick={handleSubmit}
-              disabled={uploading}
-              className="btn-primary flex items-center gap-2 disabled:opacity-60"
+              disabled={uploading || aiLoading}
+              className={`btn-primary flex items-center gap-2 transition-all ${
+                uploading || aiLoading ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              title={aiLoading ? 'Đang chờ AI phân tích mô tả...' : ''}
             >
               {uploading ? (
                 <>
-                  <Loader2 size={16} className="animate-spin" />
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: 'linear',
+                    }}
+                  >
+                    <Loader2 size={16} className="text-white" />
+                  </motion.div>
                   Đang gửi {progress}%
+                </>
+              ) : aiLoading ? (
+                <>
+                  <motion.div
+                    animate={{ rotate: 360 }}
+                    transition={{
+                      duration: 1,
+                      repeat: Infinity,
+                      ease: 'linear',
+                    }}
+                  >
+                    <Loader2 size={16} className="text-amber-300" />
+                  </motion.div>
+                  Đang chờ AI xử lý...
                 </>
               ) : (
                 <>
@@ -1145,6 +1273,53 @@ export default function UploadPage() {
           />
         )}
       </AnimatePresence>
+
+      {/* Confirm Cancel Active AI Suggestion Modal */}
+      {showCancelAiConfirmModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[99999] animate-fade-in !mt-0">
+          <div className="card p-6 max-w-md w-full bg-[#0d0d16] border border-amber-500/40 shadow-2xl space-y-4 rounded-2xl relative overflow-hidden">
+            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 flex-shrink-0">
+                <AlertCircle size={22} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base text-white">⚠️ Hủy Gợi Ý AI & Quay Lại?</h3>
+                <p className="text-xs text-white/50">Hệ thống đang gọi AI xử lý ảnh của bạn</p>
+              </div>
+            </div>
+
+            <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-2 text-xs text-amber-200/90 leading-relaxed">
+              <p>
+                <strong>⚠️ Lưu ý quan trọng:</strong> Hệ thống đã khấu trừ <strong>2 AI Credits</strong> để gọi AI phân tích tác phẩm.
+              </p>
+              <p className="text-white/70">
+                Nếu bạn Hủy hoặc Quay lại lúc này, quá trình gợi ý sẽ bị dừng lại và <strong>2 AI Credits sẽ KHÔNG được hoàn lại</strong>.
+              </p>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleConfirmCancelAi}
+                className="py-2.5 px-4 rounded-xl bg-red-600/20 border border-red-500/40 text-red-300 hover:bg-red-600/30 font-bold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                Xác nhận Hủy & Quay lại
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowCancelAiConfirmModal(false)
+                  pendingNavRef.current = null
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/50 cursor-pointer"
+              >
+                <Sparkles size={14} className="text-yellow-300" />
+                Tiếp tục chờ AI (Khuyên dùng)
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -2085,6 +2260,9 @@ function Step4Meta({
   modelSlots = [],
   multiModelMode = false,
   uploadType = 'ai',
+  aiLoading = false,
+  setAiLoading = () => {},
+  abortControllerRef = null,
 }) {
   const set = (key) => (val) => setForm((f) => ({ ...f, [key]: val }))
   const [maxLimit, setMaxLimit] = useState(() => {
@@ -2096,7 +2274,24 @@ function Step4Meta({
 
   const [suggestHistory, setSuggestHistory] = useState([])
   const [activeHistoryIdx, setActiveHistoryIdx] = useState(-1)
-  const [aiLoading, setAiLoading] = useState(false)
+  const [aiTimerSeconds, setAiTimerSeconds] = useState(0)
+
+  // Live timer during active AI suggest
+  useEffect(() => {
+    let timer = null
+    if (aiLoading) {
+      setAiTimerSeconds(0)
+      timer = setInterval(() => {
+        setAiTimerSeconds((s) => s + 1)
+      }, 1000)
+    } else {
+      setAiTimerSeconds(0)
+    }
+    return () => {
+      if (timer) clearInterval(timer)
+    }
+  }, [aiLoading])
+
   const tierAccess = useTierAccess()
   const isUltimate = tierAccess?.tier === 'ultimate'
   const updateUser = useAuthStore((s) => s.updateUser)
@@ -2109,6 +2304,9 @@ function Step4Meta({
   const [makeDefaultChecked, setMakeDefaultChecked] = useState(true)
   const [styleDropdownOpen, setStyleDropdownOpen] = useState(false)
   const [previewResult, setPreviewResult] = useState(null)
+  const [aiCategorySuggestions, setAiCategorySuggestions] = useState([])
+  const [userSelectedCategoryFromChip, setUserSelectedCategoryFromChip] =
+    useState(null)
 
   // Handle clicking outside the style dropdown to close it
   useEffect(() => {
@@ -2155,12 +2353,21 @@ function Step4Meta({
     }
 
     setAiLoading(true)
+    const controller = new AbortController()
+    if (abortControllerRef) {
+      abortControllerRef.current = controller
+    }
+
     try {
       const base64 = await fileToBase64(file)
-      const { data } = await api.post('/ai/suggest-meta', {
-        imageBase64: base64,
-        style: targetStyle,
-      })
+      const { data } = await api.post(
+        '/ai/suggest-meta',
+        {
+          imageBase64: base64,
+          style: targetStyle,
+        },
+        { signal: controller.signal }
+      )
       if (data.success) {
         let currentHistory = [...suggestHistory]
         if (currentHistory.length === 0) {
@@ -2169,9 +2376,25 @@ function Step4Meta({
           ]
         }
 
+        const suggestedCats =
+          Array.isArray(data?.categories) && data.categories.length > 0
+            ? data.categories
+            : data?.category
+              ? [data.category]
+              : []
+
+        setAiCategorySuggestions(suggestedCats)
+        setUserSelectedCategoryFromChip(null)
+
+        const tagsString = Array.isArray(data?.tags)
+          ? data.tags.join(', ')
+          : data?.tags || ''
+
         const newSuggest = {
-          caption: data.caption,
-          tags: data.tags.join(', '),
+          caption: data?.caption || '',
+          tags: tagsString,
+          categories: suggestedCats,
+          category: suggestedCats[0] || 'Khác',
           styleKey: targetStyle,
         }
         const updatedHistory = [...currentHistory, newSuggest]
@@ -2181,8 +2404,10 @@ function Step4Meta({
 
         // Show suggestions in the preview box first
         setPreviewResult({
-          caption: data.caption,
-          tags: data.tags.join(', '),
+          caption: data?.caption || '',
+          tags: tagsString,
+          categories: suggestedCats,
+          category: suggestedCats[0] || 'Khác',
           styleKey: targetStyle,
         })
 
@@ -2191,16 +2416,53 @@ function Step4Meta({
         }
 
         toast.success(
-          `Đã tự động gợi ý mô tả và tags! (Tiêu tốn ${data.tokensCost} AI Credits)`
+          `Đã tự động gợi ý mô tả, tags & danh mục! (Tiêu tốn ${data.tokensCost} AI Credits)`
         )
       }
     } catch (err) {
+      if (
+        err?.name === 'CanceledError' ||
+        err?.code === 'ERR_CANCELED' ||
+        err?.name === 'AbortError'
+      ) {
+        console.log('AI suggest-meta request aborted by user action')
+        return
+      }
       console.error(err)
       const msg =
         err.response?.data?.message || 'Có lỗi xảy ra khi gọi gợi ý AI'
       toast.error(msg)
     } finally {
       setAiLoading(false)
+      if (abortControllerRef) {
+        abortControllerRef.current = null
+      }
+    }
+  }
+
+  const handleChipClick = (catName) => {
+    setUserSelectedCategoryFromChip(catName)
+    applySuggestedCategory(catName)
+  }
+
+  const applySuggestedCategory = (catName) => {
+    if (!catName) return
+    const nameStr = catName.trim().slice(0, 50)
+    const match = categories.find(
+      (c) =>
+        c.name.toLowerCase() === nameStr.toLowerCase() ||
+        c.slug.toLowerCase() === nameStr.toLowerCase()
+    )
+    if (match) {
+      set('category')(match.slug)
+      set('requestedCategory')('')
+      toast.success(`✅ Đã chọn danh mục "${match.name}"`)
+    } else {
+      set('category')('custom')
+      set('requestedCategory')(nameStr)
+      toast.success(
+        `✨ Đã điền đề xuất danh mục mới "${nameStr}" cho Admin duyệt!`
+      )
     }
   }
 
@@ -2208,6 +2470,15 @@ function Step4Meta({
     if (!previewResult) return
     set('caption')(previewResult.caption)
     set('tags')(previewResult.tags)
+
+    const targetCat =
+      userSelectedCategoryFromChip ||
+      previewResult.categories?.[0] ||
+      previewResult.category
+    if (targetCat) {
+      applySuggestedCategory(targetCat)
+    }
+
     setPreviewResult(null)
     toast.success('Đã áp dụng mô tả & tags vào bài viết!')
   }
@@ -2269,11 +2540,11 @@ function Step4Meta({
                 }}
               />
               {/* Center indicator */}
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3">
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2.5">
                 <div className="relative">
-                  <div className="w-9 h-9 rounded-full border-2 border-[#7986eb]/30 border-t-[#7986eb] animate-spin" />
+                  <div className="w-10 h-10 rounded-full border-2 border-[#7986eb]/30 border-t-[#7986eb] animate-spin" />
                   <Sparkles
-                    size={14}
+                    size={15}
                     className="absolute inset-0 m-auto text-[#a5b0f5]"
                     style={{ animation: 'pulse 1.6s ease-in-out infinite' }}
                   />
@@ -2281,9 +2552,12 @@ function Step4Meta({
                 <p className="text-xs font-bold text-[#a5b0f5] tracking-wide">
                   AI đang phân tích ảnh...
                 </p>
-                <p className="text-[10px] text-white/30">
-                  Vui lòng chờ trong giây lát
-                </p>
+                <div className="flex items-center gap-1.5 text-[11px] text-amber-300/90 font-medium bg-amber-950/50 px-3 py-1 rounded-full border border-amber-500/30 shadow-md">
+                  <Clock size={12} className="animate-spin text-amber-400" />
+                  <span>
+                    Đã chờ: <strong className="text-white font-mono">{aiTimerSeconds}s</strong> · Dự kiến: <span className="font-bold text-amber-200">~5–10 giây</span>
+                  </span>
+                </div>
               </div>
             </div>
           )}
@@ -2346,9 +2620,10 @@ function Step4Meta({
                 whileHover={!aiLoading ? { scale: 1.03 } : undefined}
                 whileTap={!aiLoading ? { scale: 0.97 } : undefined}
                 className={`relative overflow-hidden flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all border disabled:cursor-not-allowed
-                  ${aiLoading
-                    ? 'bg-[#7986eb]/10 border-[#7986eb]/30 text-[#a5b0f5]'
-                    : 'bg-white/5 border-white/10 hover:bg-[#7986eb]/10 hover:border-[#7986eb]/30'
+                  ${
+                    aiLoading
+                      ? 'bg-[#7986eb]/10 border-[#7986eb]/30 text-[#a5b0f5]'
+                      : 'bg-white/5 border-white/10 hover:bg-[#7986eb]/10 hover:border-[#7986eb]/30'
                   }`}
               >
                 {/* Shimmer sweep when loading */}
@@ -2374,17 +2649,14 @@ function Step4Meta({
                           ease: 'linear',
                         }}
                       >
-                        <Loader2
-                          size={13}
-                          className="text-[#7986eb]"
-                        />
+                        <Loader2 size={13} className="text-[#7986eb]" />
                       </motion.div>
                       Đang phân tích...
                     </>
                   ) : (
                     <>
                       <Sparkles size={13} className="text-yellow-400" />
-                      Gợi ý mô tả &amp; tags{' '}
+                      Gợi ý mô tả, tags &amp; danh mục{' '}
                       <span className="text-[10px] text-white/40 flex items-center gap-0.5 font-normal">
                         <Coins size={9} /> -2 xu
                       </span>
@@ -2443,7 +2715,13 @@ function Step4Meta({
                     Tags đề xuất
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {previewResult.tags.split(',').map((t, idx) => {
+                    {(typeof previewResult.tags === 'string'
+                      ? previewResult.tags.split(',')
+                      : Array.isArray(previewResult.tags)
+                        ? previewResult.tags
+                        : []
+                    ).map((t, idx) => {
+                      if (!t || typeof t !== 'string') return null
                       const trimmed = t.trim()
                       if (!trimmed) return null
                       return (
@@ -2457,6 +2735,63 @@ function Step4Meta({
                     })}
                   </div>
                 </div>
+
+                {/* Categories Preview (2-3 suggestions) */}
+                {Array.isArray(previewResult.categories) &&
+                  previewResult.categories.length > 0 && (
+                    <div className="bg-black/30 border border-white/5 rounded-xl p-3 space-y-2">
+                      <div className="flex items-center justify-between text-[9px] font-semibold text-white/40 uppercase tracking-wider">
+                        <span>
+                          Danh mục AI gợi ý cho ảnh này (
+                          {previewResult.categories.length})
+                        </span>
+                        <span className="text-violet-300/80 normal-case font-mono text-[10px]">
+                          Bấm chip để chọn ngay
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {previewResult.categories.map((catName, idx) => {
+                          if (!catName || typeof catName !== 'string')
+                            return null
+                          const match = (categories || []).find(
+                            (c) =>
+                              c?.name?.toLowerCase() ===
+                                catName.toLowerCase() ||
+                              c?.slug?.toLowerCase() === catName.toLowerCase()
+                          )
+                          return (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => handleChipClick(catName)}
+                              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                                match
+                                  ? 'bg-violet-950/60 border-violet-500/50 text-violet-200 hover:bg-violet-600/30 shadow-sm'
+                                  : 'bg-amber-950/60 border-amber-500/50 text-amber-300 hover:bg-amber-600/30 shadow-sm'
+                              }`}
+                            >
+                              <Sparkles
+                                size={12}
+                                className={
+                                  match ? 'text-violet-400' : 'text-amber-400'
+                                }
+                              />
+                              <span>{catName}</span>
+                              {match ? (
+                                <span className="text-[9px] opacity-70 font-mono bg-violet-900/50 px-1 rounded">
+                                  Có sẵn
+                                </span>
+                              ) : (
+                                <span className="text-[9px] opacity-70 font-mono bg-amber-900/50 px-1 rounded">
+                                  Đề xuất mới
+                                </span>
+                              )}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )}
               </div>
 
               {/* Actions */}
@@ -2555,27 +2890,172 @@ function Step4Meta({
         </div>
 
         {/* Category */}
-        <div>
-          <label className="input-label">
-            Danh mục <span className="text-red-400">*</span>
+        <div className="space-y-2">
+          <label className="input-label flex items-center justify-between gap-2 overflow-hidden">
+            <span className="flex-shrink-0">
+              Danh mục <span className="text-red-400">*</span>
+            </span>
+            {form.requestedCategory && (
+              <span className="text-[11px] text-amber-300 font-bold bg-amber-950/60 border border-amber-500/40 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm max-w-[220px] sm:max-w-[340px] truncate">
+                <Sparkles size={11} className="flex-shrink-0 text-amber-400" />
+                <span className="truncate">
+                  Đề xuất: "{form.requestedCategory}"
+                </span>
+                <span className="flex-shrink-0 opacity-75 font-normal text-[10px]">
+                  (Chờ duyệt)
+                </span>
+              </span>
+            )}
           </label>
           <div className="flex flex-wrap gap-2">
             {categories.map((cat) => (
               <button
                 key={cat.slug}
                 type="button"
-                onClick={() => set('category')(cat.slug)}
-                className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150
-                ${
-                  form.category === cat.slug
-                    ? 'bg-brand-600/30 border border-brand-500/60 text-brand-300'
+                onClick={() => {
+                  set('category')(cat.slug)
+                  set('requestedCategory')('')
+                }}
+                className={`px-3 py-1.5 rounded-xl text-sm font-medium transition-all duration-150 cursor-pointer ${
+                  form.category === cat.slug && !form.requestedCategory
+                    ? 'bg-brand-600/30 border border-brand-500/60 text-brand-300 shadow-md'
                     : 'bg-white/5 border border-white/10 text-white/50 hover:border-white/25'
                 }`}
               >
                 {cat.name}
               </button>
             ))}
+
+            {/* Custom Category Request Option */}
+            <button
+              type="button"
+              onClick={() => {
+                set('category')('custom')
+                if (!form.requestedCategory) set('requestedCategory')('')
+              }}
+              className={`px-3.5 py-1.5 rounded-xl text-sm font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
+                form.category === 'custom' || Boolean(form.requestedCategory)
+                  ? 'bg-gradient-to-r from-violet-600/40 to-indigo-600/40 border border-violet-400/60 text-violet-200 shadow-lg shadow-violet-950/50'
+                  : 'bg-violet-950/20 border border-violet-500/20 text-violet-300/60 hover:text-violet-200 hover:border-violet-500/40'
+              }`}
+            >
+              <Plus size={14} />
+              Đề xuất danh mục mới...
+            </button>
           </div>
+
+          {/* Custom Category Input Box */}
+          {(form.category === 'custom' || Boolean(form.requestedCategory)) && (
+            <motion.div
+              initial={{ opacity: 0, y: -5 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3.5 rounded-xl bg-violet-950/30 border border-violet-500/30 space-y-2.5 mt-2 overflow-hidden max-w-full"
+            >
+              <div className="flex items-center justify-between text-xs font-bold text-violet-300">
+                <span className="flex items-center gap-1.5">
+                  <Sparkles
+                    size={13}
+                    className="text-violet-400 flex-shrink-0"
+                  />{' '}
+                  Nhập tên danh mục muốn đề xuất
+                </span>
+                <span className="text-[10px] text-white/40 flex-shrink-0">
+                  Tối đa 50 ký tự (Gửi Admin duyệt)
+                </span>
+              </div>
+              <input
+                type="text"
+                maxLength={50}
+                value={form.requestedCategory || ''}
+                onChange={(e) => {
+                  set('requestedCategory')(e.target.value.slice(0, 50))
+                  set('category')('custom')
+                }}
+                placeholder="Ví dụ: Chill, Vintage, Cyberpunk, Trầm mặc, Đồ ăn..."
+                className="input w-full text-xs font-semibold bg-black/40 border-violet-500/40 focus:border-violet-400 py-2.5"
+              />
+              <p className="text-[11px] text-white/50 leading-relaxed break-words overflow-hidden">
+                💡 Bài viết sẽ được gán tạm thời vào danh mục{' '}
+                <strong className="text-white/80">"Khác"</strong>. Nếu Admin phê
+                duyệt, hệ thống sẽ tự động tạo danh mục mới{' '}
+                <strong className="text-violet-300 font-mono inline-block max-w-[200px] sm:max-w-[300px] truncate align-bottom">
+                  "{form.requestedCategory || '...'}"
+                </strong>{' '}
+                và chuyển bài viết của bạn vào danh mục này!
+              </p>
+            </motion.div>
+          )}
+
+          {/* Persistent AI Suggested Category Chips (stays visible below input) */}
+          {Array.isArray(aiCategorySuggestions) &&
+            aiCategorySuggestions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-3.5 rounded-xl bg-violet-950/20 border border-violet-500/25 space-y-2 mt-2"
+              >
+                <div className="flex items-center justify-between text-xs font-bold text-violet-300">
+                  <span className="flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-violet-400" /> Gợi ý
+                    danh mục từ AI ({aiCategorySuggestions.length}):
+                  </span>
+                  <span className="text-[10px] text-white/40 font-mono font-normal">
+                    Bấm chip để chuyển đổi bất cứ lúc nào
+                  </span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {aiCategorySuggestions.map((catName, idx) => {
+                    if (!catName || typeof catName !== 'string') return null
+                    const match = (categories || []).find(
+                      (c) =>
+                        c?.name?.toLowerCase() === catName.toLowerCase() ||
+                        c?.slug?.toLowerCase() === catName.toLowerCase()
+                    )
+                    const isSelected = match
+                      ? form.category === match.slug && !form.requestedCategory
+                      : form.category === 'custom' &&
+                        form.requestedCategory?.toLowerCase() ===
+                          catName.toLowerCase()
+
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => handleChipClick(catName)}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer border ${
+                          isSelected
+                            ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-violet-400 shadow-md scale-[1.02]'
+                            : match
+                              ? 'bg-violet-950/60 border-violet-500/40 text-violet-200 hover:bg-violet-600/30'
+                              : 'bg-amber-950/60 border-amber-500/40 text-amber-300 hover:bg-amber-600/30'
+                        }`}
+                      >
+                        <Sparkles
+                          size={12}
+                          className={
+                            isSelected
+                              ? 'text-yellow-300'
+                              : match
+                                ? 'text-violet-400'
+                                : 'text-amber-400'
+                          }
+                        />
+                        <span>{catName}</span>
+                        {match ? (
+                          <span className="text-[9px] opacity-75 font-mono">
+                            (Có sẵn)
+                          </span>
+                        ) : (
+                          <span className="text-[9px] opacity-75 font-mono">
+                            (Đề xuất mới)
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </motion.div>
+            )}
         </div>
 
         {/* Premium toggle */}
@@ -2692,81 +3172,97 @@ function Step4Meta({
           </motion.div>
         )}
 
-        {/* Remix Configuration */}
-        <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/5 mt-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400">
-              <Sparkles size={20} />
-            </div>
-            <div>
-              <p className="text-sm font-semibold text-white">Cho phép Remix</p>
-              <p className="text-xs text-white/40">
-                Cho phép các creator khác sáng tạo lại dựa trên tác phẩm này
-              </p>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={() => set('allowRemix')(!form.allowRemix)}
-            className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
-            ${form.allowRemix ? 'bg-violet-600' : 'bg-white/15'}`}
-          >
-            <div
-              className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
-            ${form.allowRemix ? 'translate-x-6' : 'translate-x-1'}`}
-            />
-          </button>
-        </div>
-
-        {form.allowRemix && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="space-y-4 p-4 rounded-2xl bg-white/[0.01] border border-white/5 mt-2"
-          >
-            <div>
-              <label className="text-xs font-semibold text-white/60 flex justify-between">
-                <span>Royalty tác quyền (%)</span>
-                <span className="text-violet-400 font-bold">{form.remixRoyaltyPercent}%</span>
-              </label>
-              <div className="flex items-center gap-3 mt-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={form.remixRoyaltyPercent}
-                  onChange={(e) => set('remixRoyaltyPercent')(Number(e.target.value))}
-                  className="flex-1 accent-violet-500"
-                />
+        {/* Remix Configuration (Chỉ hỗ trợ cho bài đăng AI) */}
+        {uploadType === 'ai' && (
+          <>
+            <div className="flex items-center justify-between p-4 rounded-2xl bg-white/[0.03] border border-white/5 mt-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center text-violet-400">
+                  <Sparkles size={20} />
+                </div>
+                <div>
+                  <p className="text-sm font-semibold text-white">
+                    Cho phép Remix
+                  </p>
+                  <p className="text-xs text-white/40">
+                    Cho phép các creator khác sáng tạo lại dựa trên tác phẩm này
+                  </p>
+                </div>
               </div>
-              <p className="text-[10px] text-white/30 mt-1">
-                Phần trăm doanh thu bạn nhận được từ mỗi lần người khác bán bản Remix của bạn
-              </p>
+              <button
+                type="button"
+                onClick={() => set('allowRemix')(!form.allowRemix)}
+                className={`w-11 h-6 rounded-full transition-colors duration-200 relative flex-shrink-0
+                ${form.allowRemix ? 'bg-violet-600' : 'bg-white/15'}`}
+              >
+                <div
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform duration-200
+                ${form.allowRemix ? 'translate-x-6' : 'translate-x-1'}`}
+                />
+              </button>
             </div>
 
-            <div>
-              <label className="text-xs font-semibold text-white/60 flex justify-between">
-                <span>Chiết khấu mua ảnh để Remix (%)</span>
-                <span className="text-violet-400 font-bold">{form.remixDiscountPercent}%</span>
-              </label>
-              <div className="flex items-center gap-3 mt-2">
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={form.remixDiscountPercent}
-                  onChange={(e) => set('remixDiscountPercent')(Number(e.target.value))}
-                  className="flex-1 accent-violet-500"
-                />
-              </div>
-              <p className="text-[10px] text-white/30 mt-1">
-                Giảm giá cho các creator khác khi mua tác phẩm gốc của bạn để thực hiện Remix
-              </p>
-            </div>
-          </motion.div>
+            {form.allowRemix && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="space-y-4 p-4 rounded-2xl bg-white/[0.01] border border-white/5 mt-2"
+              >
+                <div>
+                  <label className="text-xs font-semibold text-white/60 flex justify-between">
+                    <span>Royalty tác quyền (%)</span>
+                    <span className="text-violet-400 font-bold">
+                      {form.remixRoyaltyPercent}%
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-3 mt-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.remixRoyaltyPercent}
+                      onChange={(e) =>
+                        set('remixRoyaltyPercent')(Number(e.target.value))
+                      }
+                      className="flex-1 accent-violet-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1">
+                    Phần trăm doanh thu bạn nhận được từ mỗi lần người khác bán
+                    bản Remix của bạn
+                  </p>
+                </div>
+
+                <div>
+                  <label className="text-xs font-semibold text-white/60 flex justify-between">
+                    <span>Chiết khấu mua ảnh để Remix (%)</span>
+                    <span className="text-violet-400 font-bold">
+                      {form.remixDiscountPercent}%
+                    </span>
+                  </label>
+                  <div className="flex items-center gap-3 mt-2">
+                    <input
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={form.remixDiscountPercent}
+                      onChange={(e) =>
+                        set('remixDiscountPercent')(Number(e.target.value))
+                      }
+                      className="flex-1 accent-violet-500"
+                    />
+                  </div>
+                  <p className="text-[10px] text-white/30 mt-1">
+                    Giảm giá cho các creator khác khi mua tác phẩm gốc của bạn
+                    để thực hiện Remix
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </>
         )}
 
         {/* Upload progress */}
@@ -3309,5 +3805,69 @@ function LargeDropZone({ image, onAdd, onRemove, label, subtitle }) {
       <h3 className="text-xs font-semibold text-white/80">{label}</h3>
       <p className="text-[10px] text-white/45 mt-1 max-w-xs">{subtitle}</p>
     </div>
+  )
+}
+
+// ── Error Boundary wrapper for UploadPage ─────────────────────────
+class UploadErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false, error: null, errorInfo: null }
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.error('🔥 [UPLOAD PAGE CRASH DEBUG]:', error, errorInfo)
+    this.setState({ errorInfo })
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-[#07070b] text-white p-8 flex items-center justify-center">
+          <div className="card p-8 max-w-2xl w-full bg-red-950/40 border border-red-500/50 space-y-4 rounded-2xl shadow-2xl">
+            <h2 className="text-xl font-bold text-red-400 flex items-center gap-2">
+              <AlertCircle size={24} /> Phát Hiện Lỗi Giao Diện Trang Upload
+            </h2>
+            <p className="text-xs text-white/70">
+              Chi tiết lỗi được bắt lại trực tiếp để sửa lỗi:
+            </p>
+            <div className="p-4 rounded-xl bg-black/80 font-mono text-xs text-red-300 overflow-auto max-h-80 border border-red-500/30 space-y-2">
+              <p className="font-bold text-red-200 text-sm">
+                {this.state.error?.toString()}
+              </p>
+              <pre className="whitespace-pre-wrap text-[11px] text-white/60">
+                {this.state.error?.stack}
+              </pre>
+              {this.state.errorInfo?.componentStack && (
+                <pre className="whitespace-pre-wrap text-[10px] text-amber-300/70 border-t border-white/10 pt-2 mt-2">
+                  Component Stack:{'\n'}
+                  {this.state.errorInfo.componentStack}
+                </pre>
+              )}
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="btn-primary py-2.5 px-5 text-xs font-bold cursor-pointer"
+            >
+              Tải lại trang
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
+export default function UploadPage(props) {
+  return (
+    <UploadErrorBoundary>
+      <UploadPageContent {...props} />
+    </UploadErrorBoundary>
   )
 }

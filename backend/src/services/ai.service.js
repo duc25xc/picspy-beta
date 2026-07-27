@@ -486,8 +486,16 @@ ${styleCorpus}
                     'Single word or short phrase lowercase tags without hashes',
                 },
               },
+              categories: {
+                type: 'ARRAY',
+                items: {
+                  type: 'STRING',
+                  description:
+                    'Array of 2 to 3 suggested suitable category names in Vietnamese (e.g. Thiên nhiên, Anime, Minimal, Chill, Vintage, Cyberpunk, Đồ ăn, Streetwear...)',
+                },
+              },
             },
-            required: ['caption', 'tags'],
+            required: ['caption', 'tags', 'categories'],
           },
         },
       })

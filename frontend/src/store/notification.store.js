@@ -197,6 +197,10 @@ function getToastMessage(notif) {
       return `📢 Thông báo hệ thống: ${notif.metadata?.message || ''}`
     case 'SYSTEM_WARNING':
       return `⚠️ Cảnh báo tài khoản: ${notif.metadata?.message || ''}`
+    case 'ADMIN_CATEGORY_REQUEST':
+      return `🏷️ Yêu cầu danh mục mới: ${notif.metadata?.message || 'Có đề xuất danh mục mới từ Creator'}`
+    case 'POST_APPROVED':
+      return `🎉 Bài viết đã được duyệt: ${notif.metadata?.message || 'Bài viết của bạn đã được xuất bản!'}`
     default:
       return null
   }

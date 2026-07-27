@@ -3,6 +3,7 @@ import exifr from 'exifr'
 import mongoose from 'mongoose'
 import Post, { AI_TOOLS } from '../models/Post.model.js'
 import Category from '../models/Category.model.js'
+import Settings from '../models/Settings.model.js'
 import Interaction from '../models/Interaction.model.js'
 import AppError from '../utils/AppError.js'
 import { uploadBuffer } from '../config/cloudinary.js'
@@ -505,6 +506,23 @@ export const createPost = async (req, res, next) => {
     const allowWorkflow = userTier === 'ultimate'
     const hasExif = Object.keys(exifData).length > 0
 
+    // Fetch system default tags
+    let sysDefaultTags = ['picspy']
+    try {
+      const settingsDoc = await Settings.getSingleton()
+      if (settingsDoc?.defaultTags?.length) {
+        sysDefaultTags = settingsDoc.defaultTags.map((t) => t.toLowerCase().trim()).filter(Boolean)
+      }
+    } catch (err) {
+      console.error('Failed to fetch defaultTags from Settings:', err)
+    }
+    const userTags = (data.tags || []).map((t) => t.toLowerCase().trim()).filter(Boolean)
+    const finalTags = [...new Set([...sysDefaultTags, ...userTags])]
+
+    const reqCatStr = body.requestedCategory ? body.requestedCategory.trim().slice(0, 50) : null
+    const isCustomCat = data.category === 'custom' || body.category === 'custom' || Boolean(reqCatStr)
+    const finalCatSlug = isCustomCat ? 'khac' : (data.category || 'khac')
+
     // ── Create Post document ──────────────────────────────────────
     const post = await Post.create({
       authorId: req.user._id,
@@ -519,11 +537,13 @@ export const createPost = async (req, res, next) => {
       ...(allowWorkflow && data.workflowJson && finalPostType === 'ai' ? { workflowJson: data.workflowJson } : {}),
       contentType: data.contentType,
       caption: data.caption,
-      tags: data.tags,
-      category: data.category,
+      tags: finalTags,
+      category: finalCatSlug,
+      requestedCategory: reqCatStr,
+      requestedCategoryStatus: reqCatStr ? 'pending' : 'none',
       isPremium: data.isPremium,
       priceInVnd: data.priceInVnd,
-      allowRemix: data.allowRemix,
+      allowRemix: finalPostType === 'ai' ? Boolean(data.allowRemix) : false,
       remixRoyaltyPercent: data.remixRoyaltyPercent,
       remixDiscountPercent: data.remixDiscountPercent,
       resolution: data.resolution,
@@ -572,6 +592,20 @@ export const createPost = async (req, res, next) => {
         message: `🖼️ Bài đăng mới "${post.caption || 'Chưa có mô tả'}" vừa được tạo bởi @${req.user.username} (Chờ duyệt).`
       }
     }).catch(err => console.error(err))
+
+    if (reqCatStr) {
+      await triggerAdminNotificationEvent({
+        type: 'ADMIN_CATEGORY_REQUEST',
+        actorId: req.user._id,
+        targetId: post._id,
+        targetModel: 'Post',
+        metadata: {
+          postId: post._id,
+          categoryName: reqCatStr,
+          message: `🏷️ Yêu cầu danh mục tùy chỉnh: Creator @${req.user.username} vừa đề xuất danh mục mới "${reqCatStr}".`,
+        },
+      }).catch(err => console.error(err))
+    }
 
     res.status(202).json({
       message: 'Nội dung đang được xử lý. Bạn sẽ nhận thông báo khi hoàn tất.',
@@ -1382,7 +1416,7 @@ export const updatePost = async (req, res, next) => {
     post.category = data.category !== undefined ? data.category : post.category
     post.isPremium = data.isPremium !== undefined ? data.isPremium : post.isPremium
     post.priceInVnd = data.priceInVnd !== undefined ? data.priceInVnd : post.priceInVnd
-    post.allowRemix = data.allowRemix !== undefined ? data.allowRemix : post.allowRemix
+    post.allowRemix = activePostType === 'ai' ? (data.allowRemix !== undefined ? Boolean(data.allowRemix) : post.allowRemix) : false
     post.remixRoyaltyPercent = data.remixRoyaltyPercent !== undefined ? data.remixRoyaltyPercent : post.remixRoyaltyPercent
     post.remixDiscountPercent = data.remixDiscountPercent !== undefined ? data.remixDiscountPercent : post.remixDiscountPercent
     post.isCollection = activePostType !== 'ai' ? (body.isCollection === true) : false

@@ -297,10 +297,16 @@ export const suggestMeta = async (req, res, next) => {
       description: `Tự động gợi ý mô tả và tags (Style: ${chosenStyle}) bằng AI`,
     }).catch(err => console.error('Failed to log TokenTransaction for suggestMeta:', err))
 
+    const suggestedCategories = Array.isArray(aiSuggestions.categories)
+      ? aiSuggestions.categories.slice(0, 3)
+      : [aiSuggestions.category || 'Khác']
+
     return res.json({
       success: true,
       caption: aiSuggestions.caption,
       tags: aiSuggestions.tags,
+      categories: suggestedCategories,
+      category: suggestedCategories[0] || 'Khác',
       tokensCost: META_COST,
       remainingTokens,
     })

@@ -154,6 +154,12 @@ const settingsSchema = new mongoose.Schema(
       min: 0,
       max: 10000,
     },
+    // ── Default Tags for Posts ──────────────────────────────────
+    defaultTags: {
+      type: [String],
+      default: ['picspy'],
+    },
+
     // ── Announcement Banner ──────────────────────────────────────
     announcementText: {
       type: String,

@@ -12,6 +12,13 @@ import cookieParser from 'cookie-parser'
 import rateLimit from 'express-rate-limit'
 
 
+import fs from 'fs'
+import path from 'path'
+import { fileURLToPath } from 'url'
+
+const __filename = fileURLToPath(import.meta.url)
+const __dirname = path.dirname(__filename)
+
 import connectDB from './config/db.js'
 import { initSocket } from './socket/index.js'
 import errorHandler from './middlewares/errorHandler.js'
@@ -146,6 +153,14 @@ app.use('/v1/studio', studioRoutes)
 app.use('/v1/notifications', notificationRoutes)
 app.use('/v1/security', securityRoutes)
 app.use('/v1/remix', remixRoutes)
+
+// Serve local CSV images from plant/datas/images for fallback image rendering
+const localImagesDir = path.join(__dirname, '../../plant/datas/images')
+if (fs.existsSync(localImagesDir)) {
+  app.use('/datas/images', express.static(localImagesDir))
+  app.use('/plant/datas/images', express.static(localImagesDir))
+}
+
 // Public: danh mục không cần auth
 app.get('/v1/categories', getPublicCategories)
 app.get('/v1/categories/details', getPublicCategoriesDetails)

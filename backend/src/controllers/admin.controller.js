@@ -1,12 +1,45 @@
 import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import Category from '../models/Category.model.js'
+import { classifySystemCategory } from '../services/csvImport.service.js'
 import Settings from '../models/Settings.model.js'
-import AuditLog from '../models/AuditLog.model.js'
 import Report from '../models/Report.model.js'
+import Notification from '../models/Notification.model.js'
+import AuditLog from '../models/AuditLog.model.js'
 import AppError from '../utils/AppError.js'
 import { logAdminAction } from '../utils/auditLogger.js'
-import { processCsvImport } from '../services/csvImport.service.js'
+import { processCsvImport, validateCsvHeaders, analyzeCsvImport, createDatabaseBackupSnapshot, undoImportBatch, parseCSV } from '../services/csvImport.service.js'
+
+/**
+ * Helper to scan plant/datas directory and return list of ALL CSV files on server
+ */
+function getServerCsvFilesList() {
+  const datasDir = path.join(__dirname, '../../../plant/datas')
+  if (!fs.existsSync(datasDir)) return []
+
+  try {
+    const files = fs.readdirSync(datasDir)
+    return files
+      .filter((f) => f.toLowerCase().endsWith('.csv'))
+      .map((f) => {
+        const fullPath = path.join(datasDir, f)
+        const stat = fs.statSync(fullPath)
+        const content = fs.readFileSync(fullPath, 'utf8')
+        const rows = parseCSV(content)
+        return {
+          fileName: f,
+          sizeBytes: stat.size,
+          rowCount: rows.length,
+          mtimeMs: stat.mtimeMs,
+        }
+      })
+      .sort((a, b) => b.mtimeMs - a.mtimeMs)
+  } catch (err) {
+    console.error('❌ Error finding server CSV files:', err)
+    return []
+  }
+}
+import { triggerNotificationEvent } from '../services/notification.service.js'
 import bcrypt from 'bcryptjs'
 import fs from 'fs'
 import path from 'path'
@@ -44,10 +77,25 @@ export const seedCategories = async () => {
 /** GET /admin/posts */
 export const getAllPosts = async (req, res, next) => {
   try {
-    const { status = 'pending', cursor, limit = 20 } = req.query
+    const { status = 'pending', cursor, limit = 20, hideCsv } = req.query
     const query = {}
     if (status !== 'all') query.status = status
     if (cursor) query._id = { $lt: cursor }
+
+    if (hideCsv === 'true') {
+      const aiUsers = await User.find({ email: /@picspy\.ai$/i }).select('_id').lean()
+      const aiUserIds = aiUsers.map((u) => u._id)
+
+      query.$and = [
+        ...(query.$and || []),
+        { isExternal: { $ne: true } },
+        { isExternalCsv: { $ne: true } },
+        { citedFrom: { $in: [null, undefined] } },
+        { sourceUrl: { $in: [null, undefined] } },
+        { externalId: { $in: [null, undefined] } },
+        { authorId: { $nin: aiUserIds } },
+      ]
+    }
 
     const posts = await Post.find(query)
       .sort({ _id: -1 })
@@ -79,12 +127,25 @@ export const getAllPosts = async (req, res, next) => {
     const hasMore = posts.length > parseInt(limit)
     if (hasMore) posts.pop()
 
-    const [pendingCount, approvedCount, rejectedCount, hiddenCount] =
+    const aiUsers = await User.find({ email: /@picspy\.ai$/i }).select('_id').lean()
+    const aiUserIds = aiUsers.map((u) => u._id)
+
+    const [pendingCount, approvedCount, rejectedCount, hiddenCount, csvCount] =
       await Promise.all([
         Post.countDocuments({ status: 'pending' }),
         Post.countDocuments({ status: 'approved' }),
         Post.countDocuments({ status: 'rejected' }),
         Post.countDocuments({ status: 'hidden' }),
+        Post.countDocuments({
+          $or: [
+            { isExternal: true },
+            { isExternalCsv: true },
+            { citedFrom: { $exists: true, $ne: null, $ne: '' } },
+            { sourceUrl: { $exists: true, $ne: null, $ne: '' } },
+            { externalId: { $exists: true, $ne: null, $ne: '' } },
+            { authorId: { $in: aiUserIds } },
+          ],
+        }),
       ])
 
     res.json({
@@ -94,6 +155,7 @@ export const getAllPosts = async (req, res, next) => {
         approved: approvedCount,
         rejected: rejectedCount,
         hidden: hiddenCount,
+        csv: csvCount,
         total: pendingCount + approvedCount + rejectedCount + hiddenCount,
       },
       pagination: {
@@ -137,6 +199,21 @@ export const updatePostStatus = async (req, res, next) => {
       await User.findByIdAndUpdate(post.authorId, {
         $inc: { 'stats.postsCount': -1 },
       })
+
+    // Send notification to creator on post approval
+    if (status === 'approved' && post.authorId) {
+      await triggerNotificationEvent({
+        type: 'POST_APPROVED',
+        actorId: req.user._id,
+        recipientId: post.authorId,
+        targetId: post._id,
+        targetModel: 'Post',
+        metadata: {
+          postId: post._id,
+          message: `🎉 Bài viết "${post.caption || 'Chưa có mô tả'}" của bạn đã được Admin phê duyệt và xuất bản!`,
+        },
+      }).catch((err) => console.error('Failed to trigger approve notification:', err))
+    }
 
     // Log admin action
     await logAdminAction(
@@ -957,6 +1034,7 @@ export const updateSettings = async (req, res, next) => {
       'postDetailLayout',
       'trendingCarouselInterval',
       'bypassEnabled',
+      'defaultTags',
     ]
     const updates = {}
     allowed.forEach((key) => {
@@ -1592,38 +1670,660 @@ export const getBypassKeys = async (req, res, next) => {
   }
 }
 
+
+
+/** GET /admin/posts/import-history — Lấy lịch sử import file CSV */
+export const getCsvImportHistory = async (req, res, next) => {
+  try {
+    const logs = await AuditLog.find({ action: 'POST_IMPORT_CSV' })
+      .sort({ createdAt: -1 })
+      .populate('adminId', 'username displayName avatar')
+      .lean()
+
+    const batchIds = logs.map((l) => l.details?.batchImportId).filter(Boolean)
+    const activeBatchCounts = await Post.aggregate([
+      { $match: { batchImportId: { $in: batchIds } } },
+      { $group: { _id: '$batchImportId', count: { $sum: 1 } } }
+    ])
+    const activeBatchMap = new Map(activeBatchCounts.map((b) => [b._id, b.count]))
+
+    const serverCsvFiles = getServerCsvFilesList()
+    const defaultFile = serverCsvFiles.length > 0 ? serverCsvFiles[0] : null
+    const lastImportLog = logs[0]
+    const lastImportedFileName = lastImportLog?.details?.fileName || lastImportLog?.details?.file || null
+
+    res.json({
+      success: true,
+      logs: logs.map((log) => {
+        const batchId = log.details?.batchImportId
+        const activeCount = batchId ? (activeBatchMap.get(batchId) || 0) : 0
+        const isUndone = Boolean(log.details?.isUndone || (batchId && activeCount === 0))
+        return {
+          id: log._id,
+          admin: log.adminId || { username: log.details?.by || 'admin' },
+          createdAt: log.createdAt,
+          details: {
+            ...log.details,
+            isUndone,
+            activeCount,
+          },
+        }
+      }),
+      defaultServerFile: defaultFile ? {
+        fileName: defaultFile.fileName,
+        sizeBytes: defaultFile.sizeBytes,
+        rowCount: defaultFile.rowCount,
+        mtimeMs: defaultFile.mtimeMs,
+      } : null,
+      serverCsvFiles,
+      lastImportedFileName,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/posts/analyze-csv — Phân tích & kiểm tra nhanh tập tin CSV trước khi Import */
+export const analyzeCsvPosts = async (req, res, next) => {
+  try {
+    let csvContent = ''
+    let fileName = 'CSV Export'
+    const localImagesBasePath = req.body?.localImagesBasePath || ''
+
+    const requestedFileName = req.body?.fileName || req.body?.selectedServerFileName
+    const datasDir = path.join(__dirname, '../../../plant/datas')
+
+    if (req.file) {
+      csvContent = req.file.buffer.toString('utf8')
+      fileName = req.file.originalname || 'uploaded_import.csv'
+    } else if (req.body && req.body.csvContent) {
+      csvContent = req.body.csvContent
+      if (req.body.fileName) fileName = req.body.fileName
+    } else {
+      let chosenPath = null
+      if (requestedFileName) {
+        const targetPath = path.join(datasDir, path.basename(requestedFileName))
+        if (fs.existsSync(targetPath)) {
+          chosenPath = targetPath
+        }
+      }
+      if (!chosenPath) {
+        const serverFiles = getServerCsvFilesList()
+        if (serverFiles.length > 0) {
+          chosenPath = path.join(datasDir, serverFiles[0].fileName)
+        }
+      }
+
+      if (chosenPath && fs.existsSync(chosenPath)) {
+        csvContent = fs.readFileSync(chosenPath, 'utf8')
+        fileName = path.basename(chosenPath)
+      } else {
+        throw new AppError('FILE_NOT_FOUND', 'Vui lòng chọn hoặc tải lên file CSV hợp lệ', 400)
+      }
+    }
+
+    const validation = validateCsvHeaders(csvContent)
+    if (!validation.valid) {
+      return res.status(400).json({
+        success: false,
+        message: `Tập tin CSV thiếu các cột bắt buộc: ${validation.missingFields.join(', ')}`,
+        missingFields: validation.missingFields,
+      })
+    }
+
+    const analysis = await analyzeCsvImport(csvContent, { fileName, localImagesBasePath })
+    res.json({
+      success: true,
+      analysis,
+    })
+  } catch (err) {
+    console.error('💥 [CSV ANALYZE ERROR]', err)
+    next(err)
+  }
+}
+
 /** POST /admin/import-csv — Import hàng loạt bài viết AI từ file CSV */
 export const importCsvPosts = async (req, res, next) => {
   try {
     let csvContent = ''
+    let fileName = 'CSV Export'
+    const localImagesBasePath = req.body?.localImagesBasePath || ''
+    const requestedFileName = req.body?.fileName || req.body?.selectedServerFileName
+    const datasDir = path.join(__dirname, '../../../plant/datas')
 
     if (req.file) {
       csvContent = req.file.buffer.toString('utf8')
+      fileName = req.file.originalname || 'uploaded_import.csv'
     } else if (req.body && req.body.csvContent) {
       csvContent = req.body.csvContent
+      if (req.body.fileName) fileName = req.body.fileName
     } else {
-      // Mặc định đọc file CSV youmind_export mới nhất trong thư mục plant/datas
-      const defaultCsvPath = path.join(__dirname, '../../../plant/datas/youmind_export_20260725_022113.csv')
-      if (fs.existsSync(defaultCsvPath)) {
-        csvContent = fs.readFileSync(defaultCsvPath, 'utf8')
+      let chosenPath = null
+      if (requestedFileName) {
+        const targetPath = path.join(datasDir, path.basename(requestedFileName))
+        if (fs.existsSync(targetPath)) {
+          chosenPath = targetPath
+        }
+      }
+      if (!chosenPath) {
+        const serverFiles = getServerCsvFilesList()
+        if (serverFiles.length > 0) {
+          chosenPath = path.join(datasDir, serverFiles[0].fileName)
+        }
+      }
+
+      if (chosenPath && fs.existsSync(chosenPath)) {
+        csvContent = fs.readFileSync(chosenPath, 'utf8')
+        fileName = path.basename(chosenPath)
       } else {
-        throw new AppError('FILE_NOT_FOUND', 'Vui lòng tải lên file CSV hợp lệ', 400)
+        throw new AppError('FILE_NOT_FOUND', 'Vui lòng chọn hoặc tải lên file CSV hợp lệ', 400)
       }
     }
 
-    const result = await processCsvImport(csvContent)
+    console.log(`🚀 [CSV IMPORT REQUEST] User: @${req.user.username}`)
+    console.log(`   - Target File: ${fileName} (Length: ${csvContent?.length || 0})`)
+    console.log(`   - localImagesBasePath: "${localImagesBasePath}"`)
 
+    // Header validation check
+    const validation = validateCsvHeaders(csvContent)
+    if (!validation.valid) {
+      console.warn('❌ [CSV HEADER INVALID]', validation.missingFields)
+      throw new AppError(
+        'CSV_HEADER_INVALID',
+        `File CSV không hợp lệ! Thiếu ${validation.missingFields.length} trường bắt buộc: ${validation.missingFields.join(', ')}`,
+        400
+      )
+    }
+
+    const adminUserId = req.user._id
+    const onProgress = ({ current, total, importedCount, skippedCount, createdUsersCount }) => {
+      if (global.io) {
+        global.io.to(`user:${adminUserId}`).emit('csv_import_progress', {
+          current,
+          total,
+          importedCount,
+          skippedCount,
+          createdUsersCount,
+          percentage: Math.round((current / total) * 100),
+        })
+      }
+    }
+
+    const batchImportId = `batch_${Date.now()}`
+
+    // 1. Safety Protocol Step 1: Automatic Database Backup Snapshot
+    const backupSnapshot = await createDatabaseBackupSnapshot()
+
+    let result = null
+    let importError = null
+
+    try {
+      result = await processCsvImport(csvContent, { localImagesBasePath, onProgress, batchImportId })
+    } catch (err) {
+      importError = err
+    }
+
+    // ALWAYS record audit log for import history with batchImportId
     await logAdminAction(req.user._id, 'POST_IMPORT_CSV', null, 'Post', {
       by: req.user.username,
-      totalRows: result.totalRows,
-      importedCount: result.importedCount,
-      skippedCount: result.skippedCount,
-      createdUsersCount: result.createdUsersCount,
+      fileName,
+      batchImportId,
+      backupId: backupSnapshot?.backupId,
+      totalRows: result?.totalRows || 0,
+      importedCount: result?.importedCount || 0,
+      skippedCount: result?.skippedCount || 0,
+      createdUsersCount: result?.createdUsersCount || 0,
+      errorCount: result?.errorCount || (importError ? 1 : 0),
+      errors: result?.errors || (importError ? [{ row: 0, title: 'Lỗi Import', error: importError.message }] : []),
+      status: importError ? 'failed' : result?.status || 'success',
+      errorMessage: importError ? importError.message : null,
+      localImagesBasePath: localImagesBasePath || 'Mặc định (data/images)',
+    })
+
+    if (importError) {
+      throw importError
+    }
+
+    res.json({
+      message: result?.errorCount > 0
+        ? `Nhập CSV hoàn tất với ${result.importedCount} bài thành công, ${result.errorCount} bài lỗi.`
+        : 'Nhập dữ liệu bài đăng AI từ CSV thành công!',
+      data: {
+        ...result,
+        fileName,
+        batchImportId,
+        backupId: backupSnapshot?.backupId,
+        localImagesBasePath,
+      },
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/posts/undo-import — Hoàn tác (Undo) đợt import CSV */
+export const undoCsvImportBatch = async (req, res, next) => {
+  try {
+    const { batchImportId } = req.body
+    if (!batchImportId) {
+      throw new AppError('MISSING_BATCH_ID', 'Vui lòng cung cấp batchImportId để hoàn tác đợt import', 400)
+    }
+
+    const result = await undoImportBatch(batchImportId)
+
+    // Mark original import audit log as undone
+    await AuditLog.updateMany(
+      { action: 'POST_IMPORT_CSV', 'details.batchImportId': batchImportId },
+      { $set: { 'details.isUndone': true, 'details.undoneAt': new Date(), 'details.undoneCount': result.undoneCount } }
+    )
+
+    await logAdminAction(req.user._id, 'POST_UNDO_IMPORT_CSV', null, 'Post', {
+      by: req.user.username,
+      batchImportId,
+      undoneCount: result.undoneCount,
     })
 
     res.json({
-      message: 'Nhập dữ liệu bài đăng AI từ CSV thành công!',
-      data: result,
+      success: true,
+      message: result.message,
+      undoneCount: result.undoneCount,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** GET /admin/category-requests — Lấy danh sách yêu cầu tạo danh mục mới */
+export const getCategoryRequests = async (req, res, next) => {
+  try {
+    const requests = await Post.find({ requestedCategoryStatus: 'pending' })
+      .sort({ createdAt: -1 })
+      .populate('authorId', 'username displayName avatar email')
+      .select('+isExternal +batchImportId +requestedCategory +requestedCategoryStatus +category +status +caption +images')
+      .lean()
+
+    res.json({
+      requests,
+      pendingCount: requests.length,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/category-requests/:postId/approve — Phê duyệt yêu cầu danh mục & tạo Category mới */
+export const approveCategoryRequest = async (req, res, next) => {
+  try {
+    const { postId } = req.params
+    const post = await Post.findById(postId).populate('authorId', 'username displayName email')
+    if (!post) {
+      throw new AppError('NOT_FOUND', 'Không tìm thấy bài viết', 404)
+    }
+
+    const rawCategoryName = post.requestedCategory || 'Danh mục mới'
+    const slug = rawCategoryName
+      .toLowerCase()
+      .trim()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[đĐ]/g, 'd')
+      .replace(/[^a-z0-9\s-]/g, '')
+      .replace(/\s+/g, '-')
+      .replace(/-+/g, '-') || 'danh-muc-moi'
+
+    let categoryDoc = await Category.findOne({ slug })
+    if (!categoryDoc) {
+      const maxOrderDoc = await Category.findOne().sort({ sortOrder: -1 }).select('sortOrder').lean()
+      const nextSortOrder = (maxOrderDoc?.sortOrder || 0) + 1
+
+      categoryDoc = await Category.create({
+        name: rawCategoryName,
+        slug,
+        emoji: '✨',
+        description: `Danh mục được đóng góp từ yêu cầu của creator @${post.authorId?.username || 'user'}`,
+        isActive: true,
+        sortOrder: nextSortOrder,
+        createdBy: req.user._id,
+      })
+    }
+
+    const prevStatus = post.status
+    post.category = categoryDoc.slug
+    post.requestedCategoryStatus = 'approved'
+    if (prevStatus !== 'approved') {
+      post.status = 'approved'
+      post.reviewedBy = req.user._id
+      post.reviewedAt = new Date()
+      if (post.authorId?._id || post.authorId) {
+        await User.findByIdAndUpdate(post.authorId._id || post.authorId, {
+          $inc: { 'stats.postsCount': 1 },
+        }).catch(() => {})
+      }
+    }
+    await post.save()
+
+    // ── Auto-reassign all OTHER pending posts requesting the same category ──
+    // Once a category is created, other posts requesting it get their category assigned and requestedCategoryStatus approved,
+    // but their post status stays 'pending' so Admin can review them in the Posts tab.
+    const bulkResult = await Post.updateMany(
+      {
+        _id: { $ne: post._id },
+        requestedCategoryStatus: 'pending',
+        requestedCategory: { $regex: new RegExp(`^${rawCategoryName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+      },
+      {
+        $set: {
+          category: categoryDoc.slug,
+          requestedCategoryStatus: 'approved',
+        },
+      }
+    )
+    const autoApprovedCount = bulkResult.modifiedCount || 0
+    if (autoApprovedCount > 0) {
+      console.log(`🔄 [AUTO-ASSIGN] Assigned category "${categoryDoc.slug}" & resolved requestedCategoryStatus for ${autoApprovedCount} other pending posts with requestedCategory="${rawCategoryName}" (status remains pending for admin review)`)
+    }
+
+    // Log admin audit action
+    await logAdminAction(req.user._id, 'CATEGORY_CREATE', categoryDoc._id, 'Category', {
+      approvedForPostId: post._id,
+      categoryName: rawCategoryName,
+      slug: categoryDoc.slug,
+      autoApprovedCount,
+      by: req.user.username,
+    })
+
+    // Send notification to creator
+    const creatorId = post.authorId?._id || post.authorId
+    if (creatorId) {
+      await triggerNotificationEvent({
+        type: 'POST_APPROVED',
+        actorId: req.user._id,
+        recipientId: creatorId,
+        targetId: post._id,
+        targetModel: 'Post',
+        metadata: {
+          postId: post._id,
+          message: `🎉 Yêu cầu thêm danh mục "${rawCategoryName}" của bạn đã được Admin phê duyệt và xuất bản bài viết!`,
+        },
+      }).catch((err) => console.error('Failed to trigger approve notification:', err))
+    }
+
+    res.json({
+      message: autoApprovedCount > 0
+        ? `🎉 Đã tạo danh mục "${rawCategoryName}", duyệt bài viết và tự động phê duyệt thêm ${autoApprovedCount} bài chờ cùng danh mục!`
+        : `🎉 Đã phê duyệt danh mục "${rawCategoryName}" và duyệt bài viết thành công!`,
+      category: categoryDoc,
+      autoApprovedCount,
+      post,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/category-requests/:postId/reject — Từ chối yêu cầu danh mục & gán về 'khac' */
+export const rejectCategoryRequest = async (req, res, next) => {
+  try {
+    const { postId } = req.params
+    const post = await Post.findById(postId).populate('authorId', 'username displayName email')
+    if (!post) {
+      throw new AppError('NOT_FOUND', 'Không tìm thấy bài viết', 404)
+    }
+
+    const rawCategoryName = post.requestedCategory || 'Danh mục'
+    const prevStatus = post.status
+    post.category = 'khac'
+    post.requestedCategoryStatus = 'rejected'
+    if (prevStatus !== 'approved') {
+      post.status = 'approved'
+      post.reviewedBy = req.user._id
+      post.reviewedAt = new Date()
+      if (post.authorId?._id || post.authorId) {
+        await User.findByIdAndUpdate(post.authorId._id || post.authorId, {
+          $inc: { 'stats.postsCount': 1 },
+        }).catch(() => {})
+      }
+    }
+    await post.save()
+
+    // Send notification to creator
+    const creatorIdReject = post.authorId?._id || post.authorId
+    if (creatorIdReject) {
+      await triggerNotificationEvent({
+        type: 'POST_APPROVED',
+        actorId: req.user._id,
+        recipientId: creatorIdReject,
+        targetId: post._id,
+        targetModel: 'Post',
+        metadata: {
+          postId: post._id,
+          message: `⚠️ Yêu cầu thêm danh mục "${rawCategoryName}" không được duyệt, bài viết đã được xếp vào danh mục "Khác" và xuất bản.`,
+        },
+      }).catch((err) => console.error('Failed to trigger reject notification:', err))
+    }
+
+    res.json({
+      message: `⚠️ Đã từ chối yêu cầu danh mục "${rawCategoryName}". Bài viết đã được gán về danh mục "Khác" và xuất bản.`,
+      post,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/posts/analyze-reclassify-csv — Phân tích & Quét bài viết CSV cho Admin duyệt tương tác */
+export const analyzeReclassifyCsvPosts = async (req, res, next) => {
+  try {
+    const { scope = 'all' } = req.body || {}
+    const activeCategoriesDocs = await Category.find({ isActive: true }).select('name slug').lean().catch(() => [])
+
+    const query = {
+      $or: [
+        { isExternal: true },
+        { externalId: { $exists: true, $ne: null } },
+        { sourceUrl: { $exists: true, $ne: null } }
+      ]
+    }
+
+    if (scope === 'other') {
+      query.$and = [
+        {
+          $or: [
+            { category: 'other' },
+            { category: { $exists: false } },
+            { category: null },
+            { category: '' },
+            { requestedCategoryStatus: 'pending' }
+          ]
+        }
+      ]
+    }
+
+    const testLimit = req.body.limit ? parseInt(req.body.limit, 10) : 0
+    let csvPostsQuery = Post.find(query).populate('authorId', 'username displayName').lean()
+    if (testLimit > 0) {
+      csvPostsQuery = csvPostsQuery.limit(testLimit)
+    }
+    const csvPosts = await csvPostsQuery
+
+    const adminUserId = req.user._id
+    const totalScanned = csvPosts.length
+    const reclassifyList = []
+    const newCategoryProposals = []
+
+    let scannedCount = 0
+    for (const post of csvPosts) {
+      scannedCount++
+
+      if (global.io && (scannedCount % 15 === 0 || scannedCount === totalScanned || scannedCount === 1)) {
+        global.io.to(`user:${adminUserId}`).emit('reclassify_analysis_progress', {
+          current: scannedCount,
+          total: totalScanned,
+          percentage: Math.round((scannedCount / totalScanned) * 100),
+        })
+        if (scannedCount % 30 === 0) {
+          await new Promise((r) => setTimeout(r, 12))
+        }
+      }
+
+      const authorName = post.authorId?.displayName || post.authorId?.username || ''
+      const catRes = classifySystemCategory(
+        post.requestedCategory || post.category || '',
+        post.prompt || '',
+        authorName,
+        post.caption || '',
+        activeCategoriesDocs,
+        post.tags || []
+      )
+
+      const imageUrl = post.generatedImages?.[0]?.url || post.generatedImages?.[0]?.thumbnailUrl || ''
+      const postTitle = post.caption || post.prompt?.substring(0, 60) || 'Bài viết CSV'
+
+      if (catRes.isMatched) {
+        const targetSlug = catRes.category
+        const matchedCategoryDoc = activeCategoriesDocs.find(c => c.slug === targetSlug)
+        const targetName = matchedCategoryDoc ? matchedCategoryDoc.name : targetSlug.toUpperCase()
+        const isDifferent = post.category !== targetSlug || post.requestedCategoryStatus === 'pending'
+
+        reclassifyList.push({
+          postId: post._id,
+          title: postTitle,
+          imageUrl,
+          currentCategory: post.category || 'other',
+          suggestedCategory: targetSlug,
+          suggestedCategoryName: targetName,
+          suggested3Categories: catRes.suggestedCategories?.length > 0
+            ? catRes.suggestedCategories
+            : [targetName, 'Khác', 'Sáng tạo mới'],
+          isDifferent,
+          confidence: catRes.confidence || 85,
+          post,
+        })
+      } else if (catRes.requestedCategory) {
+        newCategoryProposals.push({
+          postId: post._id,
+          title: postTitle,
+          imageUrl,
+          currentCategory: post.category || 'other',
+          requestedCategory: catRes.requestedCategory,
+          suggested3Categories: catRes.suggestedCategories?.length > 0
+            ? catRes.suggestedCategories
+            : [catRes.requestedCategory, 'Khái niệm mới', 'Nghệ thuật AI'],
+          confidence: catRes.confidence || 55,
+          post,
+        })
+      }
+    }
+
+    res.json({
+      success: true,
+      totalScanned,
+      reclassifyList,
+      newCategoryProposals,
+      activeCategories: activeCategoriesDocs,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/posts/batch-apply-reclassifications — Áp dụng phân loại lại danh mục cho bài đăng chọn lọc */
+export const batchApplyReclassifications = async (req, res, next) => {
+  try {
+    const { items } = req.body
+    if (!Array.isArray(items) || items.length === 0) {
+      throw new AppError('BAD_REQUEST', 'Danh sách bài đăng cần cập nhật không hợp lệ', 400)
+    }
+
+    let updatedCount = 0
+    for (const item of items) {
+      if (!item.postId || !item.targetCategory) continue
+      await Post.findByIdAndUpdate(item.postId, {
+        category: item.targetCategory,
+        requestedCategoryStatus: 'none',
+        status: 'approved',
+        reviewedBy: req.user._id,
+        reviewedAt: new Date()
+      })
+      updatedCount++
+    }
+
+    res.json({
+      success: true,
+      message: `Đã cập nhật danh mục cho ${updatedCount} bài viết thành công.`,
+      updatedCount
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/posts/batch-apply-category-proposals — Áp dụng quyết định đề xuất danh mục mới */
+export const batchApplyCategoryProposals = async (req, res, next) => {
+  try {
+    const { decisions } = req.body
+    if (!Array.isArray(decisions) || decisions.length === 0) {
+      throw new AppError('BAD_REQUEST', 'Danh sách quyết định không hợp lệ', 400)
+    }
+
+    let approvedCount = 0
+    let rejectedCount = 0
+
+    for (const d of decisions) {
+      const post = await Post.findById(d.postId)
+      if (!post) continue
+
+      if (d.action === 'approve') {
+        const rawName = (d.chosenCategoryName || post.requestedCategory || 'Danh mục mới').trim()
+        const slug = rawName
+          .toLowerCase()
+          .trim()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/[đĐ]/g, 'd')
+          .replace(/[^a-z0-9\s-]/g, '')
+          .replace(/\s+/g, '-')
+          .replace(/-+/g, '-') || 'danh-muc-moi'
+
+        let categoryDoc = await Category.findOne({ slug })
+        if (!categoryDoc) {
+          const maxOrderDoc = await Category.findOne().sort({ sortOrder: -1 }).select('sortOrder').lean()
+          const nextSortOrder = (maxOrderDoc?.sortOrder || 0) + 1
+
+          categoryDoc = await Category.create({
+            name: rawName,
+            slug,
+            emoji: '✨',
+            description: `Danh mục được tạo từ đề xuất bài đăng CSV`,
+            isActive: true,
+            sortOrder: nextSortOrder,
+            createdBy: req.user._id,
+          })
+        }
+
+        post.category = categoryDoc.slug
+        post.requestedCategoryStatus = 'approved'
+        post.status = 'approved'
+        post.reviewedBy = req.user._id
+        post.reviewedAt = new Date()
+        await post.save()
+        approvedCount++
+      } else {
+        post.category = 'other'
+        post.requestedCategoryStatus = 'rejected'
+        post.status = 'approved'
+        post.reviewedBy = req.user._id
+        post.reviewedAt = new Date()
+        await post.save()
+        rejectedCount++
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Hoàn tất xử lý: Chấp nhận tạo ${approvedCount} danh mục mới, từ chối gán Khác ${rejectedCount} bài.`,
+      approvedCount,
+      rejectedCount
     })
   } catch (err) {
     next(err)

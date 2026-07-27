@@ -49,6 +49,8 @@ const TAB_FILTER = {
     'ADMIN_NEW_WITHDRAW',
     'ADMIN_NEW_REPORT',
     'ADMIN_STATS_SUMMARY',
+    'ADMIN_CATEGORY_REQUEST',
+    'POST_APPROVED',
   ],
 }
 
@@ -162,6 +164,7 @@ const NotificationPanel = () => {
       case 'POST_LIKE':
       case 'POST_COMMENT':
       case 'POST_MENTION':
+      case 'POST_APPROVED':
         if (postId) navigate(`/posts/${postId}`)
         break
       case 'COMMENT_REPLY':
@@ -210,7 +213,13 @@ const NotificationPanel = () => {
       case 'ADMIN_STATS_SUMMARY':
         navigate('/admin?tab=dashboard')
         break
+      case 'ADMIN_CATEGORY_REQUEST':
+        navigate('/admin?tab=categories')
+        break
       default:
+        if (notif.metadata?.url) {
+          navigate(notif.metadata.url)
+        }
         break
     }
   }
@@ -470,8 +479,24 @@ const NotificationPanel = () => {
             {notif.metadata?.message || '📊 Thống kê báo cáo hàng ngày.'}
           </span>
         )
+      case 'ADMIN_CATEGORY_REQUEST':
+        return (
+          <span>
+            {notif.metadata?.message || '🏷️ Yêu cầu danh mục tùy chỉnh mới từ Creator.'}
+          </span>
+        )
+      case 'POST_APPROVED':
+        return (
+          <span>
+            {notif.metadata?.message || '🎉 Bài viết của bạn đã được Admin phê duyệt và xuất bản!'}
+          </span>
+        )
       default:
-        return <span>Bạn có thông báo mới</span>
+        return (
+          <span>
+            {notif.metadata?.message || 'Bạn có thông báo mới'}
+          </span>
+        )
     }
   }
 

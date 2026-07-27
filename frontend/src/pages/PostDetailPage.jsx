@@ -487,6 +487,7 @@ const PostDetailPage = () => {
   }
 
   useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
     fetchPost()
     api.post(`/posts/${id}/view`).catch(() => {})
     fetchDiscoveryData()

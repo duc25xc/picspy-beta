@@ -676,7 +676,10 @@ const ProfilePage = () => {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ delay: i * 0.04, duration: 0.3 }}
                     className="group relative overflow-hidden rounded-2xl bg-surface-50 cursor-pointer aspect-square"
-                    onClick={() => navigate(`/posts/${post._id}`)}
+                    onClick={() => {
+                      window.scrollTo({ top: 0, behavior: 'smooth' })
+                      navigate(`/posts/${post._id}`)
+                    }}
                   >
                     <img
                       src={getOptimizedWebpUrl(

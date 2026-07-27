@@ -103,6 +103,17 @@ const AuthLayout = ({ children }) => (
   <div className="min-h-screen bg-surface">{children}</div>
 )
 
+// Tự động scroll lên đầu trang khi chuyển route
+const ScrollToTop = () => {
+  const { pathname } = useLocation()
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }, [pathname])
+
+  return null
+}
+
 export default function App() {
   const location = useLocation()
   const refreshMe = useAuthStore((s) => s.refreshMe)
@@ -135,6 +146,7 @@ export default function App() {
 
   return (
     <>
+      <ScrollToTop />
       <ThemeTransitionOverlay />
       <NotificationPanel />
       <AnimatePresence mode="wait">

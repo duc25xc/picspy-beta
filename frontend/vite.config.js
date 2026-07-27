@@ -36,7 +36,13 @@ export default defineConfig(({ mode }) => {
   console.log(`[vite.config] VITE_SOCKET_URL = ${VITE_SOCKET_URL}`)
 
   return {
-    plugins: [react()],
+    plugins: [
+      react({
+        babel: {
+          compact: true,
+        },
+      }),
+    ],
     resolve: {
       alias: {
         'react-hot-toast': path.resolve(__dirname, './src/utils/toast.js')
