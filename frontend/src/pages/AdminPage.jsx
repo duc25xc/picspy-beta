@@ -6,6 +6,7 @@ import React, {
   useEffect,
   useCallback,
   useRef,
+  useMemo,
   Component,
 } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -35,6 +36,10 @@ import {
   Trash2,
   Eye,
   TrendingUp,
+  TrendingDown,
+  Activity,
+  PieChart,
+  Layers,
   ToggleLeft,
   ToggleRight,
   Check,
@@ -288,14 +293,372 @@ const StylePreview = ({ styleKey }) => {
 // ══════════════════════════════════════════════════════════════════
 // TAB: DASHBOARD
 // ══════════════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════════════════
+// ENTERPRISE INTERACTIVE SVG CHART COMPONENT
+// ══════════════════════════════════════════════════════════════════
+const EnterpriseChart = ({
+  data = [],
+  series = [
+    {
+      key: 'posts',
+      label: 'Bài đăng mới',
+      color: '#a855f7',
+      gradient: ['#a855f7', '#7c3aed'],
+    },
+    {
+      key: 'users',
+      label: 'User mới',
+      color: '#06b6d4',
+      gradient: ['#06b6d4', '#0284c7'],
+    },
+  ],
+  days = 7,
+  chartType = 'area',
+}) => {
+  const [activeIndex, setActiveIndex] = useState(null)
+  const svgRef = useRef(null)
+
+  const W = 800
+  const H = 230
+  const Pt = 20
+  const Pb = 35
+  const Pl = 35
+  const Pr = 20
+  const HA = H - Pt - Pb
+  const WA = W - Pl - Pr
+
+  const values = data.flatMap((d) => series.map((s) => d[s.key] || 0))
+  const maxVal = Math.max(...values, 5)
+
+  // Calculate points for each series
+  const seriesPoints = useMemo(() => {
+    if (!data || data.length === 0) return []
+    return series.map((s) => {
+      const points = data.map((d, i) => {
+        const x = Pl + (data.length > 1 ? (i / (data.length - 1)) * WA : WA / 2)
+        const v = d[s.key] || 0
+        const y = H - Pb - (v / maxVal) * HA
+        return { x, y, value: v, label: d.label || d.date }
+      })
+
+      // Construct cubic bezier smooth path
+      let pathD = ''
+      if (points.length === 1) {
+        pathD = `M ${points[0].x - 20} ${points[0].y} L ${points[0].x + 20} ${points[0].y}`
+      } else {
+        pathD = `M ${points[0].x} ${points[0].y}`
+        for (let i = 0; i < points.length - 1; i++) {
+          const curr = points[i]
+          const next = points[i + 1]
+          const mx = (curr.x + next.x) / 2
+          pathD += ` C ${mx} ${curr.y}, ${mx} ${next.y}, ${next.x} ${next.y}`
+        }
+      }
+
+      const lastX = points[points.length - 1].x
+      const firstX = points[0].x
+      const areaD = `${pathD} L ${lastX} ${H - Pb} L ${firstX} ${H - Pb} Z`
+
+      return {
+        ...s,
+        points,
+        pathD,
+        areaD,
+      }
+    })
+  }, [data, series, maxVal, WA, HA, Pl, Pr, Pt, Pb, H])
+
+  const handleMouseMove = (e) => {
+    if (!svgRef.current || !data.length) return
+    const rect = svgRef.current.getBoundingClientRect()
+    const mouseX = e.clientX - rect.left
+    const normalizedX = Math.max(0, Math.min(mouseX, rect.width))
+    const index = Math.round((normalizedX / rect.width) * (data.length - 1))
+    setActiveIndex(index)
+  }
+
+  const handleMouseLeave = () => {
+    setActiveIndex(null)
+  }
+
+  const activeItem =
+    activeIndex !== null && data[activeIndex] ? data[activeIndex] : null
+  const yTicks = [0, Math.round(maxVal / 2), maxVal]
+
+  return (
+    <div className="relative w-full space-y-3">
+      {/* Legend & Header Stats Summary */}
+      <div className="flex flex-wrap items-center justify-between gap-3 text-xs">
+        <div className="flex items-center gap-4">
+          {series.map((s) => (
+            <div
+              key={s.key}
+              className="flex items-center gap-2 font-medium text-white/80 bg-white/5 px-2.5 py-1 rounded-lg border border-white/10"
+            >
+              <span
+                className="w-2.5 h-2.5 rounded-full shadow-sm"
+                style={{ background: s.color }}
+              />
+              <span>{s.label}:</span>
+              <span className="font-bold text-white">
+                {data
+                  .reduce((sum, d) => sum + (d[s.key] || 0), 0)
+                  .toLocaleString()}
+              </span>
+            </div>
+          ))}
+        </div>
+        {activeItem && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-2 bg-violet-600/20 px-3 py-1 rounded-full text-violet-200 text-xs font-semibold border border-violet-500/30"
+          >
+            <Clock size={12} className="text-violet-400" />
+            <span>Đang chọn: {activeItem.label}</span>
+          </motion.div>
+        )}
+      </div>
+
+      {/* Main SVG Area */}
+      <div
+        className="relative w-full overflow-hidden rounded-2xl bg-black/40 border border-white/10 p-3 sm:p-4 backdrop-blur-md"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={handleMouseLeave}
+      >
+        <svg
+          ref={svgRef}
+          viewBox={`0 0 ${W} ${H}`}
+          className="w-full h-56 sm:h-64 cursor-crosshair overflow-visible select-none"
+          preserveAspectRatio="none"
+        >
+          <defs>
+            {series.map((s) => (
+              <linearGradient
+                key={`grad-${s.key}`}
+                id={`grad-${s.key}`}
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="1"
+              >
+                <stop offset="0%" stopColor={s.color} stopOpacity="0.4" />
+                <stop offset="75%" stopColor={s.color} stopOpacity="0.05" />
+                <stop offset="100%" stopColor={s.color} stopOpacity="0.0" />
+              </linearGradient>
+            ))}
+          </defs>
+
+          {/* Y Axis Grid lines */}
+          {yTicks.map((val, idx) => {
+            const yPos = H - Pb - (val / maxVal) * HA
+            return (
+              <g key={idx}>
+                <line
+                  x1={Pl}
+                  y1={yPos}
+                  x2={W - Pr}
+                  y2={yPos}
+                  stroke="rgba(255,255,255,0.06)"
+                  strokeDasharray="4 4"
+                />
+                <text
+                  x={Pl - 8}
+                  y={yPos + 3}
+                  fill="rgba(255,255,255,0.3)"
+                  fontSize="10"
+                  textAnchor="end"
+                  className="font-mono text-[9px]"
+                >
+                  {val}
+                </text>
+              </g>
+            )
+          })}
+
+          {/* Area & Curves */}
+          {chartType === 'area'
+            ? seriesPoints.map((sp) => (
+                <g key={sp.key}>
+                  {/* Area Gradient Fill */}
+                  <path
+                    d={sp.areaD}
+                    fill={`url(#grad-${sp.key})`}
+                    className="transition-all duration-300"
+                  />
+                  {/* Glowing stroke path */}
+                  <path
+                    d={sp.pathD}
+                    fill="none"
+                    stroke={sp.color}
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="transition-all duration-300"
+                  />
+                </g>
+              ))
+            : /* Bar Chart Mode */
+              data.map((d, i) => {
+                const groupW = (WA / data.length) * 0.75
+                const groupX =
+                  Pl + (i / data.length) * WA + (WA / data.length - groupW) / 2
+                const barW = groupW / series.length
+                return (
+                  <g key={i}>
+                    {series.map((s, sIdx) => {
+                      const val = d[s.key] || 0
+                      const barH = (val / maxVal) * HA
+                      const bx = groupX + sIdx * barW
+                      const by = H - Pb - barH
+                      return (
+                        <rect
+                          key={s.key}
+                          x={bx}
+                          y={by}
+                          width={Math.max(barW - 2, 2)}
+                          height={Math.max(barH, 2)}
+                          rx="3"
+                          fill={s.color}
+                          opacity={activeIndex === i ? 1 : 0.8}
+                          className="transition-all duration-300"
+                        />
+                      )
+                    })}
+                  </g>
+                )
+              })}
+
+          {/* Active Hover Crosshair Line & Point Highlights */}
+          {activeIndex !== null && data[activeIndex] && (
+            <g className="pointer-events-none">
+              {(() => {
+                const cx =
+                  Pl +
+                  (data.length > 1
+                    ? (activeIndex / (data.length - 1)) * WA
+                    : WA / 2)
+                return (
+                  <>
+                    <line
+                      x1={cx}
+                      y1={Pt}
+                      x2={cx}
+                      y2={H - Pb}
+                      stroke="rgba(255,255,255,0.4)"
+                      strokeWidth="1.5"
+                      strokeDasharray="3 3"
+                    />
+                    {seriesPoints.map((sp) => {
+                      const pt = sp.points[activeIndex]
+                      if (!pt) return null
+                      return (
+                        <g key={sp.key}>
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="7"
+                            fill={sp.color}
+                            opacity="0.3"
+                          />
+                          <circle
+                            cx={pt.x}
+                            cy={pt.y}
+                            r="4"
+                            fill="#ffffff"
+                            stroke={sp.color}
+                            strokeWidth="2.5"
+                          />
+                        </g>
+                      )
+                    })}
+                  </>
+                )
+              })()}
+            </g>
+          )}
+
+          {/* X Axis Labels */}
+          {data.map((d, i) => {
+            const step = Math.ceil(data.length / 10)
+            if (i % step !== 0 && i !== data.length - 1) return null
+            const x =
+              Pl + (data.length > 1 ? (i / (data.length - 1)) * WA : WA / 2)
+            return (
+              <text
+                key={i}
+                x={x}
+                y={H - 10}
+                fill={activeIndex === i ? '#ffffff' : 'rgba(255,255,255,0.35)'}
+                fontSize="10"
+                fontWeight={activeIndex === i ? '700' : '400'}
+                textAnchor="middle"
+              >
+                {d.label}
+              </text>
+            )
+          })}
+        </svg>
+
+        {/* Floating Tooltip Card */}
+        <AnimatePresence>
+          {activeItem && (
+            <motion.div
+              initial={{ opacity: 0, y: 5 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="absolute top-4 right-4 bg-surface-100/90 border border-white/20 backdrop-blur-xl rounded-xl p-3 shadow-2xl space-y-1.5 pointer-events-none z-20 min-w-[160px]"
+            >
+              <div className="flex items-center justify-between gap-3 text-xs border-b border-white/10 pb-1">
+                <span className="font-bold text-violet-300">
+                  📌 {activeItem.label}
+                </span>
+                <span className="text-[10px] text-white/40">
+                  {days === 1 ? 'Khung giờ' : 'Ngày'}
+                </span>
+              </div>
+              <div className="space-y-1">
+                {series.map((s) => (
+                  <div
+                    key={s.key}
+                    className="flex items-center justify-between gap-4 text-xs"
+                  >
+                    <span className="flex items-center gap-1.5 text-white/70">
+                      <span
+                        className="w-2 h-2 rounded-full"
+                        style={{ background: s.color }}
+                      />
+                      {s.label}:
+                    </span>
+                    <span className="font-black text-white font-mono">
+                      {(activeItem[s.key] || 0).toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
+    </div>
+  )
+}
+
+// ══════════════════════════════════════════════════════════════════
+// TAB: DASHBOARD (ENTERPRISE OVERHAUL)
+// ══════════════════════════════════════════════════════════════════
 const DashboardTab = () => {
   const [stats, setStats] = useState(null)
   const [analytics, setAnalytics] = useState(null)
   const [days, setDays] = useState(7)
+  const [metricView, setMetricView] = useState('posts_users') // 'posts_users' | 'interactions' | 'approved'
+  const [chartType, setChartType] = useState('area') // 'area' | 'bar'
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState(new Date())
+
   const adminUser = useAuthStore((s) => s.user)
 
-  useEffect(() => {
+  const fetchData = useCallback(() => {
     setLoading(true)
     Promise.all([
       api.get('/admin/dashboard'),
@@ -304,190 +667,541 @@ const DashboardTab = () => {
       .then(([s, a]) => {
         setStats(s.data)
         setAnalytics(a.data)
+        setLastUpdated(new Date())
+      })
+      .catch((err) => {
+        console.error('❌ Error fetching dashboard data:', err)
+        toast.error('Lỗi khi tải dữ liệu thống kê')
       })
       .finally(() => setLoading(false))
   }, [days])
 
+  useEffect(() => {
+    fetchData()
+  }, [fetchData])
+
+  const seriesMap = {
+    posts_users: [
+      { key: 'posts', label: 'Bài đăng mới', color: '#a855f7' },
+      { key: 'users', label: 'User mới', color: '#06b6d4' },
+    ],
+    interactions: [
+      { key: 'interactions', label: 'Lượt tương tác', color: '#ec4899' },
+    ],
+    approved: [
+      { key: 'approved', label: 'Bài viết đã duyệt', color: '#10b981' },
+    ],
+  }
+
+  const todayStats = stats?.todayStats || {}
+
   return (
     <div className="space-y-6">
-      {/* Admin balance */}
-      <div className="card p-5 border-violet-500/30 bg-violet-600/10">
-        <div className="flex items-center justify-between">
+      {/* Top Header Bar: System Status & Quick Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-2xl bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-black/40 border border-white/10 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <span className="flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+            </span>
+          </div>
           <div>
-            <p className="text-sm font-bold text-violet-400 mb-1">
-              Số dư AI Credits của Admin
-            </p>
-            <p className="text-4xl font-black text-white">
-              {adminUser?.tokenBalance?.toLocaleString() ?? 0}{' '}
-              <span className="text-violet-400 text-2xl">AI Credits</span>
-            </p>
-            <p className="text-xs text-white/40 mt-1">
-              Sử dụng các tính năng AI sẽ tiêu tốn AI Credits.
+            <h2 className="text-sm font-bold text-white flex items-center gap-2">
+              Bảng điều khiển Thống kê Enterprise
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30">
+                v2.5 Realtime
+              </span>
+            </h2>
+            <p className="text-xs text-white/40">
+              Cập nhật lúc:{' '}
+              {lastUpdated.toLocaleTimeString('vi-VN', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+              })}
             </p>
           </div>
-          <div className="w-16 h-16 rounded-2xl bg-violet-600/20 flex items-center justify-center">
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white text-xs font-semibold border border-white/10 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <motion.div
+              animate={loading ? { rotate: 360 } : { rotate: 0 }}
+              transition={{
+                duration: 0.8,
+                repeat: loading ? Infinity : 0,
+                ease: 'linear',
+              }}
+            >
+              <RefreshCw size={14} className="text-violet-400" />
+            </motion.div>
+            <span>Làm mới</span>
+          </button>
+        </div>
+      </div>
+
+      {/* ─── TODAY'S REAL-TIME PULSE SECTION (THỐNG KÊ HÔM NAY) ──────────────── */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Zap size={16} className="text-amber-400" />
+            <span>Thống kê hôm nay (Today's Real-time Overview)</span>
+          </h3>
+          <span className="text-[11px] font-semibold text-white/40">
+            Từ 00:00 hôm nay
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          {/* Today Posts */}
+          <div className="card p-4 bg-gradient-to-br from-violet-900/20 to-purple-950/30 border-violet-500/30">
+            <p className="text-xs text-violet-300 font-semibold mb-1 flex items-center justify-between">
+              <span>Bài đăng mới</span>
+              <Images size={14} className="text-violet-400" />
+            </p>
+            <p className="text-2xl font-black text-white">
+              {todayStats.todayPosts?.toLocaleString() ?? 0}
+            </p>
+            <div className="flex items-center gap-1 mt-2 text-[11px] font-bold">
+              {todayStats.postsGrowth >= 0 ? (
+                <span className="text-emerald-400 flex items-center gap-0.5">
+                  <TrendingUp size={12} />+{todayStats.postsGrowth}%
+                </span>
+              ) : (
+                <span className="text-rose-400 flex items-center gap-0.5">
+                  <TrendingDown size={12} />
+                  {todayStats.postsGrowth}%
+                </span>
+              )}
+              <span className="text-white/30 font-normal">so hôm qua</span>
+            </div>
+          </div>
+
+          {/* Today Users */}
+          <div className="card p-4 bg-gradient-to-br from-cyan-900/20 to-blue-950/30 border-cyan-500/30">
+            <p className="text-xs text-cyan-300 font-semibold mb-1 flex items-center justify-between">
+              <span>User mới</span>
+              <Users size={14} className="text-cyan-400" />
+            </p>
+            <p className="text-2xl font-black text-white">
+              {todayStats.todayUsers?.toLocaleString() ?? 0}
+            </p>
+            <div className="flex items-center gap-1 mt-2 text-[11px] font-bold">
+              {todayStats.usersGrowth >= 0 ? (
+                <span className="text-emerald-400 flex items-center gap-0.5">
+                  <TrendingUp size={12} />+{todayStats.usersGrowth}%
+                </span>
+              ) : (
+                <span className="text-rose-400 flex items-center gap-0.5">
+                  <TrendingDown size={12} />
+                  {todayStats.usersGrowth}%
+                </span>
+              )}
+              <span className="text-white/30 font-normal">so hôm qua</span>
+            </div>
+          </div>
+
+          {/* Today Approved */}
+          <div className="card p-4 bg-gradient-to-br from-emerald-900/20 to-teal-950/30 border-emerald-500/30">
+            <p className="text-xs text-emerald-300 font-semibold mb-1 flex items-center justify-between">
+              <span>Đã duyệt hôm nay</span>
+              <CheckCircle size={14} className="text-emerald-400" />
+            </p>
+            <p className="text-2xl font-black text-white">
+              {todayStats.todayApproved?.toLocaleString() ?? 0}
+            </p>
+            <p className="text-[11px] text-emerald-400/80 mt-2 font-medium">
+              Chờ duyệt: {todayStats.todayPending ?? 0} bài
+            </p>
+          </div>
+
+          {/* Today Interactions */}
+          <div className="card p-4 bg-gradient-to-br from-pink-900/20 to-rose-950/30 border-pink-500/30">
+            <p className="text-xs text-pink-300 font-semibold mb-1 flex items-center justify-between">
+              <span>Tương tác hôm nay</span>
+              <Heart size={14} className="text-pink-400" />
+            </p>
+            <p className="text-2xl font-black text-white">
+              {todayStats.todayInteractions?.toLocaleString() ?? 0}
+            </p>
+            <p className="text-[11px] text-pink-400/80 mt-2 font-medium">
+              Likes, Views & Downloads
+            </p>
+          </div>
+
+          {/* Today Credits Spent */}
+          <div className="card p-4 bg-gradient-to-br from-amber-900/20 to-orange-950/30 border-amber-500/30">
+            <p className="text-xs text-amber-300 font-semibold mb-1 flex items-center justify-between">
+              <span>AI Credits đã dùng</span>
+              <Coins size={14} className="text-amber-400" />
+            </p>
+            <p className="text-2xl font-black text-white">
+              {todayStats.todayTokensSpent?.toLocaleString() ?? 0}
+            </p>
+            <p className="text-[11px] text-amber-400/80 mt-2 font-medium">
+              Tiêu thụ bởi các tính năng AI
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Admin Balance Banner */}
+      <div className="card p-5 border-violet-500/30 bg-gradient-to-r from-violet-900/20 via-purple-900/10 to-indigo-900/20">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-wider text-violet-400 mb-1 flex items-center gap-1.5">
+              <Coins size={16} /> Quỹ Token AI Admin
+            </p>
+            <p className="text-3xl sm:text-4xl font-black text-white">
+              {adminUser?.tokenBalance?.toLocaleString() ?? 0}{' '}
+              <span className="text-violet-400 text-xl font-bold">
+                AI Credits
+              </span>
+            </p>
+            <p className="text-xs text-white/40 mt-1">
+              Số dư dùng cho các thao tác thử nghiệm AI, sinh gợi ý prompt và
+              dịch tự động.
+            </p>
+          </div>
+          <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center shadow-lg shadow-violet-900/40">
             <Coins size={32} className="text-violet-400" />
           </div>
         </div>
       </div>
 
-      {/* Stats grid */}
+      {/* Main KPI Stats Grid */}
       {loading ? (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="card p-5 animate-pulse h-24" />
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card p-5 animate-pulse h-28" />
           ))}
         </div>
       ) : (
         stats && (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatCard
               icon={Images}
               label="Tổng bài đăng"
               value={stats.totalPosts}
+              sub={`+${stats.recentPosts} (7 ngày qua)`}
             />
             <StatCard
               icon={Clock}
               label="Chờ duyệt"
               value={stats.pendingPosts}
-              color="text-yellow-400"
-              sub="Cần xử lý ngay"
-            />
-            <StatCard
-              icon={CheckCircle}
-              label="Đã duyệt"
-              value={stats.totalApproved}
-              color="text-green-400"
+              color="text-amber-400"
+              sub={
+                stats.pendingPosts > 0
+                  ? '⚠️ Cần duyệt bài gấp'
+                  : '✅ Đã duyệt sạch'
+              }
             />
             <StatCard
               icon={Users}
-              label="Tổng users"
+              label="Tổng Thành viên"
               value={stats.totalUsers}
-              color="text-blue-400"
+              color="text-cyan-400"
+              sub={`+${stats.recentUsers} (7 ngày qua)`}
             />
             <StatCard
-              icon={Images}
-              label="Posts 7 ngày"
-              value={stats.recentPosts}
-              color="text-violet-400"
-              sub="7 ngày gần nhất"
-            />
-            <StatCard
-              icon={Users}
-              label="User mới"
-              value={stats.recentUsers}
-              color="text-pink-400"
-              sub="7 ngày gần nhất"
+              icon={ShieldCheck}
+              label="Tỷ lệ duyệt thành công"
+              value={`${stats.approvalRate ?? 100}%`}
+              color="text-emerald-400"
+              sub={`${stats.totalApproved?.toLocaleString() ?? 0} bài đã duyệt`}
             />
           </div>
         )
       )}
 
-      {/* Analytics Chart */}
-      <div className="card p-5 space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="font-bold flex items-center gap-2">
-            <TrendingUp size={16} className="text-violet-400" /> Thống kê hoạt
-            động
-          </h3>
-          <div className="flex gap-1">
-            {[7, 14, 30].map((d) => (
+      {/* MAIN INTERACTIVE ENTERPRISE CHART CARD */}
+      <div className="card p-5 space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+          <div>
+            <h3 className="font-bold text-base text-white flex items-center gap-2">
+              <BarChart3 size={18} className="text-violet-400" />
+              <span>Biểu đồ Phân tích Hoạt động Hệ thống</span>
+            </h3>
+            <p className="text-xs text-white/40 mt-0.5">
+              Theo dõi biến động bài viết, người dùng mới và tương tác qua mốc
+              thời gian.
+            </p>
+          </div>
+
+          {/* Controls: Metric View, Timeframe, Chart Type */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Metric View Switcher */}
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
               <button
-                key={d}
-                onClick={() => setDays(d)}
-                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${days === d ? 'bg-brand-600 text-white' : 'text-white/40 hover:text-white'}`}
+                onClick={() => setMetricView('posts_users')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  metricView === 'posts_users'
+                    ? 'bg-violet-600 text-white shadow-md'
+                    : 'text-white/40 hover:text-white'
+                }`}
               >
-                {d}N
+                Bài & Users
               </button>
-            ))}
+              <button
+                onClick={() => setMetricView('interactions')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  metricView === 'interactions'
+                    ? 'bg-pink-600 text-white shadow-md'
+                    : 'text-white/40 hover:text-white'
+                }`}
+              >
+                Tương tác
+              </button>
+              <button
+                onClick={() => setMetricView('approved')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  metricView === 'approved'
+                    ? 'bg-emerald-600 text-white shadow-md'
+                    : 'text-white/40 hover:text-white'
+                }`}
+              >
+                Bài duyệt
+              </button>
+            </div>
+
+            {/* Timeframe selector */}
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+              {[
+                { label: 'Hôm nay (24h)', val: 1 },
+                { label: '7N', val: 7 },
+                { label: '14N', val: 14 },
+                { label: '30N', val: 30 },
+                { label: '90N', val: 90 },
+              ].map((t) => (
+                <button
+                  key={t.val}
+                  onClick={() => setDays(t.val)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    days === t.val
+                      ? 'bg-brand-600 text-white shadow-md'
+                      : 'text-white/40 hover:text-white'
+                  }`}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Chart type toggle */}
+            <div className="flex bg-white/5 p-1 rounded-xl border border-white/10">
+              <button
+                onClick={() => setChartType('area')}
+                title="Biểu đồ vùng curve"
+                className={`p-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  chartType === 'area'
+                    ? 'bg-white/20 text-white'
+                    : 'text-white/40 hover:text-white'
+                }`}
+              >
+                <Activity size={14} />
+              </button>
+              <button
+                onClick={() => setChartType('bar')}
+                title="Biểu đồ thanh"
+                className={`p-1.5 rounded-lg text-xs transition-all cursor-pointer ${
+                  chartType === 'bar'
+                    ? 'bg-white/20 text-white'
+                    : 'text-white/40 hover:text-white'
+                }`}
+              >
+                <BarChart3 size={14} />
+              </button>
+            </div>
           </div>
         </div>
 
         {loading ? (
-          <div className="h-28 animate-pulse rounded-xl bg-white/5" />
+          <div className="h-64 animate-pulse rounded-2xl bg-white/5 flex items-center justify-center">
+            <LoaderCircle size={28} className="animate-spin text-violet-400" />
+          </div>
         ) : (
           analytics?.timeline?.length > 0 && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs text-white/40 mb-2 font-semibold">
-                  📸 Bài đăng mới
-                </p>
-                <MiniBarChart
-                  data={analytics.timeline}
-                  dataKey="posts"
-                  color="#7c3aed"
-                  label="posts"
-                />
-              </div>
-              <div>
-                <p className="text-xs text-white/40 mb-2 font-semibold">
-                  👤 Users mới
-                </p>
-                <MiniBarChart
-                  data={analytics.timeline}
-                  dataKey="users"
-                  color="#06b6d4"
-                  label="users"
-                />
-              </div>
-            </div>
+            <EnterpriseChart
+              data={analytics.timeline}
+              series={seriesMap[metricView] || seriesMap.posts_users}
+              days={days}
+              chartType={chartType}
+            />
           )
         )}
+      </div>
 
+      {/* Distribution & Breakdown Row */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Category breakdown */}
-        {analytics?.categoryStats?.length > 0 && (
-          <div>
-            <p className="text-xs text-white/40 mb-3 font-semibold">
-              📂 Phân bổ danh mục (approved)
-            </p>
-            <div className="space-y-2">
+        <div className="card p-5 space-y-4">
+          <h3 className="font-bold text-sm text-white flex items-center justify-between border-b border-white/10 pb-3">
+            <span className="flex items-center gap-2">
+              <PieChart size={16} className="text-violet-400" />
+              <span>Phân bổ Danh mục (Bài đã duyệt)</span>
+            </span>
+            <span className="text-xs text-white/40 font-normal">Top 5</span>
+          </h3>
+
+          {analytics?.categoryStats?.length > 0 ? (
+            <div className="space-y-3">
               {analytics.categoryStats.slice(0, 5).map((c) => {
                 const total = analytics.categoryStats.reduce(
                   (s, x) => s + x.count,
                   0
                 )
-                const pct = Math.round((c.count / total) * 100)
+                const pct = total > 0 ? Math.round((c.count / total) * 100) : 0
                 return (
-                  <div key={c._id} className="flex items-center gap-3">
-                    <span className="text-xs text-white/50 w-20 truncate capitalize">
-                      {c._id}
-                    </span>
-                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-brand-500 rounded-full transition-all duration-700"
-                        style={{ width: `${pct}%` }}
+                  <div key={c._id} className="space-y-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-white/70 font-semibold capitalize">
+                        {c._id || 'khac'}
+                      </span>
+                      <span className="text-white/50 font-mono">
+                        {c.count} bài ({pct}%)
+                      </span>
+                    </div>
+                    <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${pct}%` }}
+                        transition={{ duration: 0.8, ease: 'easeOut' }}
+                        className="h-full bg-gradient-to-r from-violet-500 to-indigo-500 rounded-full"
                       />
                     </div>
-                    <span className="text-xs text-white/40 w-10 text-right">
-                      {pct}%
-                    </span>
                   </div>
                 )
               })}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-white/30 italic">
+              Chưa có dữ liệu danh mục
+            </p>
+          )}
+        </div>
+
+        {/* Post Status Breakdown */}
+        <div className="card p-5 space-y-4">
+          <h3 className="font-bold text-sm text-white flex items-center justify-between border-b border-white/10 pb-3">
+            <span className="flex items-center gap-2">
+              <Layers size={16} className="text-cyan-400" />
+              <span>Trạng thái Bài viết Toàn hệ thống</span>
+            </span>
+            <span className="text-xs text-white/40 font-normal">Tỉ lệ %</span>
+          </h3>
+
+          {stats && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <p className="text-xs text-emerald-400 font-semibold">
+                    Đã duyệt
+                  </p>
+                  <p className="text-xl font-black text-white mt-0.5">
+                    {stats.totalApproved?.toLocaleString() ?? 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                  <p className="text-xs text-amber-400 font-semibold">
+                    Chờ duyệt
+                  </p>
+                  <p className="text-xl font-black text-white mt-0.5">
+                    {stats.pendingPosts?.toLocaleString() ?? 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20">
+                  <p className="text-xs text-rose-400 font-semibold">Từ chối</p>
+                  <p className="text-xl font-black text-white mt-0.5">
+                    {stats.rejectedPosts?.toLocaleString() ?? 0}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl bg-white/5 border border-white/10">
+                  <p className="text-xs text-white/50 font-semibold">Đã ẩn</p>
+                  <p className="text-xl font-black text-white mt-0.5">
+                    {stats.hiddenPosts?.toLocaleString() ?? 0}
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Visual Progress Bar */}
+              {(() => {
+                const total =
+                  (stats.totalApproved || 0) +
+                  (stats.pendingPosts || 0) +
+                  (stats.rejectedPosts || 0) +
+                  (stats.hiddenPosts || 0)
+                if (total === 0) return null
+                const appPct = Math.round(
+                  ((stats.totalApproved || 0) / total) * 100
+                )
+                const penPct = Math.round(
+                  ((stats.pendingPosts || 0) / total) * 100
+                )
+                const rejPct = Math.round(
+                  ((stats.rejectedPosts || 0) / total) * 100
+                )
+                return (
+                  <div className="space-y-1.5">
+                    <div className="flex h-3 w-full rounded-full overflow-hidden bg-white/10">
+                      <div
+                        style={{ width: `${appPct}%` }}
+                        className="bg-emerald-500"
+                        title="Đã duyệt"
+                      />
+                      <div
+                        style={{ width: `${penPct}%` }}
+                        className="bg-amber-500"
+                        title="Chờ duyệt"
+                      />
+                      <div
+                        style={{ width: `${rejPct}%` }}
+                        className="bg-rose-500"
+                        title="Từ chối"
+                      />
+                    </div>
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
       </div>
 
+      {/* Pending Warning Banner */}
       {stats?.pendingPosts > 0 && (
-        <div className="card p-4 border-yellow-500/20 bg-yellow-500/5">
-          <div className="flex items-start gap-3">
-            <AlertTriangle
-              size={18}
-              className="text-yellow-400 mt-0.5 flex-shrink-0"
-            />
-            <div>
-              <p className="text-sm font-semibold text-yellow-400">
-                Bài đăng chờ duyệt
-              </p>
-              <p className="text-xs text-white/40 mt-0.5">
-                Có{' '}
-                <span className="text-yellow-400 font-bold">
-                  {stats.pendingPosts}
-                </span>{' '}
-                bài đăng đang chờ. Vào tab "Bài đăng" để xử lý.
-              </p>
+        <div className="card p-4 border-amber-500/30 bg-gradient-to-r from-amber-950/40 via-yellow-950/20 to-black/40">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <AlertTriangle
+                size={22}
+                className="text-amber-400 flex-shrink-0 animate-pulse"
+              />
+              <div>
+                <p className="text-sm font-bold text-amber-300">
+                  Có {stats.pendingPosts} bài đăng đang chờ phê duyệt
+                </p>
+                <p className="text-xs text-white/50 mt-0.5">
+                  Phê duyệt kịp thời để giúp creator công khai tác phẩm trên
+                  trang chủ.
+                </p>
+              </div>
             </div>
+            <button
+              onClick={() => {
+                const url = new URL(window.location.href)
+                url.searchParams.set('tab', 'posts')
+                window.history.pushState({}, '', url)
+                window.dispatchEvent(new Event('popstate'))
+              }}
+              className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-black font-bold rounded-xl text-xs transition-all cursor-pointer shadow-lg shadow-amber-500/20 whitespace-nowrap"
+            >
+              Vào duyệt bài ngay →
+            </button>
           </div>
         </div>
       )}
@@ -763,8 +1477,7 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
   const handleSelectAllPosts = () => {
     if (!reclassifyAnalysisData?.reclassifyList?.length) return
     if (
-      selectedPostIds.length ===
-      reclassifyAnalysisData.reclassifyList.length
+      selectedPostIds.length === reclassifyAnalysisData.reclassifyList.length
     ) {
       setSelectedPostIds([])
     } else {
@@ -828,7 +1541,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
       }
     } catch (err) {
       toast.error(
-        err.response?.data?.message || 'Không thể phân tích dữ liệu bài viết CSV'
+        err.response?.data?.message ||
+          'Không thể phân tích dữ liệu bài viết CSV'
       )
     } finally {
       setReclassifyLoading(false)
@@ -1025,7 +1739,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
           setSelectedServerFileName(data.serverCsvFiles[0]?.fileName || '')
         }
       }
-      if (data.lastImportedFileName) setLastImportedFileName(data.lastImportedFileName)
+      if (data.lastImportedFileName)
+        setLastImportedFileName(data.lastImportedFileName)
     } catch {
       toast.error('Không thể tải lịch sử import CSV')
     } finally {
@@ -1040,7 +1755,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
     if (!importing) return
     const handleBeforeUnload = (e) => {
       e.preventDefault()
-      e.returnValue = '⚠️ Đang tiến hành Import CSV! Nếu thoát lúc này dữ liệu sẽ bị đứt đoạn.'
+      e.returnValue =
+        '⚠️ Đang tiến hành Import CSV! Nếu thoát lúc này dữ liệu sẽ bị đứt đoạn.'
       return e.returnValue
     }
     window.addEventListener('beforeunload', handleBeforeUnload)
@@ -1049,18 +1765,26 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
 
   const handleUndoBatch = async (batchImportId) => {
     if (!batchImportId) return
-    if (!window.confirm(`Bạn có chắc chắn muốn hoàn tác đợt import này (${batchImportId})?\n\nTất cả bài viết được tạo ra từ đợt này sẽ bị xóa an toàn khỏi database.`)) {
+    if (
+      !window.confirm(
+        `Bạn có chắc chắn muốn hoàn tác đợt import này (${batchImportId})?\n\nTất cả bài viết được tạo ra từ đợt này sẽ bị xóa an toàn khỏi database.`
+      )
+    ) {
       return
     }
 
     setUndoingBatchId(batchImportId)
     try {
-      const { data } = await api.post('/admin/posts/undo-import', { batchImportId })
+      const { data } = await api.post('/admin/posts/undo-import', {
+        batchImportId,
+      })
       toast.success(data.message || 'Đã hoàn tác đợt import thành công!')
       fetchHistory()
       if (onSuccess) onSuccess()
     } catch (err) {
-      toast.error(err?.response?.data?.message || 'Không thể hoàn tác đợt import này')
+      toast.error(
+        err?.response?.data?.message || 'Không thể hoàn tác đợt import này'
+      )
     } finally {
       setUndoingBatchId(null)
     }
@@ -1145,7 +1869,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
         formData.append('file', selectedFile)
         formData.append('fileName', selectedFile.name)
       } else {
-        const serverFileToUse = selectedServerFileName || defaultServerFile?.fileName || '123.csv'
+        const serverFileToUse =
+          selectedServerFileName || defaultServerFile?.fileName || '123.csv'
         formData.append('fileName', serverFileToUse)
         formData.append('selectedServerFileName', serverFileToUse)
       }
@@ -1193,7 +1918,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
         formData.append('file', selectedFile)
         formData.append('fileName', selectedFile.name)
       } else {
-        const serverFileToUse = selectedServerFileName || defaultServerFile?.fileName || '123.csv'
+        const serverFileToUse =
+          selectedServerFileName || defaultServerFile?.fileName || '123.csv'
         formData.append('fileName', serverFileToUse)
         formData.append('selectedServerFileName', serverFileToUse)
       }
@@ -1226,10 +1952,12 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
       }, 1200)
     } catch (err) {
       console.error('❌ CSV Import Failed:', err)
-      const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout')
+      const isTimeout =
+        err.code === 'ECONNABORTED' || err.message?.includes('timeout')
       const errMsg = isTimeout
         ? '⏱️ Tập tin CSV lớn cần thêm thời gian. Hệ thống vẫn đang tiến hành nạp dữ liệu ở nền, hãy kiểm tra Lịch Sử Import sau ít phút.'
-        : (err.response?.data?.message || 'Lỗi khi import file CSV. Vui lòng thử lại.')
+        : err.response?.data?.message ||
+          'Lỗi khi import file CSV. Vui lòng thử lại.'
 
       toast.error(errMsg, { duration: 6000 })
       setImportProgress(null)
@@ -1489,17 +2217,33 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                         </div>
                         <div>
                           <h4 className="text-base font-bold text-white font-display">
-                            Xác Nhận Nạp +{analysisResult.newPostsCount} Bài Viết Mới
+                            Xác Nhận Nạp +{analysisResult.newPostsCount} Bài
+                            Viết Mới
                           </h4>
                           <p className="text-xs text-emerald-300/90 font-bold flex items-center gap-1 mt-0.5">
-                            📄 Tập tin: <span className="font-mono text-white bg-black/50 px-2 py-0.5 rounded border border-white/10">{analysisResult.fileName || selectedServerFileName || '123.csv'}</span>
+                            📄 Tập tin:{' '}
+                            <span className="font-mono text-white bg-black/50 px-2 py-0.5 rounded border border-white/10">
+                              {analysisResult.fileName ||
+                                selectedServerFileName ||
+                                '123.csv'}
+                            </span>
                           </p>
                           <p className="text-[11px] text-emerald-400/90 font-medium flex items-center gap-1.5 mt-1">
-                            <Clock size={12} className="text-emerald-400 flex-shrink-0" />
+                            <Clock
+                              size={12}
+                              className="text-emerald-400 flex-shrink-0"
+                            />
                             <span>
                               Thời gian nạp dự kiến:{' '}
                               <strong className="font-mono text-emerald-300 font-bold">
-                                ~{Math.max(2, Math.ceil((analysisResult.newPostsCount || 0) / 20))} giây
+                                ~
+                                {Math.max(
+                                  2,
+                                  Math.ceil(
+                                    (analysisResult.newPostsCount || 0) / 20
+                                  )
+                                )}{' '}
+                                giây
                               </strong>
                             </span>
                           </p>
@@ -1508,7 +2252,11 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
 
                       <p className="text-xs text-white/80 font-sans bg-white/[0.03] p-2.5 rounded-xl border border-white/10 flex items-center justify-between">
                         <span>
-                          Hệ thống đã phân tích <strong className="text-emerald-300 font-mono font-bold">{analysisResult.totalRows} bài viết</strong> từ file CSV
+                          Hệ thống đã phân tích{' '}
+                          <strong className="text-emerald-300 font-mono font-bold">
+                            {analysisResult.totalRows} bài viết
+                          </strong>{' '}
+                          từ file CSV
                         </span>
                         <span className="font-mono text-[11px] text-violet-300 bg-violet-950/60 px-2 py-0.5 rounded font-bold border border-violet-500/30">
                           {analysisResult.fileName || selectedServerFileName}
@@ -1558,20 +2306,33 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                       {analysisResult.sampleNewPosts?.length > 0 && (
                         <div className="p-3 bg-black/40 border border-white/10 rounded-xl space-y-2 text-[11px]">
                           <div className="flex items-center justify-between text-white/60 font-bold text-[10px] uppercase">
-                            <span>🔍 Mẫu 3 bài viết mới (Chưa có trong DB {analysisResult.dbTotalPosts || 857} bài hiện tại):</span>
+                            <span>
+                              🔍 Mẫu 3 bài viết mới (Chưa có trong DB{' '}
+                              {analysisResult.dbTotalPosts || 857} bài hiện
+                              tại):
+                            </span>
                           </div>
                           <div className="space-y-1.5 font-mono text-[10px]">
-                            {analysisResult.sampleNewPosts.slice(0, 3).map((item, idx) => (
-                              <div key={idx} className="p-2 bg-white/[0.02] border border-white/5 rounded-lg flex items-center justify-between gap-2">
-                                <div className="truncate flex-1">
-                                  <span className="text-emerald-300 font-bold block truncate">{item.title}</span>
-                                  <span className="text-white/40 text-[9px] block truncate">ID: {item.post_id}</span>
+                            {analysisResult.sampleNewPosts
+                              .slice(0, 3)
+                              .map((item, idx) => (
+                                <div
+                                  key={idx}
+                                  className="p-2 bg-white/[0.02] border border-white/5 rounded-lg flex items-center justify-between gap-2"
+                                >
+                                  <div className="truncate flex-1">
+                                    <span className="text-emerald-300 font-bold block truncate">
+                                      {item.title}
+                                    </span>
+                                    <span className="text-white/40 text-[9px] block truncate">
+                                      ID: {item.post_id}
+                                    </span>
+                                  </div>
+                                  <span className="px-2 py-0.5 bg-violet-950/60 text-violet-300 border border-violet-500/30 rounded text-[9px] font-bold flex-shrink-0">
+                                    {item.category}
+                                  </span>
                                 </div>
-                                <span className="px-2 py-0.5 bg-violet-950/60 text-violet-300 border border-violet-500/30 rounded text-[9px] font-bold flex-shrink-0">
-                                  {item.category}
-                                </span>
-                              </div>
-                            ))}
+                              ))}
                           </div>
                         </div>
                       )}
@@ -1629,7 +2390,11 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                 className="w-8 h-8 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
                 title={isExpandedView ? 'Thu gọn cửa sổ' : 'Xem toàn màn hình'}
               >
-                {isExpandedView ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+                {isExpandedView ? (
+                  <Minimize2 size={16} />
+                ) : (
+                  <Maximize2 size={16} />
+                )}
               </button>
               <button
                 onClick={handleRequestClose}
@@ -1737,9 +2502,15 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                       </div>
                       {serverCsvFiles.length > 0 ? (
                         <div className="mt-2 space-y-1">
-                          <label className="text-[10px] text-white/50 font-bold block">Tệp trên máy chủ (plant/datas):</label>
+                          <label className="text-[10px] text-white/50 font-bold block">
+                            Tệp trên máy chủ (plant/datas):
+                          </label>
                           <select
-                            value={selectedServerFileName || defaultServerFile?.fileName || ''}
+                            value={
+                              selectedServerFileName ||
+                              defaultServerFile?.fileName ||
+                              ''
+                            }
                             onChange={(e) => {
                               setSelectedServerFileName(e.target.value)
                               setUseDefaultFile(true)
@@ -1750,7 +2521,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                           >
                             {serverCsvFiles.map((f) => (
                               <option key={f.fileName} value={f.fileName}>
-                                📁 {f.fileName} ({f.rowCount} bài - {(f.sizeBytes / 1024 / 1024).toFixed(2)}MB)
+                                📁 {f.fileName} ({f.rowCount} bài -{' '}
+                                {(f.sizeBytes / 1024 / 1024).toFixed(2)}MB)
                               </option>
                             ))}
                           </select>
@@ -1758,7 +2530,11 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                       ) : (
                         <div className="mt-2 space-y-1">
                           <label className="text-[10px] text-white/50 font-bold flex items-center gap-1">
-                            <Loader2 size={10} className="animate-spin text-violet-400" /> Tệp trên máy chủ (plant/datas):
+                            <Loader2
+                              size={10}
+                              className="animate-spin text-violet-400"
+                            />{' '}
+                            Tệp trên máy chủ (plant/datas):
                           </label>
                           <div className="w-full bg-black/40 text-white/50 font-mono text-[11px] p-2 rounded-lg border border-white/10 animate-pulse">
                             Đang nạp danh sách tệp máy chủ...
@@ -1766,18 +2542,33 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                         </div>
                       )}
                       {lastImportedFileName ? (
-                        <span className="text-[10px] text-emerald-400 font-semibold block mt-1.5 flex items-center gap-1 truncate" title={`Lần import gần nhất: ${lastImportedFileName}`}>
-                          <Clock size={11} className="text-emerald-400 flex-shrink-0" />
-                          <span>Import gần nhất: <strong className="text-white font-mono">{lastImportedFileName}</strong></span>
+                        <span
+                          className="text-[10px] text-emerald-400 font-semibold block mt-1.5 flex items-center gap-1 truncate"
+                          title={`Lần import gần nhất: ${lastImportedFileName}`}
+                        >
+                          <Clock
+                            size={11}
+                            className="text-emerald-400 flex-shrink-0"
+                          />
+                          <span>
+                            Import gần nhất:{' '}
+                            <strong className="text-white font-mono">
+                              {lastImportedFileName}
+                            </strong>
+                          </span>
                         </span>
                       ) : historyLoading ? (
                         <span className="text-[10px] text-white/40 font-semibold block mt-1.5 flex items-center gap-1 animate-pulse">
-                          <Clock size={11} className="text-violet-400 flex-shrink-0 animate-spin" />
+                          <Clock
+                            size={11}
+                            className="text-violet-400 flex-shrink-0 animate-spin"
+                          />
                           <span>Đang tải lịch sử import...</span>
                         </span>
                       ) : (
                         <span className="text-[10px] text-emerald-400 font-bold block mt-2 flex items-center gap-1">
-                          <CheckCircle size={11} /> Đã nghiệm thu chuẩn 22 trường
+                          <CheckCircle size={11} /> Đã nghiệm thu chuẩn 22
+                          trường
                         </span>
                       )}
                     </div>
@@ -1866,7 +2657,11 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                   <div className="p-4 rounded-2xl bg-violet-950/25 border border-violet-500/30 flex items-center justify-center gap-3 text-violet-300 font-medium">
                     <motion.div
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      transition={{
+                        duration: 0.8,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
                       className="flex items-center justify-center flex-shrink-0"
                     >
                       <RefreshCw size={18} className="text-violet-400" />
@@ -1885,22 +2680,35 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                         <strong className="text-amber-300 font-bold">
                           {analysisResult.totalRows} bài đăng
                         </strong>{' '}
-                        trong tập tin CSV này đều đã tồn tại trên cơ sở dữ liệu. không phát hiện bài viết mới.
+                        trong tập tin CSV này đều đã tồn tại trên cơ sở dữ liệu.
+                        không phát hiện bài viết mới.
                       </p>
 
                       {/* Summary Badges */}
                       <div className="grid grid-cols-3 gap-2 font-sans text-xs">
                         <div className="py-1.5 px-3 bg-black/40 rounded-lg border border-rose-500/20 flex items-center justify-between text-[11px]">
-                          <span className="text-white/50 text-[10px]">Bài mới</span>
-                          <strong className="text-rose-400 font-mono font-bold">0</strong>
+                          <span className="text-white/50 text-[10px]">
+                            Bài mới
+                          </span>
+                          <strong className="text-rose-400 font-mono font-bold">
+                            0
+                          </strong>
                         </div>
                         <div className="py-1.5 px-3 bg-black/40 rounded-lg border border-amber-500/20 flex items-center justify-between text-[11px]">
-                          <span className="text-white/50 text-[10px]">Bài đã có</span>
-                          <strong className="text-amber-300 font-mono font-bold">{analysisResult.existingPostsCount}</strong>
+                          <span className="text-white/50 text-[10px]">
+                            Bài đã có
+                          </span>
+                          <strong className="text-amber-300 font-mono font-bold">
+                            {analysisResult.existingPostsCount}
+                          </strong>
                         </div>
                         <div className="py-1.5 px-3 bg-black/40 rounded-lg border border-violet-500/20 flex items-center justify-between text-[11px]">
-                          <span className="text-white/50 text-[10px]">Tác giả AI</span>
-                          <strong className="text-violet-300 font-mono font-bold">{analysisResult.existingUsersCount}</strong>
+                          <span className="text-white/50 text-[10px]">
+                            Tác giả AI
+                          </span>
+                          <strong className="text-violet-300 font-mono font-bold">
+                            {analysisResult.existingUsersCount}
+                          </strong>
                         </div>
                       </div>
                     </div>
@@ -1981,8 +2789,15 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                               🏷️ Đề Xuất Danh Mục
                             </span>
                             <span className="text-[11px] text-violet-200/90 leading-snug">
-                              <strong className="text-violet-300 font-bold">{analysisResult.matchedCategoriesCount || 0} bài</strong> tự động khớp danh mục có sẵn.{' '}
-                              Có <strong className="text-violet-300 font-bold">{analysisResult.proposedCategoriesCount} bài</strong> chưa có danh mục phù hợp (sẽ được đề xuất lên bảng điều khiển cho Admin chọn duyệt/từ chối).
+                              <strong className="text-violet-300 font-bold">
+                                {analysisResult.matchedCategoriesCount || 0} bài
+                              </strong>{' '}
+                              tự động khớp danh mục có sẵn. Có{' '}
+                              <strong className="text-violet-300 font-bold">
+                                {analysisResult.proposedCategoriesCount} bài
+                              </strong>{' '}
+                              chưa có danh mục phù hợp (sẽ được đề xuất lên bảng
+                              điều khiển cho Admin chọn duyệt/từ chối).
                             </span>
                           </div>
                         </div>
@@ -2091,11 +2906,15 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                       <h4 className="font-bold text-white text-sm tracking-tight flex items-center gap-2">
                         Phân Loại Thông Minh &amp; Đề Xuất Danh Mục CSV
                         <span className="text-[10px] px-2 py-0.5 rounded bg-violet-600/30 text-violet-300 border border-violet-500/30 font-mono font-normal">
-                          {reclassifyScope === 'other' ? 'Phạm vi: Danh mục Other' : 'Phạm vi: Tất cả CSV'}
+                          {reclassifyScope === 'other'
+                            ? 'Phạm vi: Danh mục Other'
+                            : 'Phạm vi: Tất cả CSV'}
                         </span>
                       </h4>
                       <p className="text-white/50 text-xs mt-0.5">
-                        Phân tích AI cho dữ liệu bài viết CSV, tự động gán vào danh mục phù hợp hoặc đề xuất tạo danh mục mới cho Admin duyệt.
+                        Phân tích AI cho dữ liệu bài viết CSV, tự động gán vào
+                        danh mục phù hợp hoặc đề xuất tạo danh mục mới cho Admin
+                        duyệt.
                       </p>
                     </div>
 
@@ -2143,12 +2962,18 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                       >
                         <motion.div
                           animate={reclassifyLoading ? { rotate: 360 } : {}}
-                          transition={{ duration: 0.8, repeat: reclassifyLoading ? Infinity : 0, ease: 'linear' }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: reclassifyLoading ? Infinity : 0,
+                            ease: 'linear',
+                          }}
                           className="flex items-center justify-center"
                         >
                           <RefreshCw size={14} />
                         </motion.div>
-                        {reclassifyLoading ? 'Đang phân tích...' : 'Quét Dữ Liệu CSV'}
+                        {reclassifyLoading
+                          ? 'Đang phân tích...'
+                          : 'Quét Dữ Liệu CSV'}
                       </button>
                     </div>
                   </div>
@@ -2160,13 +2985,17 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                         <span className="flex items-center gap-1.5">
                           <motion.div
                             animate={{ rotate: 360 }}
-                            transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                            transition={{
+                              duration: 0.8,
+                              repeat: Infinity,
+                              ease: 'linear',
+                            }}
                             className="flex items-center justify-center flex-shrink-0"
                           >
                             <RefreshCw size={12} className="text-violet-400" />
                           </motion.div>
-                          Đang phân tích bài viết: {reclassifyProgress.current} /{' '}
-                          {reclassifyProgress.total || '...'} bài
+                          Đang phân tích bài viết: {reclassifyProgress.current}{' '}
+                          / {reclassifyProgress.total || '...'} bài
                         </span>
                         <span>{reclassifyProgress.percentage || 0}%</span>
                       </div>
@@ -2185,14 +3014,24 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                   {reclassifyAnalysisData && !reclassifyLoading && (
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-1">
                       <div className="p-3 bg-black/40 border border-white/10 rounded-xl flex items-center justify-between">
-                        <span className="text-white/60 text-[11px]">Tổng bài CSV đã quét</span>
+                        <span className="text-white/60 text-[11px]">
+                          Tổng bài CSV đã quét
+                        </span>
                         <span className="font-mono font-bold text-white text-sm">
                           {reclassifyAnalysisData.totalScanned}
                         </span>
                       </div>
                       <div className="p-3 bg-black/40 border border-indigo-500/30 rounded-xl flex items-center justify-between">
                         <span className="text-indigo-300 text-[11px]">
-                          Cần đổi danh mục ({reclassifyAnalysisData.reclassifyList?.filter(i => i.isDifferent).length || 0}) / Khớp sẵn ({reclassifyAnalysisData.reclassifyList?.filter(i => !i.isDifferent).length || 0})
+                          Cần đổi danh mục (
+                          {reclassifyAnalysisData.reclassifyList?.filter(
+                            (i) => i.isDifferent
+                          ).length || 0}
+                          ) / Khớp sẵn (
+                          {reclassifyAnalysisData.reclassifyList?.filter(
+                            (i) => !i.isDifferent
+                          ).length || 0}
+                          )
                         </span>
                         <span className="font-mono font-bold text-indigo-400 text-sm">
                           {reclassifyAnalysisData.reclassifyList?.length || 0}
@@ -2203,7 +3042,9 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                           Đề xuất tạo danh mục mới
                         </span>
                         <span className="font-mono font-bold text-violet-400 text-sm">
-                          +{reclassifyAnalysisData.newCategoryProposals?.length || 0}
+                          +
+                          {reclassifyAnalysisData.newCategoryProposals
+                            ?.length || 0}
                         </span>
                       </div>
                     </div>
@@ -2238,7 +3079,9 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                           }`}
                         >
                           Đề Xuất Tạo Danh Mục Mới (
-                          {reclassifyAnalysisData.newCategoryProposals?.length || 0})
+                          {reclassifyAnalysisData.newCategoryProposals
+                            ?.length || 0}
+                          )
                         </button>
                       </div>
 
@@ -2261,7 +3104,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                                       (i.confidence || 0) >= 80 &&
                                       (i.isDifferent ||
                                         (selectedCategoryChoices[i.postId] &&
-                                          selectedCategoryChoices[i.postId] !== i.currentCategory))
+                                          selectedCategoryChoices[i.postId] !==
+                                            i.currentCategory))
                                   ).length
                                 }
                                 )
@@ -2285,160 +3129,199 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                         )}
 
                       {reclassifyTab === 'proposals' &&
-                        reclassifyAnalysisData.newCategoryProposals?.length > 0 && (
+                        reclassifyAnalysisData.newCategoryProposals?.length >
+                          0 && (
                           <button
                             type="button"
                             onClick={handleApproveAllNewCategoryProposals}
                             className="px-3.5 py-1.5 rounded-lg text-xs font-bold bg-violet-600 hover:bg-violet-500 text-white transition-colors cursor-pointer"
                           >
                             Phê Duyệt Tất Cả Danh Mục Mới (
-                            {reclassifyAnalysisData.newCategoryProposals.length})
+                            {reclassifyAnalysisData.newCategoryProposals.length}
+                            )
                           </button>
                         )}
                     </div>
 
                     {/* Multi-Select Floating Action Bar */}
-                    {reclassifyTab === 'reclassify' && selectedPostIds.length > 0 && (
-                      <div className="p-3 bg-indigo-950/90 border border-indigo-500/40 rounded-xl flex items-center justify-between gap-3 flex-wrap animate-in fade-in backdrop-blur-md shadow-xl flex-shrink-0">
-                        <div className="flex items-center gap-3">
-                          <span className="font-bold text-white text-xs flex items-center gap-1.5">
-                            <CheckSquare size={14} className="text-indigo-400" />
-                            Đã chọn <strong className="text-indigo-300 font-mono text-sm">{selectedPostIds.length}</strong> bài viết
-                          </span>
-                          <button
-                            type="button"
-                            onClick={handleSelectAllPosts}
-                            className="text-[11px] text-indigo-300 hover:text-white underline cursor-pointer"
-                          >
-                            {selectedPostIds.length === reclassifyAnalysisData.reclassifyList?.length ? 'Bỏ chọn tất cả' : 'Chọn toàn bộ bài'}
-                          </button>
-                        </div>
+                    {reclassifyTab === 'reclassify' &&
+                      selectedPostIds.length > 0 && (
+                        <div className="p-3 bg-indigo-950/90 border border-indigo-500/40 rounded-xl flex items-center justify-between gap-3 flex-wrap animate-in fade-in backdrop-blur-md shadow-xl flex-shrink-0">
+                          <div className="flex items-center gap-3">
+                            <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                              <CheckSquare
+                                size={14}
+                                className="text-indigo-400"
+                              />
+                              Đã chọn{' '}
+                              <strong className="text-indigo-300 font-mono text-sm">
+                                {selectedPostIds.length}
+                              </strong>{' '}
+                              bài viết
+                            </span>
+                            <button
+                              type="button"
+                              onClick={handleSelectAllPosts}
+                              className="text-[11px] text-indigo-300 hover:text-white underline cursor-pointer"
+                            >
+                              {selectedPostIds.length ===
+                              reclassifyAnalysisData.reclassifyList?.length
+                                ? 'Bỏ chọn tất cả'
+                                : 'Chọn toàn bộ bài'}
+                            </button>
+                          </div>
 
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-[11px] text-white/60">Gán sang danh mục:</span>
-                          <select
-                            value={batchTargetCategory}
-                            onChange={(e) => setBatchTargetCategory(e.target.value)}
-                            className="bg-black/70 border border-white/20 rounded-lg text-xs px-2.5 py-1.5 text-white focus:outline-none font-sans"
-                          >
-                            <option value="">-- Chọn danh mục --</option>
-                            {reclassifyAnalysisData.activeCategories?.map((c) => (
-                              <option key={c.slug} value={c.slug}>
-                                {c.name} ({c.slug})
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={handleApplySelectedBatchCategory}
-                            disabled={!batchTargetCategory}
-                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
-                          >
-                            Áp Dụng Cho Bài Đã Chọn
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setSelectedPostIds([])}
-                            className="px-2.5 py-1.5 bg-white/10 hover:bg-white/15 text-white/70 hover:text-white rounded-lg text-xs transition-colors cursor-pointer"
-                          >
-                            Hủy Tích Chọn
-                          </button>
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[11px] text-white/60">
+                              Gán sang danh mục:
+                            </span>
+                            <select
+                              value={batchTargetCategory}
+                              onChange={(e) =>
+                                setBatchTargetCategory(e.target.value)
+                              }
+                              className="bg-black/70 border border-white/20 rounded-lg text-xs px-2.5 py-1.5 text-white focus:outline-none font-sans"
+                            >
+                              <option value="">-- Chọn danh mục --</option>
+                              {reclassifyAnalysisData.activeCategories?.map(
+                                (c) => (
+                                  <option key={c.slug} value={c.slug}>
+                                    {c.name} ({c.slug})
+                                  </option>
+                                )
+                              )}
+                            </select>
+                            <button
+                              type="button"
+                              onClick={handleApplySelectedBatchCategory}
+                              disabled={!batchTargetCategory}
+                              className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                            >
+                              Áp Dụng Cho Bài Đã Chọn
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedPostIds([])}
+                              className="px-2.5 py-1.5 bg-white/10 hover:bg-white/15 text-white/70 hover:text-white rounded-lg text-xs transition-colors cursor-pointer"
+                            >
+                              Hủy Tích Chọn
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
                     {/* Tab 1: Reclassification Cards */}
                     {reclassifyTab === 'reclassify' && (
                       <div className="space-y-3 flex-1 flex flex-col min-h-0">
-                        <div className={`space-y-3 overflow-y-auto pr-1 flex-1 ${isExpandedView ? 'max-h-[calc(98vh-260px)]' : 'max-h-[420px]'}`}>
-                          {reclassifyAnalysisData.reclassifyList?.length === 0 ? (
+                        <div
+                          className={`space-y-3 overflow-y-auto pr-1 flex-1 ${isExpandedView ? 'max-h-[calc(98vh-260px)]' : 'max-h-[420px]'}`}
+                        >
+                          {reclassifyAnalysisData.reclassifyList?.length ===
+                          0 ? (
                             <div className="py-8 text-center text-white/40 text-xs bg-white/[0.02] rounded-xl border border-white/5">
                               Không có bài viết nào trong danh sách.
                             </div>
                           ) : (
-                            reclassifyAnalysisData.reclassifyList?.map((item) => (
-                              <div
-                                key={item.postId}
-                                className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all ${
-                                  selectedPostIds.includes(item.postId)
-                                    ? 'bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-950/50'
-                                    : item.isDifferent
-                                      ? 'bg-indigo-950/20 border-indigo-500/30'
-                                      : 'bg-white/[0.03] border-white/10'
-                                }`}
-                              >
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  <input
-                                    type="checkbox"
-                                    checked={selectedPostIds.includes(item.postId)}
-                                    onChange={() => handleToggleSelectPost(item.postId)}
-                                    className="w-4 h-4 rounded border-white/20 bg-black/40 text-indigo-600 focus:ring-0 cursor-pointer flex-shrink-0"
-                                  />
-                                  {item.imageUrl ? (
-                                    <div
-                                      onClick={() => setPreviewModal?.(item.post)}
-                                      className="relative group cursor-pointer flex-shrink-0"
-                                      title="Click để xem chi tiết bài đăng"
-                                    >
-                                      <img
-                                        src={item.imageUrl}
-                                        alt=""
-                                        className="w-11 h-11 rounded-lg object-cover bg-black/40 group-hover:opacity-80 transition-opacity"
-                                      />
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center transition-opacity">
-                                        <Eye size={14} className="text-white" />
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div
-                                      onClick={() => setPreviewModal?.(item.post)}
-                                      className="w-11 h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 flex-shrink-0 font-bold cursor-pointer hover:bg-white/10"
-                                      title="Click để xem chi tiết bài đăng"
-                                    >
-                                      CSV
-                                    </div>
-                                  )}
-                                  <div className="min-w-0 space-y-1">
-                                    <div className="flex items-center gap-2 flex-wrap">
-                                      <h5
-                                        onClick={() => setPreviewModal?.(item.post)}
-                                        className="font-semibold text-white/90 truncate text-xs cursor-pointer hover:text-indigo-300 hover:underline transition-colors"
+                            reclassifyAnalysisData.reclassifyList?.map(
+                              (item) => (
+                                <div
+                                  key={item.postId}
+                                  className={`p-3 border rounded-xl flex items-center justify-between gap-3 transition-all ${
+                                    selectedPostIds.includes(item.postId)
+                                      ? 'bg-indigo-950/40 border-indigo-500/60 shadow-lg shadow-indigo-950/50'
+                                      : item.isDifferent
+                                        ? 'bg-indigo-950/20 border-indigo-500/30'
+                                        : 'bg-white/[0.03] border-white/10'
+                                  }`}
+                                >
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={selectedPostIds.includes(
+                                        item.postId
+                                      )}
+                                      onChange={() =>
+                                        handleToggleSelectPost(item.postId)
+                                      }
+                                      className="w-4 h-4 rounded border-white/20 bg-black/40 text-indigo-600 focus:ring-0 cursor-pointer flex-shrink-0"
+                                    />
+                                    {item.imageUrl ? (
+                                      <div
+                                        onClick={() =>
+                                          setPreviewModal?.(item.post)
+                                        }
+                                        className="relative group cursor-pointer flex-shrink-0"
                                         title="Click để xem chi tiết bài đăng"
                                       >
-                                        {item.title}
-                                      </h5>
-                                      {/* AI Confidence Badge */}
-                                      {(item.confidence || 0) >= 90 ? (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
-                                          ⚡ {item.confidence}% Tin Cậy Rất Cao
-                                        </span>
-                                      ) : (item.confidence || 0) >= 75 ? (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
-                                          🎯 {item.confidence}% Tin Cậy Trung Bình
-                                        </span>
-                                      ) : (
-                                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
-                                          ⚠️ {item.confidence}% Cần Duyệt
-                                        </span>
-                                      )}
-                                      {item.isDifferent ? (
-                                        <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex-shrink-0">
-                                          Khác danh mục
-                                        </span>
-                                      ) : (
-                                        <span className="px-1.5 py-0.2 text-[9px] font-semibold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 flex-shrink-0">
-                                          Đã đúng danh mục
-                                        </span>
-                                      )}
-                                    </div>
+                                        <img
+                                          src={item.imageUrl}
+                                          alt=""
+                                          className="w-11 h-11 rounded-lg object-cover bg-black/40 group-hover:opacity-80 transition-opacity"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center transition-opacity">
+                                          <Eye
+                                            size={14}
+                                            className="text-white"
+                                          />
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        onClick={() =>
+                                          setPreviewModal?.(item.post)
+                                        }
+                                        className="w-11 h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 flex-shrink-0 font-bold cursor-pointer hover:bg-white/10"
+                                        title="Click để xem chi tiết bài đăng"
+                                      >
+                                        CSV
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 space-y-1">
+                                      <div className="flex items-center gap-2 flex-wrap">
+                                        <h5
+                                          onClick={() =>
+                                            setPreviewModal?.(item.post)
+                                          }
+                                          className="font-semibold text-white/90 truncate text-xs cursor-pointer hover:text-indigo-300 hover:underline transition-colors"
+                                          title="Click để xem chi tiết bài đăng"
+                                        >
+                                          {item.title}
+                                        </h5>
+                                        {/* AI Confidence Badge */}
+                                        {(item.confidence || 0) >= 90 ? (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 font-mono">
+                                            ⚡ {item.confidence}% Tin Cậy Rất
+                                            Cao
+                                          </span>
+                                        ) : (item.confidence || 0) >= 75 ? (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-mono">
+                                            🎯 {item.confidence}% Tin Cậy Trung
+                                            Bình
+                                          </span>
+                                        ) : (
+                                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30 font-mono">
+                                            ⚠️ {item.confidence}% Cần Duyệt
+                                          </span>
+                                        )}
+                                        {item.isDifferent ? (
+                                          <span className="px-1.5 py-0.2 text-[9px] font-bold rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 flex-shrink-0">
+                                            Khác danh mục
+                                          </span>
+                                        ) : (
+                                          <span className="px-1.5 py-0.2 text-[9px] font-semibold rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/20 flex-shrink-0">
+                                            Đã đúng danh mục
+                                          </span>
+                                        )}
+                                      </div>
                                       <div className="flex items-center gap-2 text-[11px]">
                                         <span className="px-2 py-0.5 rounded bg-white/10 text-white/60 font-mono">
                                           {item.currentCategory}
                                         </span>
                                         <span className="text-white/40">→</span>
                                         <span className="px-2 py-0.5 rounded bg-indigo-500/20 text-indigo-300 font-bold border border-indigo-500/30">
-                                          {selectedCategoryChoices[item.postId] ||
-                                            item.suggestedCategoryName}
+                                          {selectedCategoryChoices[
+                                            item.postId
+                                          ] || item.suggestedCategoryName}
                                         </span>
                                       </div>
                                       {/* AI Candidate Chips */}
@@ -2455,13 +3338,15 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                                                 setSelectedCategoryChoices(
                                                   (prev) => ({
                                                     ...prev,
-                                                    [item.postId]: cand.toLowerCase(),
+                                                    [item.postId]:
+                                                      cand.toLowerCase(),
                                                   })
                                                 )
                                               }
                                               className={`px-2 py-0.5 rounded-full text-[10px] cursor-pointer transition-all ${
-                                                (selectedCategoryChoices[item.postId] ||
-                                                  item.suggestedCategory) ===
+                                                (selectedCategoryChoices[
+                                                  item.postId
+                                                ] || item.suggestedCategory) ===
                                                 cand.toLowerCase()
                                                   ? 'bg-indigo-600 text-white font-bold'
                                                   : 'bg-white/5 text-white/60 hover:bg-white/10'
@@ -2481,8 +3366,9 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                                       onClick={() =>
                                         handleSingleReclassify(
                                           item.postId,
-                                          selectedCategoryChoices[item.postId] ||
-                                            item.suggestedCategory
+                                          selectedCategoryChoices[
+                                            item.postId
+                                          ] || item.suggestedCategory
                                         )
                                       }
                                       className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
@@ -2494,9 +3380,10 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                                       onClick={() =>
                                         setReclassifyAnalysisData((prev) => ({
                                           ...prev,
-                                          reclassifyList: prev.reclassifyList.filter(
-                                            (i) => i.postId !== item.postId
-                                          ),
+                                          reclassifyList:
+                                            prev.reclassifyList.filter(
+                                              (i) => i.postId !== item.postId
+                                            ),
                                         }))
                                       }
                                       className="px-2.5 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-lg text-xs transition-colors cursor-pointer"
@@ -2505,7 +3392,8 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                                     </button>
                                   </div>
                                 </div>
-                              ))
+                              )
+                            )
                           )}
                         </div>
                       </div>
@@ -2513,159 +3401,183 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
 
                     {/* Tab 2: New Category Proposals */}
                     {reclassifyTab === 'proposals' && (
-                      <div className={`space-y-3 overflow-y-auto pr-1 flex-1 ${isExpandedView ? 'max-h-[calc(98vh-270px)]' : 'max-h-[420px]'}`}>
-                        {reclassifyAnalysisData.newCategoryProposals?.length === 0 ? (
+                      <div
+                        className={`space-y-3 overflow-y-auto pr-1 flex-1 ${isExpandedView ? 'max-h-[calc(98vh-270px)]' : 'max-h-[420px]'}`}
+                      >
+                        {reclassifyAnalysisData.newCategoryProposals?.length ===
+                        0 ? (
                           <div className="py-8 text-center text-white/40 text-xs bg-white/[0.02] rounded-xl border border-white/5">
                             Không có bài viết nào đề xuất tạo danh mục mới.
                           </div>
                         ) : (
-                          reclassifyAnalysisData.newCategoryProposals?.map((item) => (
-                            <div
-                              key={item.postId}
-                              className="p-3.5 bg-white/[0.03] border border-violet-500/25 rounded-xl space-y-3"
-                            >
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                  {item.imageUrl ? (
-                                    <div
-                                      onClick={() => setPreviewModal?.(item.post)}
-                                      className="relative group cursor-pointer flex-shrink-0"
-                                      title="Click để xem chi tiết bài đăng"
-                                    >
-                                      <img
-                                        src={item.imageUrl}
-                                        alt=""
-                                        className="w-11 h-11 rounded-lg object-cover bg-black/40 group-hover:opacity-80 transition-opacity"
-                                      />
-                                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center transition-opacity">
-                                        <Eye size={14} className="text-white" />
+                          reclassifyAnalysisData.newCategoryProposals?.map(
+                            (item) => (
+                              <div
+                                key={item.postId}
+                                className="p-3.5 bg-white/[0.03] border border-violet-500/25 rounded-xl space-y-3"
+                              >
+                                <div className="flex items-center justify-between gap-3">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    {item.imageUrl ? (
+                                      <div
+                                        onClick={() =>
+                                          setPreviewModal?.(item.post)
+                                        }
+                                        className="relative group cursor-pointer flex-shrink-0"
+                                        title="Click để xem chi tiết bài đăng"
+                                      >
+                                        <img
+                                          src={item.imageUrl}
+                                          alt=""
+                                          className="w-11 h-11 rounded-lg object-cover bg-black/40 group-hover:opacity-80 transition-opacity"
+                                        />
+                                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 rounded-lg flex items-center justify-center transition-opacity">
+                                          <Eye
+                                            size={14}
+                                            className="text-white"
+                                          />
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <div
+                                        onClick={() =>
+                                          setPreviewModal?.(item.post)
+                                        }
+                                        className="w-11 h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 flex-shrink-0 font-bold cursor-pointer hover:bg-white/10"
+                                        title="Click để xem chi tiết bài đăng"
+                                      >
+                                        CSV
+                                      </div>
+                                    )}
+                                    <div className="min-w-0 space-y-1">
+                                      <h5
+                                        onClick={() =>
+                                          setPreviewModal?.(item.post)
+                                        }
+                                        className="font-semibold text-white/90 truncate text-xs cursor-pointer hover:text-violet-300 hover:underline transition-colors"
+                                        title="Click để xem chi tiết bài đăng"
+                                      >
+                                        {item.title}
+                                      </h5>
+                                      <div className="flex items-center gap-2 text-[11px]">
+                                        <span className="text-white/50">
+                                          Đề xuất danh mục:
+                                        </span>
+                                        <span className="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 font-bold border border-violet-500/30">
+                                          {selectedCategoryChoices[
+                                            item.postId
+                                          ] || item.requestedCategory}
+                                        </span>
                                       </div>
                                     </div>
-                                  ) : (
-                                    <div
-                                      onClick={() => setPreviewModal?.(item.post)}
-                                      className="w-11 h-11 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center text-white/40 flex-shrink-0 font-bold cursor-pointer hover:bg-white/10"
-                                      title="Click để xem chi tiết bài đăng"
+                                  </div>
+
+                                  <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleSingleCategoryProposal(
+                                          item.postId,
+                                          'approve',
+                                          selectedCategoryChoices[
+                                            item.postId
+                                          ] || item.requestedCategory
+                                        )
+                                      }
+                                      className="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
                                     >
-                                      CSV
-                                    </div>
-                                  )}
-                                  <div className="min-w-0 space-y-1">
-                                    <h5
-                                      onClick={() => setPreviewModal?.(item.post)}
-                                      className="font-semibold text-white/90 truncate text-xs cursor-pointer hover:text-violet-300 hover:underline transition-colors"
-                                      title="Click để xem chi tiết bài đăng"
+                                      Tạo &amp; Duyệt
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        handleSingleCategoryProposal(
+                                          item.postId,
+                                          'reject',
+                                          null
+                                        )
+                                      }
+                                      className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-lg text-xs transition-colors cursor-pointer"
                                     >
-                                      {item.title}
-                                    </h5>
-                                    <div className="flex items-center gap-2 text-[11px]">
-                                      <span className="text-white/50">
-                                        Đề xuất danh mục:
-                                      </span>
-                                      <span className="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 font-bold border border-violet-500/30">
-                                        {selectedCategoryChoices[item.postId] ||
-                                          item.requestedCategory}
-                                      </span>
-                                    </div>
+                                      Gán Vào Khác
+                                    </button>
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleSingleCategoryProposal(
-                                        item.postId,
-                                        'approve',
-                                        selectedCategoryChoices[item.postId] ||
-                                          item.requestedCategory
+                                {/* 3 AI Suggestions Chips Selection */}
+                                <div className="p-2.5 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between flex-wrap gap-2">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="text-[11px] text-violet-300/80 font-bold">
+                                      Gợi ý 3 danh mục từ AI:
+                                    </span>
+                                    {item.suggested3Categories?.map(
+                                      (suggestion, sIdx) => (
+                                        <button
+                                          key={sIdx}
+                                          type="button"
+                                          onClick={() =>
+                                            setSelectedCategoryChoices(
+                                              (prev) => ({
+                                                ...prev,
+                                                [item.postId]: suggestion,
+                                              })
+                                            )
+                                          }
+                                          className={`px-2.5 py-1 rounded-md text-[11px] cursor-pointer transition-all ${
+                                            (selectedCategoryChoices[
+                                              item.postId
+                                            ] || item.requestedCategory) ===
+                                            suggestion
+                                              ? 'bg-violet-600 text-white font-bold shadow-md shadow-violet-600/30'
+                                              : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/5'
+                                          }`}
+                                        >
+                                          {sIdx + 1}. {suggestion}
+                                        </button>
                                       )
+                                    )}
+                                  </div>
+
+                                  {/* Or choose existing active category */}
+                                  <select
+                                    value={
+                                      selectedCategoryChoices[item.postId] ||
+                                      item.requestedCategory
                                     }
-                                    className="px-3.5 py-1.5 bg-violet-600 hover:bg-violet-500 text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                                    onChange={(e) =>
+                                      setSelectedCategoryChoices((prev) => ({
+                                        ...prev,
+                                        [item.postId]: e.target.value,
+                                      }))
+                                    }
+                                    className="bg-black/60 border border-white/10 rounded-md text-[11px] px-2 py-1 text-white/80 focus:outline-none"
                                   >
-                                    Tạo &amp; Duyệt
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      handleSingleCategoryProposal(
-                                        item.postId,
-                                        'reject',
-                                        null
+                                    <option value={item.requestedCategory}>
+                                      Mặc định: {item.requestedCategory}
+                                    </option>
+                                    {reclassifyAnalysisData.activeCategories?.map(
+                                      (c) => (
+                                        <option key={c.slug} value={c.name}>
+                                          {c.name} ({c.slug})
+                                        </option>
                                       )
-                                    }
-                                    className="px-3 py-1.5 bg-white/5 hover:bg-white/10 text-white/50 hover:text-white rounded-lg text-xs transition-colors cursor-pointer"
-                                  >
-                                    Gán Vào Khác
-                                  </button>
+                                    )}
+                                  </select>
                                 </div>
                               </div>
-
-                              {/* 3 AI Suggestions Chips Selection */}
-                              <div className="p-2.5 bg-black/30 rounded-lg border border-white/5 flex items-center justify-between flex-wrap gap-2">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                  <span className="text-[11px] text-violet-300/80 font-bold">
-                                    Gợi ý 3 danh mục từ AI:
-                                  </span>
-                                  {item.suggested3Categories?.map(
-                                    (suggestion, sIdx) => (
-                                      <button
-                                        key={sIdx}
-                                        type="button"
-                                        onClick={() =>
-                                          setSelectedCategoryChoices((prev) => ({
-                                            ...prev,
-                                            [item.postId]: suggestion,
-                                          }))
-                                        }
-                                        className={`px-2.5 py-1 rounded-md text-[11px] cursor-pointer transition-all ${
-                                          (selectedCategoryChoices[item.postId] ||
-                                            item.requestedCategory) === suggestion
-                                            ? 'bg-violet-600 text-white font-bold shadow-md shadow-violet-600/30'
-                                            : 'bg-white/5 text-white/70 hover:bg-white/10 border border-white/5'
-                                        }`}
-                                      >
-                                        {sIdx + 1}. {suggestion}
-                                      </button>
-                                    )
-                                  )}
-                                </div>
-
-                                {/* Or choose existing active category */}
-                                <select
-                                  value={
-                                    selectedCategoryChoices[item.postId] ||
-                                    item.requestedCategory
-                                  }
-                                  onChange={(e) =>
-                                    setSelectedCategoryChoices((prev) => ({
-                                      ...prev,
-                                      [item.postId]: e.target.value,
-                                    }))
-                                  }
-                                  className="bg-black/60 border border-white/10 rounded-md text-[11px] px-2 py-1 text-white/80 focus:outline-none"
-                                >
-                                  <option value={item.requestedCategory}>
-                                    Mặc định: {item.requestedCategory}
-                                  </option>
-                                  {reclassifyAnalysisData.activeCategories?.map(
-                                    (c) => (
-                                      <option key={c.slug} value={c.name}>
-                                        {c.name} ({c.slug})
-                                      </option>
-                                    )
-                                  )}
-                                </select>
-                              </div>
-                            </div>
-                          ))
+                            )
+                          )
                         )}
                       </div>
                     )}
                   </div>
                 ) : !reclassifyLoading ? (
                   <div className="py-12 text-center text-white/40 text-xs bg-white/[0.02] rounded-2xl border border-white/5 space-y-3">
-                    <p>Bấm nút "Quét Dữ Liệu CSV" phía trên để tiến hành phân tích {reclassifyAnalysisData?.totalScanned || 850} bài viết CSV.</p>
+                    <p>
+                      Bấm nút "Quét Dữ Liệu CSV" phía trên để tiến hành phân
+                      tích {reclassifyAnalysisData?.totalScanned || 850} bài
+                      viết CSV.
+                    </p>
                   </div>
                 ) : null}
               </div>
@@ -2802,28 +3714,48 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                                   'admin'}
                               </span>
 
-                              {log.details?.batchImportId && (
-                                log.details.isUndone ? (
+                              {log.details?.batchImportId &&
+                                (log.details.isUndone ? (
                                   <span
                                     className="ml-2 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-white/5 text-emerald-400/80 border border-emerald-500/30 flex items-center gap-1.5 cursor-not-allowed select-none"
                                     title="Đợt import này đã được hoàn tác và xóa dữ liệu thành công"
                                   >
-                                    <CheckCircle size={12} className="text-emerald-400" />
+                                    <CheckCircle
+                                      size={12}
+                                      className="text-emerald-400"
+                                    />
                                     <span>Đã hoàn tác</span>
                                   </span>
                                 ) : (
                                   <button
                                     type="button"
-                                    onClick={() => handleUndoBatch(log.details.batchImportId)}
-                                    disabled={undoingBatchId === log.details.batchImportId}
+                                    onClick={() =>
+                                      handleUndoBatch(log.details.batchImportId)
+                                    }
+                                    disabled={
+                                      undoingBatchId ===
+                                      log.details.batchImportId
+                                    }
                                     className="ml-2 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-red-500/20 text-red-300 hover:bg-red-500/30 border border-red-500/30 transition-all cursor-pointer flex items-center gap-1.5 disabled:opacity-50"
                                     title="Hoàn tác & Xóa toàn bộ các bài viết từ đợt import này"
                                   >
-                                    <RotateCcw size={12} className={undoingBatchId === log.details.batchImportId ? 'animate-spin' : ''} />
-                                    <span>{undoingBatchId === log.details.batchImportId ? 'Đang hoàn tác...' : 'Undo (Hoàn tác)'}</span>
+                                    <RotateCcw
+                                      size={12}
+                                      className={
+                                        undoingBatchId ===
+                                        log.details.batchImportId
+                                          ? 'animate-spin'
+                                          : ''
+                                      }
+                                    />
+                                    <span>
+                                      {undoingBatchId ===
+                                      log.details.batchImportId
+                                        ? 'Đang hoàn tác...'
+                                        : 'Undo (Hoàn tác)'}
+                                    </span>
                                   </button>
-                                )
-                              )}
+                                ))}
                             </div>
                           </div>
 
@@ -3202,7 +4134,9 @@ const PostsTab = () => {
             currentCategorySlug: targetPost.category,
             requestedCategoryStatus: targetPost.requestedCategoryStatus,
             isCategoryAlreadyInDb,
-            action: isCategoryAlreadyInDb ? 'DIRECT_APPROVE (passed luôn)' : 'OPEN_PROPOSAL_MODAL',
+            action: isCategoryAlreadyInDb
+              ? 'DIRECT_APPROVE (passed luôn)'
+              : 'OPEN_PROPOSAL_MODAL',
           })
 
           if (!isCategoryAlreadyInDb) {
@@ -3210,7 +4144,10 @@ const PostsTab = () => {
             return
           }
         } catch (catErr) {
-          console.warn('⚠️ Could not verify category status from server:', catErr.message)
+          console.warn(
+            '⚠️ Could not verify category status from server:',
+            catErr.message
+          )
         }
       }
     }
@@ -4347,20 +5284,27 @@ const PostsTab = () => {
                             📅 Ngày xuất bản gốc
                           </span>
                           <span className="text-white/70 font-semibold text-[11px]">
-                            {new Date(previewModal.publishedAt).toLocaleDateString('vi-VN', { year: 'numeric', month: 'short', day: 'numeric' })}
+                            {new Date(
+                              previewModal.publishedAt
+                            ).toLocaleDateString('vi-VN', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: 'numeric',
+                            })}
                           </span>
                         </div>
                       )}
-                      {previewModal.originalLanguage && previewModal.originalLanguage !== 'EN' && (
-                        <div>
-                          <span className="text-white/40 block mb-0.5">
-                            🌐 Ngôn ngữ gốc
-                          </span>
-                          <span className="text-white/70 font-semibold text-[11px]">
-                            {previewModal.originalLanguage}
-                          </span>
-                        </div>
-                      )}
+                      {previewModal.originalLanguage &&
+                        previewModal.originalLanguage !== 'EN' && (
+                          <div>
+                            <span className="text-white/40 block mb-0.5">
+                              🌐 Ngôn ngữ gốc
+                            </span>
+                            <span className="text-white/70 font-semibold text-[11px]">
+                              {previewModal.originalLanguage}
+                            </span>
+                          </div>
+                        )}
                     </div>
 
                     {/* Stats */}
@@ -4398,18 +5342,42 @@ const PostsTab = () => {
                         </div>
                       </div>
                       {/* BaseStats from original CSV source */}
-                      {previewModal.baseStats && (previewModal.baseStats.likesCount > 0 || previewModal.baseStats.viewsCount > 0) && (
-                        <div className="mt-1.5 p-2.5 rounded-lg bg-violet-950/30 border border-violet-500/20 text-[10px]">
-                          <span className="text-violet-400 font-bold uppercase tracking-wide block mb-1">📊 Nguồn gốc (CSV)</span>
-                          <div className="flex gap-3 text-white/50">
-                            <span>👁 {previewModal.baseStats.viewsCount?.toLocaleString() || 0}</span>
-                            <span>❤ {previewModal.baseStats.likesCount?.toLocaleString() || 0}</span>
-                            <span>💬 {previewModal.baseStats.commentsCount?.toLocaleString() || 0}</span>
-                            <span>↗ {previewModal.baseStats.sharesCount?.toLocaleString() || 0}</span>
-                            <span>🔖 {previewModal.baseStats.bookmarksCount?.toLocaleString() || 0}</span>
+                      {previewModal.baseStats &&
+                        (previewModal.baseStats.likesCount > 0 ||
+                          previewModal.baseStats.viewsCount > 0) && (
+                          <div className="mt-1.5 p-2.5 rounded-lg bg-violet-950/30 border border-violet-500/20 text-[10px]">
+                            <span className="text-violet-400 font-bold uppercase tracking-wide block mb-1">
+                              📊 Nguồn gốc (CSV)
+                            </span>
+                            <div className="flex gap-3 text-white/50">
+                              <span>
+                                👁{' '}
+                                {previewModal.baseStats.viewsCount?.toLocaleString() ||
+                                  0}
+                              </span>
+                              <span>
+                                ❤{' '}
+                                {previewModal.baseStats.likesCount?.toLocaleString() ||
+                                  0}
+                              </span>
+                              <span>
+                                💬{' '}
+                                {previewModal.baseStats.commentsCount?.toLocaleString() ||
+                                  0}
+                              </span>
+                              <span>
+                                ↗{' '}
+                                {previewModal.baseStats.sharesCount?.toLocaleString() ||
+                                  0}
+                              </span>
+                              <span>
+                                🔖{' '}
+                                {previewModal.baseStats.bookmarksCount?.toLocaleString() ||
+                                  0}
+                              </span>
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
                     </div>
 
                     {/* EXIF panel data (Camera & Shot parameters) */}
@@ -4597,7 +5565,25 @@ const SORT_OPTIONS = [
 
 const UsersTab = () => {
   const [users, setUsers] = useState([])
+  const [totalUsersCount, setTotalUsersCount] = useState(0) // count for current active filter
+  const [allUsersTotal, setAllUsersTotal] = useState(0) // always = grand total (no filter)
+  const [missingAvatarCount, setMissingAvatarCount] = useState(0)
+  const [orphanUsersCount, setOrphanUsersCount] = useState(0)
+  const [avatarFilter, setAvatarFilter] = useState('all') // 'all' | 'missing' | 'valid' | 'orphan'
+  const [brokenAvatars, setBrokenAvatars] = useState({})
   const [loading, setLoading] = useState(true)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [avatarUploadLoading, setAvatarUploadLoading] = useState(false)
+  const avatarInputRef = useRef(null)
+
+  // Avatars using ui-avatars.com (fallback text initials) or dicebear.com (AI bot) or empty strings are treated as "Thiếu/Lỗi Avatar"
+  const BROKEN_AVATAR_KEYWORDS = ['ui-avatars.com', 'dicebear.com']
+  const isBrokenOrMissingAvatar = (u) => {
+    if (!u?.avatar || u.avatar.trim() === '') return true
+    if (BROKEN_AVATAR_KEYWORDS.some((k) => u.avatar.includes(k))) return true
+    if (brokenAvatars[u._id]) return true
+    return false
+  }
   const [search, setSearch] = useState('')
   const [hasMore, setHasMore] = useState(false)
   const [cursor, setCursor] = useState(null)
@@ -4756,19 +5742,37 @@ const UsersTab = () => {
         setPage(1)
       }
       try {
-        const params = { limit: 20 }
-        if (isCustomSort) {
+        // 'missing' and 'orphan' both load all at once — no pagination
+        const isLoadAllMode =
+          avatarFilter === 'missing' || avatarFilter === 'orphan'
+        const params = { limit: isLoadAllMode ? 'all' : 20 }
+        if (isCustomSort && !isLoadAllMode) {
           params.sortBy = sortBy
           params.page = reset ? 1 : page + 1
         } else {
-          if (!reset && cursor) params.cursor = cursor
+          if (!reset && cursor && !isLoadAllMode) params.cursor = cursor
+        }
+        if (avatarFilter !== 'all') {
+          params.avatarStatus = avatarFilter
         }
         if (search.trim()) params.search = search
         const { data } = await api.get('/admin/users', { params })
         setUsers(reset ? data.users : (u) => [...u, ...data.users])
-        setHasMore(data.pagination.hasMore)
+        if (data.totalUsers !== undefined) {
+          setTotalUsersCount(data.totalUsers)
+        }
+        if (data.allUsersTotal !== undefined) {
+          setAllUsersTotal(data.allUsersTotal)
+        }
+        if (data.missingAvatarCount !== undefined) {
+          setMissingAvatarCount(data.missingAvatarCount)
+        }
+        if (data.orphanUsersCount !== undefined) {
+          setOrphanUsersCount(data.orphanUsersCount)
+        }
+        setHasMore(isLoadAllMode ? false : data.pagination.hasMore)
 
-        if (isCustomSort) {
+        if (isCustomSort && !isLoadAllMode) {
           setPage(reset ? 1 : page + 1)
         } else {
           setCursor(data.pagination.nextCursor)
@@ -4779,8 +5783,55 @@ const UsersTab = () => {
         setLoading(false)
       }
     },
-    [search, cursor, sortBy, page]
+    [search, cursor, sortBy, page, avatarFilter]
   )
+
+  const handleCleanupOrphans = async () => {
+    const ok = window.confirm(
+      `Hiện có ${orphanUsersCount} tài khoản Tác giả CSV mồ côi (không có bài viết nào, do đã import rồi hoàn tác xóa bài).\n\nThao tác này sẽ xóa vĩnh viễn các tài khoản đó.\n\nBạn có chắc muốn tiếp tục?`
+    )
+    if (!ok) return
+    setCleanupLoading(true)
+    try {
+      const { data } = await api.post('/admin/users/cleanup-orphans')
+      toast.success(data.message)
+      setAvatarFilter('all')
+      fetchUsers(true)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi dọn dẹp user')
+    } finally {
+      setCleanupLoading(false)
+    }
+  }
+
+  const handleAvatarUpload = async (userId, file) => {
+    if (!file) return
+    setAvatarUploadLoading(true)
+    try {
+      const formData = new FormData()
+      formData.append('avatar', file)
+      const { data } = await api.post(
+        `/admin/users/${userId}/avatar`,
+        formData,
+        {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        }
+      )
+      toast.success(data.message || 'Đã cập nhật avatar!')
+      // Update locally
+      setUsers((prev) =>
+        prev.map((u) => (u._id === userId ? { ...u, avatar: data.avatar } : u))
+      )
+      // Also update detailModal if open for this user
+      setDetailModal((prev) =>
+        prev?._id === userId ? { ...prev, avatar: data.avatar } : prev
+      )
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi khi upload avatar')
+    } finally {
+      setAvatarUploadLoading(false)
+    }
+  }
 
   useEffect(() => {
     const t = setTimeout(() => fetchUsers(true), 400)
@@ -4789,7 +5840,7 @@ const UsersTab = () => {
 
   useEffect(() => {
     fetchUsers(true)
-  }, [sortBy]) // eslint-disable-line
+  }, [sortBy, avatarFilter]) // eslint-disable-line
 
   const scrollLockRef = useRef(null)
   const sortDropdownRef = useRef(null)
@@ -5084,6 +6135,100 @@ const UsersTab = () => {
 
   return (
     <div className="space-y-4">
+      {/* Top Header Bar: Total Count & Avatar Filter Switcher */}
+      <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-white/[0.02] border border-white/10 backdrop-blur-md">
+        <div className="flex items-center gap-3">
+          <div className="p-2 rounded-xl bg-violet-600/20 text-violet-400 border border-violet-500/30">
+            <Users size={18} />
+          </div>
+          <div>
+            <h3 className="text-sm font-bold text-white flex items-center gap-2">
+              Quản lý Người dùng
+              <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/20 text-violet-300 font-mono border border-violet-500/30">
+                Tổng:{' '}
+                {(
+                  allUsersTotal ||
+                  totalUsersCount ||
+                  users.length
+                ).toLocaleString()}{' '}
+                Users
+              </span>
+            </h3>
+            <p className="text-xs text-white/40">
+              Danh sách tài khoản thành viên và tác giả ảnh trên hệ thống
+              Picspy.
+            </p>
+          </div>
+        </div>
+
+        {/* Avatar Filter Switcher */}
+        <div className="flex items-center flex-wrap gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
+          <button
+            onClick={() => setAvatarFilter('all')}
+            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer ${
+              avatarFilter === 'all'
+                ? 'bg-violet-600 text-white shadow-md'
+                : 'text-white/40 hover:text-white'
+            }`}
+          >
+            Tất cả (
+            {(
+              allUsersTotal ||
+              totalUsersCount ||
+              users.length
+            ).toLocaleString()}
+            )
+          </button>
+          <button
+            onClick={() => setAvatarFilter('missing')}
+            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              avatarFilter === 'missing'
+                ? 'bg-amber-500 text-white shadow-md shadow-amber-900/40'
+                : 'text-white/40 hover:text-white'
+            }`}
+          >
+            <AlertTriangle size={12} />
+            <span>Thiếu/Lỗi Avatar</span>
+            {missingAvatarCount > 0 && (
+              <span className="px-1.5 rounded-full bg-black/40 text-[10px] font-mono tabular-nums">
+                {missingAvatarCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setAvatarFilter('orphan')}
+            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              avatarFilter === 'orphan'
+                ? 'bg-red-600 text-white shadow-md shadow-red-900/40'
+                : 'text-white/40 hover:text-white'
+            }`}
+          >
+            <Bot size={12} />
+            <span>Mồ Côi</span>
+            {orphanUsersCount > 0 && (
+              <span className="px-1.5 rounded-full bg-black/40 text-[10px] font-mono tabular-nums">
+                {orphanUsersCount}
+              </span>
+            )}
+          </button>
+          <button
+            onClick={() => setAvatarFilter('valid')}
+            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              avatarFilter === 'valid'
+                ? 'bg-emerald-600 text-white shadow-md'
+                : 'text-white/40 hover:text-white'
+            }`}
+          >
+            <span>Có Avatar</span>
+            {avatarFilter === 'valid' && totalUsersCount > 0 && (
+              <span className="px-1.5 rounded-full bg-black/40 text-[10px] font-mono tabular-nums">
+                {totalUsersCount}
+              </span>
+            )}
+          </button>
+        </div>
+      </div>
+
       <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search
@@ -5159,21 +6304,46 @@ const UsersTab = () => {
             </AnimatePresence>
           </div>
 
-          <button
-            onClick={toggleHideAiUsers}
-            className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer select-none ${
-              hideAiUsers
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-md shadow-amber-500/10'
-                : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
-            }`}
-            title="Ẩn/Hiện các tài khoản tác giả tạo tự động từ file CSV"
-          >
-            <Bot
-              size={14}
-              className={hideAiUsers ? 'text-amber-400' : 'text-white/40'}
-            />
-            <span>{hideAiUsers ? 'Đã ẩn Tác giả CSV' : 'Ẩn Tác giả CSV'}</span>
-          </button>
+          {avatarFilter === 'orphan' ? (
+            <button
+              onClick={handleCleanupOrphans}
+              disabled={cleanupLoading || (orphanUsersCount === 0 && users.length === 0)}
+              className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer select-none bg-red-600/10 border-red-500/25 text-red-400 hover:bg-red-600/20 hover:border-red-500/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600/10"
+              title={
+                orphanUsersCount === 0 && users.length === 0
+                  ? 'Không có user mồ côi nào để dọn dẹp'
+                  : 'Xóa vĩnh viễn các tài khoản Tác giả CSV mồ côi (không còn bài đăng nào)'
+              }
+            >
+              {cleanupLoading ? (
+                <motion.div
+                  animate={{ rotate: 360 }}
+                  transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+                >
+                  <RefreshCw size={13} />
+                </motion.div>
+              ) : (
+                <Trash2 size={13} />
+              )}
+              <span>Dọn User Mồ Côi</span>
+            </button>
+          ) : (
+            <button
+              onClick={toggleHideAiUsers}
+              className={`px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer select-none ${
+                hideAiUsers
+                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-300 shadow-md shadow-amber-500/10'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:border-white/20'
+              }`}
+              title="Ẩn/Hiện các tài khoản tác giả tạo tự động từ file CSV"
+            >
+              <Bot
+                size={14}
+                className={hideAiUsers ? 'text-amber-400' : 'text-white/40'}
+              />
+              <span>{hideAiUsers ? 'Đã ẩn Tác giả CSV' : 'Ẩn Tác giả CSV'}</span>
+            </button>
+          )}
 
           <button
             onClick={() => {
@@ -5202,6 +6372,54 @@ const UsersTab = () => {
         </div>
       ) : (
         <div className="space-y-2">
+          {avatarFilter === 'missing' && !loading && users.length > 0 && (
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
+              <AlertTriangle size={13} />
+              Hiển thị tất cả{' '}
+              <span className="font-mono font-bold text-amber-200">
+                {users.length}
+              </span>{' '}
+              user thiếu/lỗi avatar (dicebear.com hoặc không có) — nhấn vào từng
+              user để thêm avatar
+            </div>
+          )}
+          {avatarFilter === 'orphan' && !loading && (
+            <div className="flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs font-semibold">
+              <div className="flex items-center gap-2">
+                <Bot size={13} />
+                <span>
+                  Hiển thị{' '}
+                  <span className="font-mono font-bold text-red-200">
+                    {users.length}
+                  </span>{' '}
+                  tài khoản Tác giả CSV mồ côi — không còn bài đăng nào
+                </span>
+              </div>
+              {users.length > 0 && (
+                <button
+                  onClick={handleCleanupOrphans}
+                  disabled={cleanupLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-600/30 border border-red-500/40 text-red-300 hover:bg-red-600/40 transition-all cursor-pointer font-bold disabled:opacity-50 shrink-0"
+                >
+                  {cleanupLoading ? (
+                    <motion.div
+                      animate={{ rotate: 360 }}
+                      transition={{
+                        repeat: Infinity,
+                        duration: 0.8,
+                        ease: 'linear',
+                      }}
+                    >
+                      <RefreshCw size={12} />
+                    </motion.div>
+                  ) : (
+                    <Trash2 size={12} />
+                  )}
+                  Xóa tất cả {users.length} user mồ côi
+                </button>
+              )}
+            </div>
+          )}
           {users
             .filter((user) => (hideAiUsers ? !isAiUser(user) : true))
             .map((user) => (
@@ -5215,19 +6433,24 @@ const UsersTab = () => {
                 }`}
               >
                 <div className="flex-1 flex items-center gap-3 min-w-0">
-                  {user.avatar ? (
+                  {user.avatar && !brokenAvatars[user._id] ? (
                     <img
                       src={user.avatar}
                       className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300"
                       alt=""
-                      onError={(e) => {
-                        e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(user.username || '')}&background=8b5cf6&color=fff`
+                      onError={() => {
+                        setBrokenAvatars((prev) => ({
+                          ...prev,
+                          [user._id]: true,
+                        }))
                       }}
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-sm font-bold flex-shrink-0 group-hover:scale-105 transition-transform duration-300">
-                      {user.username?.[0]?.toUpperCase()}
-                    </div>
+                    <img
+                      src={`https://ui-avatars.com/api/?name=${encodeURIComponent(user.displayName || user.username || 'U')}&background=7c3aed&color=fff&bold=true`}
+                      className="w-10 h-10 rounded-full object-cover flex-shrink-0 group-hover:scale-105 transition-transform duration-300 border border-violet-500/30"
+                      alt=""
+                    />
                   )}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
@@ -5969,21 +7192,56 @@ const UsersTab = () => {
               <div className="flex-1 overflow-y-auto p-6 md:p-8 space-y-6 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10">
                 {/* Header profile section */}
                 <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 pb-6 border-b border-white/5">
-                  <div className="relative">
-                    {detailModal.avatar ? (
+                  <div
+                    className="relative group cursor-pointer"
+                    onClick={() => {
+                      const input = document.createElement('input')
+                      input.type = 'file'
+                      input.accept = 'image/*'
+                      input.onchange = (e) => {
+                        const file = e.target.files?.[0]
+                        if (file) handleAvatarUpload(detailModal._id, file)
+                      }
+                      input.click()
+                    }}
+                  >
+                    {detailModal.avatar &&
+                    !isBrokenOrMissingAvatar(detailModal) ? (
                       <img
                         src={detailModal.avatar}
-                        className="w-20 h-20 rounded-full object-cover ring-2 ring-brand-500/50 shadow-lg shadow-brand-500/10"
+                        className="w-20 h-20 rounded-full object-cover ring-2 ring-brand-500/50 shadow-lg shadow-brand-500/10 group-hover:brightness-75 transition-all duration-200"
                         alt=""
                         onError={(e) => {
                           e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(detailModal.username || '')}&background=8b5cf6&color=fff`
                         }}
                       />
                     ) : (
-                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-2xl font-black shadow-lg">
+                      <div className="w-20 h-20 rounded-full bg-gradient-to-br from-violet-600 to-blue-500 flex items-center justify-center text-white text-2xl font-black shadow-lg group-hover:brightness-90 transition-all duration-200">
                         {detailModal.username?.[0]?.toUpperCase()}
                       </div>
                     )}
+                    {/* Upload overlay */}
+                    <div className="absolute inset-0 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black/40">
+                      {avatarUploadLoading ? (
+                        <motion.div
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            repeat: Infinity,
+                            duration: 0.8,
+                            ease: 'linear',
+                          }}
+                        >
+                          <RefreshCw size={18} className="text-white" />
+                        </motion.div>
+                      ) : (
+                        <div className="flex flex-col items-center gap-0.5">
+                          <Pencil size={14} className="text-white" />
+                          <span className="text-[9px] text-white font-bold leading-none">
+                            Upload
+                          </span>
+                        </div>
+                      )}
+                    </div>
                     {detailModal.isVerified && (
                       <span
                         className="absolute -bottom-1 -right-1 bg-brand-500 text-white rounded-full p-1 border-2 border-zinc-950"

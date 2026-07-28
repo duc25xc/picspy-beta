@@ -737,13 +737,29 @@ export async function undoImportBatch(batchImportId) {
   }
 
   const postIds = posts.map((p) => p._id)
+  const authorIds = [...new Set(posts.map((p) => p.authorId?.toString()).filter(Boolean))]
+
   const deleteRes = await Post.deleteMany({ _id: { $in: postIds } })
 
-  console.log(`⏪ [UNDO BATCH COMPLETE] Reverted batch ${batchImportId}: ${deleteRes.deletedCount} posts deleted.`)
+  // Clean up CSV author users that have 0 posts left
+  let deletedUserCount = 0
+  for (const authorId of authorIds) {
+    const remainingPosts = await Post.countDocuments({ authorId })
+    if (remainingPosts === 0) {
+      const userObj = await User.findById(authorId)
+      if (userObj && userObj.email && userObj.email.endsWith('@picspy.ai')) {
+        await User.deleteOne({ _id: authorId })
+        deletedUserCount++
+      }
+    }
+  }
+
+  console.log(`⏪ [UNDO BATCH COMPLETE] Reverted batch ${batchImportId}: ${deleteRes.deletedCount} posts & ${deletedUserCount} orphan CSV users deleted.`)
 
   return {
     undoneCount: deleteRes.deletedCount || postIds.length,
-    message: `Đã hoàn tác và xóa thành công ${deleteRes.deletedCount || postIds.length} bài viết từ đợt import (${batchImportId})`
+    deletedUserCount,
+    message: `Đã hoàn tác và xóa thành công ${deleteRes.deletedCount || postIds.length} bài viết và ${deletedUserCount} tài khoản tác giả từ đợt import (${batchImportId})`
   }
 }
 

@@ -1,6 +1,8 @@
 import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import Category from '../models/Category.model.js'
+import Interaction from '../models/Interaction.model.js'
+import TokenTransaction from '../models/TokenTransaction.model.js'
 import { classifySystemCategory } from '../services/csvImport.service.js'
 import Settings from '../models/Settings.model.js'
 import Report from '../models/Report.model.js'
@@ -9,6 +11,21 @@ import AuditLog from '../models/AuditLog.model.js'
 import AppError from '../utils/AppError.js'
 import { logAdminAction } from '../utils/auditLogger.js'
 import { processCsvImport, validateCsvHeaders, analyzeCsvImport, createDatabaseBackupSnapshot, undoImportBatch, parseCSV } from '../services/csvImport.service.js'
+import { uploadBuffer, deleteImage, getAvatarUploadOptions } from '../config/cloudinary.js'
+
+// Inline helper — same logic as user.controller.js
+const getCloudinaryPublicId = (url) => {
+  if (!url || !url.includes('cloudinary.com')) return null
+  try {
+    const parts = url.split('/image/upload/')
+    if (parts.length < 2) return null
+    const pathParts = parts[1].split('/')
+    if (pathParts[0].startsWith('v') && !isNaN(pathParts[0].substring(1))) pathParts.shift()
+    const withExt = pathParts.join('/')
+    const dot = withExt.lastIndexOf('.')
+    return dot !== -1 ? withExt.substring(0, dot) : withExt
+  } catch { return null }
+}
 
 /**
  * Helper to scan plant/datas directory and return list of ALL CSV files on server
@@ -347,10 +364,14 @@ export const buffPostStats = async (req, res, next) => {
 // USER MANAGEMENT
 // =============================================
 
+// Regex shared between filter and missing-count queries
+const BROKEN_AVATAR_PATTERN = 'ui-avatars|dicebear'
+
 export const getAllUsers = async (req, res, next) => {
   try {
-    const { cursor, limit = 20, search, sortBy, page = 1 } = req.query
-    const limitNum = parseInt(limit) || 20
+    const { cursor, limit = 20, search, sortBy, page = 1, avatarStatus = 'all' } = req.query
+    // Allow limit='all' when fetching missing avatars for full list view
+    const limitNum = limit === 'all' ? 9999 : (parseInt(limit) || 20)
     const pageNum = parseInt(page) || 1
     const query = {}
 
@@ -359,6 +380,34 @@ export const getAllUsers = async (req, res, next) => {
         { username: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { displayName: { $regex: search, $options: 'i' } },
+      ]
+    }
+
+    // Orphan = CSV users with 0 posts
+    if (avatarStatus === 'orphan') {
+      const activeAuthorIdsRaw = await Post.distinct('authorId')
+      const activeAuthorIds = activeAuthorIdsRaw.filter(Boolean)
+      query.email = { $regex: '@picspy\.ai$', $options: 'i' }
+      query._id = { $nin: activeAuthorIds }
+    }
+
+    // Avatar status filter at Mongo DB level
+    if (avatarStatus === 'missing') {
+      query.$and = [
+        ...(query.$and || []),
+        {
+          $or: [
+            { avatar: { $in: [null, ''] } },
+            { avatar: { $exists: false } },
+            { avatar: { $regex: BROKEN_AVATAR_PATTERN, $options: 'i' } },
+          ],
+        },
+      ]
+    } else if (avatarStatus === 'valid') {
+      query.$and = [
+        ...(query.$and || []),
+        { avatar: { $exists: true, $nin: [null, ''] } },
+        { avatar: { $not: new RegExp(BROKEN_AVATAR_PATTERN, 'i') } },
       ]
     }
 
@@ -419,15 +468,116 @@ export const getAllUsers = async (req, res, next) => {
       nextCursor = hasMore ? users[users.length - 1]._id : null
     }
 
+    // Count total matching current filter
+    const totalUsers = await User.countDocuments(query)
+
+    // Always count ALL users (no filter) for the header badge
+    const allUsersTotal = avatarStatus !== 'all'
+      ? await User.countDocuments(search ? { $or: [
+          { username: { $regex: search, $options: 'i' } },
+          { email: { $regex: search, $options: 'i' } },
+          { displayName: { $regex: search, $options: 'i' } },
+        ] } : {})
+      : totalUsers
+
+    // Always include missing avatar count for header badge
+    const missingAvatarCount = avatarStatus === 'missing'
+      ? totalUsers
+      : await User.countDocuments({
+          ...( search ? { $or: [
+            { username: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { displayName: { $regex: search, $options: 'i' } },
+          ] } : {} ),
+          $or: [
+            { avatar: { $in: [null, ''] } },
+            { avatar: { $exists: false } },
+            { avatar: { $regex: BROKEN_AVATAR_PATTERN, $options: 'i' } },
+          ],
+        })
+
+    // Count orphan CSV users (0 posts) for the orphan tab badge
+    let orphanUsersCount = 0
+    if (avatarStatus !== 'orphan') {
+      const activeAuthorIdsRaw2 = await Post.distinct('authorId')
+      const activeAuthorSet2 = new Set(activeAuthorIdsRaw2.map((id) => id?.toString()).filter(Boolean))
+      const csvUsersForCount = await User.find({ email: /@picspy\.ai$/i }).select('_id').lean()
+      orphanUsersCount = csvUsersForCount.filter((u) => !activeAuthorSet2.has(u._id.toString())).length
+    } else {
+      orphanUsersCount = totalUsers
+    }
+
     res.json({
       users,
-      totalUsers: await User.countDocuments(query),
+      totalUsers,
+      allUsersTotal,
+      missingAvatarCount,
+      orphanUsersCount,
       pagination: {
         hasMore,
         nextCursor,
         page: pageNum,
       },
     })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/users/cleanup-orphans */
+export const cleanupOrphanCsvUsers = async (req, res, next) => {
+  try {
+    const csvUsers = await User.find({ email: /@picspy\.ai$/i }).select('_id username email').lean()
+    const activeAuthorIdsRaw = await Post.distinct('authorId')
+    const activeAuthorSet = new Set(activeAuthorIdsRaw.map((id) => id?.toString()).filter(Boolean))
+
+    const orphanUserIds = csvUsers
+      .filter((u) => !activeAuthorSet.has(u._id.toString()))
+      .map((u) => u._id)
+
+    let deletedCount = 0
+    if (orphanUserIds.length > 0) {
+      const deleteRes = await User.deleteMany({ _id: { $in: orphanUserIds } })
+      deletedCount = deleteRes.deletedCount || 0
+    }
+
+    res.json({
+      success: true,
+      cleanedCount: deletedCount,
+      message: `Đã dọn dẹp ${deletedCount} tài khoản tác giả CSV mồ côi không có bài viết nào!`,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/** POST /admin/users/:id/avatar  — Admin uploads avatar for any user */
+export const adminUpdateUserAvatar = async (req, res, next) => {
+  try {
+    if (!req.file) throw new AppError('VALIDATION_ERROR', 'Vui lòng chọn ảnh avatar', 400)
+    const { id } = req.params
+    const targetUser = await User.findById(id)
+    if (!targetUser) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
+
+    const oldAvatarUrl = targetUser.avatar
+    const uniquePublicId = `avatar_${id}_${Date.now()}`
+
+    const result = await uploadBuffer(
+      req.file.buffer,
+      'picspy/avatars',
+      uniquePublicId,
+      getAvatarUploadOptions()
+    )
+
+    await User.findByIdAndUpdate(id, { avatar: result.secure_url })
+
+    // Async delete old Cloudinary image
+    if (oldAvatarUrl) {
+      const oldPublicId = getCloudinaryPublicId(oldAvatarUrl)
+      if (oldPublicId) deleteImage(oldPublicId).catch(() => {})
+    }
+
+    res.json({ avatar: result.secure_url, message: 'Đã cập nhật avatar thành công!' })
   } catch (err) {
     next(err)
   }
@@ -630,62 +780,164 @@ export const changeUserTier = async (req, res, next) => {
 /** GET /admin/dashboard */
 export const getDashboardStats = async (req, res, next) => {
   try {
-    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+    const now = new Date()
+    const startOfToday = new Date(now)
+    startOfToday.setHours(0, 0, 0, 0)
+
+    const startOfYesterday = new Date(startOfToday)
+    startOfYesterday.setDate(startOfYesterday.getDate() - 1)
+    const endOfYesterday = new Date(startOfToday.getTime() - 1)
+
+    const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
+
     const [
       totalPosts,
       totalUsers,
       pendingPosts,
       totalApproved,
+      rejectedPosts,
+      hiddenPosts,
       recentPosts,
       recentUsers,
+      todayPosts,
+      yesterdayPosts,
+      todayUsers,
+      yesterdayUsers,
+      todayApproved,
+      todayPending,
+      todayInteractions,
+      totalInteractions,
+      todayTokensSpentAgg,
     ] = await Promise.all([
       Post.countDocuments(),
       User.countDocuments(),
       Post.countDocuments({ status: 'pending' }),
       Post.countDocuments({ status: 'approved' }),
+      Post.countDocuments({ status: 'rejected' }),
+      Post.countDocuments({ status: 'hidden' }),
       Post.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
       User.countDocuments({ createdAt: { $gte: sevenDaysAgo } }),
+
+      // Today vs Yesterday
+      Post.countDocuments({ createdAt: { $gte: startOfToday } }),
+      Post.countDocuments({ createdAt: { $gte: startOfYesterday, $lte: endOfYesterday } }),
+      User.countDocuments({ createdAt: { $gte: startOfToday } }),
+      User.countDocuments({ createdAt: { $gte: startOfYesterday, $lte: endOfYesterday } }),
+      Post.countDocuments({ status: 'approved', createdAt: { $gte: startOfToday } }),
+      Post.countDocuments({ status: 'pending', createdAt: { $gte: startOfToday } }),
+
+      // Interactions & Tokens
+      Interaction.countDocuments({ createdAt: { $gte: startOfToday } }).catch(() => 0),
+      Interaction.countDocuments().catch(() => 0),
+      TokenTransaction.aggregate([
+        { $match: { createdAt: { $gte: startOfToday }, amount: { $lt: 0 } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]).catch(() => []),
     ])
+
+    const todayTokensSpent = Math.abs(todayTokensSpentAgg?.[0]?.total || 0)
+    const totalProcessed = totalApproved + rejectedPosts
+    const approvalRate = totalProcessed > 0 ? Math.round((totalApproved / totalProcessed) * 100) : 100
+
+    // Compute % growth today vs yesterday
+    const postsGrowth = yesterdayPosts > 0
+      ? Math.round(((todayPosts - yesterdayPosts) / yesterdayPosts) * 100)
+      : todayPosts > 0 ? 100 : 0
+
+    const usersGrowth = yesterdayUsers > 0
+      ? Math.round(((todayUsers - yesterdayUsers) / yesterdayUsers) * 100)
+      : todayUsers > 0 ? 100 : 0
 
     res.json({
       totalPosts,
       totalUsers,
       pendingPosts,
       totalApproved,
+      rejectedPosts,
+      hiddenPosts,
       recentPosts,
       recentUsers,
+      todayStats: {
+        todayPosts,
+        yesterdayPosts,
+        postsGrowth,
+        todayUsers,
+        yesterdayUsers,
+        usersGrowth,
+        todayApproved,
+        todayPending,
+        todayInteractions,
+        todayTokensSpent,
+      },
+      totalInteractions,
+      approvalRate,
     })
   } catch (err) {
     next(err)
   }
 }
 
-/** GET /admin/dashboard/analytics?days=7|30 */
+/** GET /admin/dashboard/analytics?days=1|7|14|30|90 */
 export const getAnalytics = async (req, res, next) => {
   try {
-    const days = Math.min(parseInt(req.query.days) || 7, 30)
+    const rawDays = parseInt(req.query.days) || 7
+    const days = Math.min(Math.max(rawDays, 1), 90)
     const result = []
 
-    for (let i = days - 1; i >= 0; i--) {
-      const start = new Date()
-      start.setHours(0, 0, 0, 0)
-      start.setDate(start.getDate() - i)
-      const end = new Date()
-      end.setHours(23, 59, 59, 999)
-      end.setDate(end.getDate() - i)
-      const [posts, users] = await Promise.all([
-        Post.countDocuments({ createdAt: { $gte: start, $lte: end } }),
-        User.countDocuments({ createdAt: { $gte: start, $lte: end } }),
-      ])
-      result.push({
-        date: start.toISOString().split('T')[0],
-        label: start.toLocaleDateString('vi-VN', {
-          day: '2-digit',
-          month: '2-digit',
-        }),
-        posts,
-        users,
-      })
+    if (days === 1) {
+      // 24 Hours Breakdown for Today
+      const now = new Date()
+      for (let h = 0; h < 24; h++) {
+        const start = new Date(now)
+        start.setHours(h, 0, 0, 0)
+        const end = new Date(now)
+        end.setHours(h, 59, 59, 999)
+
+        const [posts, users, interactions, approved] = await Promise.all([
+          Post.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+          User.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+          Interaction.countDocuments({ createdAt: { $gte: start, $lte: end } }).catch(() => 0),
+          Post.countDocuments({ status: 'approved', createdAt: { $gte: start, $lte: end } }),
+        ])
+
+        result.push({
+          date: `${h.toString().padStart(2, '0')}:00`,
+          label: `${h.toString().padStart(2, '0')}:00`,
+          posts,
+          users,
+          interactions,
+          approved,
+        })
+      }
+    } else {
+      // Daily Breakdown
+      for (let i = days - 1; i >= 0; i--) {
+        const start = new Date()
+        start.setHours(0, 0, 0, 0)
+        start.setDate(start.getDate() - i)
+        const end = new Date()
+        end.setHours(23, 59, 59, 999)
+        end.setDate(end.getDate() - i)
+
+        const [posts, users, interactions, approved] = await Promise.all([
+          Post.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+          User.countDocuments({ createdAt: { $gte: start, $lte: end } }),
+          Interaction.countDocuments({ createdAt: { $gte: start, $lte: end } }).catch(() => 0),
+          Post.countDocuments({ status: 'approved', createdAt: { $gte: start, $lte: end } }),
+        ])
+
+        result.push({
+          date: start.toISOString().split('T')[0],
+          label: start.toLocaleDateString('vi-VN', {
+            day: '2-digit',
+            month: '2-digit',
+          }),
+          posts,
+          users,
+          interactions,
+          approved,
+        })
+      }
     }
 
     // Category breakdown
@@ -696,7 +948,16 @@ export const getAnalytics = async (req, res, next) => {
       { $limit: 10 },
     ])
 
-    res.json({ timeline: result, categoryStats })
+    // Post status breakdown
+    const statusStatsRaw = await Post.aggregate([
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ])
+    const statusStats = statusStatsRaw.reduce((acc, curr) => {
+      acc[curr._id || 'unknown'] = curr.count
+      return acc
+    }, {})
+
+    res.json({ timeline: result, categoryStats, statusStats })
   } catch (err) {
     next(err)
   }

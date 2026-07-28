@@ -3,7 +3,7 @@ import { authenticate, requireAdmin } from '../middlewares/authenticate.js'
 import multer from 'multer'
 import {
   getAllPosts, updatePostStatus, bulkUpdatePosts, buffPostStats, importCsvPosts, getCsvImportHistory, analyzeCsvPosts, undoCsvImportBatch, analyzeReclassifyCsvPosts, batchApplyReclassifications, batchApplyCategoryProposals,
-  getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole,
+  getAllUsers, adjustUserTokens, toggleBanUser, changeUserTier, setUserRole, cleanupOrphanCsvUsers, adminUpdateUserAvatar,
   createAdminUser, updateAdminUser, deleteAdminUser,
   getDashboardStats, getAnalytics,
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
@@ -16,6 +16,7 @@ import {
 
 const router = Router()
 const uploadCsv = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } })
+const uploadAvatar = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } })
 
 // Tất cả admin routes đều cần authenticate + requireAdmin
 router.use(authenticate, requireAdmin)
@@ -47,6 +48,7 @@ router.patch('/reports/:id/action', updateReportStatus)
 
 // ── Users management ─────────────────────────────────────────
 router.get('/users', getAllUsers)
+router.post('/users/cleanup-orphans', cleanupOrphanCsvUsers)
 router.post('/users', createAdminUser)
 router.put('/users/:id', updateAdminUser)
 router.delete('/users/:id', deleteAdminUser)
@@ -55,6 +57,7 @@ router.post('/users/:id/deposit', depositUserVnd)
 router.patch('/users/:id/ban', toggleBanUser)
 router.patch('/users/:id/tier', changeUserTier)
 router.patch('/users/:id/role', setUserRole)
+router.post('/users/:id/avatar', uploadAvatar.single('avatar'), adminUpdateUserAvatar)
 
 // ── Withdrawal requests management ───────────────────────────
 router.get('/withdrawals', getWithdrawalRequests)
