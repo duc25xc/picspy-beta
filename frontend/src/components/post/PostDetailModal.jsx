@@ -23,6 +23,7 @@ import { IoSparkles } from 'react-icons/io5'
 import { GiCutDiamond } from 'react-icons/gi'
 import { Link, useNavigate } from 'react-router-dom'
 import api from '../../api/api'
+import { formatCount } from '../../utils/numberFormat'
 import useAuthStore from '../../store/auth.store'
 import LikeButton from './LikeButton'
 import BookmarkButton from './BookmarkButton'
@@ -808,7 +809,7 @@ const PostDetailModal = ({
                   <div className="flex items-center gap-1.5">
                     <Eye size={11} className="text-white/30" />
                     <span>
-                      Lượt xem: {(post.stats?.viewsCount || 0).toLocaleString()}{' '}
+                      Lượt xem: {formatCount(post.stats?.viewsCount || 0)}{' '}
                       views
                     </span>
                   </div>
@@ -909,7 +910,7 @@ const PostDetailModal = ({
                       {copied ? <Check size={14} /> : <Share2 size={14} />}
                     </motion.span>
                     <span>
-                      {(post.stats?.sharesCount || 0).toLocaleString()}
+                      {formatCount(post.stats?.sharesCount || 0)}
                     </span>
                   </motion.button>
 

@@ -42,6 +42,7 @@ import {
 } from './controllers/admin.controller.js'
 import { seedSubscriptionPlans } from './models/SubscriptionPlan.model.js'
 import Settings from './models/Settings.model.js'
+import { syncUserStats } from './utils/userStatsSync.js'
 
 // Workers & Jobs (khởi động cùng server)
 import './workers/imageProcessor.worker.js'
@@ -229,6 +230,7 @@ const startServer = async () => {
   await connectDB()
   await seedCategories() // seed danh mục mặc định nếu chưa có
   await seedSubscriptionPlans() // seed 4 gói subscription nếu chưa có
+  await syncUserStats() // Đồng bộ user stats tự động
   const User = (await import('./models/User.model.js')).default
   await User.updateMany({ role: 'creator' }, { role: 'user' })
   initSocket(httpServer)

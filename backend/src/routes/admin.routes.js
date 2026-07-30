@@ -9,6 +9,7 @@ import {
   getCategories, createCategory, updateCategory, toggleCategory, deleteCategory,
   getCategoryRequests, approveCategoryRequest, rejectCategoryRequest,
   getSettings, updateSettings, getBypassKeys, getAuditLogs, triggerSettlement, triggerScoreDecay, triggerSubscriptionCleanup,
+  exportDataBackup, importDataBackup, purgeDataBackup,
   depositUserVnd, getWithdrawalRequests, approveWithdrawal, rejectWithdrawal,
   getAdminReports, updateReportStatus,
   getServerLogs, clearServerLogs, clearAuditLogs,
@@ -74,12 +75,15 @@ router.get('/category-requests', getCategoryRequests)
 router.post('/category-requests/:postId/approve', approveCategoryRequest)
 router.post('/category-requests/:postId/reject', rejectCategoryRequest)
 
-// ── System Settings ───────────────────────────────────────────
+// ── System Settings & Backup / Purge ─────────────────────────
 router.get('/settings', getSettings)
 router.get('/settings/bypass-keys', getBypassKeys)
 router.put('/settings', updateSettings)
 router.post('/settlement/trigger', triggerSettlement)
 router.post('/settlement/trigger-score-decay', triggerScoreDecay)
 router.post('/settlement/trigger-subscription-cleanup', triggerSubscriptionCleanup)
+router.get('/backup/export', exportDataBackup)
+router.post('/backup/import', importDataBackup)
+router.post('/backup/purge', purgeDataBackup)
 
 export default router

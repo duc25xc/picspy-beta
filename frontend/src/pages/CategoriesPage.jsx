@@ -186,11 +186,26 @@ const CategoryCard = ({
       {/* Floating glassmorphic card */}
       <div className="absolute bottom-4 left-4 right-4 z-20 pointer-events-none">
         <div className="p-3.5 rounded-xl border border-white/10 bg-black/60 backdrop-blur-md shadow-lg transition-transform duration-300 group-hover:-translate-y-1">
-          <div className="flex items-center gap-1.5 font-bold text-white text-sm pj">
+          <div className="flex items-center gap-1.5 font-bold text-white text-sm pj min-w-0">
             <span className="flex-shrink-0 flex items-center justify-center">
               {CATEGORY_ICONS[label.toLowerCase()] || (emoji ? <span>{emoji}</span> : null)}
             </span>
-            <span className="truncate">{label}</span>
+            <div className="w-full overflow-hidden whitespace-nowrap min-w-0">
+              {label.length > 12 ? (
+                <div className="inline-flex gap-6 whitespace-nowrap animate-cat-marquee transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                  <span className="text-sm font-bold text-white pj shrink-0">
+                    {label}
+                  </span>
+                  <span className="text-sm font-bold text-white pj shrink-0" aria-hidden="true">
+                    {label}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-sm font-bold text-white pj inline-block">
+                  {label}
+                </span>
+              )}
+            </div>
           </div>
           <div className="flex items-center justify-between mt-1 text-[10px] text-white/50 font-bold uppercase tracking-wider pj">
             <span>{count} tác phẩm</span>

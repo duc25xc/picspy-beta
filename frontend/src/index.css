@@ -79,6 +79,11 @@
     border-color: var(--color-border);
   }
 
+  /* Photography Headroom & Subject Crop Rule: Keeps heads, faces & upper subjects visible */
+  img.object-cover:not(.rounded-full):not(.object-center-override) {
+    object-position: 50% 20%;
+  }
+
   html {
     @apply scroll-smooth;
     /* overflow-y:scroll permanently reserves the scrollbar rail.
@@ -884,6 +889,20 @@
       box-shadow: none;
       border-color: transparent;
     }
+  }
+
+  /* ── Category marquee loop (No ellipsis, smooth right-to-left loop on hover, smooth reverse return on leave) ── */
+  @keyframes cat-marquee {
+    0% {
+      transform: translateX(0%);
+    }
+    100% {
+      transform: translateX(calc(-50% - 0.75rem));
+    }
+  }
+
+  .group:hover .animate-cat-marquee {
+    animation: cat-marquee 7s linear infinite;
   }
 
   .comment-highlight {

@@ -6,6 +6,7 @@ import PostDetailModal from '../components/post/PostDetailModal'
 import { useSettings } from '../context/SettingsContext'
 import useModalUrl from '../hooks/useModalUrl'
 import useAuthStore from '../store/auth.store'
+import { formatCount } from '../utils/numberFormat'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
   Globe,
@@ -42,14 +43,18 @@ const CARD_THUMB = {
 }
 
 const getSmartCropUrl = (url, w, h, preferFace = true) => {
-  if (!url || !url.includes('/upload/')) return url
-  const [base, path] = url.split('/upload/')
-  const gravity = preferFace ? 'g_auto:faces' : 'g_auto'
-  return `${base}/upload/c_fill,${gravity},w_${w},h_${h},q_75,f_auto/${path}`
+  if (!url) return ''
+  if (!url.includes('/image/upload/') && !url.includes('/upload/')) return url
+  const splitKeyword = url.includes('/image/upload/') ? '/image/upload/' : '/upload/'
+  const [base, path] = url.split(splitKeyword)
+  const cleanPath = path.replace(/^v\d+\//, '')
+  const gravity = preferFace ? 'g_auto:subject,g_auto:person,g_auto:faces,g_auto' : 'g_auto:subject,g_auto'
+  return `${base}${splitKeyword}c_fill,${gravity},w_${w},h_${h},q_75,f_auto/${cleanPath}`
 }
 
 const getFewPostsPattern = (len, index) => {
-  if (len <= 2) return { col: 'lg:col-span-2', row: 'lg:row-span-2', type: 'hero' }
+  if (len <= 2)
+    return { col: 'lg:col-span-2', row: 'lg:row-span-2', type: 'hero' }
   return CARD_PATTERN[index % CARD_PATTERN.length]
 }
 
@@ -87,12 +92,48 @@ const POST_TYPE_TABS = [
 
 // Sort Tabs
 const EXPLORE_TABS = [
-  { key: 'new', label: 'Mới nhất', icon: Sparkles, endpoint: '/posts', params: { sort: 'new' } },
-  { key: 'hot', label: 'Xu hướng', icon: Flame, endpoint: '/posts', params: { sort: 'hot' } },
-  { key: 'top', label: 'Phổ biến', icon: Zap, endpoint: '/posts', params: { sort: 'top' } },
-  { key: 'following', label: 'Đang theo dõi', icon: Heart, endpoint: '/posts/following', params: {} },
-  { key: 'random', label: 'Ngẫu nhiên', icon: Shuffle, endpoint: '/posts', params: { sort: 'random' } },
-  { key: 'recommended', label: 'Gợi ý', icon: Lightbulb, endpoint: '/posts', params: { sort: 'recommended' } },
+  {
+    key: 'new',
+    label: 'Mới nhất',
+    icon: Sparkles,
+    endpoint: '/posts',
+    params: { sort: 'new' },
+  },
+  {
+    key: 'hot',
+    label: 'Xu hướng',
+    icon: Flame,
+    endpoint: '/posts',
+    params: { sort: 'hot' },
+  },
+  {
+    key: 'top',
+    label: 'Phổ biến',
+    icon: Zap,
+    endpoint: '/posts',
+    params: { sort: 'top' },
+  },
+  {
+    key: 'following',
+    label: 'Đang theo dõi',
+    icon: Heart,
+    endpoint: '/posts/following',
+    params: {},
+  },
+  {
+    key: 'random',
+    label: 'Ngẫu nhiên',
+    icon: Shuffle,
+    endpoint: '/posts',
+    params: { sort: 'random' },
+  },
+  {
+    key: 'recommended',
+    label: 'Gợi ý',
+    icon: Lightbulb,
+    endpoint: '/posts',
+    params: { sort: 'recommended' },
+  },
 ]
 
 export default function ExplorePage() {
@@ -187,7 +228,9 @@ export default function ExplorePage() {
           ])
         }
       })
-      .catch((err) => console.error('Failed to load categories for explore:', err))
+      .catch((err) =>
+        console.error('Failed to load categories for explore:', err)
+      )
   }, [])
 
   const currentTabObj = EXPLORE_TABS.find((t) => t.key === activeTab)
@@ -230,13 +273,20 @@ export default function ExplorePage() {
         }
 
         // Random tab: send already-seen IDs so backend can exclude them
-        if (currentTabObj.key === 'random' && !reset && seenIdsRef.current.size > 0) {
+        if (
+          currentTabObj.key === 'random' &&
+          !reset &&
+          seenIdsRef.current.size > 0
+        ) {
           params.excludeIds = [...seenIdsRef.current].join(',')
         }
 
         const { data } = await api.get(currentTabObj.endpoint, { params })
 
-        if (data.isEmpty || (reset && (!data.posts || data.posts.length === 0))) {
+        if (
+          data.isEmpty ||
+          (reset && (!data.posts || data.posts.length === 0))
+        ) {
           setIsEmpty(true)
           setPosts([])
           setHasMore(false)
@@ -248,7 +298,7 @@ export default function ExplorePage() {
 
         // Track seen IDs for random dedup
         if (currentTabObj.key === 'random') {
-          newPosts.forEach(p => seenIdsRef.current.add(p._id))
+          newPosts.forEach((p) => seenIdsRef.current.add(p._id))
         }
 
         setPosts((prev) => (reset ? newPosts : [...prev, ...newPosts]))
@@ -269,7 +319,17 @@ export default function ExplorePage() {
         setLoadingMore(false)
       }
     },
-    [activeTab, cursor, currentTabObj, activePostType, activeCategory, onlyShowExif, postLoadingDelayMs, loadingMore, hasMore]
+    [
+      activeTab,
+      cursor,
+      currentTabObj,
+      activePostType,
+      activeCategory,
+      onlyShowExif,
+      postLoadingDelayMs,
+      loadingMore,
+      hasMore,
+    ]
   )
 
   // Fetch on filters change
@@ -307,14 +367,16 @@ export default function ExplorePage() {
   }, [fetchPosts, hasMore, loadingMore, loading])
 
   // Post Detail Modal sync with URL state
-  const currentPostId = selectedIndex !== null ? posts[selectedIndex]?._id : null
+  const currentPostId =
+    selectedIndex !== null ? posts[selectedIndex]?._id : null
   const closeModalState = useCallback(() => setSelectedIndex(null), [])
   const { closeModal } = useModalUrl(currentPostId, closeModalState)
 
   const handleOpenPost = (post, index) => setSelectedIndex(index)
   const handleClose = closeModal
   const handlePrev = () => setSelectedIndex((i) => Math.max(0, i - 1))
-  const handleNext = () => setSelectedIndex((i) => Math.min(posts.length - 1, i + 1))
+  const handleNext = () =>
+    setSelectedIndex((i) => Math.min(posts.length - 1, i + 1))
 
   const handleTabChange = (key) => {
     if (key === 'following' && !isLoggedIn) {
@@ -325,8 +387,12 @@ export default function ExplorePage() {
     setActiveTab(key)
   }
 
-  const currentCategoryObj = activeCategoriesList.find((c) => c.key === activeCategory)
-  const currentCategoryName = currentCategoryObj ? currentCategoryObj.label : 'Tất cả'
+  const currentCategoryObj = activeCategoriesList.find(
+    (c) => c.key === activeCategory
+  )
+  const currentCategoryName = currentCategoryObj
+    ? currentCategoryObj.label
+    : 'Tất cả'
 
   return (
     <>
@@ -342,7 +408,9 @@ export default function ExplorePage() {
                 Khám phá ảnh nghệ thuật
               </h2>
               <p className="text-sm text-foreground/50 mt-2 pj max-w-xl">
-                Bảng tin vô chậm tổng hợp các bức ảnh đỉnh cao nhất của cộng đồng PicSpy, lọc mượt mà theo từng phong cách và chủ đề nghệ thuật.
+                Bảng tin vô chậm tổng hợp các bức ảnh đỉnh cao nhất của cộng
+                đồng PicSpy, lọc mượt mà theo từng phong cách và chủ đề nghệ
+                thuật.
               </p>
             </div>
 
@@ -358,7 +426,10 @@ export default function ExplorePage() {
                       ${isActive ? 'text-white bg-gradient-brand shadow-sm font-black' : 'text-foreground/50 hover:text-foreground/80'}
                     `}
                   >
-                    <TabIcon size={13} className={isActive ? 'text-white' : 'text-foreground/45'} />
+                    <TabIcon
+                      size={13}
+                      className={isActive ? 'text-white' : 'text-foreground/45'}
+                    />
                     {label}
                   </button>
                 )
@@ -373,7 +444,8 @@ export default function ExplorePage() {
               <div
                 className="flex gap-2 p-1 bg-[#1a172e]/35 dark:bg-[#1a172e]/55 backdrop-blur-md rounded-2xl border overflow-x-auto no-scrollbar max-w-full"
                 style={{
-                  borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
+                  borderColor:
+                    'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
                 }}
               >
                 {POST_TYPE_TABS.map((tabItem) => {
@@ -427,38 +499,40 @@ export default function ExplorePage() {
 
               {/* EXIF Toggle or Random Refresh (Switch-style matching HOME exactly) */}
               <AnimatePresence>
-                {activePostType === 'digital-normal' && activeTab !== 'random' && (
-                  <motion.div
-                    initial={{ opacity: 0, x: 15, scale: 0.95 }}
-                    animate={{ opacity: 1, x: 0, scale: 1 }}
-                    exit={{ opacity: 0, x: 10, scale: 0.95 }}
-                    transition={{ duration: 0.25, ease: 'easeOut' }}
-                    className="flex items-center gap-3 bg-[#1a172e]/30 backdrop-blur-md px-4 py-2.5 rounded-xl border self-start md:self-auto"
-                    style={{
-                      borderColor: 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
-                    }}
-                  >
-                    <span className="text-xs text-foreground/60 font-medium pj">
-                      Chỉ hiện ảnh có EXIF chi tiết
-                    </span>
-                    <button
-                      onClick={() => setOnlyShowExif((prev) => !prev)}
-                      className={`w-9 h-5 rounded-full p-0.5 transition-all flex items-center cursor-pointer
+                {activePostType === 'digital-normal' &&
+                  activeTab !== 'random' && (
+                    <motion.div
+                      initial={{ opacity: 0, x: 15, scale: 0.95 }}
+                      animate={{ opacity: 1, x: 0, scale: 1 }}
+                      exit={{ opacity: 0, x: 10, scale: 0.95 }}
+                      transition={{ duration: 0.25, ease: 'easeOut' }}
+                      className="flex items-center gap-3 bg-[#1a172e]/30 backdrop-blur-md px-4 py-2.5 rounded-xl border self-start md:self-auto"
+                      style={{
+                        borderColor:
+                          'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
+                      }}
+                    >
+                      <span className="text-xs text-foreground/60 font-medium pj">
+                        Chỉ hiện ảnh có EXIF chi tiết
+                      </span>
+                      <button
+                        onClick={() => setOnlyShowExif((prev) => !prev)}
+                        className={`w-9 h-5 rounded-full p-0.5 transition-all flex items-center cursor-pointer
                         ${onlyShowExif ? 'bg-green-500 justify-end' : 'bg-foreground/15 justify-start'}
                       `}
-                    >
-                      <motion.div
-                        layout
-                        className="w-4 h-4 rounded-full bg-white shadow-sm"
-                        transition={{
-                          type: 'spring',
-                          stiffness: 500,
-                          damping: 30,
-                        }}
-                      />
-                    </button>
-                  </motion.div>
-                )}
+                      >
+                        <motion.div
+                          layout
+                          className="w-4 h-4 rounded-full bg-white shadow-sm"
+                          transition={{
+                            type: 'spring',
+                            stiffness: 500,
+                            damping: 30,
+                          }}
+                        />
+                      </button>
+                    </motion.div>
+                  )}
 
                 {activeTab === 'random' && (
                   <motion.div
@@ -473,15 +547,24 @@ export default function ExplorePage() {
                       disabled={loading}
                       whileTap={{ scale: 0.93 }}
                       whileHover={{ scale: 1.03 }}
-                      transition={{ type: 'spring', stiffness: 400, damping: 20 }}
+                      transition={{
+                        type: 'spring',
+                        stiffness: 400,
+                        damping: 20,
+                      }}
                       className="relative flex items-center gap-2 backdrop-blur-md px-4 py-2.5 rounded-xl border text-xs font-semibold cursor-pointer select-none overflow-hidden disabled:opacity-40 disabled:cursor-not-allowed"
                       style={{
-                        background: loading ? 'rgba(26,23,46,0.55)' : 'rgba(26,23,46,0.30)',
+                        background: loading
+                          ? 'rgba(26,23,46,0.55)'
+                          : 'rgba(26,23,46,0.30)',
                         borderColor: loading
                           ? 'hsla(var(--color-brand-h), var(--color-brand-s), 60%, 0.35)'
                           : 'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.15)',
-                        color: loading ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.7)',
-                        transition: 'background 0.2s, border-color 0.2s, color 0.2s',
+                        color: loading
+                          ? 'rgba(255,255,255,0.9)'
+                          : 'rgba(255,255,255,0.7)',
+                        transition:
+                          'background 0.2s, border-color 0.2s, color 0.2s',
                         boxShadow: loading
                           ? '0 0 18px hsla(var(--color-brand-h), var(--color-brand-s), 55%, 0.18)'
                           : 'none',
@@ -496,8 +579,14 @@ export default function ExplorePage() {
                               'linear-gradient(105deg, transparent 35%, rgba(255,255,255,0.07) 50%, transparent 65%)',
                             backgroundSize: '200% 100%',
                           }}
-                          animate={{ backgroundPosition: ['200% 0', '-200% 0'] }}
-                          transition={{ duration: 1.4, repeat: Infinity, ease: 'linear' }}
+                          animate={{
+                            backgroundPosition: ['200% 0', '-200% 0'],
+                          }}
+                          transition={{
+                            duration: 1.4,
+                            repeat: Infinity,
+                            ease: 'linear',
+                          }}
                         />
                       )}
 
@@ -506,7 +595,11 @@ export default function ExplorePage() {
                         animate={{ rotate: loading ? 360 : 0 }}
                         transition={
                           loading
-                            ? { duration: 0.7, repeat: Infinity, ease: 'linear' }
+                            ? {
+                                duration: 0.7,
+                                repeat: Infinity,
+                                ease: 'linear',
+                              }
                             : { duration: 0.35, ease: 'easeOut' }
                         }
                         style={{ display: 'inline-flex', flexShrink: 0 }}
@@ -562,9 +655,15 @@ export default function ExplorePage() {
                   <Frown size={20} className="text-foreground/45" />
                 </div>
                 <div className="space-y-2 relative z-10">
-                  <h4 className="text-white font-bold text-sm pj">Không tìm thấy bài viết nào</h4>
+                  <h4 className="text-white font-bold text-sm pj">
+                    Không tìm thấy bài viết nào
+                  </h4>
                   <p className="text-xs text-foreground/40 max-w-sm pj leading-relaxed">
-                    Chưa có bài viết nào thuộc danh mục <span className="text-brand-400 font-bold">{currentCategoryName}</span> phù hợp với bộ lọc hiện tại.
+                    Chưa có bài viết nào thuộc danh mục{' '}
+                    <span className="text-brand-400 font-bold">
+                      {currentCategoryName}
+                    </span>{' '}
+                    phù hợp với bộ lọc hiện tại.
                   </p>
                 </div>
               </div>
@@ -600,27 +699,38 @@ export default function ExplorePage() {
                 </div>
 
                 {/* Infinite Scroll Loader Trigger */}
-                <div ref={loadMoreRef} className="w-full flex justify-center py-6">
+                <div
+                  ref={loadMoreRef}
+                  className="w-full flex justify-center py-6"
+                >
                   {loadingMore && (
                     <div className="flex items-center gap-3 bg-surface-50 border border-[var(--color-border)] px-5 py-2.5 rounded-2xl shadow-lg">
                       <motion.div
                         className="w-4 h-4 border-2 border-brand-500/20 border-t-brand-500 rounded-full"
                         animate={{ rotate: 360 }}
-                        transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                        transition={{
+                          duration: 0.8,
+                          repeat: Infinity,
+                          ease: 'linear',
+                        }}
                       />
-                      <span className="text-xs font-bold text-foreground/60 pj">Đang tải thêm...</span>
+                      <span className="text-xs font-bold text-foreground/60 pj">
+                        Đang tải thêm...
+                      </span>
                     </div>
                   )}
                   {!hasMore && posts.length > 0 && (
                     <div className="text-center py-6 pj flex flex-col items-center gap-2 select-none">
                       <p className="text-foreground/30 text-xs italic">
-                        — Bạn đã xem hết tất cả {posts.length} tác phẩm nghệ thuật —
+                        — Bạn đã xem hết tất cả {posts.length} tác phẩm nghệ
+                        thuật —
                       </p>
                       <Link
                         to="/upload"
                         className="text-brand-500 hover:text-brand-400 text-xs font-bold hover:underline transition-colors mt-1 cursor-pointer"
                       >
-                        Đăng tải tác phẩm đầu tay của bạn để chia sẻ cùng cộng đồng ngay hôm nay!
+                        Đăng tải tác phẩm đầu tay của bạn để chia sẻ cùng cộng
+                        đồng ngay hôm nay!
                       </Link>
                     </div>
                   )}
@@ -691,7 +801,8 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
       {/* Top badges */}
       <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
         {post.isPremium && (
-          <span className="group relative overflow-hidden inline-flex items-center gap-1.5
+          <span
+            className="group relative overflow-hidden inline-flex items-center gap-1.5
             px-2.5 py-1 rounded-full text-[9px] font-black leading-none
             bg-black/65 border border-amber-500/45 text-amber-400
             backdrop-blur-md shadow-[0_0_10px_rgba(251,191,36,0.15)]
@@ -699,10 +810,15 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
             hover:shadow-[0_0_16px_rgba(251,191,36,0.28)]"
           >
             {/* shimmer sweep */}
-            <span className="absolute inset-0 -translate-x-full group-hover:translate-x-full
+            <span
+              className="absolute inset-0 -translate-x-full group-hover:translate-x-full
               transition-transform duration-700 ease-out pointer-events-none
-              bg-gradient-to-r from-transparent via-amber-300/25 to-transparent" />
-            <GiCutDiamond size={9} className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300" />
+              bg-gradient-to-r from-transparent via-amber-300/25 to-transparent"
+            />
+            <GiCutDiamond
+              size={9}
+              className="text-amber-400 shrink-0 group-hover:scale-110 transition-transform duration-300"
+            />
             PREMIUM
           </span>
         )}
@@ -751,22 +867,28 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
           <div className="flex items-center gap-2 text-white/70 text-[10px] font-bold shrink-0">
             <span className="flex items-center gap-0.5" title="Lượt thích">
               <Heart size={10} className="fill-red-400 text-red-400" />
-              {(post.stats?.likesCount || 0).toLocaleString()}
+              {formatCount(post.stats?.likesCount || 0)}
             </span>
             <span className="flex items-center gap-0.5" title="Lượt xem">
               {/* Custom Solid Eye Icon for premium layout */}
-              <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-blue-300 shrink-0">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+              <svg
+                width="10"
+                height="10"
+                viewBox="0 0 24 24"
+                fill="currentColor"
+                className="text-blue-300 shrink-0"
+              >
+                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
               </svg>
-              {(post.stats?.viewsCount || 0).toLocaleString()}
+              {formatCount(post.stats?.viewsCount || 0)}
             </span>
             <span className="flex items-center gap-0.5" title="Lượt lưu">
               <Bookmark size={10} className="text-amber-400 fill-amber-400" />
-              {(post.stats?.bookmarksCount || 0).toLocaleString()}
+              {formatCount(post.stats?.bookmarksCount || 0)}
             </span>
             <span className="flex items-center gap-0.5" title="Lượt tải">
               <Download size={10} className="text-emerald-400" />
-              {(post.stats?.downloadsCount || 0).toLocaleString()}
+              {formatCount(post.stats?.downloadsCount || 0)}
             </span>
           </div>
         </div>

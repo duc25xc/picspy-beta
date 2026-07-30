@@ -1,4 +1,5 @@
 /* eslint-disable no-unused-vars */
+import { formatCount } from '../utils/numberFormat'
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -578,7 +579,7 @@ const ProfilePage = () => {
 
           {/* Stats */}
           <div className="flex gap-2 mb-8 overflow-x-auto no-scrollbar border-b border-white/5 pb-6 items-center">
-            <StatItem label="Ảnh" value={profile.stats?.postsCount} />
+            <StatItem label="Bài đăng" value={profile.stats?.postsCount} />
             <div className="w-px bg-white/10 mx-1 self-stretch my-2" />
             <button
               onClick={() => {
@@ -613,7 +614,7 @@ const ProfilePage = () => {
         {/* ══════════ TABS ══════════ */}
         <div className="flex gap-1 mb-6 border-b border-white/10">
           {[
-            { key: 'posts', label: '🖼 Ảnh' },
+            { key: 'posts', label: '🖼 Bài đăng' },
             ...(isOwnProfile
               ? [{ key: 'bookmarks', label: '🔖 Bookmark' }]
               : []),
@@ -647,16 +648,16 @@ const ProfilePage = () => {
               <Camera size={40} className="text-white/10" />
               <p className="text-white/30 text-sm">
                 {activeTab === 'bookmarks'
-                  ? 'Bạn chưa lưu bookmark ảnh nào.'
+                  ? 'Bạn chưa lưu bookmark bài đăng nào.'
                   : activeTab === 'purchases'
                     ? 'Bạn chưa mua tệp tin Premium nào.'
                     : isOwnProfile
-                      ? 'Bạn chưa đăng ảnh nào.'
-                      : 'Người dùng chưa đăng ảnh nào.'}
+                      ? 'Bạn chưa tạo bài đăng nào.'
+                      : 'Người dùng chưa tạo bài đăng nào.'}
               </p>
               {isOwnProfile && activeTab === 'posts' && (
                 <Link to="/upload" className="btn-primary text-sm mt-2">
-                  + Đăng ảnh đầu tiên
+                  + Tạo bài đăng đầu tiên
                 </Link>
               )}
             </div>
@@ -704,15 +705,11 @@ const ProfilePage = () => {
                       <div className="flex items-center gap-4">
                         <div className="flex items-center gap-1.5 text-white font-medium text-sm">
                           <Heart size={15} className="text-red-400" />
-                          {(post.stats?.likesCount ?? 0).toLocaleString(
-                            'vi-VN'
-                          )}
+                          {formatCount(post.stats?.likesCount ?? 0)}
                         </div>
                         <div className="flex items-center gap-1.5 text-white font-medium text-sm">
                           <Download size={15} className="text-blue-400" />
-                          {(post.stats?.downloadsCount ?? 0).toLocaleString(
-                            'vi-VN'
-                          )}
+                          {formatCount(post.stats?.downloadsCount ?? 0)}
                         </div>
                       </div>
 

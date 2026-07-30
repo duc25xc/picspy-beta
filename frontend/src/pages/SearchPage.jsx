@@ -1,4 +1,5 @@
 import { GiCutDiamond } from 'react-icons/gi'
+import { formatCount } from '../utils/numberFormat'
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -15,7 +16,6 @@ import {
   Check,
 } from 'lucide-react'
 import {
-
   IoSparkles,
   IoImages,
   IoLeafOutline,
@@ -33,7 +33,7 @@ import { TbTarget } from 'react-icons/tb'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import PostDetailModal from '../components/post/PostDetailModal'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import useModalUrl from '../hooks/useModalUrl'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
 
@@ -92,22 +92,29 @@ const parseToHex = (str) => {
   if (hexMatch) {
     let hex = hexMatch[1]
     if (hex.length === 3) {
-      hex = hex.split('').map(c => c + c).join('')
+      hex = hex
+        .split('')
+        .map((c) => c + c)
+        .join('')
     }
     return hex
   }
 
   // 2. Định dạng RGB/RGBA: rgb(255, 0, 0)
-  const rgbMatch = clean.match(/rgba?\(?\s*(\d+)\s*[\s,]\s*(\d+)\s*[\s,]\s*(\d+)/)
+  const rgbMatch = clean.match(
+    /rgba?\(?\s*(\d+)\s*[\s,]\s*(\d+)\s*[\s,]\s*(\d+)/
+  )
   if (rgbMatch) {
     const r = Math.min(255, parseInt(rgbMatch[1], 10))
     const g = Math.min(255, parseInt(rgbMatch[2], 10))
     const b = Math.min(255, parseInt(rgbMatch[3], 10))
-    return [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('')
+    return [r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')
   }
 
   // 3. Định dạng HSL/HSLA: hsl(120, 100%, 50%)
-  const hslMatch = clean.match(/hsla?\(?\s*(\d+)\s*[\s,]\s*(\d+)%?\s*[\s,]\s*(\d+)%?/)
+  const hslMatch = clean.match(
+    /hsla?\(?\s*(\d+)\s*[\s,]\s*(\d+)%?\s*[\s,]\s*(\d+)%?/
+  )
   if (hslMatch) {
     const h = parseInt(hslMatch[1], 10) % 360
     const s = Math.min(100, parseInt(hslMatch[2], 10)) / 100
@@ -116,40 +123,76 @@ const parseToHex = (str) => {
     const c = (1 - Math.abs(2 * l - 1)) * s
     const x = c * (1 - Math.abs(((h / 60) % 2) - 1))
     const m = l - c / 2
-    let r = 0, g = 0, b = 0
+    let r = 0,
+      g = 0,
+      b = 0
 
-    if (0 <= h && h < 60) { r = c; g = x; b = 0; }
-    else if (60 <= h && h < 120) { r = x; g = c; b = 0; }
-    else if (120 <= h && h < 180) { r = 0; g = c; b = x; }
-    else if (180 <= h && h < 240) { r = 0; g = x; b = c; }
-    else if (240 <= h && h < 300) { r = x; g = 0; b = c; }
-    else if (300 <= h && h < 360) { r = c; g = 0; b = x; }
+    if (0 <= h && h < 60) {
+      r = c
+      g = x
+      b = 0
+    } else if (60 <= h && h < 120) {
+      r = x
+      g = c
+      b = 0
+    } else if (120 <= h && h < 180) {
+      r = 0
+      g = c
+      b = x
+    } else if (180 <= h && h < 240) {
+      r = 0
+      g = x
+      b = c
+    } else if (240 <= h && h < 300) {
+      r = x
+      g = 0
+      b = c
+    } else if (300 <= h && h < 360) {
+      r = c
+      g = 0
+      b = x
+    }
 
     const rgb = [
       Math.round((r + m) * 255),
       Math.round((g + m) * 255),
-      Math.round((b + m) * 255)
+      Math.round((b + m) * 255),
     ]
-    return rgb.map(val => val.toString(16).padStart(2, '0')).join('')
+    return rgb.map((val) => val.toString(16).padStart(2, '0')).join('')
   }
 
   // 4. Định nghĩa tên màu CSS cơ bản
   const COLOR_NAMES = {
-    red: 'ff0000', green: '00ff00', blue: '0000ff',
-    black: '000000', white: 'ffffff', yellow: 'ffff00',
-    cyan: '00ffff', magenta: 'ff00ff', orange: 'ffa500',
-    purple: '800080', pink: 'ffc0cb', brown: 'a52a2a',
-    gray: '808080', grey: '808080', silver: 'c0c0c0',
-    gold: 'ffd700', violet: 'ee82ee', indigo: '4b0082'
+    red: 'ff0000',
+    green: '00ff00',
+    blue: '0000ff',
+    black: '000000',
+    white: 'ffffff',
+    yellow: 'ffff00',
+    cyan: '00ffff',
+    magenta: 'ff00ff',
+    orange: 'ffa500',
+    purple: '800080',
+    pink: 'ffc0cb',
+    brown: 'a52a2a',
+    gray: '808080',
+    grey: '808080',
+    silver: 'c0c0c0',
+    gold: 'ffd700',
+    violet: 'ee82ee',
+    indigo: '4b0082',
   }
   if (COLOR_NAMES[clean]) {
     return COLOR_NAMES[clean]
   }
-
 }
 
 // Component bộ chọn màu sắc tự do cô lập (Tối ưu hóa tránh Re-render toàn bộ trang SearchPage khi kéo chuột)
-const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) => {
+const CustomColorPickerButton = ({
+  activeColor,
+  isCustomColorActive,
+  onApply,
+}) => {
   const [localColor, setLocalColor] = useState('')
   const inputRef = useRef(null)
 
@@ -188,7 +231,7 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
   const saveRecentColor = (hex) => {
     const cleanHex = hex.replace('#', '').toLowerCase()
     setRecentColors((prev) => {
-      const filtered = prev.filter(c => c !== cleanHex)
+      const filtered = prev.filter((c) => c !== cleanHex)
       const next = [cleanHex, ...filtered].slice(0, 5) // Giới hạn lưu tối đa 5 màu gần nhất
       localStorage.setItem('picspy_recent_colors', JSON.stringify(next))
       return next
@@ -200,8 +243,10 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 p-3.5 rounded-2xl bg-white/[0.02] border border-white/5 mt-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider">Màu tự chọn:</span>
-        
+        <span className="text-[11px] font-medium text-white/40 uppercase tracking-wider">
+          Màu tự chọn:
+        </span>
+
         <div className="relative flex items-center gap-3">
           {/* Vòng tròn hiển thị màu và input color ẩn */}
           <div className="relative">
@@ -214,7 +259,9 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
               style={displayColor ? { backgroundColor: displayColor } : {}}
             >
               {!displayColor && (
-                <span className="text-[14px] font-bold text-white drop-shadow-md">+</span>
+                <span className="text-[14px] font-bold text-white drop-shadow-md">
+                  +
+                </span>
               )}
               <input
                 type="color"
@@ -249,7 +296,9 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
         {/* Danh sách màu gần đây (Recent Colors) */}
         {recentColors.length > 0 && (
           <div className="flex items-center gap-2.5 pl-3 border-l border-white/5 flex-wrap">
-            <span className="text-[10px] text-white/30 uppercase tracking-widest font-semibold">Gần đây:</span>
+            <span className="text-[10px] text-white/30 uppercase tracking-widest font-semibold">
+              Gần đây:
+            </span>
             <div className="flex items-center gap-3">
               {recentColors.map((hex) => {
                 const isActive = activeColor === hex
@@ -264,9 +313,9 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
                     }}
                     className={`w-16 h-7 rounded-xl border flex items-center justify-center font-mono text-[9px] font-bold tracking-wider uppercase transition-all duration-200 hover:scale-105 hover:shadow-lg cursor-pointer
                       ${isActive ? 'border-white scale-105 ring-2 ring-white/20 shadow-[0_0_10px_rgba(255,255,255,0.1)]' : 'border-white/10 hover:border-white/30'}`}
-                    style={{ 
+                    style={{
                       backgroundColor: `#${hex}`,
-                      color: getContrastColor(hex)
+                      color: getContrastColor(hex),
                     }}
                     title={`Tìm lại theo màu #${hex}`}
                   >
@@ -281,42 +330,44 @@ const CustomColorPickerButton = ({ activeColor, isCustomColorActive, onApply }) 
 
       {/* Hiệu ứng chuyển động trượt mượt mà (Framer Motion Slide-in) */}
       <AnimatePresence>
-        {localColor && localColor.replace('#', '').toLowerCase() !== activeColor && (
-          <motion.button
-            key="apply-color-btn"
-            initial={{ opacity: 0, scale: 0.9, y: 5 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 5 }}
-            transition={{ type: 'spring', stiffness: 220, damping: 22 }}
-            type="button"
-            onClick={() => {
-              const hexClean = localColor.replace('#', '').toLowerCase()
-              // Validate hex length (3 or 6)
-              if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hexClean)) {
-                onApply(hexClean)
-                saveRecentColor(hexClean)
-                toast.success(`Đã áp dụng màu: ${localColor}`)
-              } else {
-                toast.error('Mã màu không hợp lệ! Định dạng HEX 3 hoặc 6 ký tự (Ví dụ: #ff0000 hoặc #f00).')
-              }
-            }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white/80 hover:text-white font-semibold text-xs border border-white/10 hover:border-white/35 shadow-lg transition-all duration-300 cursor-pointer flex-shrink-0"
-            style={{
-              background: 'rgba(255, 255, 255, 0.05)',
-              backdropFilter: 'blur(8px)',
-              fontFamily: 'Outfit, sans-serif',
-              letterSpacing: '0.03em',
-            }}
-          >
-            <Check size={11} className="text-white/60" />
-            <span>Áp dụng màu sắc</span>
-          </motion.button>
-        )}
+        {localColor &&
+          localColor.replace('#', '').toLowerCase() !== activeColor && (
+            <motion.button
+              key="apply-color-btn"
+              initial={{ opacity: 0, scale: 0.9, y: 5 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 5 }}
+              transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+              type="button"
+              onClick={() => {
+                const hexClean = localColor.replace('#', '').toLowerCase()
+                // Validate hex length (3 or 6)
+                if (/^[0-9a-fA-F]{3}$|^[0-9a-fA-F]{6}$/.test(hexClean)) {
+                  onApply(hexClean)
+                  saveRecentColor(hexClean)
+                  toast.success(`Đã áp dụng màu: ${localColor}`)
+                } else {
+                  toast.error(
+                    'Mã màu không hợp lệ! Định dạng HEX 3 hoặc 6 ký tự (Ví dụ: #ff0000 hoặc #f00).'
+                  )
+                }
+              }}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-white/80 hover:text-white font-semibold text-xs border border-white/10 hover:border-white/35 shadow-lg transition-all duration-300 cursor-pointer flex-shrink-0"
+              style={{
+                background: 'rgba(255, 255, 255, 0.05)',
+                backdropFilter: 'blur(8px)',
+                fontFamily: 'Outfit, sans-serif',
+                letterSpacing: '0.03em',
+              }}
+            >
+              <Check size={11} className="text-white/60" />
+              <span>Áp dụng màu sắc</span>
+            </motion.button>
+          )}
       </AnimatePresence>
     </div>
   )
 }
-
 
 // ── HSL-weighted fuzzy color matching ───────────────────────────
 // Dùng HSL thay RGB → "Đỏ" match đỏ nâu, đỏ máu, đỏ nhạt...
@@ -481,8 +532,13 @@ const PostCard = ({
           </span>
         )}
         {post.isCollection && (post.generatedImages?.length || 0) > 1 && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm shadow-md"
-            style={{ background: 'rgba(99,102,241,0.7)', color: 'rgba(235,240,255,0.95)' }}>
+          <span
+            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold backdrop-blur-sm shadow-md"
+            style={{
+              background: 'rgba(99,102,241,0.7)',
+              color: 'rgba(235,240,255,0.95)',
+            }}
+          >
             <IoImages size={10} className="text-indigo-200" />
             {post.generatedImages.length}
           </span>
@@ -495,7 +551,6 @@ const PostCard = ({
         )}
       </div>
 
-
       <div className="absolute bottom-0 left-0 right-0 p-3 translate-y-full group-hover:translate-y-0 transition-transform duration-300">
         <div className="flex items-center justify-between">
           <span className="text-white/80 text-xs font-medium">
@@ -504,11 +559,11 @@ const PostCard = ({
           <div className="flex items-center gap-2.5 text-white text-xs">
             <span className="flex items-center gap-1">
               <Heart size={11} className="text-red-400" />
-              {(post.stats?.likesCount || 0).toLocaleString()}
+              {formatCount(post.stats?.likesCount || 0)}
             </span>
             <span className="flex items-center gap-1">
               <Download size={11} className="text-brand-400" />
-              {(post.stats?.downloadsCount || 0).toLocaleString()}
+              {formatCount(post.stats?.downloadsCount || 0)}
             </span>
           </div>
         </div>
@@ -521,7 +576,9 @@ const PostCard = ({
 const SearchPage = () => {
   const [searchParams, setSearchParams] = useSearchParams()
   const [query, setQuery] = useState(() => searchParams.get('q') || '')
-  const [activeCategory, setActiveCategory] = useState(() => searchParams.get('category') || 'all')
+  const [activeCategory, setActiveCategory] = useState(
+    () => searchParams.get('category') || 'all'
+  )
   const [activeSort, setActiveSort] = useState('new')
   const [isAIOnly, setIsAIOnly] = useState(false)
   const [activeColor, setActiveColor] = useState(null) // hex string
@@ -589,7 +646,9 @@ const SearchPage = () => {
 
   const [selectedIndex, setSelectedIndex] = useState(null)
   const searchTimer = useRef(null)
-  const [debouncedQuery, setDebouncedQuery] = useState(() => searchParams.get('q') || '')
+  const [debouncedQuery, setDebouncedQuery] = useState(
+    () => searchParams.get('q') || ''
+  )
 
   // Đồng bộ debouncedQuery lên URL 'q'
   useEffect(() => {
@@ -634,7 +693,7 @@ const SearchPage = () => {
   // Tự động nhận diện các định dạng màu sắc (HEX, RGB, HSL) từ thanh tìm kiếm
   useEffect(() => {
     const cleanQuery = query.trim().toLowerCase()
-    
+
     const isHex = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/.test(cleanQuery)
     const isRgb = /^rgba?\(/.test(cleanQuery)
     const isHsl = /^hsla?\(/.test(cleanQuery)
@@ -651,10 +710,6 @@ const SearchPage = () => {
       }
     }
   }, [query, showColorPanel])
-
-
-
-
 
   const handleImageChange = (e) => {
     const file = e.target.files?.[0]
@@ -699,13 +754,31 @@ const SearchPage = () => {
     }
   }, [searchImagePreview])
 
+  // Refs to hold latest state for IntersectionObserver and cursor without re-creating functions
+  const cursorRef = useRef(cursor)
+  cursorRef.current = cursor
+
+  const hasMoreRef = useRef(hasMore)
+  hasMoreRef.current = hasMore
+
+  const loadingMoreRef = useRef(loadingMore)
+  loadingMoreRef.current = loadingMore
+
+  const loadingRef = useRef(loading)
+  loadingRef.current = loading
+
+  const isFilteringRef = useRef(isFiltering)
+  isFilteringRef.current = isFiltering
+
   const fetchPosts = useCallback(
     async ({ reset = false } = {}) => {
       if (reset) {
         if (!initialLoaded) setLoading(true)
         else setIsFiltering(true)
         setCursor(null)
+        cursorRef.current = null
       } else {
+        if (loadingMoreRef.current || !hasMoreRef.current) return
         setLoadingMore(true)
       }
 
@@ -722,7 +795,7 @@ const SearchPage = () => {
           formData.append('image', searchImageFile)
 
           const params = { limit: 16 }
-          if (!reset && cursor) params.cursor = cursor
+          if (!reset && cursorRef.current) params.cursor = cursorRef.current
           if (isAIOnly) params.postType = 'ai'
           if (activeColor) {
             params.color = activeColor
@@ -731,7 +804,7 @@ const SearchPage = () => {
 
           const { data } = await api.post('/posts/search-by-image', formData, {
             params,
-            headers: { 'Content-Type': 'multipart/form-data' }
+            headers: { 'Content-Type': 'multipart/form-data' },
           })
           results = data.posts || []
 
@@ -744,7 +817,7 @@ const SearchPage = () => {
         } else {
           // Standard GET /posts call
           const params = { limit: 16, sort: activeSort }
-          if (!reset && cursor) params.cursor = cursor
+          if (!reset && cursorRef.current) params.cursor = cursorRef.current
           if (activeCategory !== 'all') params.category = activeCategory
           if (isAIOnly) params.postType = 'ai'
           if (debouncedQuery.trim()) params.q = debouncedQuery.trim()
@@ -775,9 +848,13 @@ const SearchPage = () => {
         }
 
         setHasMore(hasMoreVal)
+        hasMoreRef.current = hasMoreVal
         setCursor(nextCursorVal)
+        cursorRef.current = nextCursorVal
       } catch (err) {
-        toast.error(err.response?.data?.message || 'Không thể tải kết quả tìm kiếm')
+        toast.error(
+          err.response?.data?.message || 'Không thể tải kết quả tìm kiếm'
+        )
       } finally {
         setLoading(false)
         setIsFiltering(false)
@@ -794,7 +871,6 @@ const SearchPage = () => {
       activeColor,
       colorThreshold,
       debouncedQuery,
-      cursor,
       initialLoaded,
     ]
   )
@@ -802,7 +878,46 @@ const SearchPage = () => {
   useEffect(() => {
     fetchPosts({ reset: true })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeCategory, activeSort, isAIOnly, activeColor, colorThreshold, debouncedQuery, searchImageFile])
+  }, [
+    activeCategory,
+    activeSort,
+    isAIOnly,
+    activeColor,
+    colorThreshold,
+    debouncedQuery,
+    searchImageFile,
+  ])
+
+  // Infinite Scroll IntersectionObserver qua Callback Ref để đảm bảo gắn đúng node khi Framer Motion mount grid
+  const observerRef = useRef(null)
+
+  const loadMoreRef = useCallback(
+    (node) => {
+      if (observerRef.current) {
+        observerRef.current.disconnect()
+      }
+
+      if (!node) return
+
+      observerRef.current = new IntersectionObserver(
+        (entries) => {
+          if (
+            entries[0].isIntersecting &&
+            hasMoreRef.current &&
+            !loadingMoreRef.current &&
+            !loadingRef.current &&
+            !isFilteringRef.current
+          ) {
+            fetchPosts({ reset: false })
+          }
+        },
+        { threshold: 0.1, rootMargin: '350px' }
+      )
+
+      observerRef.current.observe(node)
+    },
+    [fetchPosts]
+  )
 
   // 3-column JS split: biết chính xác cột/hàng → cascade animation chính xác
   const columns = useMemo(() => {
@@ -860,7 +975,8 @@ const SearchPage = () => {
   const handleOpenPost = (_post, index) => setSelectedIndex(index)
 
   // Lấy postId để useModalUrl theo dõi
-  const currentPostId = selectedIndex !== null ? posts[selectedIndex]?._id : null
+  const currentPostId =
+    selectedIndex !== null ? posts[selectedIndex]?._id : null
   const closeModalState = useCallback(() => setSelectedIndex(null), [])
   const { closeModal } = useModalUrl(currentPostId, closeModalState)
 
@@ -874,7 +990,8 @@ const SearchPage = () => {
     if (!showColorPanel) setShowColorPanel(true)
   }
 
-  const isCustomColorActive = activeColor && !COLOR_PRESETS.some((c) => c.search === activeColor)
+  const isCustomColorActive =
+    activeColor && !COLOR_PRESETS.some((c) => c.search === activeColor)
 
   return (
     <>
@@ -896,7 +1013,11 @@ const SearchPage = () => {
                 type="text"
                 id="search-input"
                 className={`input pl-12 pr-28 text-base ${searchImagePreview ? 'border-brand-500 bg-brand-500/5' : ''}`}
-                placeholder={searchImagePreview ? "Đang tìm kiếm bằng hình ảnh..." : "Tìm wallpaper, tag, danh mục..."}
+                placeholder={
+                  searchImagePreview
+                    ? 'Đang tìm kiếm bằng hình ảnh...'
+                    : 'Tìm wallpaper, tag, danh mục...'
+                }
                 value={query}
                 onChange={(e) => {
                   if (searchImagePreview) {
@@ -907,12 +1028,16 @@ const SearchPage = () => {
                 disabled={searchImageLoading}
                 autoFocus
               />
-              
+
               {/* Camera upload button + Clear button container */}
               <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2 z-10">
                 {searchImagePreview && (
                   <div className="relative group/thumb w-8 h-8 rounded-lg overflow-hidden border border-brand-400/50">
-                    <img src={searchImagePreview} className="w-full h-full object-cover" alt="Search target" />
+                    <img
+                      src={searchImagePreview}
+                      className="w-full h-full object-cover"
+                      alt="Search target"
+                    />
                     <button
                       type="button"
                       onClick={clearImageSearch}
@@ -929,31 +1054,33 @@ const SearchPage = () => {
                     <motion.div
                       className="w-5 h-5 border-2 border-brand-400 border-t-transparent rounded-full"
                       animate={{ rotate: 360 }}
-                      transition={{ duration: 0.8, repeat: Infinity, ease: 'linear' }}
+                      transition={{
+                        duration: 0.8,
+                        repeat: Infinity,
+                        ease: 'linear',
+                      }}
                     />
+                  ) : !searchImagePreview ? (
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center cursor-pointer"
+                      title="Tìm bằng hình ảnh"
+                    >
+                      <Camera size={18} />
+                    </button>
                   ) : (
-                    !searchImagePreview ? (
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center cursor-pointer"
-                        title="Tìm bằng hình ảnh"
-                      >
-                        <Camera size={18} />
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={clearImageSearch}
-                        className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center cursor-pointer"
-                        title="Xóa ảnh tìm kiếm"
-                      >
-                        <X size={18} />
-                      </button>
-                    )
+                    <button
+                      type="button"
+                      onClick={clearImageSearch}
+                      className="text-white/40 hover:text-white/85 transition-colors p-1.5 rounded-lg hover:bg-white/5 flex items-center justify-center cursor-pointer"
+                      title="Xóa ảnh tìm kiếm"
+                    >
+                      <X size={18} />
+                    </button>
                   )}
                 </div>
-                
+
                 {query && !searchImagePreview && (
                   <button
                     type="button"
@@ -989,13 +1116,21 @@ const SearchPage = () => {
                   <div className="flex items-center gap-4">
                     {/* Search target image preview */}
                     <div className="relative w-14 h-14 rounded-2xl overflow-hidden border border-brand-400/30 flex-shrink-0 shadow-lg">
-                      <img src={searchImagePreview} className="w-full h-full object-cover" alt="Ảnh mẫu tìm kiếm" />
+                      <img
+                        src={searchImagePreview}
+                        className="w-full h-full object-cover"
+                        alt="Ảnh mẫu tìm kiếm"
+                      />
                     </div>
 
                     <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-brand-300 uppercase tracking-widest">Tìm kiếm hình ảnh</p>
+                      <p className="text-[10px] font-bold text-brand-300 uppercase tracking-widest">
+                        Tìm kiếm hình ảnh
+                      </p>
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-bold text-white/80 mr-1.5">Màu chủ đạo:</span>
+                        <span className="text-xs font-bold text-white/80 mr-1.5">
+                          Màu chủ đạo:
+                        </span>
                         {targetPalette && targetPalette.length > 0 ? (
                           targetPalette.map((hex, i) => {
                             const hexClean = hex.replace('#', '').toLowerCase()
@@ -1021,7 +1156,9 @@ const SearchPage = () => {
                         ) : (
                           <div className="flex items-center gap-1.5">
                             <span className="w-3 h-3 border border-white/30 border-t-white rounded-full animate-spin" />
-                            <span className="text-[11px] text-white/40">Đang phân tích màu sắc...</span>
+                            <span className="text-[11px] text-white/40">
+                              Đang phân tích màu sắc...
+                            </span>
                           </div>
                         )}
                       </div>
@@ -1321,37 +1458,42 @@ const SearchPage = () => {
                     ))}
                   </div>
 
-                  {hasMore && (
-                    <div className="flex justify-center mt-12">
-                      <motion.button
-                        whileTap={{ scale: 0.97 }}
-                        onClick={() => fetchPosts()}
-                        disabled={loadingMore}
-                        className="btn-secondary min-w-[140px] flex items-center justify-center gap-2"
-                      >
-                        {loadingMore ? (
-                          <motion.div
-                            className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full"
-                            animate={{ rotate: 360 }}
-                            transition={{
-                              duration: 0.8,
-                              repeat: Infinity,
-                              ease: 'linear',
-                            }}
-                          />
-                        ) : (
-                          <RefreshCw size={15} />
-                        )}
-                        <span>{loadingMore ? 'Đang tải...' : 'Xem thêm'}</span>
-                      </motion.button>
-                    </div>
-                  )}
-
-                  {!hasMore && posts.length > 0 && (
-                    <p className="text-center text-white/20 text-sm mt-12 italic">
-                      — Đã hiển thị tất cả {posts.length} kết quả —
-                    </p>
-                  )}
+                  {/* Infinite Scroll Loader Trigger (giống ExplorePage 100%) */}
+                  <div
+                    ref={loadMoreRef}
+                    className="w-full flex justify-center py-6 mt-6"
+                  >
+                    {loadingMore && (
+                      <div className="flex items-center gap-3 bg-surface-50 border border-[var(--color-border)] px-5 py-2.5 rounded-2xl shadow-lg">
+                        <motion.div
+                          className="w-4 h-4 border-2 border-brand-500/20 border-t-brand-500 rounded-full"
+                          animate={{ rotate: 360 }}
+                          transition={{
+                            duration: 0.8,
+                            repeat: Infinity,
+                            ease: 'linear',
+                          }}
+                        />
+                        <span className="text-xs font-bold text-foreground/60 pj">
+                          Đang tải thêm...
+                        </span>
+                      </div>
+                    )}
+                    {!hasMore && posts.length > 0 && (
+                      <div className="text-center py-6 pj flex flex-col items-center gap-2 select-none">
+                        <p className="text-foreground/30 text-xs italic">
+                          — Bạn đã xem hết tất cả {posts.length} kết quả —
+                        </p>
+                        <Link
+                          to="/upload"
+                          className="text-brand-500 hover:text-brand-400 text-xs font-bold hover:underline transition-colors mt-1 cursor-pointer"
+                        >
+                          Đăng tải tác phẩm đầu tay của bạn để chia sẻ cùng cộng
+                          đồng ngay hôm nay!
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>

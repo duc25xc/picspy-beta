@@ -23,6 +23,7 @@ import {
   Shield,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { formatCount } from '../utils/numberFormat'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import useTierAccess from '../hooks/useTierAccess'
@@ -207,14 +208,14 @@ const DiscoveryPostCard = ({ post, onClick }) => {
           <div className="flex items-center gap-2 shrink-0">
             <span className="flex items-center gap-0.5">
               <Eye size={10} className="opacity-70" />
-              {(post.stats?.viewsCount || 0).toLocaleString()}
+              {formatCount(post.stats?.viewsCount || 0)}
             </span>
             <span className="flex items-center gap-0.5">
               <Heart
                 size={10}
                 className="text-red-400 fill-red-400 opacity-80"
               />
-              {(post.stats?.likesCount || 0).toLocaleString()}
+              {formatCount(post.stats?.likesCount || 0)}
             </span>
           </div>
         </div>
@@ -782,11 +783,11 @@ const PostDetailPage = () => {
                 >
                   <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
                 </svg>
-                {(post.stats?.viewsCount || 0).toLocaleString()}
+                {formatCount(post.stats?.viewsCount || 0)}
               </div>
               <div className="flex items-center gap-1.5 text-white/35 text-sm">
                 <Download size={13} />
-                {(post.stats?.downloadsCount || 0).toLocaleString()}
+                {formatCount(post.stats?.downloadsCount || 0)}
               </div>
             </div>
           </motion.div>
@@ -1177,12 +1178,12 @@ const PostDetailPage = () => {
             {/* ── Stats ───────────────────────────────── */}
             <div className="flex items-center gap-6">
               <div className="text-white/45 text-sm font-semibold select-none">
-                {(post.stats?.viewsCount || 0).toLocaleString()} views
+                {formatCount(post.stats?.viewsCount || 0)} views
               </div>
               <div className="flex items-center gap-1.5 text-white/35 text-sm">
                 <Download size={14} />
                 <span>
-                  {(post.stats?.downloadsCount || 0).toLocaleString()}
+                  {formatCount(post.stats?.downloadsCount || 0)}
                 </span>
                 <span className="text-white/25 text-xs">tải về</span>
               </div>
@@ -1316,7 +1317,7 @@ const PostDetailPage = () => {
                   >
                     {copied ? <Check size={14} /> : <Share2 size={14} />}
                   </motion.span>
-                  <span>{(post.stats?.sharesCount || 0).toLocaleString()}</span>
+                  <span>{formatCount(post.stats?.sharesCount || 0)}</span>
                 </motion.button>
                 {!isOwnPost && (
                   <motion.button

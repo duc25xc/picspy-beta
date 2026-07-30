@@ -8,6 +8,7 @@ import { createPortal } from 'react-dom'
 import { useSettings } from '../context/SettingsContext'
 import useModalUrl from '../hooks/useModalUrl'
 import { getOptimizedWebpUrl } from '../utils/imageUrl'
+import { formatCount } from '../utils/numberFormat'
 import {
   motion,
   useScroll,
@@ -354,13 +355,7 @@ const AnimatedCounter = ({ targetValue, format = '', color }) => {
   }, [targetValue])
 
   const formatNumber = (num) => {
-    if (num >= 1000000) {
-      return (num / 1000000).toFixed(1).replace('.0', '') + 'M'
-    }
-    if (num >= 1000) {
-      return (num / 1000).toFixed(1).replace('.0', '') + 'K'
-    }
-    return num.toString()
+    return formatCount(num)
   }
 
   return (
@@ -549,13 +544,6 @@ const CategoryCard = ({
                   className="absolute inset-0 w-full h-full object-cover scale-105 group-hover/slice:scale-100 transition-transform duration-750"
                 />
                 <div className="absolute inset-0 bg-black/40 group-hover/slice:bg-black/10 transition-colors duration-300" />
-                {post && (
-                  <div className="absolute bottom-4 left-4 right-4 opacity-0 group-hover/slice:opacity-100 transition-opacity duration-300 pointer-events-none delay-100 z-30">
-                    <p className="text-[9px] text-white/90 line-clamp-2 font-medium bg-black/75 backdrop-blur-md px-2 py-1 border border-white/10 leading-normal">
-                      {post.prompt || post.caption || 'Art'}
-                    </p>
-                  </div>
-                )}
               </div>
             )
           )}
@@ -566,10 +554,26 @@ const CategoryCard = ({
 
       {/* Floating label */}
       <div className="absolute bottom-5 left-4 right-4 translate-y-1 group-hover:translate-y-0 transition-transform duration-400 z-20 pointer-events-none">
-        <LiquidCard className="px-4 py-3">
-          <span className="text-sm font-bold text-foreground dark:text-white pj flex items-center gap-2">
-            <span>{emoji}</span> {label}
-          </span>
+        <LiquidCard className="px-3.5 py-2.5">
+          <div className="w-full overflow-hidden whitespace-nowrap">
+            {label.length > 12 ? (
+              <div className="inline-flex gap-6 whitespace-nowrap animate-cat-marquee transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
+                <span className="text-sm font-bold text-foreground dark:text-white pj shrink-0">
+                  {label}
+                </span>
+                <span
+                  className="text-sm font-bold text-foreground dark:text-white pj shrink-0"
+                  aria-hidden="true"
+                >
+                  {label}
+                </span>
+              </div>
+            ) : (
+              <span className="text-sm font-bold text-foreground dark:text-white pj inline-block">
+                {label}
+              </span>
+            )}
+          </div>
           <p className="text-[10px] text-foreground/60 dark:text-white/60 font-bold uppercase tracking-wider pj mt-0.5">
             {count} tác phẩm
           </p>
@@ -582,7 +586,8 @@ const CategoryCard = ({
 /* Trending image card with spotlight glow and copy prompt quick icon */
 const TrendingCard = ({ post, index, delay, onClick }) => {
   const img = post.generatedImages?.[0] || post.images?.[0]
-  const displayUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
+  const rawUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
+  const displayUrl = getSmartCropUrl(rawUrl, 600, 400, true)
   const author = post.authorId
 
   return (
@@ -647,13 +652,17 @@ const TrendingCard = ({ post, index, delay, onClick }) => {
             </div>
           </div>
           <div className="flex items-center gap-2.5 text-[10px] text-foreground/80 font-bold shrink-0">
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1" title="Lượt thích">
               <Heart size={11} className="fill-red-400 text-red-400" />
-              <span className="pj">{post.stats?.likesCount || 0}</span>
+              <span className="pj">
+                {formatCount(post.stats?.likesCount || 0)}
+              </span>
             </div>
             <div className="flex items-center gap-1" title="Lượt tải">
               <Download size={11} className="text-blue-400" />
-              <span className="pj">{post.stats?.downloadsCount || 0}</span>
+              <span className="pj">
+                {formatCount(post.stats?.downloadsCount || 0)}
+              </span>
             </div>
           </div>
         </div>
@@ -668,7 +677,7 @@ const MasonryCard = ({ post, index, onClick }) => {
   const displayUrl = img?.previewUrl || img?.thumbnailUrl || img?.url
   const isTall = index % 2 === 1
   const views = post.stats?.viewsCount || 0
-  const formatViews = views >= 1000 ? (views / 1000).toFixed(1) + 'k' : views
+  const formatViews = formatCount(views)
 
   // Badge text
   let badge = null
@@ -722,7 +731,9 @@ const MasonryCard = ({ post, index, onClick }) => {
           </div>
           <div className="flex items-center gap-1 text-white/70 text-xs hover:text-red-400 transition-colors">
             <Heart size={12} className="fill-red-400 text-red-400" />
-            <span className="font-bold pj">{post.stats?.likesCount || 0}</span>
+            <span className="font-bold pj">
+              {formatCount(post.stats?.likesCount || 0)}
+            </span>
           </div>
         </div>
       </div>
@@ -759,11 +770,17 @@ const CARD_PATTERN = [
             ảnh thiên nhiên wide → crop tập trung landscape đẹp nhất
 */
 const getSmartCropUrl = (url, w, h, preferFace = true) => {
-  if (!url || !url.includes('/upload/')) return url
-  const [base, path] = url.split('/upload/')
-  // Gữ version nếu có, Cloudinary vẫn hiểu
-  const gravity = preferFace ? 'g_auto:faces' : 'g_auto'
-  return `${base}/upload/c_fill,${gravity},w_${w},h_${h},q_75,f_auto/${path}`
+  if (!url) return ''
+  if (!url.includes('/image/upload/') && !url.includes('/upload/')) return url
+  const splitKeyword = url.includes('/image/upload/')
+    ? '/image/upload/'
+    : '/upload/'
+  const [base, path] = url.split(splitKeyword)
+  const cleanPath = path.replace(/^v\d+\//, '')
+  const gravity = preferFace
+    ? 'g_auto:subject,g_auto:person,g_auto:faces,g_auto'
+    : 'g_auto:subject,g_auto'
+  return `${base}${splitKeyword}c_fill,${gravity},w_${w},h_${h},q_75,f_auto/${cleanPath}`
 }
 
 // Dimensions (w×h px) phù hợp với tỷ lệ từng card type (gridAutoRows: 200px)
@@ -905,7 +922,7 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
           <div className="flex items-center gap-2 text-white/70 text-[11px] shrink-0">
             <span className="flex items-center gap-0.5" title="Lượt thích">
               <Heart size={9} className="text-red-400" />
-              {(post.stats?.likesCount || 0).toLocaleString()}
+              {formatCount(post.stats?.likesCount || 0)}
             </span>
             <span className="flex items-center gap-0.5" title="Lượt xem">
               <svg
@@ -917,7 +934,7 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
               >
                 <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zm0 12.5c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z" />
               </svg>
-              {(post.stats?.viewsCount || 0).toLocaleString()}
+              {formatCount(post.stats?.viewsCount || 0)}
             </span>
             {index < 3 && (
               <>
@@ -926,11 +943,11 @@ const CommunityPostCard = ({ post, index, onClick, customType }) => {
                     size={9}
                     className="text-amber-400 fill-amber-400"
                   />
-                  {(post.stats?.bookmarksCount || 0).toLocaleString()}
+                  {formatCount(post.stats?.bookmarksCount || 0)}
                 </span>
                 <span className="flex items-center gap-0.5" title="Lượt tải">
                   <Download size={9} className="text-emerald-400" />
-                  {(post.stats?.downloadsCount || 0).toLocaleString()}
+                  {formatCount(post.stats?.downloadsCount || 0)}
                 </span>
               </>
             )}
@@ -997,7 +1014,8 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
                 className="w-10 h-10 rounded-full object-cover border border-white/10 shadow-sm"
                 onError={(e) => {
                   e.target.style.display = 'none'
-                  if (e.target.nextSibling) e.target.nextSibling.style.display = 'flex'
+                  if (e.target.nextSibling)
+                    e.target.nextSibling.style.display = 'flex'
                 }}
               />
             ) : null}
@@ -1008,9 +1026,7 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
               {(c.displayName || c.username || 'U').slice(0, 2).toUpperCase()}
             </div>
             {c.isVerified && (
-              <span
-                className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black px-1 py-0.2 rounded text-white tracking-wide shadow-sm"
-              >
+              <span className="absolute -bottom-1 -right-1 bg-brand-600 text-[8px] font-black px-1 py-0.2 rounded text-white tracking-wide shadow-sm">
                 PRO
               </span>
             )}
@@ -1021,11 +1037,11 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
             </div>
             <div className="text-[10px] text-white/40 font-bold uppercase tracking-wider truncate font-mono">
               {metricType === 'followers' &&
-                `${(c.stats?.followersCount || 0).toLocaleString()} người theo dõi`}
+                `${formatCount(c.stats?.followersCount || 0)} người theo dõi`}
               {metricType === 'views' &&
-                `${(c.scoreValue || c.stats?.viewsCount || 0).toLocaleString()} lượt xem`}
+                `${formatCount(c.scoreValue || c.stats?.viewsCount || 0)} lượt xem`}
               {metricType === 'downloads' &&
-                `${(c.scoreValue || c.stats?.downloadsCount || 0).toLocaleString()} lượt tải`}
+                `${formatCount(c.scoreValue || c.stats?.downloadsCount || 0)} lượt tải`}
             </div>
           </div>
         </Link>
@@ -1050,8 +1066,8 @@ const LeaderRow = ({ c, rank, delay, onFollow, metricType = 'followers' }) => {
         </button>
       )}
     </motion.div>
-    )
-  }
+  )
+}
 
 /* ─── Community Gallery Section với Feed Tabs ────────────── */
 const FEED_TABS = [
@@ -1866,12 +1882,10 @@ const HomePage = () => {
       })
   }, []) // eslint-disable-line
 
-  // Fetch local leaderboard when type/period changes (skip first load since payload has it)
+  // Fetch local leaderboard on mount & when type/period changes
   useEffect(() => {
-    if (homepageData) {
-      fetchLeaderboard(leaderPeriod, leaderType, 4, 'local')
-    }
-  }, [leaderPeriod, leaderType, fetchLeaderboard]) // eslint-disable-line
+    fetchLeaderboard(leaderPeriod, leaderType, 4, 'local')
+  }, [leaderPeriod, leaderType, fetchLeaderboard])
 
   // Fetch modal leaderboard when open, type/period changes
   useEffect(() => {
@@ -2392,7 +2406,7 @@ const HomePage = () => {
           >
             <div>
               <p className="text-brand-600 dark:text-brand-400 text-[11px] font-bold tracking-widest uppercase mb-3 pj">
-                🎯 Danh mục nổi bật
+                Danh mục nổi bật
               </p>
               <h2 className="text-4xl md:text-5xl font-black tracking-tight mb-3 pj">
                 Danh mục nổi bật
@@ -2616,10 +2630,7 @@ const HomePage = () => {
                     </div>
                   ) : leaderboard.length > 0 ? (
                     leaderboard.map((c, i) => (
-                      <div
-                        key={c._id}
-                        className="py-1"
-                      >
+                      <div key={c._id} className="py-1">
                         <LeaderRow
                           c={c}
                           rank={i + 1}

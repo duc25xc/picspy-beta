@@ -66,6 +66,15 @@ api.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config
 
+    // Bỏ qua không auto-refresh cho chính request /auth/refresh hoặc /auth/login
+    if (
+      !originalRequest ||
+      originalRequest.url?.includes('/auth/refresh') ||
+      originalRequest.url?.includes('/auth/login')
+    ) {
+      return Promise.reject(error)
+    }
+
     if (error.response?.status === 401 && !originalRequest._retry) {
       if (isRefreshing) {
         // Đang refresh → xếp hàng chờ
@@ -76,7 +85,7 @@ api.interceptors.response.use(
             originalRequest.headers.Authorization = `Bearer ${token}`
             return api(originalRequest)
           })
-          .catch(Promise.reject)
+          .catch((err) => Promise.reject(err))
       }
 
       originalRequest._retry = true
@@ -94,9 +103,8 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshError) {
         processQueue(refreshError, null)
-        // Xóa auth state hoàn toàn
+        // Xóa auth state hoàn toàn khi refresh thất bại
         _bridge.clearAuth()
-        window.location.href = '/login'
         return Promise.reject(refreshError)
       } finally {
         isRefreshing = false

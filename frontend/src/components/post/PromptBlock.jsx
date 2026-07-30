@@ -171,7 +171,7 @@ const JsonExportButton = ({ text }) => {
 const parseArguments = (txt) => {
   const vars = {}
   if (!txt) return vars
-  const regex = /\{?argument\s+name\s*=?\s*"([^"]+)"\s+default\s*=?\s*"((?:[^"\\]|\\.)*)"\}?/g
+  const regex = /\{?argument\s+name\s*=\s*\\?["']([^"'\\=]+)\\?["']\s+default\s*=\s*\\?["']((?:[^"\\]|\\.)*?)\\?["']\}?/gi
   let match
   while ((match = regex.exec(txt)) !== null) {
     const [_, name, defaultValue] = match
@@ -230,7 +230,7 @@ export default function PromptBlock({
     if (!canCopy || !text) return
     try {
       let copyText = text
-      const regex = /\{?argument\s+name\s*=?\s*"([^"]+)"\s+default\s*=?\s*"((?:[^"\\]|\\.)*)"\}?/g
+      const regex = /\{?argument\s+name\s*=\s*\\?["']([^"'\\=]+)\\?["']\s+default\s*=\s*\\?["']((?:[^"\\]|\\.)*?)\\?["']\}?/gi
       let match
       regex.lastIndex = 0
       while ((match = regex.exec(text)) !== null) {
@@ -377,19 +377,22 @@ export default function PromptBlock({
           }}
         >
           {(() => {
-            if (variant !== 'prompt' || isGuestLocked || locked) {
+            if ((variant !== 'prompt' && variant !== 'json') || isGuestLocked || locked) {
               return visibleText
             }
-            const regex = /(\{?argument\s+name\s*=?\s*"[^"]+"\s+default\s*=?\s*"(?:[^"\\]|\\.)*"\}?)/g
-            const parts = (visibleText || '').split(regex)
+            const splitRegex = /(\{?argument\s+name\s*=\s*\\?["'][^"'\\=]+\\?["']\s+default\s*=\s*\\?["'](?:[^"\\]|\\.)*?\\?["']\}?)/gi
+            const matchArgRegex = /^\{?argument\s+name\s*=\s*\\?["']([^"'\\=]+)\\?["']\s+default\s*=\s*\\?["']((?:[^"\\]|\\.)*?)\\?["']\}?$/i
+
+            const parts = (visibleText || '').split(splitRegex)
             return parts.map((part, idx) => {
-              const match = part.match(/\{?argument\s+name\s*=?\s*"([^"]+)"\s+default\s*=?\s*"((?:[^"\\]|\\.)*)"\}?/)
+              const match = part.match(matchArgRegex)
               if (match) {
                 const [_, name, defaultValue] = match
                 const val = variables[name] ?? defaultValue
                 return (
                   <span
                     key={idx}
+                    title={`Argument (${name}): nhấp để chỉnh sửa`}
                     contentEditable
                     suppressContentEditableWarning
                     onBlur={(e) => {
@@ -402,7 +405,7 @@ export default function PromptBlock({
                         e.target.blur()
                       }
                     }}
-                    className="mx-1 px-1.5 py-0.5 rounded font-bold border-b border-[#7986eb] bg-[#7986eb]/20 text-[#a5b0f5] focus:outline-none focus:bg-[#7986eb]/35 transition-all cursor-text inline"
+                    className="mx-1 px-2 py-0.5 rounded font-bold border border-violet-400/50 bg-violet-500/25 text-violet-200 focus:outline-none focus:bg-violet-500/40 focus:border-violet-300 transition-all cursor-text inline-flex items-center gap-1 shadow-sm shadow-violet-950/40"
                     style={{
                       fontFamily: 'JetBrains Mono, Fira Code, monospace',
                       outline: 'none',

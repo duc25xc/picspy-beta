@@ -1,9 +1,11 @@
+import mongoose from 'mongoose'
 import Post from '../models/Post.model.js'
 import User from '../models/User.model.js'
 import Category from '../models/Category.model.js'
 import Interaction from '../models/Interaction.model.js'
 import TokenTransaction from '../models/TokenTransaction.model.js'
-import { classifySystemCategory } from '../services/csvImport.service.js'
+import VndTransaction from '../models/VndTransaction.model.js'
+import { classifySystemCategory, deduplicateCategoryList } from '../services/csvImport.service.js'
 import Settings from '../models/Settings.model.js'
 import Report from '../models/Report.model.js'
 import Notification from '../models/Notification.model.js'
@@ -96,7 +98,16 @@ export const getAllPosts = async (req, res, next) => {
   try {
     const { status = 'pending', cursor, limit = 20, hideCsv } = req.query
     const query = {}
-    if (status !== 'all') query.status = status
+
+    if (status === 'pending') {
+      query.$or = [
+        { status: 'pending' },
+        { requestedCategoryStatus: 'pending' }
+      ]
+    } else if (status !== 'all') {
+      query.status = status
+    }
+
     if (cursor) query._id = { $lt: cursor }
 
     if (hideCsv === 'true') {
@@ -149,7 +160,12 @@ export const getAllPosts = async (req, res, next) => {
 
     const [pendingCount, approvedCount, rejectedCount, hiddenCount, csvCount] =
       await Promise.all([
-        Post.countDocuments({ status: 'pending' }),
+        Post.countDocuments({
+          $or: [
+            { status: 'pending' },
+            { requestedCategoryStatus: 'pending' }
+          ]
+        }),
         Post.countDocuments({ status: 'approved' }),
         Post.countDocuments({ status: 'rejected' }),
         Post.countDocuments({ status: 'hidden' }),
@@ -808,6 +824,10 @@ export const getDashboardStats = async (req, res, next) => {
       todayInteractions,
       totalInteractions,
       todayTokensSpentAgg,
+      totalUserRevenueAgg,
+      todayUserRevenueAgg,
+      totalUserBalanceAgg,
+      topRevenueUsers,
     ] = await Promise.all([
       Post.countDocuments(),
       User.countDocuments(),
@@ -833,6 +853,23 @@ export const getDashboardStats = async (req, res, next) => {
         { $match: { createdAt: { $gte: startOfToday }, amount: { $lt: 0 } } },
         { $group: { _id: null, total: { $sum: '$amount' } } },
       ]).catch(() => []),
+
+      // User Revenue & Balance Stats
+      User.aggregate([
+        { $group: { _id: null, totalEarned: { $sum: '$totalEarned' }, totalWithdrawn: { $sum: '$totalWithdrawn' } } },
+      ]).catch(() => []),
+      VndTransaction.aggregate([
+        { $match: { createdAt: { $gte: startOfToday }, type: { $in: ['earn_purchase', 'earn_hold', 'earn_views', 'topup', 'purchase_post'] }, amount: { $gt: 0 } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } },
+      ]).catch(() => []),
+      User.aggregate([
+        { $group: { _id: null, available: { $sum: '$vndBalance' }, holding: { $sum: '$holdingBalance' }, locked: { $sum: '$lockedBalance' } } },
+      ]).catch(() => []),
+      User.find({})
+        .sort({ totalEarned: -1, vndBalance: -1, createdAt: -1 })
+        .limit(10)
+        .select('username displayName avatar totalEarned totalWithdrawn vndBalance holdingBalance subscriptionTier stats createdAt email')
+        .lean(),
     ])
 
     const todayTokensSpent = Math.abs(todayTokensSpentAgg?.[0]?.total || 0)
@@ -857,6 +894,15 @@ export const getDashboardStats = async (req, res, next) => {
       hiddenPosts,
       recentPosts,
       recentUsers,
+      revenueStats: {
+        totalUserRevenue: totalUserRevenueAgg?.[0]?.totalEarned || 0,
+        totalWithdrawn: totalUserRevenueAgg?.[0]?.totalWithdrawn || 0,
+        todayRevenue: todayUserRevenueAgg?.[0]?.total || 0,
+        totalAvailableBalance: totalUserBalanceAgg?.[0]?.available || 0,
+        totalHoldingBalance: totalUserBalanceAgg?.[0]?.holding || 0,
+        totalLockedBalance: totalUserBalanceAgg?.[0]?.locked || 0,
+      },
+      topRevenueUsers: topRevenueUsers || [],
       todayStats: {
         todayPosts,
         yesterdayPosts,
@@ -868,6 +914,7 @@ export const getDashboardStats = async (req, res, next) => {
         todayPending,
         todayInteractions,
         todayTokensSpent,
+        todayRevenue: todayUserRevenueAgg?.[0]?.total || 0,
       },
       totalInteractions,
       approvalRate,
@@ -893,12 +940,18 @@ export const getAnalytics = async (req, res, next) => {
         const end = new Date(now)
         end.setHours(h, 59, 59, 999)
 
-        const [posts, users, interactions, approved] = await Promise.all([
+        const [posts, users, interactions, approved, revenueAgg] = await Promise.all([
           Post.countDocuments({ createdAt: { $gte: start, $lte: end } }),
           User.countDocuments({ createdAt: { $gte: start, $lte: end } }),
           Interaction.countDocuments({ createdAt: { $gte: start, $lte: end } }).catch(() => 0),
           Post.countDocuments({ status: 'approved', createdAt: { $gte: start, $lte: end } }),
+          VndTransaction.aggregate([
+            { $match: { createdAt: { $gte: start, $lte: end }, type: { $in: ['earn_purchase', 'earn_hold', 'earn_views', 'topup', 'purchase_post'] }, amount: { $gt: 0 } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+          ]).catch(() => []),
         ])
+
+        const revenue = revenueAgg?.[0]?.total || 0
 
         result.push({
           date: `${h.toString().padStart(2, '0')}:00`,
@@ -907,6 +960,7 @@ export const getAnalytics = async (req, res, next) => {
           users,
           interactions,
           approved,
+          revenue,
         })
       }
     } else {
@@ -919,12 +973,18 @@ export const getAnalytics = async (req, res, next) => {
         end.setHours(23, 59, 59, 999)
         end.setDate(end.getDate() - i)
 
-        const [posts, users, interactions, approved] = await Promise.all([
+        const [posts, users, interactions, approved, revenueAgg] = await Promise.all([
           Post.countDocuments({ createdAt: { $gte: start, $lte: end } }),
           User.countDocuments({ createdAt: { $gte: start, $lte: end } }),
           Interaction.countDocuments({ createdAt: { $gte: start, $lte: end } }).catch(() => 0),
           Post.countDocuments({ status: 'approved', createdAt: { $gte: start, $lte: end } }),
+          VndTransaction.aggregate([
+            { $match: { createdAt: { $gte: start, $lte: end }, type: { $in: ['earn_purchase', 'earn_hold', 'earn_views', 'topup', 'purchase_post'] }, amount: { $gt: 0 } } },
+            { $group: { _id: null, total: { $sum: '$amount' } } },
+          ]).catch(() => []),
         ])
+
+        const revenue = revenueAgg?.[0]?.total || 0
 
         result.push({
           date: start.toISOString().split('T')[0],
@@ -936,6 +996,7 @@ export const getAnalytics = async (req, res, next) => {
           users,
           interactions,
           approved,
+          revenue,
         })
       }
     }
@@ -2453,9 +2514,11 @@ export const analyzeReclassifyCsvPosts = async (req, res, next) => {
           currentCategory: post.category || 'other',
           suggestedCategory: targetSlug,
           suggestedCategoryName: targetName,
-          suggested3Categories: catRes.suggestedCategories?.length > 0
-            ? catRes.suggestedCategories
-            : [targetName, 'Khác', 'Sáng tạo mới'],
+          suggested3Categories: deduplicateCategoryList(
+            catRes.suggestedCategories?.length > 0
+              ? catRes.suggestedCategories
+              : [targetName, 'Khác', 'Sáng tạo mới']
+          ).slice(0, 3),
           isDifferent,
           confidence: catRes.confidence || 85,
           post,
@@ -2467,9 +2530,11 @@ export const analyzeReclassifyCsvPosts = async (req, res, next) => {
           imageUrl,
           currentCategory: post.category || 'other',
           requestedCategory: catRes.requestedCategory,
-          suggested3Categories: catRes.suggestedCategories?.length > 0
-            ? catRes.suggestedCategories
-            : [catRes.requestedCategory, 'Khái niệm mới', 'Nghệ thuật AI'],
+          suggested3Categories: deduplicateCategoryList(
+            catRes.suggestedCategories?.length > 0
+              ? catRes.suggestedCategories
+              : [catRes.requestedCategory, 'Khái niệm mới', 'Nghệ thuật AI']
+          ).slice(0, 3),
           confidence: catRes.confidence || 55,
           post,
         })
@@ -2496,16 +2561,46 @@ export const batchApplyReclassifications = async (req, res, next) => {
       throw new AppError('BAD_REQUEST', 'Danh sách bài đăng cần cập nhật không hợp lệ', 400)
     }
 
+    const activeCategoriesDocs = await Category.find({ isActive: true }).select('name slug').lean().catch(() => [])
     let updatedCount = 0
+
     for (const item of items) {
       if (!item.postId || !item.targetCategory) continue
-      await Post.findByIdAndUpdate(item.postId, {
-        category: item.targetCategory,
-        requestedCategoryStatus: 'none',
-        status: 'approved',
-        reviewedBy: req.user._id,
-        reviewedAt: new Date()
-      })
+      const rawTarget = item.targetCategory.trim()
+      const targetSlug = rawTarget
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .replace(/[^a-z0-9\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+
+      const matchedCat = activeCategoriesDocs.find(
+        (c) => c.slug === targetSlug || c.slug === rawTarget.toLowerCase() || c.name.toLowerCase() === rawTarget.toLowerCase()
+      )
+
+      if (matchedCat) {
+        // Target category ALREADY EXISTS in DB
+        await Post.findByIdAndUpdate(item.postId, {
+          category: matchedCat.slug,
+          requestedCategory: null,
+          requestedCategoryStatus: 'none',
+          status: 'approved',
+          reviewedBy: req.user._id,
+          reviewedAt: new Date()
+        })
+      } else {
+        // Target category is a NEW proposed category (not in DB yet) -> set pending proposal!
+        await Post.findByIdAndUpdate(item.postId, {
+          category: 'other',
+          requestedCategory: rawTarget,
+          requestedCategoryStatus: 'pending',
+          status: 'approved',
+          reviewedBy: req.user._id,
+          reviewedAt: new Date()
+        })
+      }
       updatedCount++
     }
 
@@ -2585,6 +2680,195 @@ export const batchApplyCategoryProposals = async (req, res, next) => {
       message: `Hoàn tất xử lý: Chấp nhận tạo ${approvedCount} danh mục mới, từ chối gán Khác ${rejectedCount} bài.`,
       approvedCount,
       rejectedCount
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /api/admin/backup/export
+ * Query params: type = 'all' | 'settings' | 'posts' | 'users'
+ */
+export const exportDataBackup = async (req, res, next) => {
+  try {
+    const { type = 'all' } = req.query
+    const backupData = {
+      version: '1.0',
+      type,
+      exportedAt: new Date().toISOString(),
+      exportedBy: {
+        id: req.user._id,
+        username: req.user.username,
+      },
+      data: {},
+    }
+
+    if (type === 'all' || type === 'settings') {
+      const settings = await Settings.getSingleton()
+      backupData.data.settings = settings
+    }
+
+    if (type === 'all' || type === 'posts') {
+      const posts = await Post.find({}).lean()
+      backupData.data.postsCount = posts.length
+      backupData.data.posts = posts
+    }
+
+    if (type === 'all' || type === 'users') {
+      const users = await User.find({})
+        .select('-passwordHash -emailVerifyToken -passwordResetToken -stripeCustomerId')
+        .lean()
+      backupData.data.usersCount = users.length
+      backupData.data.users = users
+    }
+
+    const dateStr = new Date().toISOString().slice(0, 10)
+    const filename = `picspy_backup_${type}_${dateStr}.json`
+    res.setHeader('Content-Type', 'application/json')
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+    return res.json(backupData)
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /api/admin/backup/import
+ * Body: { backupData: { type, data: { settings, posts, users } }, modulesToImport: ['settings', 'posts', 'users'] }
+ */
+export const importDataBackup = async (req, res, next) => {
+  try {
+    const { backupData, modulesToImport = [] } = req.body
+
+    if (!backupData || !backupData.data) {
+      throw new AppError('INVALID_INPUT', 'Dữ liệu file backup không hợp lệ', 400)
+    }
+
+    const results = {
+      settingsImported: false,
+      postsImportedCount: 0,
+      usersImportedCount: 0,
+    }
+
+    // 1. Phục hồi Settings
+    if (modulesToImport.includes('settings') && backupData.data.settings) {
+      const settingsData = { ...backupData.data.settings }
+      delete settingsData._id
+      delete settingsData.__v
+      await Settings.findOneAndUpdate({}, { $set: settingsData }, { upsert: true, new: true })
+      results.settingsImported = true
+    }
+
+    // 2. Phục hồi Users
+    if (modulesToImport.includes('users') && Array.isArray(backupData.data.users) && backupData.data.users.length > 0) {
+      let userCount = 0
+      for (const u of backupData.data.users) {
+        if (!u.username || !u.email) continue
+        const updateDoc = { ...u }
+        delete updateDoc._id
+        delete updateDoc.__v
+        await User.findOneAndUpdate(
+          { $or: [{ username: u.username }, { email: u.email }] },
+          { $set: updateDoc },
+          { upsert: true, new: true, setDefaultsOnInsert: true }
+        )
+        userCount++
+      }
+      results.usersImportedCount = userCount
+    }
+
+    // 3. Phục hồi Posts
+    if (modulesToImport.includes('posts') && Array.isArray(backupData.data.posts) && backupData.data.posts.length > 0) {
+      let postCount = 0
+      for (const p of backupData.data.posts) {
+        const updateDoc = { ...p }
+        delete updateDoc._id
+        delete updateDoc.__v
+
+        let query = null
+        if (p._id && mongoose.Types.ObjectId.isValid(p._id)) {
+          query = { _id: p._id }
+        } else if (p.caption && p.authorId) {
+          query = { caption: p.caption, authorId: p.authorId }
+        }
+
+        if (query) {
+          await Post.findOneAndUpdate(query, { $set: updateDoc }, { upsert: true, new: true, setDefaultsOnInsert: true })
+        } else {
+          await Post.create(updateDoc)
+        }
+        postCount++
+      }
+      results.postsImportedCount = postCount
+    }
+
+    // Audit log
+    await logAdminAction(req.user._id, 'SYSTEM_BACKUP_RESTORE', null, 'Settings', {
+      modulesImported: modulesToImport,
+      results,
+    })
+
+    return res.json({
+      success: true,
+      message: 'Phục hồi dữ liệu thành công!',
+      results,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /api/admin/backup/purge
+ * Body: { type: 'all' | 'settings' | 'posts' | 'users' }
+ */
+export const purgeDataBackup = async (req, res, next) => {
+  try {
+    const { type } = req.body
+
+    if (!['all', 'settings', 'posts', 'users'].includes(type)) {
+      throw new AppError('INVALID_INPUT', 'Loại dữ liệu cần xóa không hợp lệ', 400)
+    }
+
+    const results = {
+      settingsReset: false,
+      postsDeletedCount: 0,
+      usersDeletedCount: 0,
+    }
+
+    // 1. Purge Settings
+    if (type === 'all' || type === 'settings') {
+      await Settings.deleteMany({})
+      await Settings.getSingleton() // Re-create default settings
+      results.settingsReset = true
+    }
+
+    // 2. Purge Posts
+    if (type === 'all' || type === 'posts') {
+      const deleteRes = await Post.deleteMany({})
+      results.postsDeletedCount = deleteRes.deletedCount || 0
+    }
+
+    // 3. Purge Users (Bảo vệ tài khoản admin hiện tại & các tài khoản admin)
+    if (type === 'all' || type === 'users') {
+      const deleteRes = await User.deleteMany({
+        role: { $ne: 'admin' },
+        _id: { $ne: req.user._id },
+      })
+      results.usersDeletedCount = deleteRes.deletedCount || 0
+    }
+
+    // Audit log
+    await logAdminAction(req.user._id, 'SYSTEM_DATA_PURGE', null, 'Settings', {
+      type,
+      results,
+    })
+
+    return res.json({
+      success: true,
+      message: 'Xóa dữ liệu thành công!',
+      results,
     })
   } catch (err) {
     next(err)

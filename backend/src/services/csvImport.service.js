@@ -27,23 +27,266 @@ export function removeAccents(str = '') {
  * 3. If no match -> proposes new category with 3 AI suggestions and submits for Admin Review (status: 'pending')
  */
 
+// ── Vietnamese → English tag mapping dictionary ─────────────────────────────
+// Keys should be lowercase without accents for easy matching
+const VI_TAG_MAP = {
+  // Profile / Social / Avatar
+  'ho so': 'profile',
+  'anh dai dien': 'avatar',
+  'hinh dai dien': 'avatar',
+  'bai dang tren mang xa hoi': 'social-post',
+  'bai dang mang xa hoi': 'social-post',
+  'mang xa hoi': 'social-media',
+  'bai dang': 'post',
+  'anh tu chup': 'selfie',
+  'tu chup': 'selfie',
+
+  // Thể loại tổng quát
+  'infographic': 'infographic',
+  'hinh anh giao duc': 'edu-visual',
+  'giao duc': 'education',
+  'thi giac': 'visual',
+  'thi giac du lieu': 'data-visualization',
+  'so do bieu do': 'diagram',
+  'so do': 'diagram',
+  'bieu do': 'chart',
+  'bieu do thong ke': 'chart',
+  'phan tich du lieu': 'data-analysis',
+  'du lieu': 'data',
+
+  // Minh họa / Artwork / Nhân vật
+  'minh hoa': 'illustration',
+  'hinh minh hoa': 'illustration',
+  'minh hoa ky thuat so': 'digital-illustration',
+  'tranh ve': 'artwork',
+  'hoi hoa': 'painting',
+  'nhan vat': 'character',
+  'thiet ke nhan vat': 'character-design',
+  'phong cach q': 'chibi-style',
+  'chibi': 'chibi',
+  'khai niem': 'concept-art',
+  'nghe thuat khai niem': 'concept-art',
+  'hinh ve': 'drawing',
+
+  // Chữ & Typography & Text
+  'van ban': 'text',
+  'kieu chu': 'typography',
+  'chu viet': 'calligraphy',
+  'chu trinh': 'typography',
+  'trinh bay chu': 'typography',
+
+  // Marketing / Business / Fashion
+  'tiep thi san pham': 'product-marketing',
+  'tiep thi': 'marketing',
+  'san pham': 'product',
+  'quang cao': 'advertising',
+  'thuong mai': 'commerce',
+  'kinh doanh': 'business',
+  'chien luoc': 'strategy',
+  'nhan hieu': 'brand',
+  'thuong hieu': 'brand',
+  'bang phoi do': 'styling-board',
+  'bo suu tap': 'collection',
+  'bien tap': 'editorial',
+
+  // 3D / Design / UI
+  'ket xuat 3d': '3D-render',
+  'mo hinh 3d': '3D-model',
+  '3d render': '3D-render',
+  '3d': '3D',
+  'do hoa': 'graphic',
+  'thiet ke do hoa': 'graphic-design',
+  'thiet ke': 'design',
+  'bao bi': 'packaging',
+  'san pham thiet ke': 'product-design',
+  'giao dien': 'UI-design',
+  'trang chu': 'landing-page',
+
+  // Style / Aesthetics
+  'chu nghia toi gian': 'minimalism',
+  'toi gian': 'minimal',
+  'hien dai': 'modern',
+  'nghe thuat': 'art',
+  'truu tuong': 'abstract',
+  'sieu thuc': 'surreal',
+  'co dien': 'classic',
+  'sang trong': 'luxury',
+  'tinh te': 'elegant',
+  'de thuong': 'cute',
+  'ngau': 'cool',
+
+  // Photography / Portrait / Fashion
+  'chan dung': 'portrait',
+  'chup anh': 'photography',
+  'nhip anh': 'photography',
+  'nhiep anh': 'photography',
+  'nhiep anh gia': 'photographer',
+  'anh the': 'headshot',
+  'thoi trang': 'fashion',
+  'toan than': 'full-body',
+  'duong pho': 'street',
+  'phong canh': 'landscape',
+  'thien nhien': 'nature',
+  'dong vat': 'animal',
+  'trang phuc': 'outfit',
+  'quan ao': 'clothing',
+  'tui xach': 'handbag',
+  'phu kien': 'accessories',
+  'trang suc': 'jewelry',
+  'nguoi mau': 'model',
+
+  // AI / Tech
+  'tri tue nhan tao': 'AI',
+  'cong nghe': 'technology',
+  'tuong lai': 'futuristic',
+  'robot': 'robot',
+  'may tinh': 'computer',
+  'khoa hoc': 'science',
+
+  // Lifestyle / Themes
+  'am thuc': 'food',
+  'du lich': 'travel',
+  'the thao': 'sports',
+  'am nhac': 'music',
+  'kien truc': 'architecture',
+  'noi that': 'interior',
+  'hoa': 'flower',
+  'cay': 'plant',
+  'thu cung': 'pet',
+
+  // Art Styles
+  'anime': 'anime',
+  'manga': 'manga',
+  'pixel art': 'pixel-art',
+  'hoat hinh': 'cartoon',
+  'hoat hinh 3d': '3D-cartoon',
+  'vector': 'vector',
+  'co trang': 'vintage',
+  'retro': 'retro',
+  'cyberpunk': 'cyberpunk',
+  'lo-fi': 'lofi',
+  'lofi': 'lofi',
+  'dark': 'dark',
+  'toi': 'dark',
+  'sang': 'light',
+  'mau sac': 'colorful',
+  'gradient': 'gradient',
+  'dep': 'aesthetic',
+
+  // Formats / Elements
+  'poster': 'poster',
+  'banner': 'banner',
+  'bieu ngu': 'banner',
+  'bieu tuong': 'icon',
+  'logo': 'logo',
+  'mau': 'template',
+  'nen': 'background',
+  'anh nen': 'background',
+  'wallpaper': 'wallpaper',
+}
+
 /**
  * Helper to extract clean hashtag/tag strings from raw category or tag fields.
- * Converts CSV category strings (e.g. "[Đề xuất] Chân dung & Thời trang") into individual tags.
+ * Converts CSV category strings into minimal English tags.
+ * Preserves proper nouns, handles, concise length, and eliminates Vietnamese noise.
  */
 export function extractTagsFromCsvCategory(rawCategory = '', rawTags = '') {
-  const combined = (rawCategory + ' ' + rawTags).trim()
+  const combined = (rawCategory + (rawTags ? ',' + rawTags : '')).trim()
   if (!combined) return []
 
-  // Clean brackets like [Đề xuất] or special punctuation
-  const cleanStr = combined.replace(/\[.*?\]/g, ' ').replace(/^["']|["']$/g, '')
-  const parts = cleanStr.split(/[,;|/\s]+/)
-  const cleanTags = parts
-    .map((p) => p.trim().replace(/^#+/, '').replace(/[\/\\()]/g, ''))
-    .filter((p) => p.length >= 2 && p.toLowerCase() !== 'other' && p.toLowerCase() !== 'khac' && p.toLowerCase() !== 'de' && p.toLowerCase() !== 'xuat')
+  // Remove bracket labels like [Đề xuất] [Khác]
+  const cleanStr = combined
+    .replace(/\[.*?\]/g, ' ')
+    .replace(/^["']|["']$/g, '')
+    .trim()
 
-  return Array.from(new Set(cleanTags))
+  // Split ONLY by delimiters — preserve multi-word phrases
+  const parts = cleanStr
+    .split(/[,;|/\r\n]+/)
+    .map((p) => p.trim())
+    .filter((p) => p.length >= 2)
+
+  const result = []
+
+  for (const phrase of parts) {
+    // Strip leading # and clean outer punctuation
+    const cleaned = phrase.replace(/^#+/, '').replace(/[()\\]/g, '').trim()
+    if (!cleaned) continue
+
+    // 0. Preserve handles / usernames (e.g. @username)
+    if (cleaned.startsWith('@')) {
+      const handleTag = cleaned.toLowerCase()
+      if (handleTag.length <= 30) result.push(handleTag)
+      continue
+    }
+
+    // Detect Proper Nouns / Brands / Locations / Models (English/Alphanumeric without Vietnamese diacritics)
+    const isProperNounOrEnglish =
+      /^[A-Z0-9@_.\-\s]+$/i.test(cleaned) &&
+      !/[àáảãạâầấẩẫậăằắẳẵặèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ]/i.test(cleaned)
+
+    // Normalize to no-accent lowercase for dictionary lookup
+    const normalized = removeAccents(cleaned.toLowerCase())
+
+    // 1. Try full phrase match first
+    if (VI_TAG_MAP[normalized]) {
+      result.push(VI_TAG_MAP[normalized])
+      continue
+    }
+
+    // 2. Try partial / sub-phrase match (longest match wins)
+    let matched = false
+    const keys = Object.keys(VI_TAG_MAP).sort((a, b) => b.length - a.length)
+    for (const key of keys) {
+      if (normalized.includes(key)) {
+        result.push(VI_TAG_MAP[key])
+        matched = true
+        break
+      }
+    }
+    if (matched) continue
+
+    // 3. Preserve Proper Nouns / Brands / Locations if valid English/Alphanumeric
+    if (isProperNounOrEnglish) {
+      const properTag = cleaned
+        .toLowerCase()
+        .replace(/[^a-z0-9@_-]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+      if (properTag && properTag.length <= 25) {
+        result.push(properTag)
+        continue
+      }
+    }
+
+    // 4. Fallback: split phrase into individual words and map each word if in dictionary
+    const words = normalized.split(/\s+/).filter(Boolean)
+    let wordMapped = false
+    for (const word of words) {
+      if (VI_TAG_MAP[word]) {
+        result.push(VI_TAG_MAP[word])
+        wordMapped = true
+      }
+    }
+    if (wordMapped) continue
+
+    // 5. Final fallback: slugify no-accent string (concise max 25 chars)
+    const fallback = removeAccents(cleaned)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+
+    if (fallback && fallback.length <= 25) {
+      result.push(fallback)
+    }
+  }
+
+  // Return unique tags filtering out noise words
+  const noiseWords = new Set(['de', 'xuat', 'khac', 'other', 'va', 'va-cac', 'cac', 'trong', 'tren', 'cho'])
+  return [...new Set(result)].filter((t) => Boolean(t) && !noiseWords.has(t))
 }
+
+
+
 
 /**
  * Helper to detect valid AI Tool slug from prompt, URL, model, or category text
@@ -55,12 +298,26 @@ export function detectAiTool(prompt = '', url = '', model = '', category = '') {
   if (combined.includes('dall-e') || combined.includes('dalle')) return 'dalle-3'
   if (combined.includes('flux')) return 'flux'
   if (combined.includes('stable diffusion') || combined.includes('sdxl') || combined.includes('sd 1.5') || combined.includes('sd3')) return 'stable-diffusion'
-  if (combined.includes('chatgpt') || combined.includes('gpt-4')) return 'chatgpt'
   if (combined.includes('grok')) return 'grok'
   if (combined.includes('seedream')) return 'seedream'
   if (combined.includes('gemini')) return 'gemini-nano-banana-pro'
 
   return 'midjourney' // default fallback AI tool
+}
+
+export function deduplicateCategoryList(list = []) {
+  const seenNorm = new Set()
+  const result = []
+  for (const item of list) {
+    if (!item || typeof item !== 'string') continue
+    const trimmed = item.trim()
+    const norm = removeAccents(trimmed.toLowerCase()).replace(/\s+/g, ' ')
+    if (!seenNorm.has(norm)) {
+      seenNorm.add(norm)
+      result.push(trimmed)
+    }
+  }
+  return result
 }
 
 export function classifySystemCategory(rawCategory = '', prompt = '', authorName = '', title = '', activeCategoriesDocs = [], tags = []) {
@@ -179,7 +436,7 @@ export function classifySystemCategory(rawCategory = '', prompt = '', authorName
         category: matchedDoc.slug,
         isMatched: true,
         requestedCategory: null,
-        suggestedCategories: Array.from(new Set([matchedDoc.name, deriveTopicCategory(prompt, title, combined, 0), deriveTopicCategory(prompt, title, combined, 1)].filter(Boolean))).slice(0, 3),
+        suggestedCategories: deduplicateCategoryList([matchedDoc.name, deriveTopicCategory(prompt, title, combined, 0), deriveTopicCategory(prompt, title, combined, 1), deriveTopicCategory(prompt, title, combined, 2)]).slice(0, 3),
         confidence: 97,
       }
     }
@@ -195,7 +452,7 @@ export function classifySystemCategory(rawCategory = '', prompt = '', authorName
           category: specSlug,
           isMatched: true,
           requestedCategory: null,
-          suggestedCategories: Array.from(new Set([matchedDoc?.name || specSlug, 'Chân dung & Thời trang', deriveTopicCategory(prompt, title, combined, 0)])).slice(0, 3),
+          suggestedCategories: deduplicateCategoryList([matchedDoc?.name || specSlug, 'Chân dung & Thời trang', deriveTopicCategory(prompt, title, combined, 0), deriveTopicCategory(prompt, title, combined, 1)]).slice(0, 3),
           confidence: 94,
         }
       }
@@ -212,7 +469,7 @@ export function classifySystemCategory(rawCategory = '', prompt = '', authorName
         category: portraitDbCategory.slug,
         isMatched: true,
         requestedCategory: null,
-        suggestedCategories: Array.from(new Set([portraitDbCategory.name, 'Nhiếp ảnh Người mẫu', deriveTopicCategory(prompt, title, combined, 0)])).slice(0, 3),
+        suggestedCategories: deduplicateCategoryList([portraitDbCategory.name, 'Nhiếp ảnh Người mẫu', deriveTopicCategory(prompt, title, combined, 0), deriveTopicCategory(prompt, title, combined, 1)]).slice(0, 3),
         confidence: 95,
       }
     }
@@ -222,7 +479,7 @@ export function classifySystemCategory(rawCategory = '', prompt = '', authorName
       category: 'other',
       isMatched: false,
       requestedCategory: 'Chân dung & Thời trang',
-      suggestedCategories: ['Chân dung & Thời trang', 'Nhiếp ảnh Người mẫu', 'Lối sống Đô thị'],
+      suggestedCategories: deduplicateCategoryList(['Chân dung & Thời trang', 'Nhiếp ảnh Người mẫu', 'Lối sống Đô thị', deriveTopicCategory(prompt, title, combined, 0)]).slice(0, 3),
       confidence: 90,
     }
   }
@@ -258,7 +515,7 @@ export function classifySystemCategory(rawCategory = '', prompt = '', authorName
         category: best.rule.slug,
         isMatched: true,
         requestedCategory: null,
-        suggestedCategories: Array.from(new Set([matchedName, deriveTopicCategory(prompt, title, combined, 0), deriveTopicCategory(prompt, title, combined, 1)].filter(Boolean))).slice(0, 3),
+        suggestedCategories: deduplicateCategoryList([matchedName, deriveTopicCategory(prompt, title, combined, 0), deriveTopicCategory(prompt, title, combined, 1), deriveTopicCategory(prompt, title, combined, 2)]).slice(0, 3),
         confidence,
       }
     }
@@ -270,7 +527,8 @@ export function classifySystemCategory(rawCategory = '', prompt = '', authorName
   const semanticProposal = deriveNewCategoryProposal(cleanedRawCategory, title, prompt, tagsStr)
   const cand2 = deriveTopicCategory(prompt, title, combined, 0)
   const cand3 = deriveTopicCategory(prompt, title, combined, 1)
-  const suggestedCategories = Array.from(new Set([semanticProposal, cand2, cand3].filter(Boolean))).slice(0, 3)
+  const cand4 = deriveTopicCategory(prompt, title, combined, 2)
+  const suggestedCategories = deduplicateCategoryList([semanticProposal, cand2, cand3, cand4]).slice(0, 3)
 
   return {
     category: 'other',
@@ -764,16 +1022,274 @@ export async function undoImportBatch(batchImportId) {
 }
 
 /**
- * Service chính xử lý import tập tin CSV với đầy đủ ánh xạ theo chuẩn yêu cầu:
- * - author_url: Trích xuất @username từ URL X/Twitter/Instagram (vd: https://x.com/dreamydigiarts -> @dreamydigiarts)
- * - image_urls: Mảng ảnh online kết quả
- * - image_paths: Mảng ảnh local fallback (plant/datas/images)
- * - published_date: Ngày xuất bản gốc
- * - original_language: Ngôn ngữ prompt (EN, VI, ...)
- * - category: Chuyển thành các tags của bài đăng
- * - source_category: Tên model AI tạo ra ảnh
- * - stats (likes_count, views_count, shares_count, comments_count, saved_count): Tự động tăng từ chỉ số gốc khi user tương tác
+ * Tự động điều chỉnh views_count trong file CSV nếu thấp hơn các chỉ số tương tác
+ * (likes_count, shares_count, comments_count, saved_count).
+ * Nếu views <= maxEng, nhân views với 1000 lặp lại cho đến khi views > maxEng.
  */
+/**
+ * Safely parses a stat value from CSV, clamping unreasonably large/corrupt values to 0.
+ * Excel sometimes exports numbers as scientific notation (1E+09) or full integers (1000000000)
+ * when the source data is corrupted. We reject anything above the given max.
+ */
+export function safeParseStat(rawVal, maxAllowed) {
+  const str = String(rawVal || '').trim()
+  if (!str || str === '0') return 0
+  // Use parseFloat to catch scientific notation ("5E+09" → 5000000000)
+  const num = parseFloat(str)
+  if (!isFinite(num) || isNaN(num) || num < 0) return 0
+  // Reject clearly corrupt values (e.g. 5,000,000,000 shares is impossible)
+  if (num > maxAllowed) return 0
+  return Math.floor(num)
+}
+
+// Reasonable upper bounds per stat field
+const STAT_MAX = {
+  views:    10_000_000,   // 10M views max
+  likes:     2_000_000,   // 2M likes max
+  shares:      500_000,   // 500K shares max
+  comments:    500_000,   // 500K comments max
+  saved:     1_000_000,   // 1M saves max
+}
+
+export function calculateAdjustedViews(rawRow = {}) {
+  let views    = safeParseStat(rawRow.views_count   || rawRow.views    || 0, STAT_MAX.views)
+  const likes  = safeParseStat(rawRow.likes_count   || rawRow.likes    || 0, STAT_MAX.likes)
+  const shares = safeParseStat(rawRow.shares_count  || rawRow.shares   || 0, STAT_MAX.shares)
+  const comments = safeParseStat(rawRow.comments_count || rawRow.comments || 0, STAT_MAX.comments)
+  const saved  = safeParseStat(rawRow.saved_count   || rawRow.saved    || 0, STAT_MAX.saved)
+
+  const maxEng = Math.max(likes, shares, comments, saved)
+
+  if (maxEng > 0) {
+    if (views <= 0) views = 1
+    // Safety cap: never multiply more than 3 times (1 → 1K → 1M → 1B)
+    let iters = 0
+    while (views <= maxEng && iters < 3) {
+      views = views * 1000
+      iters++
+    }
+  }
+
+  // Hard cap final view count at 10M to prevent runaway inflation
+  return Math.min(views, STAT_MAX.views)
+}
+
+/**
+ * Smart Deduplication & Title Disambiguation Engine
+ * - Rule 1 (Real Duplicate): Same Author AND Same Prompt. Compare views count if intra-CSV.
+ * - Rule 2 (Same Author, Diff Prompt): Keep post, append sequence number to Title (`Title 2`).
+ * - Rule 3 (Diff Author, Same/Diff Prompt): Keep post, append Author Name to Title (`Title - Author`).
+ */
+export function evaluateCsvDeduplication(rows = [], existingPosts = []) {
+  const activeExtIds = new Set(existingPosts.map((p) => p.externalId).filter(Boolean))
+  const activeSrcUrls = new Set(existingPosts.map((p) => p.sourceUrl).filter(Boolean))
+  
+  // Set of `${username}||${promptNorm}`
+  const activePromptAuthorSet = new Set()
+  // Map of `titleNorm` -> { username, authorName }
+  const activeTitleAuthorMap = new Map()
+  // Map of `titleNorm` -> count
+  const activeTitleCountMap = new Map()
+
+  for (const p of existingPosts) {
+    const uName = (p.user?.username || p.author || '').toLowerCase().trim()
+    const promptNorm = (p.prompt || '').toLowerCase().trim()
+    const titleNorm = (p.caption || p.title || '').toLowerCase().trim()
+
+    if (uName && promptNorm) {
+      activePromptAuthorSet.add(`${uName}||${promptNorm}`)
+    }
+    if (titleNorm) {
+      activeTitleAuthorMap.set(titleNorm, { username: uName, authorName: p.user?.displayName || uName })
+      activeTitleCountMap.set(titleNorm, (activeTitleCountMap.get(titleNorm) || 0) + 1)
+    }
+  }
+
+  // Pre-process rows: extract properties & line numbers
+  const processedRows = rows.map((r, idx) => {
+    const authorName = ensureString(r.author_name || 'AI Creator')
+    const username = extractUsername(authorName, r.author_url).toLowerCase()
+    const rawPrompt = ensureString(r.prompt)
+    const promptNorm = rawPrompt.toLowerCase().trim()
+    const rowTitle = ensureString(r.title || rawPrompt || 'No Title')
+    const titleNorm = rowTitle.toLowerCase().trim()
+    const views = calculateAdjustedViews(r)
+    const extId = ensureString(r.post_id)
+    const srcUrl = ensureString(r.original_post_url || r.author_url || r.url)
+    const lineNum = r._lineNum || (idx + 2)
+
+    return {
+      rawRow: r,
+      lineNum,
+      authorName,
+      username,
+      rawPrompt,
+      promptNorm,
+      rowTitle,
+      titleNorm,
+      views,
+      extId,
+      srcUrl,
+      sigKey: extId || srcUrl || (promptNorm ? `${username}||${promptNorm}` : '')
+    }
+  })
+
+  // Pass 1: Multi-key Union-Find Intra-CSV Grouping (Matches by post_id, sourceUrl, OR username+prompt)
+  const getKeys = (item) => {
+    const keys = []
+    if (item.extId) keys.push(`ext:${item.extId}`)
+    if (item.srcUrl) keys.push(`url:${item.srcUrl}`)
+    if (item.username && item.promptNorm) keys.push(`prompt:${item.username}||${item.promptNorm}`)
+    return keys
+  }
+
+  const parent = processedRows.map((_, i) => i)
+  const find = (i) => (parent[i] === i ? i : (parent[i] = find(parent[i])))
+  const union = (i, j) => {
+    const rootI = find(i)
+    const rootJ = find(j)
+    if (rootI !== rootJ) parent[rootI] = rootJ
+  }
+
+  const keyToIdx = new Map()
+  processedRows.forEach((item, idx) => {
+    const keys = getKeys(item)
+    keys.forEach((k) => {
+      if (keyToIdx.has(k)) {
+        union(idx, keyToIdx.get(k))
+      } else {
+        keyToIdx.set(k, idx)
+      }
+    })
+  })
+
+  const intraGroups = new Map()
+  processedRows.forEach((item, idx) => {
+    const root = find(idx)
+    if (!intraGroups.has(root)) intraGroups.set(root, [])
+    intraGroups.get(root).push(item)
+  })
+
+  const intraCsvDuplicateSet = new Set()
+  const intraCsvDuplicateInfoMap = new Map()
+
+  for (const group of intraGroups.values()) {
+    if (group.length > 1) {
+      // Sort descending by views count (highest views wins)
+      group.sort((a, b) => b.views - a.views)
+      const winner = group[0]
+      for (let i = 1; i < group.length; i++) {
+        const dup = group[i]
+        intraCsvDuplicateSet.add(dup)
+        intraCsvDuplicateInfoMap.set(dup, {
+          reason: `Trùng nội bộ tệp CSV với dòng ${winner.lineNum} ("${winner.rowTitle}"). Đã giữ bài dòng ${winner.lineNum} có ${winner.views.toLocaleString('vi-VN')} views (bài này ${dup.views.toLocaleString('vi-VN')} views)`,
+          matchedLine: winner.lineNum,
+          matchedViews: winner.views
+        })
+      }
+    }
+  }
+
+  const realDuplicatesList = []
+  const sameAuthorRenamedList = []
+  const diffAuthorRenamedList = []
+  const validCandidateRows = []
+
+  // Pass 2: DB Real Duplicate check & Title Disambiguation
+  for (const item of processedRows) {
+    // Check intra-CSV duplicate
+    if (intraCsvDuplicateSet.has(item)) {
+      const dupInfo = intraCsvDuplicateInfoMap.get(item)
+      realDuplicatesList.push({
+        lineNum: item.lineNum,
+        post_id: item.extId,
+        title: item.rowTitle,
+        author: item.authorName,
+        views: item.views,
+        reason: dupInfo.reason,
+        matchedLine: dupInfo.matchedLine,
+        matchedViews: dupInfo.matchedViews
+      })
+      continue
+    }
+
+    // Check DB real duplicate (same prompt + author)
+    const isDbRealDup =
+      (item.extId && activeExtIds.has(item.extId)) ||
+      (item.srcUrl && activeSrcUrls.has(item.srcUrl)) ||
+      (item.promptNorm && activePromptAuthorSet.has(`${item.username}||${item.promptNorm}`))
+
+    if (isDbRealDup) {
+      realDuplicatesList.push({
+        lineNum: item.lineNum,
+        post_id: item.extId,
+        title: item.rowTitle,
+        author: item.authorName,
+        views: item.views,
+        reason: 'Trùng Prompt + Tác giả với bài đăng đã có sẵn trong CSDL'
+      })
+      continue
+    }
+
+    // Valid new post! Resolve Title Disambiguation
+    let resolvedTitle = item.rowTitle
+    const tNorm = item.titleNorm
+
+    if (activeTitleAuthorMap.has(tNorm)) {
+      const existingInfo = activeTitleAuthorMap.get(tNorm)
+      if (existingInfo.username === item.username) {
+        // Same Author, Different Prompt -> Version 2 / Variant
+        const count = (activeTitleCountMap.get(tNorm) || 1) + 1
+        activeTitleCountMap.set(tNorm, count)
+        resolvedTitle = `${item.rowTitle} ${count}`
+        sameAuthorRenamedList.push({
+          lineNum: item.lineNum,
+          originalTitle: item.rowTitle,
+          newTitle: resolvedTitle,
+          author: item.authorName,
+          promptSnippet: item.rawPrompt.substring(0, 70)
+        })
+      } else {
+        // Different Author -> Append Author Name
+        resolvedTitle = `${item.rowTitle} - ${item.authorName}`
+        const resNorm = resolvedTitle.toLowerCase().trim()
+        if (activeTitleAuthorMap.has(resNorm)) {
+          const count = (activeTitleCountMap.get(resNorm) || 1) + 1
+          activeTitleCountMap.set(resNorm, count)
+          resolvedTitle = `${resolvedTitle} ${count}`
+        }
+        diffAuthorRenamedList.push({
+          lineNum: item.lineNum,
+          originalTitle: item.rowTitle,
+          newTitle: resolvedTitle,
+          author: item.authorName,
+          origAuthor: existingInfo.authorName || existingInfo.username
+        })
+      }
+    }
+
+    // Register into active state maps for subsequent rows
+    item.resolvedTitle = resolvedTitle
+    const resNorm = resolvedTitle.toLowerCase().trim()
+    activeTitleAuthorMap.set(resNorm, { username: item.username, authorName: item.authorName })
+    activeTitleCountMap.set(resNorm, 1)
+
+    if (item.extId) activeExtIds.add(item.extId)
+    if (item.srcUrl) activeSrcUrls.add(item.srcUrl)
+    if (item.promptNorm) activePromptAuthorSet.add(`${item.username}||${item.promptNorm}`)
+
+    validCandidateRows.push(item)
+  }
+
+  return {
+    processedRows,
+    validCandidateRows,
+    realDuplicatesList,
+    sameAuthorRenamedList,
+    diffAuthorRenamedList
+  }
+}
+
 export async function processCsvImport(csvContent, options = {}) {
   const { localImagesBasePath = '', onProgress, batchImportId: customBatchId } = options
   const batchImportId = customBatchId || `batch_${Date.now()}`
@@ -811,7 +1327,7 @@ export async function processCsvImport(csvContent, options = {}) {
         { externalId: { $exists: true, $ne: null } },
         { sourceUrl: { $exists: true, $ne: null } }
       ]
-    }).select('externalId sourceUrl citedFrom caption').lean(),
+    }).select('externalId sourceUrl citedFrom caption prompt authorId').populate('authorId', 'username displayName').lean(),
     User.find({
       $or: [
         { username: { $in: Array.from(usernames) } },
@@ -820,10 +1336,9 @@ export async function processCsvImport(csvContent, options = {}) {
     })
   ])
 
-  const existingPostExtIds = new Set(existingPosts.map((p) => p.externalId).filter(Boolean))
-  const existingPostSrcUrls = new Set(existingPosts.map((p) => p.sourceUrl).filter(Boolean))
-  const existingPostCitedFrom = new Set(existingPosts.map((p) => p.citedFrom).filter(Boolean))
-  const existingPostCaptions = new Set(existingPosts.map((p) => (p.caption || '').toLowerCase().trim()).filter(Boolean))
+  // Run Smart Deduplication Engine
+  const evalResult = evaluateCsvDeduplication(rows, existingPosts)
+  const candidateItems = evalResult.validCandidateRows
 
   const userCacheMap = new Map()
   for (const u of existingUsers) {
@@ -833,20 +1348,21 @@ export async function processCsvImport(csvContent, options = {}) {
   const activeCategoriesDocs = await Category.find({ isActive: true }).select('name slug').lean().catch(() => [])
 
   let importedCount = 0
-  let skippedCount = 0
+  let skippedCount = evalResult.realDuplicatesList.length
   let createdUsersCount = 0
   let errorCount = 0
   const rowErrors = []
 
   let rowIndex = 0
-  const totalRows = rows.length
-  for (const row of rows) {
+  const totalCandidateRows = candidateItems.length
+  for (const item of candidateItems) {
     rowIndex++
+    const row = item.rawRow
 
-    if (onProgress && (rowIndex % 5 === 0 || rowIndex === totalRows)) {
+    if (onProgress && (rowIndex % 5 === 0 || rowIndex === totalCandidateRows)) {
       onProgress({
         current: rowIndex,
-        total: totalRows,
+        total: totalCandidateRows,
         importedCount,
         skippedCount,
         createdUsersCount,
@@ -854,55 +1370,21 @@ export async function processCsvImport(csvContent, options = {}) {
     }
 
     try {
-      const externalId = ensureString(row.post_id)
-      const sourceUrl = ensureString(row.original_post_url || row.author_url || row.url)
+      const externalId = item.extId
+      const sourceUrl = item.srcUrl
       const rawUrl = ensureString(row.url)
       const citedFrom = ensureString(row.url || row.cited_from || 'https://youmind.com')
       const rawCategory = ensureString(row.category)
-      const rowTitle = ensureString(row.title)
-
-      // [DEBUG] Log raw row values for first 3 rows to detect column misalignment
-      if (rowIndex <= 3) {
-        console.log(`\n📋 [CSV RAW ROW ${rowIndex}/${totalRows}]`)
-        console.log(`   post_id:          "${externalId}"`)
-        console.log(`   title:            "${rowTitle}"`)
-        console.log(`   published_date:   "${String(row.published_date || '').substring(0, 40)}"`)
-        console.log(`   original_language:"${String(row.original_language || '')}"`)
-        console.log(`   category:         "${String(row.category || '').substring(0, 60)}"`)
-        console.log(`   source_category:  "${String(row.source_category || '').substring(0, 30)}"`)
-        console.log(`   likes_count:      "${String(row.likes_count || '')}"`)
-        console.log(`   views_count:      "${String(row.views_count || '')}"`)
-        console.log(`   prompt (30ch):    "${String(row.prompt || '').substring(0, 30)}"`)
-        console.log(`   image_urls(60ch): "${String(row.image_urls || '').substring(0, 60)}"`)
-        console.log(`   image_paths(60ch):"${String(row.image_paths || '').substring(0, 60)}"`)
-      }
+      const rowTitle = item.resolvedTitle || item.rowTitle
 
       const generatedImages = parseImageLists(row.image_urls, row.image_paths, localImagesBasePath, row)
-
-      // [DEBUG] Log image parsing for first 3 rows
-      if (rowIndex <= 3) {
-        console.log(`🖼️ [CSV Row ${rowIndex}] image_urls="${String(row.image_urls || '').substring(0, 80)}", image_paths="${String(row.image_paths || '').substring(0, 60)}", result=${generatedImages.length} img, url[0]="${generatedImages[0]?.url || '(none)'}"`)
-      }
 
       if (generatedImages.length === 0 && !externalId) {
         skippedCount++
         continue
       }
 
-      // 1. Deduplication check: Bỏ qua nếu post đã tồn tại (Instant Set check)
-      const isExisting =
-        (externalId && existingPostExtIds.has(externalId)) ||
-        (sourceUrl && existingPostSrcUrls.has(sourceUrl)) ||
-        (rawUrl && (existingPostSrcUrls.has(rawUrl) || existingPostCitedFrom.has(rawUrl))) ||
-        (citedFrom && existingPostCitedFrom.has(citedFrom)) ||
-        (rowTitle && existingPostCaptions.has(rowTitle.toLowerCase().trim()))
-
-      if (isExisting) {
-        skippedCount++
-        continue
-      }
-
-      // 2. Author processing & Username extraction from X profile URL (vd: https://x.com/dreamydigiarts -> @dreamydigiarts)
+      // Author processing & Username extraction from X profile URL
       const rawAuthorName = ensureString(row.author_name || 'AI Creator')
       const username = extractUsername(rawAuthorName, row.author_url)
       const email = `${username}@picspy.ai`
@@ -946,10 +1428,9 @@ export async function processCsvImport(csvContent, options = {}) {
         if (updated) await user.save()
       }
 
-      // 3. Prompt & AI Model parsing (source_category = tên model AI tạo ra ảnh)
+      // Prompt & AI Model parsing
       let rawPromptText = ensureString(row.prompt)
       if (rawPromptText.startsWith('http://') || rawPromptText.startsWith('https://')) {
-        console.warn(`⚠️ [CSV Row ${rowIndex}] prompt field contains a URL — ignoring. Use image_urls for images. Value: "${rawPromptText.substring(0, 80)}"`)
         rawPromptText = ''
       }
       let promptText = rawPromptText
@@ -971,7 +1452,7 @@ export async function processCsvImport(csvContent, options = {}) {
           if (parsed.seed) params.push(`seed: ${parsed.seed}`)
           if (params.length > 0) parametersText = params.join(', ')
         } catch {
-          // Keep raw promptText if not valid JSON
+          // Keep raw promptText
         }
       }
 
@@ -984,7 +1465,6 @@ export async function processCsvImport(csvContent, options = {}) {
         promptText = `AI Artwork generated by @${username}`
       }
 
-      // Truncate to schema limit safely
       if (promptText.length > 7990) {
         promptText = promptText.substring(0, 7987) + '...'
       }
@@ -998,127 +1478,138 @@ export async function processCsvImport(csvContent, options = {}) {
         parametersText = parametersText.substring(0, 997) + '...'
       }
 
-      // 4. Caption generation: Ưu tiên dùng `title` từ CSV
+      // Caption text uses resolved title (disambiguated if needed)
       let captionText = ensureString(rowTitle || promptText)
       if (captionText.length > 490) {
         captionText = captionText.substring(0, 487) + '...'
       }
 
-      // 5. Category -> Chuyển thành tags của bài đăng & phân loại hệ thống
+      // Category & Tags classification
       const tags = extractTagsFromCsvCategory(rawCategory, ensureString(row.tags || row.hashtags || ''))
-      const categoryResult = classifySystemCategory(rawCategory, promptText, rawAuthorName, rowTitle, activeCategoriesDocs, tags)
-
-      let postStatus = 'approved'
-      let categorySlug = categoryResult.category
-      let requestedCategory = null
-      let requestedCategoryStatus = 'none'
-
-      if (!categoryResult.isMatched && categoryResult.requestedCategory) {
-        postStatus = 'pending'
-        categorySlug = 'other'
-        requestedCategory = categoryResult.requestedCategory
-        requestedCategoryStatus = 'pending'
+      const catClassification = classifySystemCategory(rawCategory, promptText, rawAuthorName, captionText, activeCategoriesDocs, tags)
+      
+      const categorySlug = catClassification.category
+      let tagsList = tags
+      if (categorySlug && !tagsList.includes(categorySlug)) {
+        tagsList.push(categorySlug)
       }
 
-      const colorPalette = generateHarmonious6ColorPalette(categorySlug)
+      // Slug generation
+      let baseSlug = (row.post_id || captionText || promptText)
+        .toLowerCase()
+        .replace(/[^a-z0-9\s-]/g, '')
+        .trim()
+        .replace(/\s+/g, '-')
+        .substring(0, 80)
+      if (!baseSlug) baseSlug = `post-${Date.now()}`
+      const uniqueSlug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
 
-      // 6. Timestamps & Base Stats (published_date, original_language, interaction stats)
-      const originalCreatedAt = safeDate(row.created_at)
-      const publishedAt = safeDate(row.published_date)
-      const originalLanguage = ensureString(row.original_language).trim() || 'EN'
+      const publishedDate = row.published_date ? new Date(row.published_date) : new Date()
 
-      const baseLikes = Math.max(0, Number(row.likes_count) || 0)
-      const baseViews = Math.max(0, Number(row.views_count) || 0)
-      const baseShares = Math.max(0, Number(row.shares_count) || 0)
-      const baseComments = Math.max(0, Number(row.comments_count) || 0)
-      const baseBookmarks = Math.max(0, Number(row.saved_count) || 0)
+      // Determine valid AI tool enum value from CSV ai_model / tool string
+      let mappedAiTool = 'gpt-image-1-5'
+      const rawTool = (row.ai_tool || row.ai_model || row.source_category || '').toLowerCase()
+      if (rawTool.includes('midjourney')) mappedAiTool = 'midjourney'
+      else if (rawTool.includes('dalle') || rawTool.includes('dall-e')) mappedAiTool = 'dalle-3'
+      else if (rawTool.includes('stable') || rawTool.includes('sdxl') || rawTool.includes('sd')) mappedAiTool = 'stable-diffusion'
+      else if (rawTool.includes('flux')) mappedAiTool = 'flux'
+      else if (rawTool.includes('seedream')) mappedAiTool = 'seedream'
+      else if (rawTool.includes('grok')) mappedAiTool = 'grok'
+      else if (rawTool.includes('picspy')) mappedAiTool = 'picspy'
+      else if (rawTool.includes('gemini')) mappedAiTool = 'gemini-nano-banana-pro'
+      else if (rawTool.includes('chatgpt') || rawTool.includes('gpt')) mappedAiTool = 'gpt-image-1-5'
 
-      // [DEBUG LOGGING] Log full row mapping for initial rows
-      if (rowIndex <= 5) {
-        console.log(`🔍 [CSV ROW ${rowIndex}/${totalRows} PARSED METADATA]`)
-        console.log(`   - Title: "${captionText.substring(0, 40)}..."`)
-        console.log(`   - Author: @${username} (socialUrl: "${row.author_url || 'none'}")`)
-        console.log(`   - Category: "${rawCategory}" -> System: "${categorySlug}", Tags (${tags.length}): [${tags.slice(0, 5).join(', ')}]`)
-        console.log(`   - AI Model: "${aiModelText}" (source_category: "${row.source_category || 'none'}")`)
-        console.log(`   - Dates: published_date="${row.published_date}" -> ${publishedAt?.toISOString() || 'null'}, lang="${originalLanguage}"`)
-        console.log(`   - Stats: Views=${baseViews}, Likes=${baseLikes}, Comments=${baseComments}, Shares=${baseShares}, Saved=${baseBookmarks}`)
-        console.log(`   - Images (${generatedImages.length}): Primary URL="${generatedImages[0]?.url || 'none'}", LocalPath="${generatedImages[0]?.localPath || 'none'}"`)
-      }
+      // Ensure generatedImages array has at least 1 valid image object for Post.model.js schema
+      const validGeneratedImages = generatedImages.length > 0
+        ? generatedImages.map((img) => ({
+            url: img.url,
+            thumbnailUrl: img.thumbnailUrl || img.url,
+            previewUrl: img.previewUrl || img.url,
+            width: img.width || 1200,
+            height: img.height || 1200,
+            fileSize: img.fileSize || 0,
+            format: img.format || 'jpg'
+          }))
+        : [{
+            url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=1200',
+            thumbnailUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=400',
+            previewUrl: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?w=800',
+            width: 1200,
+            height: 1200,
+            fileSize: 102400,
+            format: 'jpg'
+          }]
 
-      // 7. Post creation — stats & baseStats khởi tạo từ các chỉ số gốc để user tương tác tăng dần
-      await Post.create({
+      const adjViews   = calculateAdjustedViews(row)
+      const likesVal    = safeParseStat(row.likes_count    || 0, STAT_MAX.likes)
+      const sharesVal   = safeParseStat(row.shares_count   || 0, STAT_MAX.shares)
+      const commentsVal = safeParseStat(row.comments_count || 0, STAT_MAX.comments)
+      const savedVal    = safeParseStat(row.saved_count    || 0, STAT_MAX.saved)
+
+      const postDoc = new Post({
         authorId: user._id,
-        caption: captionText,
+        postType: 'ai',
         prompt: promptText,
         negativePrompt: negativePromptText,
-        aiTool: detectAiTool(promptText, sourceUrl, aiModelText, row.source_category),
-        aiModel: aiModelText || 'v1.0',
+        aiTool: mappedAiTool,
+        aiModel: aiModelText,
         parameters: parametersText,
-        postType: 'ai',
+        generatedImages: validGeneratedImages,
+        caption: captionText,
         category: categorySlug,
-        requestedCategory: requestedCategory || undefined,
-        requestedCategoryStatus,
-        tags,
-        generatedImages,
+        requestedCategory: catClassification.requestedCategory || null,
+        requestedCategoryStatus: catClassification.requestedCategory ? 'pending' : 'none',
+        tags: tagsList,
+        aspectRatio: validGeneratedImages[0]?.aspectRatio || '1:1',
+        status: 'approved',
         isExternal: true,
-        externalId: externalId || undefined,
-        batchImportId,
-        sourceUrl: sourceUrl || undefined,
-        authorUrl: row.author_url || undefined,
-        citedFrom: citedFrom || undefined,
-        originalLanguage,
-        originalCreatedAt: originalCreatedAt || undefined,
-        publishedAt: publishedAt || undefined,
-        status: postStatus,
-        isPremium: false,
-        accessTier: 'free',
-        colorPalette,
-        baseStats: {
-          likesCount: baseLikes,
-          viewsCount: baseViews,
-          sharesCount: baseShares,
-          commentsCount: baseComments,
-          bookmarksCount: baseBookmarks
-        },
+        externalId: externalId || null,
+        sourceUrl: sourceUrl || rawUrl || null,
+        citedFrom: citedFrom,
+        originalLanguage: ensureString(row.original_language || 'EN'),
+        sourceCategory: ensureString(row.source_category || 'gpt-2'),
         stats: {
-          likesCount: baseLikes,
-          viewsCount: baseViews,
-          sharesCount: baseShares,
-          commentsCount: baseComments,
-          bookmarksCount: baseBookmarks
-        }
+          viewsCount: adjViews,
+          likesCount: likesVal,
+          downloadsCount: Math.floor(adjViews * 0.1),
+          commentsCount: commentsVal,
+          bookmarksCount: savedVal,
+          sharesCount: sharesVal,
+        },
+        baseStats: {
+          viewsCount: adjViews,
+          likesCount: likesVal,
+          sharesCount: sharesVal,
+          commentsCount: commentsVal,
+          bookmarksCount: savedVal,
+        },
+        createdAt: publishedDate,
+        updatedAt: publishedDate,
+        publishedAt: publishedDate,
+        batchImportId
       })
 
-      // Add to Sets to prevent intra-file duplicates
-      if (externalId) existingPostExtIds.add(externalId)
-      if (sourceUrl) existingPostSrcUrls.add(sourceUrl)
-      if (rawUrl) existingPostSrcUrls.add(rawUrl)
-      if (citedFrom) existingPostCitedFrom.add(citedFrom)
-      if (rowTitle) existingPostCaptions.add(rowTitle.toLowerCase().trim())
-
+      await postDoc.save()
       importedCount++
-      console.log(`✅ [CSV IMPORT Row ${rowIndex}/${rows.length}] Created Post (@${username}, ExtID: ${externalId || 'none'}) - "${captionText.substring(0, 30)}..."`)
-    } catch (rowErr) {
+
+    } catch (err) {
       errorCount++
-      console.error(`❌ [CSV IMPORT Row ${rowIndex}/${rows.length}] ERROR:`, rowErr.message, rowErr.stack)
-      rowErrors.push({
-        row: rowIndex,
-        title: row.title || row.post_id || `Dòng ${rowIndex}`,
-        error: rowErr.message,
-      })
+      console.error(`❌ [CSV Import Row ${rowIndex}] Error:`, err.message)
+      rowErrors.push({ row: rowIndex, error: err.message })
     }
   }
 
-  console.log(`🎉 [CSV PROCESS IMPORT DONE] Total: ${rows.length} | Imported: ${importedCount} | Skipped: ${skippedCount} | Errors: ${errorCount} | New Users: ${createdUsersCount}`)
+  console.log(`✅ [CSV IMPORT COMPLETE] Imported: ${importedCount} | Skipped Duplicates: ${skippedCount} | Users Created: ${createdUsersCount} | Errors: ${errorCount}`)
 
   return {
+    success: true,
+    batchImportId,
     totalRows: rows.length,
     importedCount,
     skippedCount,
     createdUsersCount,
     errorCount,
-    errors: rowErrors.slice(0, 50),
-    status: errorCount === 0 ? 'success' : importedCount > 0 ? 'partial' : 'failed',
+    rowErrors
   }
 }
 
@@ -1132,6 +1623,12 @@ export async function analyzeCsvImport(csvContent, options = {}) {
       totalRows: 0,
       newPostsCount: 0,
       existingPostsCount: 0,
+      realDuplicatesCount: 0,
+      sameAuthorRenamedCount: 0,
+      diffAuthorRenamedCount: 0,
+      realDuplicatesList: [],
+      sameAuthorRenamedList: [],
+      diffAuthorRenamedList: [],
       newUsersCount: 0,
       existingUsersCount: 0,
       errorRowsCount: 0,
@@ -1176,7 +1673,7 @@ export async function analyzeCsvImport(csvContent, options = {}) {
         { externalId: { $exists: true, $ne: null } },
         { sourceUrl: { $exists: true, $ne: null } }
       ]
-    }).select('externalId sourceUrl citedFrom caption').lean(),
+    }).select('externalId sourceUrl citedFrom caption prompt authorId').populate('authorId', 'username displayName').lean(),
     User.find({
       $or: [
         { username: { $in: Array.from(usernames) } },
@@ -1186,59 +1683,41 @@ export async function analyzeCsvImport(csvContent, options = {}) {
     Category.find({ isActive: true }).select('name slug').lean().catch(() => [])
   ])
 
-  const existingPostExtIds = new Set(existingPosts.map((p) => p.externalId).filter(Boolean))
-  const existingPostSrcUrls = new Set(existingPosts.map((p) => p.sourceUrl).filter(Boolean))
-  const existingPostCitedFrom = new Set(existingPosts.map((p) => p.citedFrom).filter(Boolean))
-  const existingPostCaptions = new Set(existingPosts.map((p) => p.caption?.toLowerCase()?.trim()).filter(Boolean))
   const existingUsernamesSet = new Set(existingUsers.map((u) => u.username))
 
-  let newPostsCount = 0
-  let existingPostsCount = 0
+  // Run Smart Deduplication Engine
+  const evalResult = evaluateCsvDeduplication(rows, existingPosts)
+  const candidateItems = evalResult.validCandidateRows
+
+  let newPostsCount = candidateItems.length
+  let realDuplicatesCount = evalResult.realDuplicatesList.length
+  let sameAuthorRenamedCount = evalResult.sameAuthorRenamedList.length
+  let diffAuthorRenamedCount = evalResult.diffAuthorRenamedList.length
   let matchedCategoriesCount = 0
   let proposedCategoriesCount = 0
   const newPostRowsList = []
 
-  for (const row of rows) {
-    const extId = ensureString(row.post_id)
-    const srcUrl = ensureString(row.original_post_url || row.author_url || row.url)
-    const rawUrl = ensureString(row.url)
-    const citedFrom = ensureString(row.url || row.cited_from || '')
+  for (const item of candidateItems) {
+    const row = item.rawRow
     const rawCategory = ensureString(row.category)
-    const rowTitle = ensureString(row.title)
+    const rowTitle = item.resolvedTitle || item.rowTitle
     const promptText = ensureString(row.prompt)
 
-    const isExisting =
-      (extId && existingPostExtIds.has(extId)) ||
-      (srcUrl && existingPostSrcUrls.has(srcUrl)) ||
-      (rawUrl && (existingPostSrcUrls.has(rawUrl) || existingPostCitedFrom.has(rawUrl))) ||
-      (citedFrom && existingPostCitedFrom.has(citedFrom)) ||
-      (rowTitle && existingPostCaptions.has(rowTitle.toLowerCase().trim()))
-
-    if (isExisting) {
-      existingPostsCount++
+    const tags = extractTagsFromCsvCategory(rawCategory, ensureString(row.tags || row.hashtags || ''))
+    const catRes = classifySystemCategory(rawCategory, promptText, row.author_name, rowTitle, activeCategoriesDocs, tags)
+    if (catRes.isMatched) {
+      matchedCategoriesCount++
     } else {
-      newPostsCount++
-      const tags = extractTagsFromCsvCategory(rawCategory, ensureString(row.tags || row.hashtags || ''))
-      const catRes = classifySystemCategory(rawCategory, promptText, row.author_name, rowTitle, activeCategoriesDocs, tags)
-      if (catRes.isMatched) {
-        matchedCategoriesCount++
-      } else {
-        proposedCategoriesCount++
-      }
-
-      newPostRowsList.push({
-        post_id: extId,
-        url: rawUrl || srcUrl,
-        title: rowTitle || promptText || 'No Title',
-        author: row.author_name || 'AI Creator',
-        category: catRes.isMatched ? catRes.category : `[Đề xuất] ${catRes.requestedCategory}`
-      })
-      if (extId) existingPostExtIds.add(extId)
-      if (srcUrl) existingPostSrcUrls.add(srcUrl)
-      if (rawUrl) existingPostSrcUrls.add(rawUrl)
-      if (citedFrom) existingPostCitedFrom.add(citedFrom)
-      if (rowTitle) existingPostCaptions.add(rowTitle.toLowerCase().trim())
+      proposedCategoriesCount++
     }
+
+    newPostRowsList.push({
+      post_id: item.extId,
+      url: item.srcUrl,
+      title: rowTitle,
+      author: item.authorName,
+      category: catRes.isMatched ? catRes.category : `[Đề xuất] ${catRes.requestedCategory}`
+    })
   }
 
   let newUsersCount = 0
@@ -1254,16 +1733,19 @@ export async function analyzeCsvImport(csvContent, options = {}) {
 
   const alreadyImported = newPostsCount === 0 && rows.length > 0
 
-  console.log(`📊 [CSV ANALYZE SUMMARY] Total: ${rows.length} | New: ${newPostsCount} | Existing: ${existingPostsCount} | Matched Cats: ${matchedCategoriesCount} | Proposed Cats: ${proposedCategoriesCount}`)
-  if (newPostsCount > 0) {
-    console.log(`🔍 [CSV ANALYZE NEW ROWS] Total New Rows: ${newPostsCount}, Sample:`, newPostRowsList.slice(0, 3))
-  }
+  console.log(`📊 [CSV ANALYZE SUMMARY] Total: ${rows.length} | New: ${newPostsCount} | Real Dups: ${realDuplicatesCount} | Same Author Renamed: ${sameAuthorRenamedCount} | Diff Author Renamed: ${diffAuthorRenamedCount}`)
 
   return {
     totalRows: rows.length,
     dbTotalPosts: existingPosts.length,
     newPostsCount,
-    existingPostsCount,
+    existingPostsCount: realDuplicatesCount,
+    realDuplicatesCount,
+    sameAuthorRenamedCount,
+    diffAuthorRenamedCount,
+    realDuplicatesList: evalResult.realDuplicatesList,
+    sameAuthorRenamedList: evalResult.sameAuthorRenamedList,
+    diffAuthorRenamedList: evalResult.diffAuthorRenamedList,
     matchedCategoriesCount,
     proposedCategoriesCount,
     newUsersCount,
@@ -1274,6 +1756,10 @@ export async function analyzeCsvImport(csvContent, options = {}) {
     fileName: options.fileName || 'CSV Export',
     message: alreadyImported
       ? 'Dữ liệu trong tập tin CSV này đã được hệ thống Import hoàn tất trước đó. Không có bài viết hay dữ liệu mới nào.'
-      : `Phân tích hoàn tất: Sẵn sàng nạp +${newPostsCount} bài viết mới. (${matchedCategoriesCount} bài tự động vào danh mục có sẵn, ${proposedCategoriesCount} bài đề xuất tạo danh mục mới cho Admin duyệt).`,
+      : `Phân tích hoàn tất: Sẵn sàng nạp +${newPostsCount} bài viết mới (${realDuplicatesCount} bài trùng prompt+tác giả bị bỏ qua, ${sameAuthorRenamedCount} bài trùng tên cùng tác giả đã đổi tên v2, ${diffAuthorRenamedCount} bài trùng tên khác tác giả đã đính kèm tên tác giả).`,
   }
 }
+
+
+
+

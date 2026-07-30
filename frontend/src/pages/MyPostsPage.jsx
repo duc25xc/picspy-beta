@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import { formatCount } from '../utils/numberFormat'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Link as RouterLink } from 'react-router-dom'
 import {
@@ -1602,13 +1603,13 @@ const PostCard = ({ post, onEdit, onDelete, index }) => {
                 className="text-red-400 fill-red-400 flex-shrink-0"
               />
               <span className="text-[11px] font-semibold text-white tabular-nums leading-none">
-                {(post.stats?.likesCount || 0).toLocaleString()}
+                {formatCount(post.stats?.likesCount || 0)}
               </span>
             </span>
             <span className="flex items-center gap-1 bg-black/55 backdrop-blur-sm px-2 py-1 rounded-lg border border-white/8">
               <Download size={11} className="text-brand-400 flex-shrink-0" />
               <span className="text-[11px] font-semibold text-white tabular-nums leading-none">
-                {(post.stats?.downloadsCount || 0).toLocaleString()}
+                {formatCount(post.stats?.downloadsCount || 0)}
               </span>
             </span>
           </div>

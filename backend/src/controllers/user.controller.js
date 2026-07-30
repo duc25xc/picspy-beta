@@ -15,6 +15,21 @@ export const getMe = async (req, res, next) => {
     if (!user) return next(new AppError('NOT_FOUND', 'User không tồn tại', 404))
     user.hasPassword = !!user.passwordHash
     delete user.passwordHash
+
+    // Sync accurate approved postsCount
+    const Post = (await import('../models/Post.model.js')).default
+    const realPostsCount = await Post.countDocuments({
+      authorId: user._id,
+      status: 'approved',
+    })
+    if (!user.stats) user.stats = {}
+    if (user.stats.postsCount !== realPostsCount) {
+      user.stats.postsCount = realPostsCount
+      await User.findByIdAndUpdate(user._id, {
+        'stats.postsCount': realPostsCount,
+      })
+    }
+
     res.json({ user })
   } catch (err) {
     next(err)
@@ -209,6 +224,20 @@ export const getPublicProfile = async (req, res, next) => {
 
     if (!user || user.isBanned) {
       throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
+    }
+
+    // Sync accurate approved postsCount
+    const Post = (await import('../models/Post.model.js')).default
+    const realPostsCount = await Post.countDocuments({
+      authorId: user._id,
+      status: 'approved',
+    })
+    if (!user.stats) user.stats = {}
+    if (user.stats.postsCount !== realPostsCount) {
+      user.stats.postsCount = realPostsCount
+      await User.findByIdAndUpdate(user._id, {
+        'stats.postsCount': realPostsCount,
+      })
     }
 
     // Kiểm tra trạng thái follow nếu đã đăng nhập
@@ -675,7 +704,7 @@ export const getLeaderboard = async (req, res, next) => {
         creatorsData = await User.find({
           'stats.postsCount': { $gt: 0 }
         })
-          .sort({ 'stats.followersCount': -1, _id: -1 })
+          .sort({ 'stats.followersCount': -1, 'stats.totalViews': -1, _id: -1 })
           .limit(limitNum)
           .select('username displayName avatar stats isVerified')
           .lean()
@@ -732,7 +761,7 @@ export const getLeaderboard = async (req, res, next) => {
         _id: { $nin: existingIds },
         'stats.postsCount': { $gt: 0 }
       })
-        .sort({ 'stats.followersCount': -1, _id: -1 })
+        .sort({ 'stats.followersCount': -1, 'stats.totalViews': -1, _id: -1 })
         .limit(limitNum - creatorsData.length)
         .select('username displayName avatar stats isVerified')
         .lean()
@@ -747,7 +776,7 @@ export const getLeaderboard = async (req, res, next) => {
         _id: { $nin: existingIds },
         role: { $ne: 'admin' }
       })
-        .sort({ 'stats.followersCount': -1, _id: -1 })
+        .sort({ 'stats.followersCount': -1, 'stats.totalViews': -1, _id: -1 })
         .limit(limitNum - creatorsData.length)
         .select('username displayName avatar stats isVerified')
         .lean()

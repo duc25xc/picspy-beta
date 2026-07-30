@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { formatCount } from '../utils/numberFormat'
 import { Link, useSearchParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import {
@@ -246,7 +247,7 @@ const PostRow = ({ post, rank }) => (
     </div>
     <div className="text-right">
       <p className="text-xs font-semibold text-white/70 tabular-nums">
-        {(post.stats?.viewsCount || 0).toLocaleString()}
+        {formatCount(post.stats?.viewsCount || 0)}
       </p>
       <p className="text-[9px] text-white/30 font-medium">
         {post.todayStats?.views > 0 ? (
@@ -260,7 +261,7 @@ const PostRow = ({ post, rank }) => (
     </div>
     <div className="text-right">
       <p className="text-xs font-semibold text-white/70 tabular-nums">
-        {(post.stats?.downloadsCount || 0).toLocaleString()}
+        {formatCount(post.stats?.downloadsCount || 0)}
       </p>
       <p className="text-[9px] text-white/30 font-medium">
         {post.todayStats?.downloads > 0 ? (
@@ -274,7 +275,7 @@ const PostRow = ({ post, rank }) => (
     </div>
     <div className="text-right">
       <p className="text-xs font-semibold text-white/70 tabular-nums">
-        {(post.stats?.likesCount || 0).toLocaleString()}
+        {formatCount(post.stats?.likesCount || 0)}
       </p>
       <p className="text-[9px] text-white/30 font-medium">
         {post.todayStats?.likes > 0 ? (

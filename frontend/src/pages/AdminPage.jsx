@@ -61,6 +61,7 @@ import {
   ArrowRight,
   Megaphone,
   Wallet,
+  Crown,
   Flag,
   Heart,
   Calendar,
@@ -71,13 +72,17 @@ import {
   Sparkles,
   Copy,
   RotateCcw,
+  ExternalLink,
+  Download,
+  Upload,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import api from '../api/api'
 import useAuthStore from '../store/auth.store'
 import { Navigate, useSearchParams } from 'react-router-dom'
 import { useSettings } from '../context/SettingsContext'
-import { getOptimizedWebpUrl } from '../utils/imageUrl'
+import { getOptimizedWebpUrl, getSmartCropUrl } from '../utils/imageUrl'
+import { formatCount } from '../utils/numberFormat'
 import ExifPanel from '../components/post/ExifPanel'
 
 // ─── Error Boundary ────────────────────────────────────────────
@@ -691,6 +696,7 @@ const DashboardTab = () => {
     approved: [
       { key: 'approved', label: 'Bài viết đã duyệt', color: '#10b981' },
     ],
+    revenue: [{ key: 'revenue', label: 'Doanh thu (VNĐ)', color: '#10b981' }],
   }
 
   const todayStats = stats?.todayStats || {}
@@ -847,6 +853,21 @@ const DashboardTab = () => {
               Tiêu thụ bởi các tính năng AI
             </p>
           </div>
+
+          {/* Today Revenue */}
+          <div className="card p-4 bg-gradient-to-br from-emerald-900/20 to-green-950/30 border-emerald-500/30 col-span-2 sm:col-span-1">
+            <p className="text-xs text-emerald-300 font-semibold mb-1 flex items-center justify-between">
+              <span>Doanh thu hôm nay</span>
+              <Wallet size={14} className="text-emerald-400" />
+            </p>
+            <p className="text-2xl font-black text-white">
+              {(todayStats.todayRevenue || 0).toLocaleString('vi-VN')}{' '}
+              <span className="text-xs font-normal text-emerald-300">₫</span>
+            </p>
+            <p className="text-[11px] text-emerald-400/80 mt-2 font-medium">
+              Bán ảnh & Nạp tiền phát sinh hôm nay
+            </p>
+          </div>
         </div>
       </div>
 
@@ -870,6 +891,87 @@ const DashboardTab = () => {
           </div>
           <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-violet-600/20 border border-violet-500/30 flex items-center justify-center shadow-lg shadow-violet-900/40">
             <Coins size={32} className="text-violet-400" />
+          </div>
+        </div>
+      </div>
+
+      {/* User Revenue Overview Section */}
+      <div className="card p-5 space-y-4 border-emerald-500/30 bg-gradient-to-r from-emerald-950/20 via-teal-950/10 to-black/40">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
+          <div>
+            <h3 className="font-bold text-sm text-white flex items-center gap-2">
+              <Wallet size={16} className="text-emerald-400" />
+              <span>
+                Thống kê Doanh Thu & Tài Chính Người Dùng (User Revenue
+                Overview)
+              </span>
+            </h3>
+            <p className="text-xs text-white/40 mt-0.5">
+              Tổng hợp thu nhập tích lũy của Creators, số dư ví khả dụng, tạm
+              giữ và tiền đã giải ngân.
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+            <p className="text-xs text-emerald-300 font-medium">
+              Tổng Doanh Thu Creators
+            </p>
+            <p className="text-xl sm:text-2xl font-black text-white mt-1">
+              {(stats?.revenueStats?.totalUserRevenue || 0).toLocaleString(
+                'vi-VN'
+              )}{' '}
+              <span className="text-xs text-emerald-400 font-normal">₫</span>
+            </p>
+            <p className="text-[10px] text-white/40 mt-1">
+              Thu nhập tích lũy toàn bộ user
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-teal-500/10 border border-teal-500/20">
+            <p className="text-xs text-teal-300 font-medium">
+              Ví Khả Dụng (Available)
+            </p>
+            <p className="text-xl sm:text-2xl font-black text-white mt-1">
+              {(stats?.revenueStats?.totalAvailableBalance || 0).toLocaleString(
+                'vi-VN'
+              )}{' '}
+              <span className="text-xs text-teal-400 font-normal">₫</span>
+            </p>
+            <p className="text-[10px] text-white/40 mt-1">
+              Tiền sẵn sàng trong ví user
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20">
+            <p className="text-xs text-amber-300 font-medium">
+              Ví Tạm Giữ (Holding)
+            </p>
+            <p className="text-xl sm:text-2xl font-black text-white mt-1">
+              {(stats?.revenueStats?.totalHoldingBalance || 0).toLocaleString(
+                'vi-VN'
+              )}{' '}
+              <span className="text-xs text-amber-400 font-normal">₫</span>
+            </p>
+            <p className="text-[10px] text-white/40 mt-1">
+              Chờ đối soát giải ngân
+            </p>
+          </div>
+
+          <div className="p-3.5 rounded-xl bg-violet-500/10 border border-violet-500/20">
+            <p className="text-xs text-violet-300 font-medium">
+              Tổng Đã Rút Về Ngân Hàng
+            </p>
+            <p className="text-xl sm:text-2xl font-black text-white mt-1">
+              {(stats?.revenueStats?.totalWithdrawn || 0).toLocaleString(
+                'vi-VN'
+              )}{' '}
+              <span className="text-xs text-violet-400 font-normal">₫</span>
+            </p>
+            <p className="text-[10px] text-white/40 mt-1">
+              Tiền đã giải ngân thành công
+            </p>
           </div>
         </div>
       </div>
@@ -967,6 +1069,16 @@ const DashboardTab = () => {
               >
                 Bài duyệt
               </button>
+              <button
+                onClick={() => setMetricView('revenue')}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  metricView === 'revenue'
+                    ? 'bg-green-600 text-white shadow-md'
+                    : 'text-white/40 hover:text-white'
+                }`}
+              >
+                Doanh thu
+              </button>
             </div>
 
             {/* Timeframe selector */}
@@ -1033,6 +1145,104 @@ const DashboardTab = () => {
               chartType={chartType}
             />
           )
+        )}
+      </div>
+
+      {/* Top Revenue Earners Leaderboard */}
+      <div className="card p-5 space-y-4 border-amber-500/20">
+        <div className="flex items-center justify-between border-b border-white/10 pb-3">
+          <h3 className="font-bold text-sm text-white flex items-center gap-2">
+            <Crown size={16} className="text-amber-400" />
+            <span>
+              Bảng Xếp Hạng Doanh Thu Người Dùng (Top Revenue Earners)
+            </span>
+          </h3>
+          <span className="text-xs text-white/40 font-normal">
+            Top 10 Creators
+          </span>
+        </div>
+
+        {stats?.topRevenueUsers?.length > 0 ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-white/10 text-white/40 uppercase tracking-wider font-mono text-[11px]">
+                  <th className="py-2.5 px-3"># User</th>
+                  <th className="py-2.5 px-3 text-right">Doanh Thu Tích Lũy</th>
+                  <th className="py-2.5 px-3 text-right">Ví Khả Dụng</th>
+                  <th className="py-2.5 px-3 text-right">Tạm Giữ</th>
+                  <th className="py-2.5 px-3 text-right">Đã Rút</th>
+                  <th className="py-2.5 px-3 text-center">Bài Đăng</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {stats.topRevenueUsers.map((u, idx) => (
+                  <tr
+                    key={u._id}
+                    className="hover:bg-white/[0.03] transition-colors"
+                  >
+                    <td className="py-3 px-3">
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className={`w-5 h-5 rounded-full flex items-center justify-center font-bold text-[10px] font-mono shrink-0 ${
+                            idx === 0
+                              ? 'bg-amber-400 text-black'
+                              : idx === 1
+                                ? 'bg-zinc-300 text-black'
+                                : idx === 2
+                                  ? 'bg-amber-700 text-white'
+                                  : 'bg-white/10 text-white/60'
+                          }`}
+                        >
+                          {idx + 1}
+                        </span>
+                        <img
+                          src={
+                            u.avatar ||
+                            `https://ui-avatars.com/api/?name=${encodeURIComponent(u.username || '')}&background=8b5cf6&color=fff`
+                          }
+                          className="w-8 h-8 rounded-full object-cover ring-1 ring-white/10 shrink-0"
+                          alt=""
+                        />
+                        <div className="min-w-0">
+                          <p className="font-bold text-white flex items-center gap-1.5 truncate">
+                            <span className="truncate">
+                              {u.displayName || u.username}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.2 rounded bg-violet-500/20 text-violet-300 font-mono border border-violet-500/30 uppercase shrink-0">
+                              {u.subscriptionTier || 'free'}
+                            </span>
+                          </p>
+                          <p className="text-[11px] text-white/40 font-mono truncate">
+                            @{u.username}
+                          </p>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-3 text-right font-black text-emerald-400 font-mono">
+                      {(u.totalEarned || 0).toLocaleString('vi-VN')} ₫
+                    </td>
+                    <td className="py-3 px-3 text-right font-semibold text-white/90 font-mono">
+                      {(u.vndBalance || 0).toLocaleString('vi-VN')} ₫
+                    </td>
+                    <td className="py-3 px-3 text-right text-amber-300/80 font-mono">
+                      {(u.holdingBalance || 0).toLocaleString('vi-VN')} ₫
+                    </td>
+                    <td className="py-3 px-3 text-right text-violet-300/80 font-mono">
+                      {(u.totalWithdrawn || 0).toLocaleString('vi-VN')} ₫
+                    </td>
+                    <td className="py-3 px-3 text-center text-white/60 font-mono">
+                      {u.stats?.postsCount || 0}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-xs text-white/30 italic py-4 text-center">
+            Chưa có dữ liệu doanh thu user
+          </p>
         )}
       </div>
 
@@ -1556,12 +1766,7 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
         items: [{ postId, targetCategory }],
       })
       toast.success('Đã cập nhật danh mục bài viết thành công!')
-      setReclassifyAnalysisData((prev) => ({
-        ...prev,
-        reclassifyList: prev.reclassifyList.filter(
-          (item) => item.postId !== postId
-        ),
-      }))
+      runSmartReclassifyAnalysis()
       onSuccess?.()
     } catch {
       toast.error('Lỗi khi cập nhật danh mục bài viết')
@@ -1599,23 +1804,7 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
         data.message ||
           `Đã cập nhật danh mục cho ${items.length} bài viết cần thay đổi thành công!`
       )
-      setReclassifyAnalysisData((prev) => ({
-        ...prev,
-        reclassifyList: prev.reclassifyList.map((item) => {
-          const updatedChoice =
-            selectedCategoryChoices[item.postId] || item.suggestedCategory
-          if (itemsToUpdate.some((u) => u.postId === item.postId)) {
-            return {
-              ...item,
-              currentCategory: updatedChoice,
-              suggestedCategory: updatedChoice,
-              suggestedCategoryName: updatedChoice.toUpperCase(),
-              isDifferent: false,
-            }
-          }
-          return item
-        }),
-      }))
+      runSmartReclassifyAnalysis()
       onSuccess?.()
     } catch {
       toast.error('Lỗi khi cập nhật danh mục hàng loạt')
@@ -1635,12 +1824,7 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
         }
       )
       toast.success(data.message || 'Đã xử lý đề xuất danh mục!')
-      setReclassifyAnalysisData((prev) => ({
-        ...prev,
-        newCategoryProposals: prev.newCategoryProposals.filter(
-          (item) => item.postId !== postId
-        ),
-      }))
+      runSmartReclassifyAnalysis()
       onSuccess?.()
     } catch {
       toast.error('Lỗi khi xử lý đề xuất danh mục')
@@ -1665,15 +1849,25 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
       toast.success(
         data.message || `Đã phê duyệt ${decisions.length} danh mục mới!`
       )
-      setReclassifyAnalysisData((prev) => ({
-        ...prev,
-        newCategoryProposals: [],
-      }))
+      runSmartReclassifyAnalysis()
       onSuccess?.()
     } catch {
       toast.error('Lỗi khi phê duyệt danh mục hàng loạt')
     }
   }
+
+  // ── Prevent accidental refresh/exit/spamming during active import or AI scan ──
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (importing || analyzing || reclassifyLoading || showConfirmModal) {
+        e.preventDefault()
+        e.returnValue = '⚠️ Tiến trình Import CSV / Quét AI đang diễn ra. Bạn có chắc chắn muốn thoát?'
+        return e.returnValue
+      }
+    }
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [importing, analyzing, reclassifyLoading, showConfirmModal])
 
   useEffect(() => {
     if (!isOpen) return
@@ -2110,256 +2304,463 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
-                className="absolute inset-0 z-50 bg-[#09090d]/90 backdrop-blur-xl rounded-2xl flex flex-col items-center justify-center p-6 text-center"
+                className="fixed inset-0 z-[100] bg-black/85 backdrop-blur-xl flex items-center justify-center p-3 sm:p-6 overflow-hidden"
               >
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.92, y: 15 }}
+                  initial={{ opacity: 0, scale: 0.96, y: 20 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.92, y: 15 }}
-                  transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-                  className="max-w-lg w-full bg-[#12121a] border border-white/15 p-6 rounded-2xl shadow-[0_25px_60px_rgba(0,0,0,0.9)] space-y-5 text-left relative overflow-hidden"
+                  exit={{ opacity: 0, scale: 0.96, y: 20 }}
+                  transition={{ type: 'spring', damping: 28, stiffness: 380 }}
+                  className="w-full max-w-4xl max-h-[92vh] bg-[#0c0d14] border border-white/15 rounded-3xl shadow-[0_30px_90px_rgba(0,0,0,0.95)] flex flex-col relative overflow-hidden text-left"
                 >
+                  {/* Glow Ambient Effect */}
                   <div
-                    className={`absolute -top-24 -right-24 w-48 h-48 rounded-full blur-3xl pointer-events-none opacity-30 ${
+                    className={`absolute -top-32 -right-32 w-64 h-64 rounded-full blur-[100px] pointer-events-none opacity-40 ${
                       analysisResult.alreadyImported
                         ? 'bg-amber-500'
                         : 'bg-emerald-500'
                     }`}
                   />
+                  <div className="absolute -bottom-32 -left-32 w-64 h-64 rounded-full blur-[100px] pointer-events-none opacity-20 bg-indigo-500" />
 
-                  {analysisResult.alreadyImported ? (
-                    /* CASE 1: File cũ / Dữ liệu đã import trước đó (0 bài mới -> Blocked!) */
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center justify-center text-amber-400 flex-shrink-0 shadow-lg shadow-amber-950/40">
-                          <ShieldAlert size={26} />
-                        </div>
-                        <div>
-                          <h4 className="text-base font-bold text-white font-display">
-                            Tập Tin CSV Này Đã Được Nạp Hoàn Tất!
-                          </h4>
-                          <p className="text-xs text-amber-300/80 font-medium">
-                            0 bài viết mới | Đã có sẵn trên hệ thống
-                          </p>
-                        </div>
+                  {/* Modal Header */}
+                  <div className="flex-shrink-0 px-6 py-5 border-b border-white/10 flex items-center justify-between bg-[#12131f]/90 backdrop-blur-md z-10">
+                    <div className="flex items-center gap-3.5 min-w-0">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg ${
+                          analysisResult.alreadyImported
+                            ? 'bg-amber-500/15 border border-amber-500/30 text-amber-400 shadow-amber-950/40'
+                            : 'bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 shadow-emerald-950/40'
+                        }`}
+                      >
+                        {analysisResult.alreadyImported ? (
+                          <ShieldAlert size={22} />
+                        ) : (
+                          <Sparkles size={22} />
+                        )}
                       </div>
-
-                      <div className="p-3.5 rounded-xl bg-amber-950/30 border border-amber-500/30 space-y-1 text-xs text-amber-100/90 font-sans">
-                        <p className="font-semibold text-amber-200">
-                          Tất cả{' '}
-                          <strong className="text-amber-300 font-bold">
-                            {analysisResult.totalRows} bài đăng
-                          </strong>{' '}
-                          trong tập tin CSV này đều đã tồn tại trên cơ sở dữ
-                          liệu.
-                        </p>
-                        <p className="text-white/60 text-[11px]">
-                          Vui lòng chọn tập tin CSV khác chứa dữ liệu mới để
-                          tiếp tục.
-                        </p>
-                      </div>
-
-                      {/* Quick Metrics Badges */}
-                      <div className="grid grid-cols-3 gap-2 font-sans text-xs">
-                        <div className="py-2 px-2.5 bg-black/40 rounded-xl border border-rose-500/20 text-rose-300 flex flex-col items-center justify-center">
-                          <span className="text-[10px] text-white/40 font-medium">
-                            Bài mới
+                      <div className="min-w-0">
+                        <h4 className="text-base sm:text-lg font-bold text-white font-display truncate flex items-center gap-2">
+                          {analysisResult.alreadyImported
+                            ? 'Tập Tin CSV Này Đã Được Nạp Hoàn Tất!'
+                            : `Xác Nhận Nạp +${(analysisResult.newPostsCount || 0).toLocaleString('vi-VN')} Bài Viết Mới`}
+                          <span className="text-[10px] px-2.5 py-0.5 rounded-full bg-violet-500/20 text-violet-300 border border-violet-500/30 font-mono font-bold shrink-0">
+                            SMART DEDUP ENGINE
                           </span>
-                          <strong className="text-sm font-bold text-rose-400 font-mono">
-                            0
-                          </strong>
-                        </div>
-                        <div className="py-2 px-2.5 bg-black/40 rounded-xl border border-amber-500/20 text-amber-300 flex flex-col items-center justify-center">
-                          <span className="text-[10px] text-white/40 font-medium">
-                            Bài đã có
+                        </h4>
+                        <div className="flex items-center gap-3 text-xs text-white/50 mt-0.5 font-mono">
+                          <span className="truncate">
+                            📄 File:{' '}
+                            <strong className="text-violet-300">
+                              {analysisResult.fileName ||
+                                selectedServerFileName}
+                            </strong>
                           </span>
-                          <strong className="text-sm font-bold text-amber-300 font-mono">
-                            {analysisResult.existingPostsCount}
-                          </strong>
+                          {!analysisResult.alreadyImported && (
+                            <span className="flex items-center gap-1 text-emerald-400 font-medium shrink-0">
+                              <Clock size={12} /> ~
+                              {Math.max(
+                                2,
+                                Math.ceil(
+                                  (analysisResult.newPostsCount || 0) / 20
+                                )
+                              )}
+                              s
+                            </span>
+                          )}
                         </div>
-                        <div className="py-2 px-2.5 bg-black/40 rounded-xl border border-violet-500/20 text-violet-300 flex flex-col items-center justify-center">
-                          <span className="text-[10px] text-white/40 font-medium">
-                            Tác giả AI
-                          </span>
-                          <strong className="text-sm font-bold text-violet-300 font-mono">
-                            {analysisResult.existingUsersCount}
-                          </strong>
-                        </div>
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmModal(false)}
-                          className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-                        >
-                          Đóng
-                        </button>
-                        <label className="px-5 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 text-white shadow-lg shadow-violet-900/40 cursor-pointer transition-all flex items-center gap-1.5">
-                          <Image size={14} />
-                          <span>Chọn Tập Tin CSV Khác</span>
-                          <input
-                            type="file"
-                            accept=".csv"
-                            onChange={handleFileChange}
-                            className="hidden"
-                          />
-                        </label>
                       </div>
                     </div>
-                  ) : (
-                    /* CASE 2: File có bài mới -> Cho phép xác nhận Import */
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0 shadow-lg shadow-emerald-950/40">
-                          <Sparkles size={26} />
-                        </div>
-                        <div>
-                          <h4 className="text-base font-bold text-white font-display">
-                            Xác Nhận Nạp +{analysisResult.newPostsCount} Bài
-                            Viết Mới
-                          </h4>
-                          <p className="text-xs text-emerald-300/90 font-bold flex items-center gap-1 mt-0.5">
-                            📄 Tập tin:{' '}
-                            <span className="font-mono text-white bg-black/50 px-2 py-0.5 rounded border border-white/10">
-                              {analysisResult.fileName ||
-                                selectedServerFileName ||
-                                '123.csv'}
-                            </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmModal(false)}
+                      className="w-9 h-9 rounded-xl bg-white/5 hover:bg-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors shrink-0 cursor-pointer ml-3"
+                    >
+                      <X size={18} />
+                    </button>
+                  </div>
+
+                  {/* Modal Body (Scrollable) */}
+                  <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar z-10 text-xs">
+                    {analysisResult.alreadyImported ? (
+                      /* CASE 1: File đã được nạp hoàn tất trước đó */
+                      <div className="space-y-5">
+                        <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/30 text-amber-200 space-y-2">
+                          <p className="font-semibold text-amber-200 text-sm">
+                            Tất cả{' '}
+                            <strong className="text-amber-300 font-bold font-mono">
+                              {analysisResult.totalRows} bài đăng
+                            </strong>{' '}
+                            trong tập tin CSV này đều đã tồn tại trên cơ sở dữ
+                            liệu.
                           </p>
-                          <p className="text-[11px] text-emerald-400/90 font-medium flex items-center gap-1.5 mt-1">
-                            <Clock
-                              size={12}
-                              className="text-emerald-400 flex-shrink-0"
-                            />
-                            <span>
-                              Thời gian nạp dự kiến:{' '}
-                              <strong className="font-mono text-emerald-300 font-bold">
-                                ~
-                                {Math.max(
-                                  2,
-                                  Math.ceil(
-                                    (analysisResult.newPostsCount || 0) / 20
+                          <p className="text-white/60 text-xs">
+                            Không có dữ liệu bài viết mới nào cần thêm. Vui lòng
+                            chọn tập tin CSV khác để tiếp tục.
+                          </p>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-3 font-sans text-xs">
+                          <div className="p-3 bg-black/40 rounded-xl border border-rose-500/20 text-rose-300 flex flex-col items-center justify-center space-y-1">
+                            <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
+                              Bài Mới
+                            </span>
+                            <strong className="text-lg font-bold text-rose-400 font-mono">
+                              0
+                            </strong>
+                          </div>
+                          <div className="p-3 bg-black/40 rounded-xl border border-amber-500/20 text-amber-300 flex flex-col items-center justify-center space-y-1">
+                            <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
+                              Bài Đã Có
+                            </span>
+                            <strong className="text-lg font-bold text-amber-300 font-mono">
+                              {analysisResult.existingPostsCount}
+                            </strong>
+                          </div>
+                          <div className="p-3 bg-black/40 rounded-xl border border-violet-500/20 text-violet-300 flex flex-col items-center justify-center space-y-1">
+                            <span className="text-[10px] text-white/40 font-medium uppercase tracking-wider">
+                              Tác Giả AI
+                            </span>
+                            <strong className="text-lg font-bold text-violet-300 font-mono">
+                              {analysisResult.existingUsersCount}
+                            </strong>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      /* CASE 2: File hợp lệ có bài viết mới -> Hiển thị Bảng Thống Kê & Báo Cáo Chi Tiết */
+                      <div className="space-y-6">
+                        {/* Summary Bar */}
+                        <div className="p-4 rounded-2xl bg-gradient-to-r from-violet-950/40 via-purple-950/20 to-black/50 border border-violet-500/25 flex flex-wrap items-center justify-between gap-3 shadow-md">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-9 h-9 rounded-xl bg-violet-500/15 border border-violet-500/30 flex items-center justify-center shrink-0 text-violet-300">
+                              <Sparkles size={18} />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs sm:text-sm text-white/90 font-medium leading-snug">
+                                Hệ thống đã phân tích thành công{' '}
+                                <strong className="text-emerald-400 font-bold font-mono text-sm sm:text-base">
+                                  {(
+                                    analysisResult.totalRows || 0
+                                  ).toLocaleString('vi-VN')}{' '}
+                                  bài viết
+                                </strong>{' '}
+                                từ file CSV
+                              </p>
+                              <p className="text-[11px] text-white/40 truncate font-mono mt-0.5">
+                                Trùng Prompt+Tác Giả bị bỏ qua | Tự động xử lý
+                                trùng tiêu đề theo Tác Giả & Phiên bản v2
+                              </p>
+                            </div>
+                          </div>
+
+                          <span className="text-xs px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 font-mono font-bold shrink-0">
+                            ✓ {analysisResult.totalRows} dòng
+                          </span>
+                        </div>
+
+                        {/* 4 Stat Cards Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-left font-mono">
+                          <div className="p-3.5 bg-emerald-950/25 border border-emerald-500/30 rounded-2xl space-y-1 hover:border-emerald-500/50 transition-colors shadow-sm">
+                            <span className="text-[10px] text-emerald-400/80 font-sans font-bold uppercase tracking-wider block">
+                              Bài Đăng Tạo Mới
+                            </span>
+                            <span className="text-2xl font-extrabold text-emerald-400 font-display block">
+                              +
+                              {(
+                                analysisResult.newPostsCount || 0
+                              ).toLocaleString('vi-VN')}
+                            </span>
+                            <span className="text-[10px] text-emerald-400/60 font-sans block">
+                              Sẵn sàng đưa vào DB
+                            </span>
+                          </div>
+
+                          <div
+                            className="p-3.5 bg-rose-950/25 border border-rose-500/30 rounded-2xl space-y-1 hover:border-rose-500/50 transition-colors shadow-sm"
+                            title="Bài trùng cả Prompt và Tác Giả (được so sánh số View và giữ bài cao nhất)"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-rose-300/80 font-sans font-bold uppercase tracking-wider block">
+                                Bài Trùng Bỏ Qua
+                              </span>
+                            </div>
+                            <span className="text-2xl font-extrabold text-rose-300 font-display block">
+                              {analysisResult.realDuplicatesCount ??
+                                analysisResult.existingPostsCount ??
+                                0}
+                            </span>
+                            <span className="text-[10px] text-rose-400/60 font-sans block">
+                              Giữ bài view cao nhất
+                            </span>
+                          </div>
+
+                          <div
+                            className="p-3.5 bg-cyan-950/25 border border-cyan-500/30 rounded-2xl space-y-1 hover:border-cyan-500/50 transition-colors shadow-sm"
+                            title="Bài cùng Tác Giả, cùng Tiêu Đề nhưng khác Prompt (Tự động đổi tên v2, v3...)"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-cyan-300/80 font-sans font-bold uppercase tracking-wider block">
+                                Đổi Tên Cùng TG
+                              </span>
+                              <span className="text-[9px] text-cyan-400/70 bg-cyan-500/10 px-1.5 py-0.5 rounded font-mono">
+                                (Bản v2)
+                              </span>
+                            </div>
+                            <span className="text-2xl font-extrabold text-cyan-300 font-display block">
+                              {analysisResult.sameAuthorRenamedCount || 0}
+                            </span>
+                            <span className="text-[10px] text-cyan-400/60 font-sans block">
+                              Thêm số thứ tự 2, 3...
+                            </span>
+                          </div>
+
+                          <div
+                            className="p-3.5 bg-purple-950/25 border border-purple-500/30 rounded-2xl space-y-1 hover:border-purple-500/50 transition-colors shadow-sm"
+                            title="Bài cùng Tiêu Đề nhưng Khác Tác Giả (Tự động thêm tên Tác Giả vào sau tiêu đề)"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="text-[10px] text-purple-300/80 font-sans font-bold uppercase tracking-wider block">
+                                Đổi Tên Khác TG
+                              </span>
+                              <span className="text-[9px] text-purple-400/70 bg-purple-500/10 px-1.5 py-0.5 rounded font-mono">
+                                (+ Tên TG)
+                              </span>
+                            </div>
+                            <span className="text-2xl font-extrabold text-purple-300 font-display block">
+                              {analysisResult.diffAuthorRenamedCount || 0}
+                            </span>
+                            <span className="text-[10px] text-purple-400/60 font-sans block">
+                              Gắn tên Tác Giả mới
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* AI Category Classification & Proposals Metrics */}
+                        {analysisResult.proposedCategoriesCount > 0 && (
+                          <div className="p-3.5 bg-violet-950/30 border border-violet-500/30 rounded-2xl text-xs text-violet-200 flex items-center justify-between gap-3 font-sans">
+                            <div className="flex items-center gap-3">
+                              <div className="w-8 h-8 rounded-xl bg-violet-500/20 text-violet-300 border border-violet-500/30 flex items-center justify-center font-bold text-sm shrink-0">
+                                🏷️
+                              </div>
+                              <div>
+                                <p className="font-bold text-violet-200 leading-snug">
+                                  Phân Loại Danh Mục Bằng AI: Khớp{' '}
+                                  <span className="text-emerald-400 font-mono font-bold">
+                                    {(analysisResult.matchedCategoriesCount || 0).toLocaleString('vi-VN')} bài
+                                  </span>{' '}
+                                  khớp danh mục hệ thống | Phân loại{' '}
+                                  <span className="text-amber-300 font-mono font-bold">
+                                    {(analysisResult.proposedCategoriesCount || 0).toLocaleString('vi-VN')} bài
+                                  </span>{' '}
+                                  cần đề xuất danh mục mới
+                                </p>
+                                <p className="text-[11px] text-violet-300/70 mt-0.5">
+                                  Các bài đăng chưa khớp danh mục sẽ tự động được gán cờ <span className="text-amber-300 font-semibold font-mono">pending (đề xuất danh mục)</span> và xuất hiện tại bảng duyệt Admin Categories.
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Deduplication & Title Disambiguation Breakdown Cards */}
+                        <div className="space-y-4 font-sans">
+                          {/* Section 1: Real Duplicates Dropped */}
+                          {analysisResult.realDuplicatesList?.length > 0 && (
+                            <div className="p-4 bg-rose-950/15 border border-rose-500/30 rounded-2xl space-y-2.5">
+                              <div className="flex items-center justify-between text-rose-300 font-bold text-xs">
+                                <span className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-rose-400 animate-pulse" />
+                                  🚫 Bài Trùng Lặp Thực Sự Bị Bỏ Qua (
+                                  {analysisResult.realDuplicatesList.length} bài
+                                  - Cùng Prompt & Tác giả):
+                                </span>
+                                <span className="text-[10px] text-rose-400/70 font-mono">
+                                  So sánh view tự động
+                                </span>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto space-y-1.5 font-mono text-[11px] pr-1.5 custom-scrollbar">
+                                {analysisResult.realDuplicatesList.map(
+                                  (item, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="p-2.5 bg-black/50 border border-rose-500/20 rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 hover:bg-black/70 transition-colors"
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex items-center gap-2 text-white/90 font-bold">
+                                          <span className="text-rose-400 bg-rose-500/15 px-2 py-0.5 rounded border border-rose-500/30 text-[10px]">
+                                            Line {item.lineNum}
+                                          </span>
+                                          <span className="text-rose-200 truncate">
+                                            {item.title}
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-rose-300/70 block mt-0.5">
+                                          {item.reason}
+                                        </span>
+                                      </div>
+                                      <div className="text-right shrink-0">
+                                        <span className="text-[10px] text-white/40 block">
+                                          Tác giả:{' '}
+                                          <strong className="text-white/80">
+                                            {item.author}
+                                          </strong>
+                                        </span>
+                                        <span className="text-[10px] text-amber-300 font-bold font-mono">
+                                          {item.views || 0} views
+                                        </span>
+                                      </div>
+                                    </div>
                                   )
-                                )}{' '}
-                                giây
-                              </strong>
-                            </span>
-                          </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Section 2: Same Author Renamed (v2) */}
+                          {analysisResult.sameAuthorRenamedList?.length > 0 && (
+                            <div className="p-4 bg-cyan-950/15 border border-cyan-500/30 rounded-2xl space-y-2.5">
+                              <div className="flex items-center justify-between text-cyan-300 font-bold text-xs">
+                                <span className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
+                                  🔄 Bài Trùng Tên - Cùng Tác Giả (
+                                  {analysisResult.sameAuthorRenamedList.length}{' '}
+                                  bài - Khác Prompt, Đã Đổi Tên v2/v3...):
+                                </span>
+                                <span className="text-[10px] text-cyan-400/70 font-mono">
+                                  Tự động thêm STT
+                                </span>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto space-y-1.5 font-mono text-[11px] pr-1.5 custom-scrollbar">
+                                {analysisResult.sameAuthorRenamedList.map(
+                                  (item, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="p-2.5 bg-black/50 border border-cyan-500/20 rounded-xl flex items-center justify-between gap-3 hover:bg-black/70 transition-colors"
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2 text-white/80 font-bold">
+                                          <span className="text-cyan-400 bg-cyan-500/15 px-2 py-0.5 rounded border border-cyan-500/30 text-[10px]">
+                                            Line {item.lineNum}
+                                          </span>
+                                          <span className="line-through text-white/35 text-[10px] truncate max-w-[180px]">
+                                            {item.originalTitle}
+                                          </span>
+                                          <span className="text-cyan-300 font-extrabold truncate">
+                                            ➔ {item.newTitle}
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-white/40 block truncate mt-0.5">
+                                          Tác giả:{' '}
+                                          <strong className="text-white/70">
+                                            {item.author}
+                                          </strong>{' '}
+                                          | Prompt: {item.promptSnippet}...
+                                        </span>
+                                      </div>
+                                      <span className="px-2.5 py-1 bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 rounded-lg text-[10px] font-bold flex-shrink-0">
+                                        Bản v2
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Section 3: Diff Author Renamed */}
+                          {analysisResult.diffAuthorRenamedList?.length > 0 && (
+                            <div className="p-4 bg-purple-950/15 border border-purple-500/30 rounded-2xl space-y-2.5">
+                              <div className="flex items-center justify-between text-purple-300 font-bold text-xs">
+                                <span className="flex items-center gap-2">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-purple-400 animate-pulse" />
+                                  🏷️ Bài Trùng Tên - Khác Tác Giả (
+                                  {analysisResult.diffAuthorRenamedList.length}{' '}
+                                  bài - Đã Đính Kèm Tên Tác Giả):
+                                </span>
+                                <span className="text-[10px] text-purple-400/70 font-mono">
+                                  Tác giả mới
+                                </span>
+                              </div>
+                              <div className="max-h-48 overflow-y-auto space-y-1.5 font-mono text-[11px] pr-1.5 custom-scrollbar">
+                                {analysisResult.diffAuthorRenamedList.map(
+                                  (item, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="p-2.5 bg-black/50 border border-purple-500/20 rounded-xl flex items-center justify-between gap-3 hover:bg-black/70 transition-colors"
+                                    >
+                                      <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2 text-white/80 font-bold">
+                                          <span className="text-purple-400 bg-purple-500/15 px-2 py-0.5 rounded border border-purple-500/30 text-[10px]">
+                                            Line {item.lineNum}
+                                          </span>
+                                          <span className="line-through text-white/35 text-[10px] truncate max-w-[180px]">
+                                            {item.originalTitle}
+                                          </span>
+                                          <span className="text-purple-300 font-extrabold truncate">
+                                            ➔ {item.newTitle}
+                                          </span>
+                                        </div>
+                                        <span className="text-[10px] text-white/40 block truncate mt-0.5">
+                                          Tác giả mới:{' '}
+                                          <strong className="text-white/80">
+                                            {item.author}
+                                          </strong>{' '}
+                                          (Trùng tên bài gốc của tác giả{' '}
+                                          <em className="text-purple-300/80">
+                                            {item.origAuthor}
+                                          </em>
+                                          )
+                                        </span>
+                                      </div>
+                                      <span className="px-2.5 py-1 bg-purple-500/20 text-purple-300 border border-purple-500/30 rounded-lg text-[10px] font-bold flex-shrink-0">
+                                        + Tên Tác Giả
+                                      </span>
+                                    </div>
+                                  )
+                                )}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </div>
+                    )}
+                  </div>
 
-                      <p className="text-xs text-white/80 font-sans bg-white/[0.03] p-2.5 rounded-xl border border-white/10 flex items-center justify-between">
-                        <span>
-                          Hệ thống đã phân tích{' '}
-                          <strong className="text-emerald-300 font-mono font-bold">
-                            {analysisResult.totalRows} bài viết
-                          </strong>{' '}
-                          từ file CSV
-                        </span>
-                        <span className="font-mono text-[11px] text-violet-300 bg-violet-950/60 px-2 py-0.5 rounded font-bold border border-violet-500/30">
-                          {analysisResult.fileName || selectedServerFileName}
-                        </span>
-                      </p>
-
-                      {/* Stat Cards Grid */}
-                      <div className="grid grid-cols-2 gap-2.5 text-left font-mono">
-                        <div className="p-3 bg-emerald-950/30 border border-emerald-500/30 rounded-xl space-y-0.5">
-                          <span className="text-[9px] text-emerald-400/80 font-sans font-bold uppercase tracking-wider block">
-                            Bài Đăng Tạo Mới
-                          </span>
-                          <span className="text-xl font-extrabold text-emerald-400 font-display">
-                            +{analysisResult.newPostsCount}
-                          </span>
-                        </div>
-
-                        <div className="p-3 bg-indigo-950/30 border border-indigo-500/30 rounded-xl space-y-0.5">
-                          <span className="text-[9px] text-indigo-300/80 font-sans font-bold uppercase tracking-wider block">
-                            Tác Giả AI Mới
-                          </span>
-                          <span className="text-xl font-extrabold text-indigo-300 font-display">
-                            +{analysisResult.newUsersCount}
-                          </span>
-                        </div>
-
-                        <div className="p-3 bg-amber-950/30 border border-amber-500/30 rounded-xl space-y-0.5">
-                          <span className="text-[9px] text-amber-300/80 font-sans font-bold uppercase tracking-wider block">
-                            Bài Trùng Bỏ Qua
-                          </span>
-                          <span className="text-lg font-bold text-amber-300 font-display">
-                            {analysisResult.existingPostsCount}
-                          </span>
-                        </div>
-
-                        <div className="p-3 bg-white/[0.03] border border-white/10 rounded-xl space-y-0.5">
-                          <span className="text-[9px] text-white/40 font-sans font-bold uppercase tracking-wider block">
-                            Tác Giả Đã Có Sẵn
-                          </span>
-                          <span className="text-lg font-bold text-white/80 font-display">
-                            {analysisResult.existingUsersCount}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Sample New Posts Audit Box */}
-                      {analysisResult.sampleNewPosts?.length > 0 && (
-                        <div className="p-3 bg-black/40 border border-white/10 rounded-xl space-y-2 text-[11px]">
-                          <div className="flex items-center justify-between text-white/60 font-bold text-[10px] uppercase">
-                            <span>
-                              🔍 Mẫu 3 bài viết mới (Chưa có trong DB{' '}
-                              {analysisResult.dbTotalPosts || 857} bài hiện
-                              tại):
-                            </span>
-                          </div>
-                          <div className="space-y-1.5 font-mono text-[10px]">
-                            {analysisResult.sampleNewPosts
-                              .slice(0, 3)
-                              .map((item, idx) => (
-                                <div
-                                  key={idx}
-                                  className="p-2 bg-white/[0.02] border border-white/5 rounded-lg flex items-center justify-between gap-2"
-                                >
-                                  <div className="truncate flex-1">
-                                    <span className="text-emerald-300 font-bold block truncate">
-                                      {item.title}
-                                    </span>
-                                    <span className="text-white/40 text-[9px] block truncate">
-                                      ID: {item.post_id}
-                                    </span>
-                                  </div>
-                                  <span className="px-2 py-0.5 bg-violet-950/60 text-violet-300 border border-violet-500/30 rounded text-[9px] font-bold flex-shrink-0">
-                                    {item.category}
-                                  </span>
-                                </div>
-                              ))}
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Actions */}
-                      <div className="flex items-center justify-end gap-3 pt-4 border-t border-white/10">
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmModal(false)}
-                          className="px-6 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
-                        >
-                          Hủy / Chọn Lại
-                        </button>
+                  {/* Modal Footer (Sticky Actions) */}
+                  <div className="flex-shrink-0 px-6 py-4 border-t border-white/10 bg-[#12131f]/90 backdrop-blur-md flex items-center justify-between z-10">
+                    <span className="text-xs text-white/40 font-mono hidden sm:inline-block">
+                      {analysisResult.alreadyImported
+                        ? 'Vui lòng đóng modal hoặc chọn file khác'
+                        : 'Kiểm tra kỹ thông số trước khi tiến hành nạp vào CSDL'}
+                    </span>
+                    <div className="flex items-center gap-3 ml-auto">
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmModal(false)}
+                        className="px-5 py-2.5 rounded-xl text-xs font-semibold bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors cursor-pointer"
+                      >
+                        Hủy / Chọn Lại
+                      </button>
+                      {!analysisResult.alreadyImported && (
                         <button
                           type="button"
                           onClick={executeActualImport}
-                          className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 text-white border border-emerald-400/40 shadow-lg shadow-emerald-950/50 hover:shadow-emerald-950/70 transition-all flex items-center gap-2 cursor-pointer"
+                          className="px-6 py-2.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-600 via-teal-600 to-indigo-600 hover:from-emerald-500 hover:to-indigo-500 text-white border border-emerald-400/40 shadow-lg shadow-emerald-950/50 hover:shadow-emerald-950/70 transition-all flex items-center gap-2 cursor-pointer"
                         >
                           <Sparkles size={16} />
                           <span>
                             Tiến Hành Import Ngay (+
-                            {analysisResult.newPostsCount} Bài)
+                            {(analysisResult.newPostsCount || 0).toLocaleString(
+                              'vi-VN'
+                            )}{' '}
+                            Bài)
                           </span>
                         </button>
-                      </div>
+                      )}
                     </div>
-                  )}
+                  </div>
                 </motion.div>
               </motion.div>
             )}
@@ -2573,9 +2974,9 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                       )}
                     </div>
 
-                    {/* Custom File Upload Box */}
+                    {/* Custom File Upload Box — matches height of Default File box */}
                     <label
-                      className={`p-4 rounded-xl border cursor-pointer transition-all block ${
+                      className={`p-4 rounded-xl border cursor-pointer transition-all flex flex-col ${
                         !useDefaultFile
                           ? 'bg-violet-900/25 border-violet-500/60 text-white ring-1 ring-violet-500/40 shadow-lg shadow-violet-950/40'
                           : 'bg-white/[0.02] border-white/10 text-white/60 hover:border-white/20'
@@ -2597,16 +2998,39 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-white/60 mt-2 truncate bg-black/30 p-2 rounded-lg border border-white/5">
-                        {selectedFile
-                          ? selectedFile.name
-                          : 'Nhấn để chọn file .csv từ máy tính'}
-                      </p>
-                      <span className="text-[10px] text-amber-400 font-bold block mt-2">
-                        {selectedFile
-                          ? '📁 Đã tải file custom'
-                          : 'Chấp nhận tập tin .csv mã hóa UTF-8'}
-                      </span>
+
+                      {/* Drop zone — mirrors the server file select height */}
+                      <div className="mt-2 flex-1 flex flex-col justify-center rounded-lg border border-dashed border-white/10 bg-black/20 px-3 py-3 text-center gap-1.5 hover:border-white/20 transition-colors">
+                        <p className="text-[11px] text-white/60 truncate font-mono">
+                          {selectedFile
+                            ? selectedFile.name
+                            : 'Nhấn để chọn file .csv từ máy tính'}
+                        </p>
+                        <span className="text-[10px] text-amber-400 font-bold">
+                          {selectedFile
+                            ? '📁 Đã tải file custom'
+                            : 'Chấp nhận tập tin .csv mã hóa UTF-8'}
+                        </span>
+                      </div>
+
+                      {selectedFile ? (
+                        <span className="text-[10px] text-emerald-400 font-semibold block mt-1.5 flex items-center gap-1 truncate">
+                          <CheckCircle
+                            size={11}
+                            className="text-emerald-400 flex-shrink-0"
+                          />
+                          <span>
+                            Sẵn sàng import:{' '}
+                            <strong className="text-white font-mono">
+                              {selectedFile.name}
+                            </strong>
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-white/30 font-bold block mt-1.5">
+                          Hỗ trợ file CSV UTF-8 tối đa 10MB
+                        </span>
+                      )}
                     </label>
                   </div>
                 </div>
@@ -2733,50 +3157,82 @@ const CsvImportModal = ({ isOpen, onClose, onSuccess, setPreviewModal }) => {
                         </span>
                       </div>
 
-                      <p className="text-xs text-white/70 leading-relaxed font-sans">
-                        Hệ thống đã phân tích{' '}
-                        <strong className="text-emerald-300 font-bold">
-                          {analysisResult.totalRows} dòng bài đăng
-                        </strong>{' '}
-                        trong tập tin CSV. Xem thống kê dự kiến biến động dữ
-                        liệu:
-                      </p>
+                      <div className="p-3.5 rounded-2xl bg-gradient-to-r from-emerald-950/30 via-slate-900/40 to-black/40 border border-emerald-500/20 flex flex-wrap items-center justify-between gap-3">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center shrink-0 text-emerald-300">
+                            <Sparkles size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-xs text-white/90 font-medium leading-tight">
+                              Hệ thống đã phân tích{' '}
+                              <strong className="text-emerald-400 font-bold font-mono">
+                                {(analysisResult.totalRows || 0).toLocaleString(
+                                  'vi-VN'
+                                )}{' '}
+                                dòng bài đăng
+                              </strong>{' '}
+                              trong tập tin CSV.
+                            </p>
+                            <p className="text-[11px] text-white/40 truncate font-mono mt-0.5">
+                              Xem chi tiết thống kê dự kiến biến động dữ liệu
+                              bên dưới:
+                            </p>
+                          </div>
+                        </div>
+                      </div>
 
                       {/* 4 Stat Cards Grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-0.5">
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-0.5 font-mono">
                         <div className="p-3.5 bg-black/40 border border-emerald-500/30 rounded-xl space-y-1.5 hover:border-emerald-500/50 transition-colors">
                           <span className="text-[10px] text-emerald-400/90 font-sans font-bold uppercase tracking-wider block">
                             Bài Sẽ Tạo Mới
                           </span>
                           <span className="text-xl font-extrabold text-emerald-400 font-display block">
-                            +{analysisResult.newPostsCount}
+                            +
+                            {(analysisResult.newPostsCount || 0).toLocaleString(
+                              'vi-VN'
+                            )}
                           </span>
                         </div>
 
-                        <div className="p-3.5 bg-black/40 border border-indigo-500/30 rounded-xl space-y-1.5 hover:border-indigo-500/50 transition-colors">
-                          <span className="text-[10px] text-indigo-300/90 font-sans font-bold uppercase tracking-wider block">
-                            Tác Giả AI Mới
-                          </span>
-                          <span className="text-xl font-extrabold text-indigo-300 font-display block">
-                            +{analysisResult.newUsersCount}
-                          </span>
-                        </div>
-
-                        <div className="p-3.5 bg-black/40 border border-amber-500/30 rounded-xl space-y-1.5 hover:border-amber-500/50 transition-colors">
-                          <span className="text-[10px] text-amber-300/90 font-sans font-bold uppercase tracking-wider block">
-                            Bài Trùng Bỏ Qua
-                          </span>
-                          <span className="text-xl font-bold text-amber-300 font-display block">
-                            {analysisResult.existingPostsCount}
+                        <div className="p-3.5 bg-black/40 border border-rose-500/30 rounded-xl space-y-1.5 hover:border-rose-500/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-rose-300/90 font-sans font-bold uppercase tracking-wider block">
+                              Bài Trùng Bỏ Qua
+                            </span>
+                          </div>
+                          <span className="text-xl font-extrabold text-rose-300 font-display block">
+                            {analysisResult.realDuplicatesCount ??
+                              analysisResult.existingPostsCount ??
+                              0}
                           </span>
                         </div>
 
-                        <div className="p-3.5 bg-black/40 border border-white/10 rounded-xl space-y-1.5 hover:border-white/20 transition-colors">
-                          <span className="text-[10px] text-white/50 font-sans font-bold uppercase tracking-wider block">
-                            Tác Giả Đã Có Sẵn
+                        <div className="p-3.5 bg-black/40 border border-cyan-500/30 rounded-xl space-y-1.5 hover:border-cyan-500/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-cyan-300/90 font-sans font-bold uppercase tracking-wider block">
+                              Đổi Tên Cùng TG
+                            </span>
+                            <span className="text-[9px] text-cyan-400/60 font-mono">
+                              (Bản v2)
+                            </span>
+                          </div>
+                          <span className="text-xl font-extrabold text-cyan-300 font-display block">
+                            {analysisResult.sameAuthorRenamedCount || 0}
                           </span>
-                          <span className="text-xl font-bold text-white/80 font-display block">
-                            {analysisResult.existingUsersCount}
+                        </div>
+
+                        <div className="p-3.5 bg-black/40 border border-purple-500/30 rounded-xl space-y-1.5 hover:border-purple-500/50 transition-colors">
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-purple-300/90 font-sans font-bold uppercase tracking-wider block">
+                              Đổi Tên Khác TG
+                            </span>
+                            <span className="text-[9px] text-purple-400/60 font-mono">
+                              (+ Tên TG)
+                            </span>
+                          </div>
+                          <span className="text-xl font-extrabold text-purple-300 font-display block">
+                            {analysisResult.diffAuthorRenamedCount || 0}
                           </span>
                         </div>
                       </div>
@@ -4111,6 +4567,13 @@ const PostsTab = () => {
     )
 
   const [catApproveModal, setCatApproveModal] = useState(null)
+  const [postTabCats, setPostTabCats] = useState([])
+
+  useEffect(() => {
+    api.get('/admin/categories').then((res) => {
+      setPostTabCats(res.data.categories || [])
+    }).catch(() => {})
+  }, [])
 
   const handleStatus = async (postId, status, reason = '') => {
     if (status === 'approved') {
@@ -4181,8 +4644,8 @@ const PostsTab = () => {
         data.message ||
           `🎉 Đã duyệt danh mục "${post.requestedCategory}" & xuất bản bài viết!`
       )
-      setPosts((prev) => prev.filter((p) => p._id !== post._id))
       setCatApproveModal(null)
+      fetchPosts(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi khi phê duyệt danh mục')
     } finally {
@@ -4199,8 +4662,8 @@ const PostsTab = () => {
       toast.success(
         data.message || `⚠️ Đã gán bài viết về "Khác" & xuất bản thành công!`
       )
-      setPosts((prev) => prev.filter((p) => p._id !== post._id))
       setCatApproveModal(null)
+      fetchPosts(true)
     } catch (err) {
       toast.error(err.response?.data?.message || 'Lỗi khi từ chối danh mục')
     } finally {
@@ -4410,9 +4873,11 @@ const PostsTab = () => {
                   >
                     {(img?.thumbnailUrl || img?.url) && (
                       <img
-                        src={getOptimizedWebpUrl(
+                        src={getSmartCropUrl(
                           img.thumbnailUrl || img.url,
-                          400
+                          400,
+                          225,
+                          true
                         )}
                         alt=""
                         className="w-full h-full object-cover group-hover/thumb:scale-105 transition-transform duration-300"
@@ -4538,16 +5003,16 @@ const PostsTab = () => {
                     <div className="flex items-center justify-between text-[10px] text-white/40 border-t border-white/5 pt-2 min-h-[1.75rem]">
                       <div className="flex items-center gap-2.5">
                         <span title="Lượt xem">
-                          👁 {post.stats?.viewsCount || 0}
+                          👁 {formatCount(post.stats?.viewsCount || 0)}
                         </span>
                         <span title="Lượt tải">
-                          ⬇ {post.stats?.downloadsCount || 0}
+                          ⬇ {formatCount(post.stats?.downloadsCount || 0)}
                         </span>
                         <span title="Yêu thích">
-                          ❤ {post.stats?.likesCount || 0}
+                          ❤ {formatCount(post.stats?.likesCount || 0)}
                         </span>
                         <span title="Bookmarks">
-                          🔖 {post.stats?.bookmarksCount || 0}
+                          🔖 {formatCount(post.stats?.bookmarksCount || 0)}
                         </span>
                       </div>
                       {post.requestedCategory && (
@@ -4561,17 +5026,42 @@ const PostsTab = () => {
                     </div>
 
                     {/* Actions */}
-                    <div className="flex gap-1.5 pt-1">
-                      {post.status !== 'approved' && (
-                        <motion.button
-                          whileTap={{ scale: 0.95 }}
-                          onClick={() => handleStatus(post._id, 'approved')}
-                          disabled={isActing}
-                          className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all text-xs font-semibold disabled:opacity-50"
-                        >
-                          <CheckCircle size={13} /> Duyệt
-                        </motion.button>
-                      )}
+                    <div className="space-y-1.5 pt-1">
+                      {post.requestedCategoryStatus === 'pending' && post.requestedCategory && (() => {
+                        const _norm = (s) => (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd')
+                        const reqClean = _norm(post.requestedCategory)
+                        const isExisting = postTabCats.some((c) => {
+                          const cSlug = (c.slug || '').toLowerCase().trim()
+                          const cName = _norm(c.name)
+                          return cSlug === reqClean || cName === reqClean || cSlug === reqClean.replace(/\s+/g, '-')
+                        })
+
+                        return (
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => setCatApproveModal(post)}
+                            disabled={isActing}
+                            className={`w-full flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-sm ${
+                              isExisting
+                                ? 'bg-indigo-600/25 border border-indigo-500/40 text-indigo-300 hover:bg-indigo-600/35 shadow-indigo-950/40'
+                                : 'bg-amber-500/20 border border-amber-500/40 text-amber-300 hover:bg-amber-500/30 shadow-amber-950/40'
+                            }`}
+                          >
+                            <Tag size={13} /> {isExisting ? `Chuyển Sang Danh Mục "${post.requestedCategory}"` : `Duyệt & Tạo Danh Mục "${post.requestedCategory}"`}
+                          </motion.button>
+                        )
+                      })()}
+                      <div className="flex gap-1.5">
+                        {post.status !== 'approved' && (
+                          <motion.button
+                            whileTap={{ scale: 0.95 }}
+                            onClick={() => handleStatus(post._id, 'approved')}
+                            disabled={isActing}
+                            className="flex-1 flex items-center justify-center gap-1 py-2 rounded-xl bg-green-600/20 border border-green-500/30 text-green-400 hover:bg-green-600/30 transition-all text-xs font-semibold disabled:opacity-50"
+                          >
+                            <CheckCircle size={13} /> Duyệt
+                          </motion.button>
+                        )}
                       {post.status !== 'rejected' && (
                         <motion.button
                           whileTap={{ scale: 0.95 }}
@@ -4617,6 +5107,7 @@ const PostsTab = () => {
                       >
                         <Trash2 size={13} />
                       </motion.button>
+                      </div>
                     </div>
                   </div>
                 </motion.div>
@@ -4638,120 +5129,154 @@ const PostsTab = () => {
       )}
 
       {/* Confirm Approve Custom Category Modal */}
-      {catApproveModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fade-in !mt-0">
-          <div className="card p-6 max-w-lg w-full bg-[#0c0c14] border border-violet-500/40 shadow-2xl space-y-5 rounded-2xl relative overflow-hidden">
-            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-              <div className="w-10 h-10 rounded-xl bg-violet-600/20 border border-violet-500/40 flex items-center justify-center text-violet-300 flex-shrink-0">
-                <Sparkles size={20} />
-              </div>
-              <div>
-                <h3 className="font-bold text-base text-white">
-                  Yêu Cầu Danh Mục Tùy Chỉnh Từ Creator
-                </h3>
-                <p className="text-xs text-white/50">
-                  Bài đăng này kèm đề xuất danh mục chưa có trong hệ thống
-                </p>
-              </div>
-            </div>
+      {catApproveModal && (() => {
+        const _normCat = (s) => (s || '').toLowerCase().trim().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[đĐ]/g, 'd')
+        const reqCatClean = _normCat(catApproveModal.requestedCategory)
+        const matchedExistingCategory = postTabCats.find((c) => {
+          const cSlug = (c.slug || '').toLowerCase().trim()
+          const cName = _normCat(c.name)
+          return cSlug === reqCatClean || cName === reqCatClean || cSlug === reqCatClean.replace(/\s+/g, '-')
+        })
 
-            <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center gap-3">
-              <div className="w-14 h-14 rounded-lg bg-surface-100 overflow-hidden flex-shrink-0 relative border border-white/10">
-                {catApproveModal.generatedImages?.[0]?.thumbnailUrl ||
-                catApproveModal.generatedImages?.[0]?.url ? (
-                  <img
-                    src={getOptimizedWebpUrl(
-                      catApproveModal.generatedImages[0].thumbnailUrl ||
-                        catApproveModal.generatedImages[0].url,
-                      120
-                    )}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/20">
-                    <Image size={18} />
-                  </div>
-                )}
-              </div>
-              <div className="min-w-0 flex-1 space-y-1">
-                <p className="text-xs font-bold text-white truncate">
-                  {catApproveModal.caption || 'Chưa có mô tả'}
-                </p>
-                <p className="text-[11px] text-white/50 flex items-center gap-1.5 flex-wrap">
-                  <span>Creator:</span>
-                  <strong className="text-violet-300">
-                    @{catApproveModal.authorId?.username || 'user'}
-                  </strong>
-                  {catApproveModal.isExternal ? (
-                    <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold tracking-wider font-mono">
-                      CSV
-                    </span>
-                  ) : (
-                    <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] font-bold tracking-wider font-mono">
-                      USER
-                    </span>
-                  )}
-                </p>
-                <div className="flex items-center gap-1.5 pt-0.5">
-                  <span className="text-[10px] text-white/40">
-                    Danh mục đề xuất:
-                  </span>
-                  <span className="px-2 py-0.5 rounded bg-violet-600/30 text-violet-200 border border-violet-500/40 font-mono font-bold text-xs">
-                    "{catApproveModal.requestedCategory}"
-                  </span>
+        const isExisting = Boolean(matchedExistingCategory)
+
+        return (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-[9999] animate-fade-in !mt-0">
+            <div className="card p-6 max-w-lg w-full bg-[#0c0c14] border border-violet-500/40 shadow-2xl space-y-5 rounded-2xl relative overflow-hidden">
+              <div className="flex items-center gap-3 border-b border-white/10 pb-4">
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  isExisting
+                    ? 'bg-indigo-600/20 border border-indigo-500/40 text-indigo-300'
+                    : 'bg-violet-600/20 border border-violet-500/40 text-violet-300'
+                }`}>
+                  {isExisting ? <Tag size={20} /> : <Sparkles size={20} />}
+                </div>
+                <div>
+                  <h3 className="font-bold text-base text-white">
+                    {isExisting ? 'Phê Duyệt Chuyển Danh Mục' : 'Yêu Cầu Danh Mục Tùy Chỉnh Từ Creator'}
+                  </h3>
+                  <p className="text-xs text-white/50">
+                    {isExisting
+                      ? `Bài đăng này yêu cầu chuyển sang danh mục hệ thống "${matchedExistingCategory.name}"`
+                      : 'Bài đăng này kèm đề xuất danh mục chưa có trong hệ thống'}
+                  </p>
                 </div>
               </div>
-            </div>
 
-            <p className="text-xs text-white/70 leading-relaxed">
-              Bài viết này có yêu cầu thêm Danh mục mới{' '}
-              <strong className="text-violet-300">
-                "{catApproveModal.requestedCategory}"
-              </strong>
-              . Bạn có cho phép tạo mới danh mục này vào hệ thống hay từ chối và
-              chuyển bài viết về danh mục <strong>"Khác"</strong> trước khi xuất
-              bản?
-            </p>
+              <div className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 flex items-center gap-3">
+                <div className="w-14 h-14 rounded-lg bg-surface-100 overflow-hidden flex-shrink-0 relative border border-white/10">
+                  {catApproveModal.generatedImages?.[0]?.thumbnailUrl ||
+                  catApproveModal.generatedImages?.[0]?.url ? (
+                    <img
+                      src={getOptimizedWebpUrl(
+                        catApproveModal.generatedImages[0].thumbnailUrl ||
+                          catApproveModal.generatedImages[0].url,
+                        120
+                      )}
+                      alt=""
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/20">
+                      <Image size={18} />
+                    </div>
+                  )}
+                </div>
+                <div className="min-w-0 flex-1 space-y-1">
+                  <p className="text-xs font-bold text-white truncate">
+                    {catApproveModal.caption || 'Chưa có mô tả'}
+                  </p>
+                  <p className="text-[11px] text-white/50 flex items-center gap-1.5 flex-wrap">
+                    <span>Creator:</span>
+                    <strong className="text-violet-300">
+                      @{catApproveModal.authorId?.username || 'user'}
+                    </strong>
+                    {catApproveModal.isExternal ? (
+                      <span className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-bold tracking-wider font-mono">
+                        CSV
+                      </span>
+                    ) : (
+                      <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[9px] font-bold tracking-wider font-mono">
+                        USER
+                      </span>
+                    )}
+                  </p>
+                  <div className="flex items-center gap-1.5 pt-0.5">
+                    <span className="text-[10px] text-white/40">
+                      {isExisting ? 'Danh mục chuyển đến:' : 'Danh mục đề xuất:'}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded font-mono font-bold text-xs ${
+                      isExisting
+                        ? 'bg-indigo-600/30 text-indigo-200 border border-indigo-500/40'
+                        : 'bg-violet-600/30 text-violet-200 border border-violet-500/40'
+                    }`}>
+                      "{isExisting ? matchedExistingCategory.name : catApproveModal.requestedCategory}"
+                    </span>
+                  </div>
+                </div>
+              </div>
 
-            <div className="flex flex-col sm:flex-row gap-2 pt-2">
-              <button
-                disabled={actionLoading === catApproveModal._id}
-                onClick={() => handleApproveCategoryAndPost(catApproveModal)}
-                className="flex-1 py-2.5 px-3 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-950/50 cursor-pointer disabled:opacity-50"
-              >
-                {actionLoading === catApproveModal._id ? (
-                  <Loader2 size={14} className="animate-spin" />
+              <p className="text-xs text-white/70 leading-relaxed">
+                {isExisting ? (
+                  <>
+                    Danh mục <strong className="text-indigo-300">"{catApproveModal.requestedCategory}"</strong> ĐÃ TỒN TẠI trong hệ thống (Danh mục <strong>"{matchedExistingCategory.name}"</strong>). Xác nhận phê duyệt chuyển bài đăng này sang danh mục <strong>"{matchedExistingCategory.name}"</strong> hay giữ bài viết ở danh mục <strong>"Khác"</strong>?
+                  </>
                 ) : (
-                  <CheckCircle size={14} />
+                  <>
+                    Bài viết này có yêu cầu thêm Danh mục mới{' '}
+                    <strong className="text-violet-300">
+                      "{catApproveModal.requestedCategory}"
+                    </strong>
+                    . Bạn có cho phép tạo mới danh mục này vào hệ thống hay từ chối và
+                    chuyển bài viết về danh mục <strong>"Khác"</strong> trước khi xuất
+                    bản?
+                  </>
                 )}
-                Chấp nhận & Tạo danh mục mới
-              </button>
-              <button
-                disabled={actionLoading === catApproveModal._id}
-                onClick={() =>
-                  handleRejectCategoryAndApprovePost(catApproveModal)
-                }
-                className="flex-1 py-2.5 px-3 rounded-xl bg-amber-600/20 border border-amber-500/40 text-amber-300 font-bold text-xs hover:bg-amber-600/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-              >
-                {actionLoading === catApproveModal._id ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <XCircle size={14} />
-                )}
-                Từ chối & Gán vào "Khác"
-              </button>
-              <button
-                disabled={actionLoading === catApproveModal._id}
-                onClick={() => setCatApproveModal(null)}
-                className="py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 text-white/60 font-bold text-xs hover:bg-white/10 transition-all cursor-pointer"
-              >
-                Hủy
-              </button>
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-2">
+                <button
+                  disabled={actionLoading === catApproveModal._id}
+                  onClick={() => handleApproveCategoryAndPost(catApproveModal)}
+                  className={`flex-1 py-2.5 px-3 rounded-xl text-white font-bold text-xs hover:brightness-110 transition-all flex items-center justify-center gap-1.5 shadow-lg cursor-pointer disabled:opacity-50 ${
+                    isExisting
+                      ? 'bg-gradient-to-r from-indigo-600 to-blue-600 shadow-indigo-950/50'
+                      : 'bg-gradient-to-r from-emerald-600 to-teal-600 shadow-emerald-950/50'
+                  }`}
+                >
+                  {actionLoading === catApproveModal._id ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <CheckCircle size={14} />
+                  )}
+                  {isExisting ? 'Chấp nhận & Chuyển danh mục' : 'Chấp nhận & Tạo danh mục mới'}
+                </button>
+                <button
+                  disabled={actionLoading === catApproveModal._id}
+                  onClick={() =>
+                    handleRejectCategoryAndApprovePost(catApproveModal)
+                  }
+                  className="flex-1 py-2.5 px-3 rounded-xl bg-amber-600/20 border border-amber-500/40 text-amber-300 font-bold text-xs hover:bg-amber-600/30 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                >
+                  {actionLoading === catApproveModal._id ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <XCircle size={14} />
+                  )}
+                  Từ chối & Gán vào "Khác"
+                </button>
+                <button
+                  disabled={actionLoading === catApproveModal._id}
+                  onClick={() => setCatApproveModal(null)}
+                  className="py-2.5 px-3 rounded-xl bg-white/5 border border-white/10 text-white/60 font-bold text-xs hover:bg-white/10 transition-all cursor-pointer"
+                >
+                  Hủy
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Buff stats modal */}
       <AnimatePresence>
@@ -5352,28 +5877,23 @@ const PostsTab = () => {
                             <div className="flex gap-3 text-white/50">
                               <span>
                                 👁{' '}
-                                {previewModal.baseStats.viewsCount?.toLocaleString() ||
-                                  0}
+                                {formatCount(previewModal.baseStats.viewsCount || 0)}
                               </span>
                               <span>
                                 ❤{' '}
-                                {previewModal.baseStats.likesCount?.toLocaleString() ||
-                                  0}
+                                {formatCount(previewModal.baseStats.likesCount || 0)}
                               </span>
                               <span>
                                 💬{' '}
-                                {previewModal.baseStats.commentsCount?.toLocaleString() ||
-                                  0}
+                                {formatCount(previewModal.baseStats.commentsCount || 0)}
                               </span>
                               <span>
                                 ↗{' '}
-                                {previewModal.baseStats.sharesCount?.toLocaleString() ||
-                                  0}
+                                {formatCount(previewModal.baseStats.sharesCount || 0)}
                               </span>
                               <span>
                                 🔖{' '}
-                                {previewModal.baseStats.bookmarksCount?.toLocaleString() ||
-                                  0}
+                                {formatCount(previewModal.baseStats.bookmarksCount || 0)}
                               </span>
                             </div>
                           </div>
@@ -6307,7 +6827,9 @@ const UsersTab = () => {
           {avatarFilter === 'orphan' ? (
             <button
               onClick={handleCleanupOrphans}
-              disabled={cleanupLoading || (orphanUsersCount === 0 && users.length === 0)}
+              disabled={
+                cleanupLoading || (orphanUsersCount === 0 && users.length === 0)
+              }
               className="px-3 py-2 rounded-xl text-xs font-bold border flex items-center gap-1.5 transition-all cursor-pointer select-none bg-red-600/10 border-red-500/25 text-red-400 hover:bg-red-600/20 hover:border-red-500/40 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600/10"
               title={
                 orphanUsersCount === 0 && users.length === 0
@@ -6318,7 +6840,11 @@ const UsersTab = () => {
               {cleanupLoading ? (
                 <motion.div
                   animate={{ rotate: 360 }}
-                  transition={{ repeat: Infinity, duration: 0.8, ease: 'linear' }}
+                  transition={{
+                    repeat: Infinity,
+                    duration: 0.8,
+                    ease: 'linear',
+                  }}
                 >
                   <RefreshCw size={13} />
                 </motion.div>
@@ -6341,7 +6867,9 @@ const UsersTab = () => {
                 size={14}
                 className={hideAiUsers ? 'text-amber-400' : 'text-white/40'}
               />
-              <span>{hideAiUsers ? 'Đã ẩn Tác giả CSV' : 'Ẩn Tác giả CSV'}</span>
+              <span>
+                {hideAiUsers ? 'Đã ẩn Tác giả CSV' : 'Ẩn Tác giả CSV'}
+              </span>
             </button>
           )}
 
@@ -7178,7 +7706,7 @@ const UsersTab = () => {
               initial={{ scale: 0.95, y: 15 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, opacity: 0 }}
-              className="modal-glass w-full max-w-2xl border border-white/8 rounded-2xl shadow-[0_40px_120px_rgba(0,0,0,0.9)] relative max-h-[95vh] flex flex-col overflow-hidden"
+              className="modal-glass w-full max-w-4xl border border-white/8 rounded-2xl shadow-[0_40px_120px_rgba(0,0,0,0.9)] relative max-h-[95vh] flex flex-col overflow-hidden"
             >
               {/* Close Button */}
               <button
@@ -7259,9 +7787,16 @@ const UsersTab = () => {
                     <div>
                       <h3 className="font-bold text-xl text-white flex flex-wrap items-center justify-center sm:justify-start gap-2 leading-none font-display">
                         {detailModal.displayName || detailModal.username}
-                        <span className="text-xs text-white/40 font-normal font-mono">
+                        <a
+                          href={`/profile/${detailModal.username}`}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-brand-400 hover:text-brand-300 transition-colors font-mono underline underline-offset-2"
+                          title="Xem trang cá nhân"
+                        >
                           @{detailModal.username}
-                        </span>
+                          <ExternalLink size={12} />
+                        </a>
                       </h3>
                       <p className="text-xs text-white/40 mt-1">
                         {detailModal.email}
@@ -11878,6 +12413,7 @@ const SettingsTab = ({ onDirtyChange }) => {
 
       {activeSubTab === 'maintenance' && (
         <div className="space-y-6">
+          <BackupRestoreSection />
           <div className="card p-6 border border-white/10 space-y-6 bg-white/[0.01]">
             <div className="border-b border-white/5 pb-4">
               <h3 className="text-sm font-bold text-white flex items-center gap-2 font-display">
@@ -13318,6 +13854,551 @@ const ReportsTab = () => {
 // ══════════════════════════════════════════════════════════════════
 // MAIN AdminPage
 // ══════════════════════════════════════════════════════════════════
+const BackupRestoreSection = () => {
+  const [exportLoading, setExportLoading] = useState(false)
+  const [importFile, setImportFile] = useState(null)
+  const [parsedBackup, setParsedBackup] = useState(null)
+  const [selectedModules, setSelectedModules] = useState({
+    settings: true,
+    posts: true,
+    users: true,
+  })
+  const [importing, setImporting] = useState(false)
+  const [purging, setPurging] = useState(false)
+  const fileInputRef = useRef(null)
+
+  const handleExport = async (type) => {
+    setExportLoading(true)
+    const toastId = toast.loading(`Đang xuất backup ${type.toUpperCase()}...`)
+    try {
+      const response = await api.get(`/admin/backup/export?type=${type}`, {
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([response.data]))
+      const link = document.createElement('a')
+      link.href = url
+      const dateStr = new Date().toISOString().slice(0, 10)
+      link.setAttribute('download', `picspy_backup_${type}_${dateStr}.json`)
+      document.body.appendChild(link)
+      link.click()
+      link.remove()
+      toast.success(`Xuất dữ liệu (${type.toUpperCase()}) thành công!`, {
+        id: toastId,
+      })
+    } catch (err) {
+      toast.error('Xuất dữ liệu thất bại', { id: toastId })
+    } finally {
+      setExportLoading(false)
+    }
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+    setImportFile(file)
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      try {
+        const json = JSON.parse(event.target.result)
+        if (!json.data) {
+          toast.error('Cấu trúc file JSON backup không đúng chuẩn!')
+          setParsedBackup(null)
+          return
+        }
+        setParsedBackup(json)
+        setSelectedModules({
+          settings: !!json.data.settings,
+          posts: Array.isArray(json.data.posts) && json.data.posts.length > 0,
+          users: Array.isArray(json.data.users) && json.data.users.length > 0,
+        })
+      } catch {
+        toast.error('File không đúng định dạng JSON hợp lệ!')
+        setParsedBackup(null)
+      }
+    }
+    reader.readAsText(file)
+  }
+
+  const handlePerformImport = async () => {
+    if (!parsedBackup) return
+    const activeModules = Object.keys(selectedModules).filter(
+      (key) => selectedModules[key]
+    )
+    if (activeModules.length === 0) {
+      toast.error('Vui lòng chọn ít nhất 1 mục để phục hồi!')
+      return
+    }
+
+    const confirm = window.confirm(
+      `Xác nhận phục hồi ${activeModules.join(', ')} từ file backup? Các dữ liệu trùng lặp sẽ được cập nhật lại.`
+    )
+    if (!confirm) return
+
+    setImporting(true)
+    const toastId = toast.loading('Đang tiến hành phục hồi dữ liệu...')
+    try {
+      const { data } = await api.post('/admin/backup/import', {
+        backupData: parsedBackup,
+        modulesToImport: activeModules,
+      })
+
+      let resMsg = 'Phục hồi thành công: '
+      const details = []
+      if (data.results?.settingsImported) details.push('Cài đặt hệ thống')
+      if (data.results?.postsImportedCount)
+        details.push(`${data.results.postsImportedCount} bài đăng`)
+      if (data.results?.usersImportedCount)
+        details.push(`${data.results.usersImportedCount} người dùng`)
+      resMsg += details.join(', ') || 'Hoàn tất'
+
+      toast.success(resMsg, { id: toastId, duration: 6000 })
+
+      setImportFile(null)
+      setParsedBackup(null)
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Phục hồi dữ liệu thất bại', {
+        id: toastId,
+      })
+    } finally {
+      setImporting(false)
+    }
+  }
+
+  const handlePurge = async (type) => {
+    let confirmMsg = ''
+    if (type === 'all') {
+      confirmMsg =
+        '⚠️ CẢNH BÁO NGUY HIỂM: Bạn có CHẮC CHẮN muốn XÓA TOÀN BỘ Cài đặt, tất cả Bài đăng và tất cả Thành viên (trừ Admin hiện tại)? Thao tác này KHÔNG THỂ HOÀN TÁC!'
+    } else if (type === 'settings') {
+      confirmMsg =
+        'Bạn có chắc chắn muốn RESET tất cả Cài đặt hệ thống về mặc định ban đầu?'
+    } else if (type === 'posts') {
+      confirmMsg =
+        '⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA TOÀN BỘ Bài đăng khỏi cơ sở dữ liệu?'
+    } else if (type === 'users') {
+      confirmMsg =
+        '⚠️ CẢNH BÁO: Bạn có chắc chắn muốn XÓA TOÀN BỘ Người dùng (trừ các tài khoản Admin)?'
+    }
+
+    const firstConfirm = window.confirm(confirmMsg)
+    if (!firstConfirm) return
+
+    if (type === 'all') {
+      const promptInput = window.prompt(
+        'Nhập chữ "REMOVE ALL" để xác nhận xóa toàn bộ dữ liệu:'
+      )
+      if (promptInput !== 'REMOVE ALL') {
+        toast.error('Xác nhận không hợp lệ. Đã hủy thao tác xóa.')
+        return
+      }
+    }
+
+    setPurging(true)
+    const toastId = toast.loading(
+      `Đang tiến hành xóa dữ liệu (${type.toUpperCase()})...`
+    )
+    try {
+      const { data } = await api.post('/admin/backup/purge', { type })
+      let resMsg = 'Đã xóa dữ liệu thành công: '
+      const details = []
+      if (data.results?.settingsReset) details.push('Reset Cài đặt')
+      if (data.results?.postsDeletedCount !== undefined)
+        details.push(`Xóa ${data.results.postsDeletedCount} bài đăng`)
+      if (data.results?.usersDeletedCount !== undefined)
+        details.push(`Xóa ${data.results.usersDeletedCount} người dùng`)
+      resMsg += details.join(', ') || 'Hoàn tất'
+
+      toast.success(resMsg, { id: toastId, duration: 6000 })
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Xóa dữ liệu thất bại', {
+        id: toastId,
+      })
+    } finally {
+      setPurging(false)
+    }
+  }
+
+  return (
+    <div className="card p-6 border border-white/10 space-y-6 bg-white/[0.01]">
+      <div className="border-b border-white/5 pb-4">
+        <h3 className="text-sm font-bold text-white flex items-center gap-2 font-display">
+          📦 Quản lý Dữ liệu: Sao lưu, Phục hồi & Xóa (Backup, Restore & Purge)
+        </h3>
+        <p className="text-[11px] text-white/40 mt-0.5">
+          Quản lý toàn diện dữ liệu hệ thống (Settings), Bài đăng (Posts), Người
+          dùng (Users). Cho phép Export, Import và Remove riêng từng mục hoặc
+          toàn bộ.
+        </p>
+      </div>
+
+      {/* ── 1. EXPORT SECTION ── */}
+      <div>
+        <h4 className="text-xs font-bold text-white mb-3 flex items-center gap-1.5 font-display">
+          <Download size={14} className="text-brand-400" />
+          1. Sao lưu Dữ liệu (Export)
+        </h4>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <button
+            type="button"
+            disabled={exportLoading}
+            onClick={() => handleExport('all')}
+            className="p-3.5 rounded-xl bg-gradient-to-br from-brand-600/30 to-purple-600/20 border border-brand-500/35 hover:border-brand-400 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-brand-300 font-display">
+                ⭐️ Sao lưu TOÀN BỘ (All)
+              </span>
+              <Download
+                size={14}
+                className="text-brand-400 group-hover:translate-y-0.5 transition-transform"
+              />
+            </div>
+            <p className="text-[10px] text-white/50 leading-relaxed">
+              Bao gồm Settings + Posts + Users trong 1 file JSON tổng hợp.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={exportLoading}
+            onClick={() => handleExport('settings')}
+            className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 hover:border-violet-500/40 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-violet-300 font-display">
+                ⚙️ Cài đặt (Settings)
+              </span>
+              <Download
+                size={14}
+                className="text-violet-400 group-hover:translate-y-0.5 transition-transform"
+              />
+            </div>
+            <p className="text-[10px] text-white/50 leading-relaxed">
+              Xuất file cấu hình hệ thống (banner, pricing, AI credits, v.v.)
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={exportLoading}
+            onClick={() => handleExport('posts')}
+            className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 hover:border-sky-500/40 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-sky-300 font-display">
+                🖼️ Bài đăng (Posts)
+              </span>
+              <Download
+                size={14}
+                className="text-sky-400 group-hover:translate-y-0.5 transition-transform"
+              />
+            </div>
+            <p className="text-[10px] text-white/50 leading-relaxed">
+              Xuất toàn bộ danh sách bài viết & dữ liệu ảnh/prompt.
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={exportLoading}
+            onClick={() => handleExport('users')}
+            className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 hover:border-emerald-500/40 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-emerald-300 font-display">
+                👥 Người dùng (Users)
+              </span>
+              <Download
+                size={14}
+                className="text-emerald-400 group-hover:translate-y-0.5 transition-transform"
+              />
+            </div>
+            <p className="text-[10px] text-white/50 leading-relaxed">
+              Xuất danh sách tài khoản, role, tier và thông số ví.
+            </p>
+          </button>
+        </div>
+      </div>
+
+      {/* ── 2. IMPORT / RESTORE SECTION ── */}
+      <div className="pt-4 border-t border-white/5">
+        <h4 className="text-xs font-bold text-white mb-3 flex items-center gap-1.5 font-display">
+          <Upload size={14} className="text-amber-400" />
+          2. Phục hồi Dữ liệu (Import / Restore)
+        </h4>
+
+        <div className="p-5 rounded-2xl border-2 border-dashed border-white/10 hover:border-brand-500/40 bg-white/[0.01] text-center transition-all">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept=".json"
+            onChange={handleFileChange}
+            className="hidden"
+            id="backup-file-input"
+          />
+          <label
+            htmlFor="backup-file-input"
+            className="cursor-pointer space-y-2 block"
+          >
+            <Upload
+              size={24}
+              className="mx-auto text-white/30 hover:text-brand-400 transition-colors"
+            />
+            <div>
+              <p className="text-xs font-semibold text-white">
+                {importFile
+                  ? importFile.name
+                  : 'Nhấp vào đây để chọn file backup JSON'}
+              </p>
+              <p className="text-[10px] text-white/40 mt-0.5">
+                Chấp nhận file JSON (.json) được xuất từ hệ thống
+              </p>
+            </div>
+          </label>
+        </div>
+
+        {parsedBackup && (
+          <div className="mt-4 p-4 rounded-xl bg-white/[0.03] border border-white/10 space-y-4">
+            <div className="flex items-center justify-between border-b border-white/5 pb-3">
+              <div>
+                <span className="text-xs font-bold text-brand-300 font-display">
+                  Đã đọc file backup (
+                  {parsedBackup.type?.toUpperCase() || 'JSON'})
+                </span>
+                <p className="text-[10px] text-white/40">
+                  Thời gian xuất file:{' '}
+                  {parsedBackup.exportedAt
+                    ? new Date(parsedBackup.exportedAt).toLocaleString('vi-VN')
+                    : 'Không rõ'}
+                </p>
+              </div>
+              <span className="text-[10px] px-2.5 py-1 rounded-full bg-brand-500/20 text-brand-300 font-bold border border-brand-500/30">
+                Sẵn sàng Import
+              </span>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold text-white/70 mb-2.5">
+                Chọn các mục bạn muốn phục hồi vào hệ thống:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {parsedBackup.data?.settings ? (
+                  <label className="flex items-center gap-2.5 p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedModules.settings}
+                      onChange={(e) =>
+                        setSelectedModules((prev) => ({
+                          ...prev,
+                          settings: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-white/20 bg-black/40"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-white">
+                        ⚙️ Cài đặt hệ thống
+                      </p>
+                      <p className="text-[9px] text-white/40">
+                        Có sẵn dữ liệu Settings
+                      </p>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="p-3 rounded-lg bg-white/[0.01] border border-white/5 text-white/20 text-xs flex items-center gap-2 opacity-50">
+                    ⚙️ Cài đặt (Không có trong file)
+                  </div>
+                )}
+
+                {Array.isArray(parsedBackup.data?.posts) &&
+                parsedBackup.data.posts.length > 0 ? (
+                  <label className="flex items-center gap-2.5 p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedModules.posts}
+                      onChange={(e) =>
+                        setSelectedModules((prev) => ({
+                          ...prev,
+                          posts: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-white/20 bg-black/40"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-white">
+                        🖼️ Bài đăng (Posts)
+                      </p>
+                      <p className="text-[9px] text-white/40">
+                        {parsedBackup.data.posts.length} bài đăng
+                      </p>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="p-3 rounded-lg bg-white/[0.01] border border-white/5 text-white/20 text-xs flex items-center gap-2 opacity-50">
+                    🖼️ Bài đăng (Không có trong file)
+                  </div>
+                )}
+
+                {Array.isArray(parsedBackup.data?.users) &&
+                parsedBackup.data.users.length > 0 ? (
+                  <label className="flex items-center gap-2.5 p-3 rounded-lg bg-white/5 border border-white/10 cursor-pointer hover:bg-white/10 transition-colors">
+                    <input
+                      type="checkbox"
+                      checked={selectedModules.users}
+                      onChange={(e) =>
+                        setSelectedModules((prev) => ({
+                          ...prev,
+                          users: e.target.checked,
+                        }))
+                      }
+                      className="w-4 h-4 rounded text-brand-600 focus:ring-brand-500 border-white/20 bg-black/40"
+                    />
+                    <div>
+                      <p className="text-xs font-bold text-white">
+                        👥 Người dùng (Users)
+                      </p>
+                      <p className="text-[9px] text-white/40">
+                        {parsedBackup.data.users.length} tài khoản
+                      </p>
+                    </div>
+                  </label>
+                ) : (
+                  <div className="p-3 rounded-lg bg-white/[0.01] border border-white/5 text-white/20 text-xs flex items-center gap-2 opacity-50">
+                    👥 Người dùng (Không có trong file)
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="pt-2 flex justify-end">
+              <button
+                type="button"
+                disabled={importing}
+                onClick={handlePerformImport}
+                className="py-2.5 px-5 rounded-xl text-xs font-bold bg-amber-600 hover:bg-amber-500 text-white cursor-pointer transition-colors shadow-lg flex items-center gap-2 font-display"
+              >
+                {importing ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Đang phục hồi
+                    dữ liệu...
+                  </>
+                ) : (
+                  <>
+                    <Upload size={14} /> Tiến hành Phục hồi (Import)
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── 3. PURGE / REMOVE SECTION ── */}
+      <div className="pt-4 border-t border-white/5">
+        <h4 className="text-xs font-bold text-red-400 mb-3 flex items-center gap-1.5 font-display">
+          <Trash2 size={14} className="text-red-400" />
+          3. Xóa Dữ liệu (Remove / Purge Data)
+        </h4>
+
+        <div className="p-3.5 rounded-xl bg-red-950/20 border border-red-500/20 mb-3 text-[11px] text-red-300/80 flex items-center gap-2">
+          <AlertTriangle size={16} className="text-red-400 shrink-0" />
+          <span>
+            Thao tác xóa dữ liệu sẽ gỡ bỏ trực tiếp bản ghi khỏi MongoDB. Hãy
+            đảm bảo bạn đã xuất file Backup trước khi tiến hành!
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          {/* Purge ALL */}
+          <button
+            type="button"
+            disabled={purging}
+            onClick={() => handlePurge('all')}
+            className="p-3.5 rounded-xl bg-red-950/40 border border-red-500/40 hover:border-red-400 hover:bg-red-900/50 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-red-300 font-display">
+                🔥 Xóa TOÀN BỘ (All)
+              </span>
+              <Trash2
+                size={14}
+                className="text-red-400 group-hover:scale-110 transition-transform"
+              />
+            </div>
+            <p className="text-[10px] text-red-200/60 leading-relaxed">
+              Reset Cài đặt, xóa tất cả Bài đăng và Người dùng (trừ Admin).
+            </p>
+          </button>
+
+          {/* Purge Settings */}
+          <button
+            type="button"
+            disabled={purging}
+            onClick={() => handlePurge('settings')}
+            className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 hover:border-red-500/40 hover:bg-red-950/20 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-white/90 font-display">
+                ⚙️ Reset Cài đặt (Settings)
+              </span>
+              <Trash2
+                size={14}
+                className="text-white/40 group-hover:text-red-400 transition-colors"
+              />
+            </div>
+            <p className="text-[10px] text-white/40 leading-relaxed">
+              Khôi phục cấu hình hệ thống về trạng thái mặc định ban đầu.
+            </p>
+          </button>
+
+          {/* Purge Posts */}
+          <button
+            type="button"
+            disabled={purging}
+            onClick={() => handlePurge('posts')}
+            className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 hover:border-red-500/40 hover:bg-red-950/20 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-white/90 font-display">
+                🖼️ Xóa tất cả Bài đăng (Posts)
+              </span>
+              <Trash2
+                size={14}
+                className="text-white/40 group-hover:text-red-400 transition-colors"
+              />
+            </div>
+            <p className="text-[10px] text-white/40 leading-relaxed">
+              Xóa sạch toàn bộ bài viết khỏi cơ sở dữ liệu.
+            </p>
+          </button>
+
+          {/* Purge Users */}
+          <button
+            type="button"
+            disabled={purging}
+            onClick={() => handlePurge('users')}
+            className="p-3.5 rounded-xl bg-white/[0.02] border border-white/10 hover:border-red-500/40 hover:bg-red-950/20 text-left transition-all cursor-pointer group hover:scale-[1.01]"
+          >
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-bold text-white/90 font-display">
+                👥 Xóa tất cả User (Users)
+              </span>
+              <Trash2
+                size={14}
+                className="text-white/40 group-hover:text-red-400 transition-colors"
+              />
+            </div>
+            <p className="text-[10px] text-white/40 leading-relaxed">
+              Xóa toàn bộ tài khoản thành viên (giữ lại các Admin).
+            </p>
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 const TABS = [
   { key: 'dashboard', label: 'Dashboard', Icon: BarChart3 },
   { key: 'posts', label: 'Bài đăng', Icon: Images },

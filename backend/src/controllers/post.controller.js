@@ -575,9 +575,11 @@ export const createPost = async (req, res, next) => {
       { priority: 1 }
     )
 
-    // ── Update user stats ─────────────────────────────────────────
-    const User = (await import('../models/User.model.js')).default
-    await User.findByIdAndUpdate(req.user._id, { $inc: { 'stats.postsCount': 1 } })
+    // ── Update user stats (chỉ tăng nếu post đã được approved) ──────
+    if (post.status === 'approved') {
+      const User = (await import('../models/User.model.js')).default
+      await User.findByIdAndUpdate(req.user._id, { $inc: { 'stats.postsCount': 1 } })
+    }
 
     // Gửi thông báo admin có bài đăng mới chờ duyệt
     const { triggerAdminNotificationEvent } = await import('../services/notification.service.js')
@@ -1550,11 +1552,13 @@ export const deletePost = async (req, res, next) => {
     await Promise.allSettled(deletePromises)
     await post.deleteOne()
 
-    // Giảm postsCount của tác giả
-    const User = (await import('../models/User.model.js')).default
-    await User.findByIdAndUpdate(post.authorId, {
-      $inc: { 'stats.postsCount': -1 },
-    })
+    // Giảm postsCount của tác giả (chỉ khi bài đã approved)
+    if (post.status === 'approved') {
+      const User = (await import('../models/User.model.js')).default
+      await User.findByIdAndUpdate(post.authorId, {
+        $inc: { 'stats.postsCount': -1 },
+      })
+    }
 
     // Log admin action if deleted by admin
     if (req.user.role === 'admin') {
@@ -1831,10 +1835,11 @@ export const getHomepageData = async (req, res, next) => {
     ])
     const totalDownloads = downloadsAgg[0]?.total || 0
 
-    // Count creators (users who have postsCount > 0 or have role creator/admin)
-    const creatorsCount = await User.countDocuments({
-      'stats.postsCount': { $gt: 0 }
-    })
+    // Count creators (users who have published posts or registered as non-admin users)
+    const distinctAuthors = await Post.distinct('authorId')
+    const creatorsCount = distinctAuthors.length > 0
+      ? distinctAuthors.length
+      : await User.countDocuments({ role: { $ne: 'admin' } })
 
     // Sum total coins paid (totalEarned from all users)
     const coinsAgg = await User.aggregate([
@@ -2103,11 +2108,11 @@ export const getHomepageData = async (req, res, next) => {
       newCollections = [...newCollections, ...added]
     }
 
-    // 7. Leaderboard (top 4 creators with followersCount desc)
+    // 7. Leaderboard (top 4 creators with followersCount & totalViews desc)
     const leaderboardCreators = await User.find({
       'stats.postsCount': { $gt: 0 }
     })
-      .sort({ 'stats.followersCount': -1, _id: -1 })
+      .sort({ 'stats.followersCount': -1, 'stats.totalViews': -1, _id: -1 })
       .limit(4)
       .select('username displayName avatar stats isVerified')
       .lean()
