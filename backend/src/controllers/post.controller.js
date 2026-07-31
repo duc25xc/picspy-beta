@@ -2454,7 +2454,7 @@ export const getPostDiscovery = async (req, res, next) => {
       orderedTrending = [...orderedTrending, ...added]
     }
 
-    // 5. Hidden Gems (tối đa 8 ảnh, view thấp + like cao + download cao)
+    // 5. Hidden Gems (tối đa 12 ảnh, view thấp + like cao + download cao)
     const hiddenGems = await Post.aggregate([
       {
         $match: {
@@ -2479,7 +2479,7 @@ export const getPostDiscovery = async (req, res, next) => {
         }
       },
       { $sort: { gemScore: -1, _id: -1 } },
-      { $limit: 8 }
+      { $limit: 12 }
     ])
 
     const finalHiddenGems = await Post.populate(hiddenGems, {
@@ -2487,15 +2487,168 @@ export const getPostDiscovery = async (req, res, next) => {
       select: 'username displayName avatar isVerified'
     })
 
-    // 6. Gợi ý cá nhân hóa cho User (recommendations)
-    let viewRecommendTitle = 'Gợi ý: Anime'
-    let viewRecommendQuery = { category: 'anime' }
+    // 6. Element mới 1: "Chưa từng khám phá" (Unseen Artifacts)
+    let interactedPostIds = [currentPost._id]
+    if (req.user) {
+      const userInteractions = await Interaction.find({
+        userId: req.user._id
+      }).distinct('postId')
+      if (userInteractions && userInteractions.length > 0) {
+        interactedPostIds = [...interactedPostIds, ...userInteractions]
+      }
+    }
 
-    let downloadRecommendTitle = 'Gợi ý: Girl'
-    let downloadRecommendQuery = { tags: 'girl' }
+    const unseenPosts = await Post.find({
+      status: 'approved',
+      _id: { $nin: interactedPostIds }
+    })
+      .sort({ createdAt: -1, 'stats.viewsCount': 1 })
+      .limit(12)
+      .populate('authorId', 'username displayName avatar isVerified')
+      .lean()
 
-    let likeRecommendTitle = 'Gợi ý: Black Outfit'
-    let likeRecommendQuery = { tags: 'black outfit' }
+    // 7. Element mới 2: "Cùng công cụ AI" (Same AI Engine & Prompt Vibe)
+    let sameEnginePosts = []
+    if (currentPost.aiTool) {
+      sameEnginePosts = await Post.find({
+        status: 'approved',
+        _id: { $ne: currentPost._id },
+        aiTool: currentPost.aiTool
+      })
+        .sort({ score: -1, createdAt: -1 })
+        .limit(12)
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+    }
+    if (sameEnginePosts.length < 4) {
+      const fallbackEnginePosts = await Post.find({
+        status: 'approved',
+        _id: { $ne: currentPost._id },
+        postType: currentPost.postType || 'image'
+      })
+        .sort({ score: -1, createdAt: -1 })
+        .limit(12 - sameEnginePosts.length)
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+      
+      const existingIds = new Set(sameEnginePosts.map(p => p._id.toString()))
+      for (const p of fallbackEnginePosts) {
+        if (!existingIds.has(p._id.toString())) {
+          sameEnginePosts.push(p)
+        }
+      }
+    }
+
+    // 8. Element mới 3: "Sắc thái & Vibe nghệ thuật" (Aesthetic Mood & Vibe)
+    const currentPostTags = currentPost.tags || []
+    let vibePosts = []
+    if (currentPostTags.length > 0) {
+      vibePosts = await Post.find({
+        status: 'approved',
+        _id: { $ne: currentPost._id },
+        tags: { $in: currentPostTags }
+      })
+        .sort({ 'stats.likesCount': -1, createdAt: -1 })
+        .limit(12)
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+    }
+    if (vibePosts.length < 4) {
+      const fallbackVibe = await Post.find({
+        status: 'approved',
+        _id: { $ne: currentPost._id }
+      })
+        .sort({ 'stats.likesCount': -1, createdAt: -1 })
+        .limit(12 - vibePosts.length)
+        .populate('authorId', 'username displayName avatar isVerified')
+        .lean()
+      const existingVibeIds = new Set(vibePosts.map(p => p._id.toString()))
+      for (const p of fallbackVibe) {
+        if (!existingVibeIds.has(p._id.toString())) {
+          vibePosts.push(p)
+        }
+      }
+    }
+
+    // 9. Element theo 3 Tag cách xa nhau nhất (bỏ qua tag 1 vì tag 1 đã dùng ở "Nổi bật theo #tag1")
+    const tagRows = []
+    const allPostTags = currentPost.tags || []
+    if (allPostTags.length > 1) {
+      const remainingTags = allPostTags.slice(1) // Bỏ qua tag 1
+      const N = remainingTags.length
+      let selectedTags = []
+
+      if (N <= 3) {
+        selectedTags = remainingTags
+      } else {
+        // Lấy 3 tag cách xa nhau nhất: đầu, giữa, cuối của mảng remaining
+        const firstIdx = 0
+        const midIdx = Math.floor((N - 1) / 2)
+        const lastIdx = N - 1
+        
+        selectedTags = [
+          remainingTags[firstIdx],
+          remainingTags[midIdx],
+          remainingTags[lastIdx]
+        ].filter(Boolean)
+
+        // Đảm bảo không trùng tag nếu N nhỏ hoặc index trùng
+        selectedTags = Array.from(new Set(selectedTags))
+      }
+
+      for (const tagItem of selectedTags) {
+        if (!tagItem) continue
+        const postsForTag = await Post.find({
+          status: 'approved',
+          _id: { $ne: currentPost._id },
+          tags: tagItem
+        })
+          .sort({ score: -1, createdAt: -1 })
+          .limit(12)
+          .populate('authorId', 'username displayName avatar isVerified')
+          .lean()
+
+        if (postsForTag && postsForTag.length > 0) {
+          tagRows.push({
+            tag: tagItem,
+            title: `Cùng chủ đề: #${tagItem}`,
+            posts: postsForTag
+          })
+        }
+      }
+    }
+
+    // 10. Element mới: "Góc Ngẫu Hứng" (Random serendipity selection)
+    const randomAggregate = await Post.aggregate([
+      {
+        $match: {
+          status: 'approved',
+          _id: { $ne: currentPost._id }
+        }
+      },
+      { $sample: { size: 12 } }
+    ])
+
+    const randomPosts = await Post.populate(randomAggregate, {
+      path: 'authorId',
+      select: 'username displayName avatar isVerified'
+    })
+
+    // 11. Gợi ý cá nhân hóa cho User (recommendations) - Dynamic Fallback (Không hardcode!)
+    const currentCatFormatted = currentPost.category 
+      ? currentPost.category.charAt(0).toUpperCase() + currentPost.category.slice(1)
+      : 'Sáng tạo'
+
+    let viewRecommendTitle = `Chủ đề liên quan: ${currentCatFormatted}`
+    let viewRecommendQuery = currentPost.category ? { category: currentPost.category } : {}
+
+    const primaryTag = (currentPost.tags && currentPost.tags[0]) ? currentPost.tags[0] : null
+    let downloadRecommendTitle = primaryTag ? `Nổi bật theo #${primaryTag}` : `Tác phẩm cùng loại`
+    let downloadRecommendQuery = primaryTag ? { tags: primaryTag } : (currentPost.category ? { category: currentPost.category } : {})
+
+    const engineName = currentPost.aiTool || 'AI Engine'
+    let likeRecommendTitle = `Tác phẩm từ ${engineName}`
+    let likeRecommendQuery = currentPost.aiTool ? { aiTool: currentPost.aiTool } : {}
 
     if (req.user) {
       // Tìm bài viết đã xem gần nhất
@@ -2559,7 +2712,7 @@ export const getPostDiscovery = async (req, res, next) => {
       }
     }
 
-    const getRecommendationsForQuery = async (queryObj, limitNum = 8) => {
+    const getRecommendationsForQuery = async (queryObj, limitNum = 12) => {
       return await Post.find({
         status: 'approved',
         _id: { $ne: currentPost._id },
@@ -2571,22 +2724,22 @@ export const getPostDiscovery = async (req, res, next) => {
         .lean()
     }
 
-    let viewPosts = await getRecommendationsForQuery(viewRecommendQuery, 8)
+    let viewPosts = await getRecommendationsForQuery(viewRecommendQuery, 12)
     if (viewPosts.length < 4) {
-      viewRecommendTitle = 'Gợi ý: Anime'
-      viewPosts = await getRecommendationsForQuery({ category: 'anime' }, 8)
+      viewRecommendTitle = `Nổi bật thuộc ${currentCatFormatted}`
+      viewPosts = await getRecommendationsForQuery(currentPost.category ? { category: currentPost.category } : {}, 12)
     }
 
-    let downloadPosts = await getRecommendationsForQuery(downloadRecommendQuery, 8)
+    let downloadPosts = await getRecommendationsForQuery(downloadRecommendQuery, 12)
     if (downloadPosts.length < 4) {
-      downloadRecommendTitle = 'Gợi ý: Girl'
-      downloadPosts = await getRecommendationsForQuery({ tags: 'girl' }, 8)
+      downloadRecommendTitle = `Bộ sưu tập phổ biến`
+      downloadPosts = await getRecommendationsForQuery({}, 12)
     }
 
-    let likePosts = await getRecommendationsForQuery(likeRecommendQuery, 8)
+    let likePosts = await getRecommendationsForQuery(likeRecommendQuery, 12)
     if (likePosts.length < 4) {
-      likeRecommendTitle = 'Gợi ý: Black Outfit'
-      likePosts = await getRecommendationsForQuery({ tags: 'black outfit' }, 8)
+      likeRecommendTitle = `Tác phẩm được yêu thích`
+      likePosts = await getRecommendationsForQuery({}, 12)
     }
 
     res.json({
@@ -2595,6 +2748,11 @@ export const getPostDiscovery = async (req, res, next) => {
       creator: creatorPosts,
       trending: orderedTrending,
       hiddenGems: finalHiddenGems,
+      unseen: unseenPosts,
+      sameEngine: sameEnginePosts,
+      vibe: vibePosts,
+      random: randomPosts,
+      tagRows: tagRows,
       recommendations: [
         {
           type: 'view',

@@ -21,6 +21,10 @@ import {
   ExternalLink,
   Globe,
   Shield,
+  Compass,
+  Cpu,
+  Layers,
+  Shuffle,
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { formatCount } from '../utils/numberFormat'
@@ -231,6 +235,7 @@ const DiscoveryRow = ({
   posts = [],
   onCardClick,
   countText,
+  badge,
   rowIndex = 0,
   discoveryAutoScrollInterval = 10000,
   discoveryAutoScrollStagger = 1000,
@@ -291,11 +296,16 @@ const DiscoveryRow = ({
     <div className="space-y-4" style={{ fontFamily: 'Outfit, sans-serif' }}>
       {/* Header */}
       <div className="flex items-center justify-between px-1">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
           {Icon && <Icon className="text-[#7986eb]" size={20} />}
           <h2 className="text-lg font-bold text-[#f5f3ff] leading-none tracking-tight">
             {title}
           </h2>
+          {badge && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold text-[#8b98f8] bg-[#7986eb]/10 border border-[#7986eb]/20">
+              {badge}
+            </span>
+          )}
           {countText && (
             <span className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white/30 border border-white/5 bg-white/[0.02]">
               {countText}
@@ -1182,9 +1192,7 @@ const PostDetailPage = () => {
               </div>
               <div className="flex items-center gap-1.5 text-white/35 text-sm">
                 <Download size={14} />
-                <span>
-                  {formatCount(post.stats?.downloadsCount || 0)}
-                </span>
+                <span>{formatCount(post.stats?.downloadsCount || 0)}</span>
                 <span className="text-white/25 text-xs">tải về</span>
               </div>
             </div>
@@ -1618,55 +1626,123 @@ const PostDetailPage = () => {
                 discoveryAutoScrollStagger={discoveryAutoScrollStagger}
               />
 
-              {/* 2. Theo màu (Fuzzy HSL matching) */}
+              {/* 2. Tác phẩm khác của Creator (Đặt ngay dưới Ảnh tương tự) */}
+              <DiscoveryRow
+                title={`Tác phẩm khác của ${post?.authorId?.displayName || post?.authorId?.username || 'Creator'}`}
+                icon={Camera}
+                posts={discoveryData.creator}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.creator?.length || 0} ảnh`}
+                rowIndex={1}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 3. Các hàng Cùng chủ đề theo 3 Tag cách xa nhau */}
+              {discoveryData.tagRows?.map((tagRow, i) => (
+                <DiscoveryRow
+                  key={`tag-row-${tagRow.tag}-${i}`}
+                  title={tagRow.title}
+                  icon={Tag}
+                  badge={`#${tagRow.tag}`}
+                  posts={tagRow.posts}
+                  onCardClick={handleCardClick}
+                  countText={`${tagRow.posts?.length || 0} ảnh`}
+                  rowIndex={2 + i}
+                  discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                  discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+                />
+              ))}
+
+              {/* 4. Element mới 1: Chưa từng khám phá */}
+              <DiscoveryRow
+                title="Chưa từng khám phá"
+                icon={Compass}
+                badge="Dành riêng cho bạn"
+                posts={discoveryData.unseen}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.unseen?.length || 0} ảnh`}
+                rowIndex={5}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 5. Theo màu (Fuzzy HSL matching) */}
               <DiscoveryRow
                 title="Theo màu sắc"
                 icon={Palette}
                 posts={discoveryData.color}
                 onCardClick={handleCardClick}
                 countText={`${discoveryData.color?.length || 0} ảnh`}
-                rowIndex={1}
+                rowIndex={6}
                 discoveryAutoScrollInterval={discoveryAutoScrollInterval}
                 discoveryAutoScrollStagger={discoveryAutoScrollStagger}
               />
 
-              {/* 3. Cùng Creator */}
+              {/* 5. Element mới 2: Cùng công cụ AI */}
               <DiscoveryRow
-                title="Cùng Creator"
-                icon={Camera}
-                posts={discoveryData.creator}
+                title={`Cùng công cụ AI (${post?.aiTool || 'AI Engine'})`}
+                icon={Cpu}
+                badge={post?.aiTool || 'AI Tool'}
+                posts={discoveryData.sameEngine}
                 onCardClick={handleCardClick}
-                countText={`${discoveryData.creator?.length || 0} ảnh`}
-                rowIndex={2}
+                countText={`${discoveryData.sameEngine?.length || 0} ảnh`}
+                rowIndex={4}
                 discoveryAutoScrollInterval={discoveryAutoScrollInterval}
                 discoveryAutoScrollStagger={discoveryAutoScrollStagger}
               />
 
-              {/* 4. Trending */}
+              {/* 6. Trending */}
               <DiscoveryRow
                 title="Trending tuần này"
                 icon={Zap}
                 posts={discoveryData.trending}
                 onCardClick={handleCardClick}
                 countText={`${discoveryData.trending?.length || 0} ảnh`}
-                rowIndex={3}
+                rowIndex={5}
                 discoveryAutoScrollInterval={discoveryAutoScrollInterval}
                 discoveryAutoScrollStagger={discoveryAutoScrollStagger}
               />
 
-              {/* 5. Hidden Gems (Ngọc thô) */}
+              {/* 7. Element mới 3: Sắc thái & Vibe nghệ thuật */}
               <DiscoveryRow
-                title="Hidden Gems (Ngọc thô)"
+                title="Sắc thái & Vibe nghệ thuật"
+                icon={Layers}
+                badge="Cùng phong cách"
+                posts={discoveryData.vibe}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.vibe?.length || 0} ảnh`}
+                rowIndex={6}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 8. Element mới 4: Góc ngẫu hứng (Random Serendipity) */}
+              <DiscoveryRow
+                title="Góc ngẫu hứng"
+                icon={Shuffle}
+                badge="Cảm hứng bất ngờ"
+                posts={discoveryData.random}
+                onCardClick={handleCardClick}
+                countText={`${discoveryData.random?.length || 0} ảnh`}
+                rowIndex={7}
+                discoveryAutoScrollInterval={discoveryAutoScrollInterval}
+                discoveryAutoScrollStagger={discoveryAutoScrollStagger}
+              />
+
+              {/* 9. Hidden Gems (Ngọc thô) */}
+              <DiscoveryRow
+                title="Những viên ngọc thô"
                 icon={GiCutDiamond}
                 posts={discoveryData.hiddenGems}
                 onCardClick={handleCardClick}
                 countText={`${discoveryData.hiddenGems?.length || 0} ảnh`}
-                rowIndex={4}
+                rowIndex={8}
                 discoveryAutoScrollInterval={discoveryAutoScrollInterval}
                 discoveryAutoScrollStagger={discoveryAutoScrollStagger}
               />
 
-              {/* 6. Gợi ý cá nhân hóa (Personalized rows) */}
+              {/* 9. Gợi ý cá nhân hóa (Personalized rows) */}
               {discoveryData.recommendations?.map((rec, i) => (
                 <DiscoveryRow
                   key={i}
@@ -1675,7 +1751,7 @@ const PostDetailPage = () => {
                   posts={rec.posts}
                   onCardClick={handleCardClick}
                   countText={`${rec.posts?.length || 0} ảnh`}
-                  rowIndex={5 + i}
+                  rowIndex={8 + i}
                   discoveryAutoScrollInterval={discoveryAutoScrollInterval}
                   discoveryAutoScrollStagger={discoveryAutoScrollStagger}
                 />
