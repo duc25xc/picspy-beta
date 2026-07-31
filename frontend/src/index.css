@@ -914,3 +914,9 @@
     border: 1px solid transparent;
   }
 }
+
+/* Sonner Toast max z-index to overlay above all modals */
+[data-sonner-toaster],
+[data-sonner-toast] {
+  z-index: 99999999 !important;
+}

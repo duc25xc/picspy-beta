@@ -27,7 +27,8 @@ createRoot(document.getElementById('root')).render(
             position="top-right"
             visibleToasts={3}
             expand={false}
-            style={{ top: '72px', zIndex: 99999 }}
+            containerStyle={{ zIndex: 99999999 }}
+            style={{ top: '72px', zIndex: 99999999 }}
             toastOptions={{
               style: {
                 background: 'oklch(14% 0.01 285)',

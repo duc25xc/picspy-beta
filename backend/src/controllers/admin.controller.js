@@ -96,7 +96,7 @@ export const seedCategories = async () => {
 /** GET /admin/posts */
 export const getAllPosts = async (req, res, next) => {
   try {
-    const { status = 'pending', cursor, limit = 20, hideCsv } = req.query
+    const { status = 'pending', cursor, cursorViews, limit = 20, hideCsv, search, q, sort } = req.query
     const query = {}
 
     if (status === 'pending') {
@@ -108,7 +108,35 @@ export const getAllPosts = async (req, res, next) => {
       query.status = status
     }
 
-    if (cursor) query._id = { $lt: cursor }
+    // Keyset cursor pagination chuẩn cho cả _id và viewsCount
+    if (sort === 'views') {
+      if (cursor && cursorViews !== undefined) {
+        const cViews = Number(cursorViews)
+        const viewsFilter = [
+          { 'stats.viewsCount': { $lt: cViews } },
+          { 'stats.viewsCount': cViews, _id: { $lt: cursor } }
+        ]
+        query.$and = [...(query.$and || []), { $or: viewsFilter }]
+      }
+    } else {
+      if (cursor) {
+        query._id = { $lt: cursor }
+      }
+    }
+
+    // Tìm kiếm mạnh mẽ theo title, caption, prompt, tags
+    const searchQuery = (search || q || '').trim()
+    if (searchQuery) {
+      const escaped = searchQuery.slice(0, 80).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const rx = new RegExp(escaped, 'i')
+      const searchOr = [
+        { title: rx },
+        { caption: rx },
+        { prompt: rx },
+        { tags: rx },
+      ]
+      query.$and = [...(query.$and || []), { $or: searchOr }]
+    }
 
     if (hideCsv === 'true') {
       const aiUsers = await User.find({ email: /@picspy\.ai$/i }).select('_id').lean()
@@ -125,8 +153,12 @@ export const getAllPosts = async (req, res, next) => {
       ]
     }
 
+    const sortOption = sort === 'views'
+      ? { 'stats.viewsCount': -1, viewsCount: -1, views: -1, _id: -1 }
+      : { _id: -1 }
+
     const posts = await Post.find(query)
-      .sort({ _id: -1 })
+      .sort(sortOption)
       .limit(parseInt(limit) + 1)
       .populate('authorId', 'username displayName avatar email')
       .populate({

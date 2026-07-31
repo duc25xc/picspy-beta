@@ -557,19 +557,24 @@ const CategoryCard = ({
         <LiquidCard className="px-3.5 py-2.5">
           <div className="w-full overflow-hidden whitespace-nowrap">
             {label.length > 12 ? (
-              <div className="inline-flex gap-6 whitespace-nowrap animate-cat-marquee transition-transform duration-700 ease-[cubic-bezier(0.16,1,0.3,1)]">
-                <span className="text-sm font-bold text-foreground dark:text-white pj shrink-0">
+              <>
+                <span className="text-sm font-bold text-foreground dark:text-white pj truncate block group-hover:hidden">
                   {label}
                 </span>
-                <span
-                  className="text-sm font-bold text-foreground dark:text-white pj shrink-0"
-                  aria-hidden="true"
-                >
-                  {label}
-                </span>
-              </div>
+                <div className="hidden group-hover:inline-flex gap-6 whitespace-nowrap animate-cat-marquee">
+                  <span className="text-sm font-bold text-foreground dark:text-white pj shrink-0">
+                    {label}
+                  </span>
+                  <span
+                    className="text-sm font-bold text-foreground dark:text-white pj shrink-0"
+                    aria-hidden="true"
+                  >
+                    {label}
+                  </span>
+                </div>
+              </>
             ) : (
-              <span className="text-sm font-bold text-foreground dark:text-white pj inline-block">
+              <span className="text-sm font-bold text-foreground dark:text-white pj truncate block">
                 {label}
               </span>
             )}

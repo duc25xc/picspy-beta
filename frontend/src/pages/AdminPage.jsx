@@ -9,6 +9,7 @@ import React, {
   useMemo,
   Component,
 } from 'react'
+import { createPortal } from 'react-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import useNotificationStore from '../store/notification.store'
 import {
@@ -242,6 +243,893 @@ const MiniBarChart = ({
       </div>
     </div>
   )
+}
+
+// ─── Helper function to safely extract post main image URL ──────
+const getPostMainImageUrl = (post) => {
+  if (!post) return ''
+  const genImg = post.generatedImages?.[0]
+  if (genImg) {
+    return genImg.url || genImg.previewUrl || genImg.thumbnailUrl || ''
+  }
+  const img = post.images?.[0]
+  if (img) {
+    return typeof img === 'string' ? img : (img.url || img.previewUrl || img.thumbnailUrl || '')
+  }
+  return ''
+}
+
+// ─── Memoized Hero Post Card Component (Siêu mượt 60fps) ─────────
+const HeroPostCard = React.memo(
+  ({ post, type, isSelectedBanner, slotIdxInCollage, onSelectPost }) => {
+    const imgUrl = useMemo(() => getPostMainImageUrl(post), [post])
+    if (!imgUrl) return null
+
+    const isSelectedCollage = slotIdxInCollage !== -1
+    const isSelected = isSelectedBanner || isSelectedCollage
+    const authorName =
+      post.authorId?.username || post.authorId?.displayName || ''
+    const viewCount =
+      post.stats?.viewsCount ?? post.viewsCount ?? post.views ?? 0
+
+    return (
+      <div
+        onClick={() => onSelectPost(post, imgUrl)}
+        className={`group relative rounded-xl overflow-hidden border bg-[#16161c] transition-all duration-200 cursor-pointer flex flex-col aspect-[4/3] ${
+          isSelected
+            ? 'border-brand-400 ring-2 ring-brand-500/60 shadow-lg shadow-brand-500/25 bg-brand-500/10'
+            : 'border-white/10 hover:border-brand-500/50 hover:shadow-md'
+        }`}
+        style={{
+          backgroundImage:
+            'radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 0)',
+          backgroundSize: '10px 10px',
+        }}
+      >
+        <img
+          src={imgUrl}
+          alt=""
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 relative z-10"
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+
+        {/* Badge hiển thị cho Banner */}
+        {isSelectedBanner && (
+          <div className="absolute top-2 right-2 z-30 bg-brand-500 text-white rounded-full p-1 shadow-md flex items-center justify-center">
+            <Check size={12} />
+          </div>
+        )}
+
+        {/* Badge Ô ghép trong Lưới 8 Ô */}
+        {isSelectedCollage && (
+          <div className="absolute top-2 left-2 z-30 bg-brand-500 text-white font-mono font-extrabold text-[10px] px-2 py-0.5 rounded-full shadow-lg border border-brand-300 flex items-center gap-1">
+            <Check size={10} /> Ô #{slotIdxInCollage + 1}
+          </div>
+        )}
+
+        {/* Giao diện Overlay tinh tế: Tên tác giả ở góc + Views chuẩn xác */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-85 group-hover:opacity-100 transition-opacity p-2 flex flex-col justify-end z-20 pointer-events-none">
+          <div className="flex items-center justify-between gap-1.5 w-full">
+            {authorName ? (
+              <span className="text-[10px] font-semibold text-white/90 truncate bg-black/70 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/10 max-w-[70%]">
+                @{authorName}
+              </span>
+            ) : (
+              <div />
+            )}
+            <span className="text-[9px] bg-black/70 backdrop-blur-md px-1.5 py-0.5 rounded-full text-white/70 border border-white/10 flex items-center gap-1 flex-shrink-0">
+              <Eye size={9} /> {formatCount(viewCount)}
+            </span>
+          </div>
+        </div>
+      </div>
+    )
+  }
+)
+
+// ─── Hero Settings & Post Picker Modal Component ───────────────────
+const HeroSettingsModal = ({
+  isOpen,
+  onClose,
+  type, // 'banner' | 'collage'
+  selectedSlot,
+  onSelectSlot,
+  // Banner state from parent
+  heroBannerMode,
+  heroBannerImage,
+  handleSaveHeroBanner,
+  heroBannerSaving,
+  // Collage state from parent
+  heroCollageMode,
+  heroCollageImages,
+  handleSaveHeroCollage,
+  heroCollageSaving,
+  handleAutoFillCollageFromPosts,
+}) => {
+  const [search, setSearch] = useState('')
+  const [posts, setPosts] = useState([])
+  const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [cursor, setCursor] = useState(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [sortTab, setSortTab] = useState('recent')
+
+  // Local draft states inside modal
+  const [draftBannerMode, setDraftBannerMode] = useState(heroBannerMode)
+  const [draftBannerImage, setDraftBannerImage] = useState(heroBannerImage)
+  const [draftCollageMode, setDraftCollageMode] = useState(heroCollageMode)
+  const [draftCollageImages, setDraftCollageImages] = useState(heroCollageImages)
+
+  // Initial baseline states to track unsaved changes
+  const [initialBannerMode, setInitialBannerMode] = useState(heroBannerMode)
+  const [initialBannerImage, setInitialBannerImage] = useState(heroBannerImage)
+  const [initialCollageMode, setInitialCollageMode] = useState(heroCollageMode)
+  const [initialCollageImages, setInitialCollageImages] = useState(heroCollageImages)
+
+  const [showConfirmClose, setShowConfirmClose] = useState(false)
+  const gridRef = useRef(null)
+
+  // Đồng bộ draft state khi mở Modal
+  useEffect(() => {
+    if (isOpen) {
+      setDraftBannerMode(heroBannerMode)
+      setDraftBannerImage(heroBannerImage)
+      setDraftCollageMode(heroCollageMode)
+      setDraftCollageImages([...heroCollageImages])
+
+      setInitialBannerMode(heroBannerMode)
+      setInitialBannerImage(heroBannerImage)
+      setInitialCollageMode(heroCollageMode)
+      setInitialCollageImages([...heroCollageImages])
+
+      setShowConfirmClose(false)
+    }
+  }, [isOpen])
+
+  // Kiểm tra xem draft state có thay đổi chưa lưu hay không
+  const isDirty = useMemo(() => {
+    if (type === 'banner') {
+      return (
+        draftBannerMode !== initialBannerMode ||
+        draftBannerImage !== initialBannerImage
+      )
+    } else {
+      return (
+        draftCollageMode !== initialCollageMode ||
+        JSON.stringify(draftCollageImages) !== JSON.stringify(initialCollageImages)
+      )
+    }
+  }, [
+    type,
+    draftBannerMode,
+    initialBannerMode,
+    draftBannerImage,
+    initialBannerImage,
+    draftCollageMode,
+    initialCollageMode,
+    draftCollageImages,
+    initialCollageImages,
+  ])
+
+  // Xử lý đóng modal với cảnh báo chưa lưu
+  const handleAttemptClose = useCallback(() => {
+    if (isDirty) {
+      setShowConfirmClose(true)
+    } else {
+      onClose()
+    }
+  }, [isDirty, onClose])
+
+  const handleConfirmDiscard = useCallback(() => {
+    setShowConfirmClose(false)
+    onClose()
+  }, [onClose])
+
+  // Cảnh báo khi người dùng F5 hoặc tắt tab browser mà chưa lưu
+  useEffect(() => {
+    if (!isOpen || !isDirty) return
+
+    const handleBeforeUnload = (e) => {
+      e.preventDefault()
+      e.returnValue = ''
+      return ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [isOpen, isDirty])
+
+  // Phím ESC đóng modal
+  useEffect(() => {
+    if (!isOpen) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showConfirmClose) {
+          setShowConfirmClose(false)
+        } else {
+          handleAttemptClose()
+        }
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isOpen, isDirty, showConfirmClose, handleAttemptClose])
+
+  // Khóa scroll tuyệt đối trên cả body lẫn html
+  useEffect(() => {
+    if (isOpen) {
+      const originalBodyOverflow = document.body.style.overflow
+      const originalHtmlOverflow = document.documentElement.style.overflow
+      const originalBodyPaddingRight = document.body.style.paddingRight
+
+      const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth
+
+      document.body.style.overflow = 'hidden'
+      document.documentElement.style.overflow = 'hidden'
+      if (scrollbarWidth > 0) {
+        document.body.style.paddingRight = `${scrollbarWidth}px`
+      }
+
+      return () => {
+        document.body.style.overflow = originalBodyOverflow
+        document.documentElement.style.overflow = originalHtmlOverflow
+        document.body.style.paddingRight = originalBodyPaddingRight
+      }
+    }
+  }, [isOpen])
+
+  // Forward lăn chuột từ toàn bộ Backdrop overlay vào lưới ảnh trong Modal
+  const handleBackdropWheel = useCallback((e) => {
+    if (gridRef.current) {
+      gridRef.current.scrollTop += e.deltaY
+    }
+  }, [])
+
+  const [cursorViews, setCursorViews] = useState(null)
+  const loadingMoreRef = useRef(false)
+
+  const fetchPosts = async (
+    targetCursor = null,
+    targetCursorViews = null,
+    append = false
+  ) => {
+    if (append) {
+      if (loadingMoreRef.current) return
+      loadingMoreRef.current = true
+      setLoadingMore(true)
+    } else {
+      setLoading(true)
+    }
+
+    try {
+      const params = {
+        status: 'approved',
+        limit: 24,
+        search: search.trim() || undefined,
+      }
+      if (targetCursor) {
+        params.cursor = targetCursor
+        if (targetCursorViews !== null && targetCursorViews !== undefined) {
+          params.cursorViews = targetCursorViews
+        }
+      }
+      if (sortTab === 'views') params.sort = 'views'
+
+      const { data } = await api.get('/admin/posts', { params })
+      const newPosts = data.posts || []
+
+      if (append) {
+        setPosts((prev) => {
+          const existingIds = new Set(prev.map((p) => String(p._id)))
+          const uniqueNew = newPosts.filter((p) => !existingIds.has(String(p._id)))
+          if (uniqueNew.length === 0) {
+            setHasMore(false)
+          }
+          return [...prev, ...uniqueNew]
+        })
+      } else {
+        setPosts(newPosts)
+      }
+
+      if (newPosts.length > 0) {
+        const lastPost = newPosts[newPosts.length - 1]
+        setCursor(lastPost._id)
+        const v =
+          lastPost.stats?.viewsCount ??
+          lastPost.viewsCount ??
+          lastPost.views ??
+          0
+        setCursorViews(v)
+        setHasMore(newPosts.length >= 24)
+      } else {
+        setHasMore(false)
+      }
+    } catch (err) {
+      console.error('Error fetching posts for hero modal:', err)
+    } finally {
+      setLoading(false)
+      setLoadingMore(false)
+      loadingMoreRef.current = false
+    }
+  }
+
+  useEffect(() => {
+    if (isOpen) {
+      setCursor(null)
+      setCursorViews(null)
+      fetchPosts(null, null, false)
+    }
+  }, [isOpen, sortTab, type])
+
+  useEffect(() => {
+    if (!isOpen) return
+    const timer = setTimeout(() => {
+      setCursor(null)
+      setCursorViews(null)
+      fetchPosts(null, null, false)
+    }, 350)
+    return () => clearTimeout(timer)
+  }, [search])
+
+  const handleLoadMore = useCallback(() => {
+    if (loadingMoreRef.current || !hasMore || !cursor) return
+    fetchPosts(cursor, cursorViews, true)
+  }, [hasMore, cursor, cursorViews])
+
+  // Tự động tải thêm khi cuộn gần cuối danh sách (Infinite Scroll)
+  const handleGridScroll = useCallback(
+    (e) => {
+      const { scrollTop, scrollHeight, clientHeight } = e.currentTarget
+      if (scrollHeight - scrollTop - clientHeight < 280) {
+        handleLoadMore()
+      }
+    },
+    [handleLoadMore]
+  )
+
+  if (!isOpen) return null
+
+  // Đếm số ô đã chọn trong Collage draft
+  const filledSlotsCount = draftCollageImages.filter((img) => Boolean(img)).length
+
+  // Xử lý chọn bài viết
+  const handleSelectPost = (post, imgUrl) => {
+    if (!imgUrl) {
+      toast.error('Bài viết này không có đường dẫn ảnh hợp lệ')
+      return
+    }
+
+    if (type === 'banner') {
+      setDraftBannerImage(imgUrl)
+      setDraftBannerMode('manual')
+      toast.success('Đã chọn ảnh bài viết làm Ảnh bìa (Chưa lưu)!')
+    } else {
+      // 8-Slot auto-advance selection
+      const updated = [...draftCollageImages]
+      const existingSlotIdx = updated.indexOf(imgUrl)
+
+      // Nếu ảnh đã có trong danh sách 8 ô -> Click lại để bỏ chọn (Clear slot)
+      if (existingSlotIdx !== -1) {
+        updated[existingSlotIdx] = ''
+        setDraftCollageImages(updated)
+        onSelectSlot(existingSlotIdx)
+        toast.info(`Đã bỏ chọn ảnh tại Ô #${existingSlotIdx + 1}`)
+        return
+      }
+
+      // Xác định ô sẽ gắn ảnh vào
+      let targetIdx = selectedSlot
+      if (updated[targetIdx] !== '' || targetIdx < 0 || targetIdx > 7) {
+        const firstEmpty = updated.findIndex((slot) => slot === '')
+        if (firstEmpty !== -1) {
+          targetIdx = firstEmpty
+        }
+      }
+
+      updated[targetIdx] = imgUrl
+      setDraftCollageImages(updated)
+      setDraftCollageMode('manual')
+
+      // Tự động nhảy sang ô trống tiếp theo
+      const nextEmpty = updated.findIndex((s, i) => i > targetIdx && s === '')
+      if (nextEmpty !== -1) {
+        onSelectSlot(nextEmpty)
+      } else {
+        const anyEmpty = updated.findIndex((s) => s === '')
+        if (anyEmpty !== -1) onSelectSlot(anyEmpty)
+        else onSelectSlot((targetIdx + 1) % 8)
+      }
+
+      toast.success(`Đã gắn ảnh vào Ô #${targetIdx + 1}!`)
+    }
+  }
+
+  // Clear tất cả 8 ô ghép trong draft
+  const handleClearAllSlots = () => {
+    setDraftCollageImages(Array(8).fill(''))
+    onSelectSlot(0)
+    toast.info('Đã làm trống 8 ô ghép (Chưa lưu)')
+  }
+
+  // Tự động điền 8 bài mới nhất vào draft
+  const handleAutoFillCollageLocal = async () => {
+    try {
+      const { data } = await api.get('/admin/posts', {
+        params: { status: 'approved', limit: 8 }
+      })
+      const approvedPosts = data.posts || []
+      if (approvedPosts.length === 0) {
+        toast.error('Không tìm thấy bài viết được duyệt nào')
+        return
+      }
+      const updated = [...draftCollageImages]
+      approvedPosts.forEach((p, idx) => {
+        if (idx < 8) {
+          const imgUrl = getPostMainImageUrl(p)
+          if (imgUrl) updated[idx] = imgUrl
+        }
+      })
+      setDraftCollageImages(updated)
+      setDraftCollageMode('manual')
+      toast.success(`⚡ Đã điền 8 bài mới nhất vào 8 ô ghép!`)
+    } catch (err) {
+      toast.error('Lỗi khi lấy bài viết mới nhất')
+    }
+  }
+
+  // Lưu Banner từ draft vào hệ thống
+  const handleSaveBannerLocal = async () => {
+    await handleSaveHeroBanner(draftBannerMode, draftBannerImage)
+    setInitialBannerMode(draftBannerMode)
+    setInitialBannerImage(draftBannerImage)
+    onClose()
+  }
+
+  // Lưu Collage từ draft vào hệ thống (BUỘC CHỌN ĐỦ 8 ĐIỀU KIỆN)
+  const handleSaveCollageLocal = async () => {
+    const emptyCount = draftCollageImages.filter((img) => !img).length
+    if (emptyCount > 0) {
+      toast.error(
+        `⚠️ Bạn phải chọn đủ 8 ảnh cho 8 ô ghép trước khi lưu! (Còn thiếu ${emptyCount} ô)`
+      )
+      return
+    }
+    await handleSaveHeroCollage(draftCollageMode, draftCollageImages)
+    setInitialCollageMode(draftCollageMode)
+    setInitialCollageImages([...draftCollageImages])
+    onClose()
+  }
+
+  const modalJSX = (
+    <div
+      onWheel={handleBackdropWheel}
+      onClick={(e) => {
+        // Nhấp ra khoảng đen backdrop tính là đóng modal
+        if (e.target === e.currentTarget) {
+          handleAttemptClose()
+        }
+      }}
+      className="fixed inset-0 z-[99999] flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-fadeIn cursor-pointer"
+    >
+      {/* Container chuẩn chiều ngang max-w-[1320px] và h-[88vh] cố định */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="bg-[#121216] border border-white/10 rounded-2xl w-full max-w-[1320px] h-[88vh] max-h-[850px] min-h-[560px] flex flex-col shadow-2xl overflow-hidden cursor-default"
+      >
+        {/* 1. Modal Header */}
+        <div className="px-6 py-3.5 border-b border-white/10 flex items-center justify-between bg-white/[0.02] flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center text-brand-400">
+              {type === 'banner' ? <Images size={18} /> : <Palette size={18} />}
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-white flex items-center gap-2 font-display">
+                {type === 'banner'
+                  ? 'Cài đặt & Chọn bài viết làm Ảnh bìa Số liệu (Hero Banner)'
+                  : 'Cài đặt & Chọn bài viết cho Lưới 8 Ô Ghép Hero'}
+              </h3>
+              <p className="text-[11px] text-white/40">
+                {type === 'banner'
+                  ? 'Cấu hình chế độ hiển thị & chọn ảnh phong cảnh cho Stats Bar'
+                  : `Đã chọn ${filledSlotsCount}/8 ô ghép. Nhấp chọn trực tiếp từng bài viết để liên tục điền vào các ô 1-8`}
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isDirty && (
+              <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-full animate-pulse">
+                ⚠️ Có thay đổi chưa lưu
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={handleAttemptClose}
+              className="w-8 h-8 rounded-lg bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
+            >
+              <X size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* 2. Cài đặt chi tiết & Thanh Quản Lý Ô (Flex shrink 0) */}
+        <div className="p-4 bg-black/40 border-b border-white/10 flex-shrink-0 space-y-3">
+          {type === 'banner' ? (
+            /* Banner Settings embedded */
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <span className="text-xs font-bold text-white/80">Chế độ hiển thị:</span>
+                  <div className="inline-flex items-center p-1 bg-white/[0.04] border border-white/10 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setDraftBannerMode('auto')}
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                        draftBannerMode === 'auto'
+                          ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold shadow-md shadow-brand-500/25 ring-1 ring-brand-400'
+                          : 'text-white/50 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Tự động (Views cao)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDraftBannerMode('manual')}
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                        draftBannerMode === 'manual'
+                          ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold shadow-md shadow-brand-500/25 ring-1 ring-brand-400'
+                          : 'text-white/50 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Tùy chọn
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {draftBannerMode === 'manual' && (
+                <div className="flex items-center gap-3 pt-0.5">
+                  {draftBannerImage ? (
+                    <div className="w-16 h-10 rounded-lg overflow-hidden border border-white/10 flex-shrink-0 bg-black/40">
+                      <img
+                        src={draftBannerImage}
+                        alt="Selected Banner"
+                        className="w-full h-full object-cover"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  ) : (
+                    <div className="w-16 h-10 rounded-lg border border-dashed border-white/20 flex items-center justify-center text-white/30 text-[9px] flex-shrink-0">
+                      Chưa chọn
+                    </div>
+                  )}
+                  <input
+                    type="text"
+                    value={draftBannerImage}
+                    onChange={(e) => setDraftBannerImage(e.target.value)}
+                    className="input text-xs w-full py-2 px-3 bg-white/5 border border-white/10 rounded-xl text-white/80"
+                    placeholder="URL ảnh bìa số liệu tùy ý hoặc nhấp chọn bài viết bên dưới..."
+                  />
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Collage Settings embedded */
+            <div className="space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="inline-flex items-center p-1 bg-white/[0.04] border border-white/10 rounded-xl">
+                    <button
+                      type="button"
+                      onClick={() => setDraftCollageMode('auto')}
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                        draftCollageMode === 'auto'
+                          ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold shadow-md shadow-brand-500/25 ring-1 ring-brand-400'
+                          : 'text-white/50 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Tự động 8 bài
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDraftCollageMode('manual')}
+                      className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                        draftCollageMode === 'manual'
+                          ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold shadow-md shadow-brand-500/25 ring-1 ring-brand-400'
+                          : 'text-white/50 hover:text-white hover:bg-white/5'
+                      }`}
+                    >
+                      Tùy chọn 8 ô
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoFillCollageLocal}
+                    className="px-3 py-1.5 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5"
+                  >
+                    <Zap size={13} /> Tự điền 8 bài mới nhất
+                  </button>
+
+                  {filledSlotsCount > 0 && (
+                    <button
+                      type="button"
+                      onClick={handleClearAllSlots}
+                      className="px-2.5 py-1.5 rounded-xl bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-xs font-bold transition-colors cursor-pointer"
+                    >
+                      Xóa tất cả 8 ô
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* 8-Slot Interactive Selector Bar */}
+              <div className="bg-white/[0.02] border border-white/10 rounded-xl p-2.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-white/70">
+                    Trạng thái 8 Ô ghép (Đang chọn ô target: <span className="text-brand-300 font-extrabold">Ô #{selectedSlot + 1}</span>):
+                  </span>
+                  <span className="text-[10px] text-white/40">
+                    Nhấp bài viết ở lưới bên dưới để tự động điền lần lượt 1..8
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
+                  {Array.from({ length: 8 }).map((_, idx) => {
+                    const isTarget = selectedSlot === idx
+                    const img = draftCollageImages[idx]
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => onSelectSlot(idx)}
+                        className={`relative rounded-lg p-1.5 text-left border transition-all flex flex-col justify-between h-14 cursor-pointer overflow-hidden group ${
+                          isTarget
+                            ? 'bg-brand-500/20 border-brand-400 ring-2 ring-brand-500/40'
+                            : img
+                            ? 'bg-white/10 border-white/15 hover:border-white/30'
+                            : 'bg-white/5 border-white/5 hover:border-white/15'
+                        }`}
+                      >
+                        {img && (
+                          <img
+                            src={img}
+                            alt=""
+                            className="absolute inset-0 w-full h-full object-cover opacity-40 group-hover:opacity-60 transition-opacity"
+                            referrerPolicy="no-referrer"
+                          />
+                        )}
+                        <div className="relative z-10 flex items-center justify-between w-full">
+                          <span className={`text-[10px] font-mono font-bold px-1 py-0.5 rounded ${
+                            isTarget ? 'bg-brand-500 text-white' : 'bg-black/70 text-white/80'
+                          }`}>
+                            #{idx + 1}
+                          </span>
+                          {img ? (
+                            <Check size={10} className="text-emerald-400 bg-black/60 rounded-full p-0.5" />
+                          ) : (
+                            <span className="text-[9px] text-white/30">Trống</span>
+                          )}
+                        </div>
+                        {isTarget && (
+                          <div className="relative z-10 text-[9px] font-bold text-brand-300 text-right truncate">
+                            Đang gắn
+                          </div>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* 3. Bar Tìm kiếm & Bộ lọc (Flex shrink 0) */}
+        <div className="px-6 py-3 border-b border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white/[0.01] flex-shrink-0">
+          <div className="relative w-full sm:w-96">
+            <Search
+              size={14}
+              className="absolute left-3 top-1/2 -translate-y-1/2 text-white/40"
+            />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Tìm kiếm theo tiêu đề bài viết..."
+              className="input text-xs w-full pl-9 pr-8 py-2 bg-black/40 border border-white/10 rounded-xl focus:border-brand-500"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch('')}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-white/40 hover:text-white"
+              >
+                <X size={12} />
+              </button>
+            )}
+          </div>
+
+          <div className="inline-flex items-center p-1 bg-black/40 border border-white/10 rounded-xl w-full sm:w-auto">
+            <button
+              type="button"
+              onClick={() => setSortTab('recent')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                sortTab === 'recent'
+                  ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold shadow-md shadow-brand-500/25 ring-1 ring-brand-400'
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Mới nhất
+            </button>
+            <button
+              type="button"
+              onClick={() => setSortTab('views')}
+              className={`px-3.5 py-1.5 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
+                sortTab === 'views'
+                  ? 'bg-gradient-to-r from-brand-600 to-brand-500 text-white font-bold shadow-md shadow-brand-500/25 ring-1 ring-brand-400'
+                  : 'text-white/50 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              Xem nhiều nhất
+            </button>
+          </div>
+        </div>
+
+        {/* 4. Scrollable Grid Area (Infinite Scroll tự động tải thêm khi cuộn xuống gần cuối) */}
+        <div
+          ref={gridRef}
+          onScroll={handleGridScroll}
+          className="p-6 overflow-y-auto flex-1 min-h-0 scrollbar-thin space-y-4"
+        >
+          {loading ? (
+            <div className="h-full min-h-[250px] flex flex-col items-center justify-center text-white/40 gap-3">
+              <Loader2 size={32} className="animate-spin text-brand-400" />
+              <span className="text-xs font-medium">Đang tải kho bài viết...</span>
+            </div>
+          ) : posts.length === 0 ? (
+            <div className="h-full min-h-[250px] flex flex-col items-center justify-center text-white/40 space-y-2">
+              <Images size={36} className="mx-auto opacity-30" />
+              <p className="text-xs">Không tìm thấy bài viết nào phù hợp.</p>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-6 gap-3.5">
+                {posts.map((post) => {
+                  const imgUrl = getPostMainImageUrl(post)
+                  if (!imgUrl) return null
+
+                  const isSelectedBanner =
+                    type === 'banner' && draftBannerImage === imgUrl
+
+                  const slotIdxInCollage =
+                    type === 'collage' ? draftCollageImages.indexOf(imgUrl) : -1
+
+                  return (
+                    <HeroPostCard
+                      key={post._id}
+                      post={post}
+                      type={type}
+                      isSelectedBanner={isSelectedBanner}
+                      slotIdxInCollage={slotIdxInCollage}
+                      onSelectPost={handleSelectPost}
+                    />
+                  )
+                })}
+              </div>
+
+              {/* Tự động hiển thị spinner khi đang tải thêm trang tiếp theo */}
+              {loadingMore && (
+                <div className="py-4 flex justify-center items-center gap-2 text-white/50 text-xs">
+                  <Loader2 size={16} className="animate-spin text-brand-400" />
+                  <span>Đang tự động tải bài viết tiếp theo...</span>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* 5. Modal Footer (Chứa nút Lưu cấu hình đặt cạnh nút Đóng) */}
+        <div className="px-6 py-3.5 border-t border-white/10 bg-black/40 flex flex-col sm:flex-row items-center justify-between gap-3 flex-shrink-0">
+          <div className="flex items-center gap-3 text-xs text-white/50">
+            <span>Đã tải <strong className="text-white font-bold">{posts.length}</strong> bài viết</span>
+            {type === 'collage' && (
+              <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                filledSlotsCount === 8
+                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                  : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+              }`}>
+                {filledSlotsCount === 8 ? '✓ Đã chọn đủ 8/8 ô' : `⚠️ Đã chọn ${filledSlotsCount}/8 ô (Thiếu ${8 - filledSlotsCount} ô)`}
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handleAttemptClose}
+              className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/80 text-xs font-semibold transition-colors cursor-pointer border border-white/10"
+            >
+              Hủy / Đóng
+            </button>
+
+            {type === 'banner' ? (
+              <button
+                type="button"
+                onClick={handleSaveBannerLocal}
+                disabled={heroBannerSaving}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-500/25 ring-1 ring-brand-400"
+              >
+                {heroBannerSaving ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Save size={14} />
+                )}
+                Lưu cấu hình Ảnh bìa
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSaveCollageLocal}
+                disabled={heroCollageSaving}
+                className="flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 hover:from-brand-500 hover:to-brand-400 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-500/25 ring-1 ring-brand-400"
+              >
+                {heroCollageSaving ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Save size={14} />
+                )}
+                Lưu 8 ô nền
+              </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Unsaved Changes Confirmation Dialog */}
+      {showConfirmClose && (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fadeIn">
+          <div className="bg-[#18181f] border border-amber-500/30 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                <AlertTriangle size={20} />
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-white">Bạn có thay đổi chưa lưu!</h4>
+                <p className="text-[11px] text-amber-400/80 font-medium">Cảnh báo hủy bỏ cài đặt</p>
+              </div>
+            </div>
+            <div className="text-xs text-white/70 leading-relaxed space-y-1.5">
+              <p>Bạn đã chọn ảnh hoặc thay đổi cài đặt trong Modal nhưng chưa nhấn:</p>
+              <p className="text-amber-300 font-bold text-sm bg-black/40 px-3 py-1.5 rounded-lg border border-amber-500/20 text-center">
+                "{type === 'banner' ? 'Lưu cấu hình Ảnh bìa' : 'Lưu 8 ô nền'}"
+              </p>
+              <p>Bạn có chắc chắn muốn thoát và hủy bỏ các thay đổi này không?</p>
+            </div>
+            <div className="flex items-center gap-2.5 pt-2 justify-end">
+              <button
+                type="button"
+                onClick={handleConfirmDiscard}
+                className="px-4 py-2 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300 text-xs font-semibold transition-colors cursor-pointer border border-red-500/20"
+              >
+                Hủy thay đổi & Đóng
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowConfirmClose(false)}
+                className="px-5 py-2 rounded-xl bg-gradient-to-r from-brand-600 to-brand-500 text-white text-xs font-bold transition-all shadow-md cursor-pointer ring-1 ring-brand-400"
+              >
+                Quay lại chỉnh tiếp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+
+  return createPortal(modalJSX, document.body)
 }
 
 // ─── Style Preview Mockup Component ─────────────────────────────
@@ -9214,6 +10102,60 @@ const SettingsTab = ({ onDirtyChange }) => {
   const [heroCollageMode, setHeroCollageMode] = useState('auto')
   const [heroCollageImages, setHeroCollageImages] = useState(Array(8).fill(''))
   const [heroCollageSaving, setHeroCollageSaving] = useState(false)
+  const [isHeroModalOpen, setIsHeroModalOpen] = useState(false)
+  const [heroModalType, setHeroModalType] = useState('banner')
+  const [selectedCollageSlot, setSelectedCollageSlot] = useState(0)
+
+  const handleOpenHeroModal = (type = 'banner', slotIndex = 0) => {
+    setHeroModalType(type)
+    setSelectedCollageSlot(slotIndex)
+    setIsHeroModalOpen(true)
+  }
+
+  const handleSelectPostFromPicker = (post, imageUrl) => {
+    if (!imageUrl) {
+      toast.error('Bài viết này không có đường dẫn ảnh hợp lệ')
+      return
+    }
+    if (postPickerTarget?.type === 'banner') {
+      setHeroBannerImage(imageUrl)
+      setHeroBannerMode('manual')
+      toast.success(`Đã chọn ảnh từ bài viết "${post.title || post.prompt?.slice(0, 25) || 'bài viết'}" làm Ảnh bìa Hero!`)
+    } else if (postPickerTarget?.type === 'collage') {
+      const idx = postPickerTarget.slotIndex
+      const updated = [...heroCollageImages]
+      updated[idx] = imageUrl
+      setHeroCollageImages(updated)
+      setHeroCollageMode('manual')
+      toast.success(`Đã gắn ảnh từ bài viết vào Ô #${idx + 1}!`)
+    }
+    setIsPostPickerOpen(false)
+  }
+
+  const handleAutoFillCollageFromPosts = async () => {
+    try {
+      const { data } = await api.get('/admin/posts', {
+        params: { status: 'approved', limit: 8 }
+      })
+      const approvedPosts = data.posts || []
+      if (approvedPosts.length === 0) {
+        toast.error('Không tìm thấy bài viết được duyệt nào')
+        return
+      }
+      const updated = [...heroCollageImages]
+      approvedPosts.forEach((p, idx) => {
+        if (idx < 8) {
+          const imgUrl = getPostMainImageUrl(p)
+          if (imgUrl) updated[idx] = imgUrl
+        }
+      })
+      setHeroCollageImages(updated)
+      setHeroCollageMode('manual')
+      toast.success(`⚡ Đã tự động lấy 8 bài viết mới nhất cho 8 ô ghép!`)
+    } catch (err) {
+      toast.error('Lỗi khi lấy danh sách bài viết mới nhất')
+    }
+  }
   const [globalLoaderType, setGlobalLoaderType] = useState('wave')
   const [loaderSaving, setLoaderSaving] = useState(false)
   const [splashExtraMs, setSplashExtraMs] = useState(0)
@@ -9729,12 +10671,14 @@ const SettingsTab = ({ onDirtyChange }) => {
     }
   }
 
-  const handleSaveHeroBanner = async () => {
+  const handleSaveHeroBanner = async (modeOverride, imageOverride) => {
     setHeroBannerSaving(true)
+    const modeToSave = modeOverride !== undefined ? modeOverride : heroBannerMode
+    const imageToSave = imageOverride !== undefined ? imageOverride : heroBannerImage
     try {
       const { data } = await api.put('/admin/settings', {
-        heroBannerMode,
-        heroBannerImage,
+        heroBannerMode: modeToSave,
+        heroBannerImage: imageToSave,
       })
       setSettings(data.settings)
       setHeroBannerMode(data.settings?.heroBannerMode || 'auto')
@@ -9770,12 +10714,14 @@ const SettingsTab = ({ onDirtyChange }) => {
     }
   }
 
-  const handleSaveHeroCollage = async () => {
+  const handleSaveHeroCollage = async (modeOverride, imagesOverride) => {
     setHeroCollageSaving(true)
+    const modeToSave = modeOverride !== undefined ? modeOverride : heroCollageMode
+    const imagesToSave = imagesOverride !== undefined ? imagesOverride : heroCollageImages
     try {
       const { data } = await api.put('/admin/settings', {
-        heroCollageMode,
-        heroCollageImages,
+        heroCollageMode: modeToSave,
+        heroCollageImages: imagesToSave,
       })
       setSettings(data.settings)
       setHeroCollageMode(data.settings?.heroCollageMode || 'auto')
@@ -11324,9 +12270,6 @@ const SettingsTab = ({ onDirtyChange }) => {
                     🖼️ Ảnh của tôi (My Posts)
                   </option>
                 </select>
-                <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-white/40 text-xs">
-                  ▼
-                </div>
               </div>
             </div>
           </div>
@@ -11392,7 +12335,11 @@ const SettingsTab = ({ onDirtyChange }) => {
                       <div className="flex-1 flex flex-col justify-between">
                         <div>
                           <p
-                            className={`text-xs font-bold transition-colors ${categoryStyle === styleOpt.key ? 'text-brand-300' : 'text-white group-hover:text-brand-300'}`}
+                            className={`text-xs font-bold transition-colors ${
+                              categoryStyle === styleOpt.key
+                                ? 'text-brand-300'
+                                : 'text-white group-hover:text-brand-300'
+                            }`}
                           >
                             {styleOpt.title}
                           </p>
@@ -11421,194 +12368,196 @@ const SettingsTab = ({ onDirtyChange }) => {
                 </div>
               </div>
 
-              {/* ── Hero Banner Landscape Image Config ─── */}
-              <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
-                    <Images className="text-brand-400" size={22} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white text-base mb-1 font-display">
-                      Ảnh bìa Số liệu trang chủ (Hero Banner Image)
-                    </h3>
-                    <p className="text-sm text-white/50 leading-relaxed">
-                      Cài đặt hiển thị cho bức ảnh phong cảnh nằm phía sau thanh
-                      số liệu thống kê (Stats bar).
-                    </p>
-                  </div>
-                </div>
-
-                {/* Banner Mode selector */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setHeroBannerMode('auto')}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      heroBannerMode === 'auto'
-                        ? 'border-brand-500 bg-brand-500/10'
-                        : 'border-white/5 bg-white/5 hover:border-white/10'
-                    }`}
-                  >
-                    <p className="text-xs font-bold text-white mb-1">
-                      🤖 Tự động (Auto)
-                    </p>
-                    <span className="text-[10px] text-white/40 leading-relaxed block">
-                      Tự động chọn hình nền có lượt xem cao nhất trong hệ thống.
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setHeroBannerMode('manual')}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      heroBannerMode === 'manual'
-                        ? 'border-brand-500 bg-brand-500/10'
-                        : 'border-white/5 bg-white/5 hover:border-white/10'
-                    }`}
-                  >
-                    <p className="text-xs font-bold text-white mb-1">
-                      ✍️ Thủ công (Manual)
-                    </p>
-                    <span className="text-[10px] text-white/40 leading-relaxed block">
-                      Tự nhập liên kết (URL) ảnh tùy ý của bạn làm hình nền.
-                    </span>
-                  </button>
-                </div>
-
-                {/* Manual URL input if manual mode selected */}
-                {heroBannerMode === 'manual' && (
-                  <div className="space-y-2 pt-2">
-                    <label className="text-xs font-semibold text-white/60 block">
-                      Đường dẫn hình ảnh (Image URL)
-                    </label>
-                    <input
-                      type="text"
-                      value={heroBannerImage}
-                      onChange={(e) => setHeroBannerImage(e.target.value)}
-                      className="input text-xs w-full py-2.5 px-3"
-                      placeholder="https://example.com/your-custom-landscape.jpg"
-                    />
-                  </div>
-                )}
-
-                {/* Save button */}
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveHeroBanner}
-                    disabled={heroBannerSaving}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-900/30 font-display"
-                  >
-                    {heroBannerSaving ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Save size={13} />
-                    )}
-                    Lưu cấu hình ảnh bìa
-                  </button>
-                </div>
-              </div>
-
-              {/* ── Hero Collage Images Config ─── */}
-              <div className="card p-6 border border-white/10 space-y-5 bg-white/[0.01]">
-                <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-brand-500/10 border border-brand-500/20 flex items-center justify-center flex-shrink-0">
-                    <Palette className="text-brand-400" size={22} />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white text-base mb-1 font-display">
-                      Ảnh nền ghép Hero (Hero Collage Background)
-                    </h3>
-                    <p className="text-sm text-white/50 leading-relaxed">
-                      Cài đặt hiển thị cho 8 bức ảnh ghép đan xen làm hình nền
-                      mờ phía sau tiêu đề chính trang chủ.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Collage Mode selector */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setHeroCollageMode('auto')}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      heroCollageMode === 'auto'
-                        ? 'border-brand-500 bg-brand-500/10'
-                        : 'border-white/5 bg-white/5 hover:border-white/10'
-                    }`}
-                  >
-                    <p className="text-xs font-bold text-white mb-1">
-                      🤖 Tự động (Auto)
-                    </p>
-                    <span className="text-[10px] text-white/40 leading-relaxed block">
-                      Tự động lấy 8 hình ảnh mới được duyệt gần nhất trong hệ
-                      thống.
-                    </span>
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => setHeroCollageMode('manual')}
-                    className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
-                      heroCollageMode === 'manual'
-                        ? 'border-brand-500 bg-brand-500/10'
-                        : 'border-white/5 bg-white/5 hover:border-white/10'
-                    }`}
-                  >
-                    <p className="text-xs font-bold text-white mb-1">
-                      ✍️ Thủ công (Manual)
-                    </p>
-                    <span className="text-[10px] text-white/40 leading-relaxed block">
-                      Tự nhập danh sách 8 liên kết ảnh tĩnh tùy chọn làm hình
-                      nền.
-                    </span>
-                  </button>
-                </div>
-
-                {/* Manual 8 URLs input grid */}
-                {heroCollageMode === 'manual' && (
-                  <div className="space-y-4 pt-2">
-                    <label className="text-xs font-semibold text-white/60 block">
-                      Danh sách 8 liên kết ảnh (URLs - WebP khuyên dùng)
-                    </label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {Array.from({ length: 8 }).map((_, idx) => (
-                        <div key={idx} className="space-y-1">
-                          <span className="text-[10px] text-white/40 font-semibold">
-                            Ảnh #{idx + 1}
-                          </span>
-                          <input
-                            type="text"
-                            value={heroCollageImages[idx] || ''}
-                            onChange={(e) => {
-                              const newImgs = [...heroCollageImages]
-                              newImgs[idx] = e.target.value
-                              setHeroCollageImages(newImgs)
-                            }}
-                            className="input text-[11px] w-full py-2 px-2.5"
-                            placeholder={`URL cho hình nền thứ ${idx + 1}`}
-                          />
-                        </div>
-                      ))}
+              {/* ── ✨ Live Preview: Giao diện Hero ngoài Trang Chủ ─── */}
+              <div className="card p-6 border border-brand-500/20 bg-gradient-to-b from-brand-500/5 via-white/[0.01] to-black/40 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-brand-500/20 border border-brand-500/30 flex items-center justify-center text-brand-300 shadow-md">
+                      <Eye size={20} />
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-white text-base mb-0.5 font-display flex items-center gap-2">
+                        ✨ Live Preview: Giao diện Hero ngoài Trang Chủ
+                      </h3>
+                      <p className="text-xs text-white/50">
+                        Bấm vào bất kỳ vùng hình ảnh hoặc nút cài đặt bên dưới để mở giao diện Cấu hình & Chọn bài viết.
+                      </p>
                     </div>
                   </div>
-                )}
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenHeroModal('banner')}
+                      className="px-3.5 py-2 rounded-xl bg-brand-500/10 hover:bg-brand-500/20 border border-brand-500/30 text-brand-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Images size={14} /> ⚙️ Cấu hình Ảnh Bìa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenHeroModal('collage', 0)}
+                      className="px-3.5 py-2 rounded-xl bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-300 text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      <Palette size={14} /> ⚙️ Cấu hình 8 Ô Ghép
+                    </button>
+                  </div>
+                </div>
 
-                {/* Save button */}
-                <div className="flex justify-end pt-2">
-                  <button
-                    type="button"
-                    onClick={handleSaveHeroCollage}
-                    disabled={heroCollageSaving}
-                    className="flex items-center gap-2 px-4 py-2 rounded-xl bg-brand-600 hover:bg-brand-500 text-white text-xs font-bold transition-all disabled:opacity-50 cursor-pointer shadow-lg shadow-brand-900/30 font-display"
+                {/* Preview 1: Hero Collage Background Matrix */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white/80 flex items-center gap-1.5">
+                      <Palette size={14} className="text-brand-400" />
+                      1. Ảnh nền ghép Hero ({heroCollageMode === 'auto' ? 'Chế độ Tự động' : '8 Ô Tùy chỉnh'})
+                    </h4>
+                    <span className="text-[10px] text-white/40">
+                      Nhấp vào bất kỳ ô nào bên dưới để đổi bài viết
+                    </span>
+                  </div>
+
+                  <div className="relative rounded-2xl overflow-hidden border border-white/10 bg-zinc-950 p-6 min-h-[220px] flex items-center justify-center">
+                    {/* Rotated Staggered Matrix Mockup */}
+                    <div className="absolute inset-0 opacity-40 overflow-hidden pointer-events-auto">
+                      <div className="flex flex-col gap-3 rotate-[6deg] scale-[1.1] -translate-y-4 w-full">
+                        {/* Row 1: slots 0..3 */}
+                        <div className="flex gap-3">
+                          {Array.from({ length: 4 }).map((_, i) => {
+                            const url = heroCollageImages[i] || ''
+                            return (
+                              <div
+                                key={i}
+                                onClick={() => handleOpenHeroModal('collage', i)}
+                                className={`flex-1 rounded-xl overflow-hidden border border-white/10 bg-white/5 relative group cursor-pointer ${
+                                  i % 2 === 0 ? 'h-28' : 'h-20'
+                                }`}
+                              >
+                                {url ? (
+                                  <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-white/5 text-white/30 text-[9px]">
+                                    Ô #{i + 1}
+                                  </div>
+                                )}
+                                <span className="absolute top-1 left-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/80 text-brand-300 border border-brand-500/40 z-10">
+                                  #{i + 1}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        {/* Row 2: slots 4..7 */}
+                        <div className="flex gap-3 -translate-x-8">
+                          {Array.from({ length: 4 }).map((_, i) => {
+                            const idx = i + 4
+                            const url = heroCollageImages[idx] || ''
+                            return (
+                              <div
+                                key={idx}
+                                onClick={() => handleOpenHeroModal('collage', idx)}
+                                className={`flex-1 rounded-xl overflow-hidden border border-white/10 bg-white/5 relative group cursor-pointer ${
+                                  i % 2 === 0 ? 'h-20' : 'h-28'
+                                }}`}
+                              >
+                                {url ? (
+                                  <img src={url} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center bg-white/5 text-white/30 text-[9px]">
+                                    Ô #{idx + 1}
+                                  </div>
+                                )}
+                                <span className="absolute top-1 left-1 text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-black/80 text-brand-300 border border-brand-500/40 z-10">
+                                  #{idx + 1}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Headline Overlay Center */}
+                    <div className="relative z-10 text-center space-y-2 pointer-events-none">
+                      <h2 className="text-xl sm:text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-white via-white/90 to-brand-300 drop-shadow-md">
+                        Biến Ý Tưởng Thành Tác Phẩm AI
+                      </h2>
+                      <p className="text-xs text-white/70 max-w-md mx-auto">
+                        Khám phá kho ảnh Prompt AI chất lượng cao & cộng đồng sáng tạo
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Preview 2: Hero Banner Stats Landscape */}
+                <div className="space-y-2 pt-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-xs font-bold text-white/80 flex items-center gap-1.5">
+                      <Images size={14} className="text-brand-400" />
+                      2. Ảnh bìa số liệu (Stats Bar Banner)
+                    </h4>
+                    <button
+                      type="button"
+                      onClick={() => handleOpenHeroModal('banner')}
+                      className="text-[10px] text-brand-300 hover:text-brand-200 font-bold transition-colors cursor-pointer"
+                    >
+                      Bấm để chọn lại ảnh bìa
+                    </button>
+                  </div>
+
+                  <div
+                    onClick={() => handleOpenHeroModal('banner')}
+                    className="relative rounded-2xl overflow-hidden border border-white/12 shadow-2xl h-44 sm:h-52 cursor-pointer group"
                   >
-                    {heroCollageSaving ? (
-                      <Loader2 size={13} className="animate-spin" />
-                    ) : (
-                      <Save size={13} />
-                    )}
-                    Lưu cấu hình ảnh nền
-                  </button>
+                    {/* Background Banner Image */}
+                    <img
+                      src={
+                        heroBannerImage ||
+                        'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?w=1600&q=85'
+                      }
+                      alt="Hero Landscape Preview"
+                      className="w-full h-full object-cover opacity-60 group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/40 to-transparent z-10" />
+
+                    {/* Floating Badges Mockup */}
+                    <div className="absolute top-4 left-4 z-20">
+                      <div className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                        <span className="text-xs font-medium text-white/90">
+                          50K+ wallpaper đang chờ bạn
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="absolute top-4 right-4 z-20">
+                      <div className="px-3 py-1.5 rounded-full bg-black/60 backdrop-blur-md border border-white/10 flex items-center gap-2">
+                        <TrendingUp size={12} className="text-brand-400" />
+                        <span className="text-xs font-medium text-white/90">
+                          +340 ảnh hôm nay
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Bottom Stats Mockup */}
+                    <div className="absolute bottom-4 left-4 right-4 z-20 flex items-center justify-around bg-black/40 backdrop-blur-md border border-white/10 rounded-xl p-3">
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-white">50,290+</p>
+                        <p className="text-[10px] text-white/50">Tác phẩm</p>
+                      </div>
+                      <div className="w-px h-6 bg-white/10" />
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-white">12,480+</p>
+                        <p className="text-[10px] text-white/50">Tác giả AI</p>
+                      </div>
+                      <div className="w-px h-6 bg-white/10" />
+                      <div className="text-center">
+                        <p className="text-sm font-bold text-white">1.2M+</p>
+                        <p className="text-[10px] text-white/50">Lượt xem</p>
+                      </div>
+                    </div>
+
+                    <div className="absolute inset-0 bg-brand-500/10 opacity-0 group-hover:opacity-100 transition-opacity z-30 flex items-center justify-center text-white font-bold text-xs bg-black/40 backdrop-blur-[2px]">
+                      📸 Click để chọn bài viết cho Ảnh Bìa Số Liệu
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -12572,6 +13521,27 @@ const SettingsTab = ({ onDirtyChange }) => {
           </div>
         </div>
       </div>
+      {/* Hero Settings & Post Picker Modal */}
+      <HeroSettingsModal
+        isOpen={isHeroModalOpen}
+        onClose={() => setIsHeroModalOpen(false)}
+        type={heroModalType}
+        selectedSlot={selectedCollageSlot}
+        onSelectSlot={setSelectedCollageSlot}
+        heroBannerMode={heroBannerMode}
+        setHeroBannerMode={setHeroBannerMode}
+        heroBannerImage={heroBannerImage}
+        setHeroBannerImage={setHeroBannerImage}
+        handleSaveHeroBanner={handleSaveHeroBanner}
+        heroBannerSaving={heroBannerSaving}
+        heroCollageMode={heroCollageMode}
+        setHeroCollageMode={setHeroCollageMode}
+        heroCollageImages={heroCollageImages}
+        setHeroCollageImages={setHeroCollageImages}
+        handleSaveHeroCollage={handleSaveHeroCollage}
+        heroCollageSaving={heroCollageSaving}
+        handleAutoFillCollageFromPosts={handleAutoFillCollageFromPosts}
+      />
     </div>
   )
 }
