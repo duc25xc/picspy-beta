@@ -14,6 +14,8 @@ import {
   Cpu,
   Bookmark,
   CheckCircle,
+  XCircle,
+  Zap,
   Eye,
 } from 'lucide-react'
 import useNotificationStore from '../../store/notification.store'
@@ -51,6 +53,9 @@ const TAB_FILTER = {
     'ADMIN_STATS_SUMMARY',
     'ADMIN_CATEGORY_REQUEST',
     'POST_APPROVED',
+    'SUBSCRIPTION_REQUEST',
+    'SUBSCRIPTION_APPROVED',
+    'SUBSCRIPTION_REJECTED',
   ],
 }
 
@@ -216,6 +221,13 @@ const NotificationPanel = () => {
       case 'ADMIN_CATEGORY_REQUEST':
         navigate('/admin?tab=categories')
         break
+      case 'SUBSCRIPTION_REQUEST':
+        navigate('/admin?tab=users')
+        break
+      case 'SUBSCRIPTION_APPROVED':
+      case 'SUBSCRIPTION_REJECTED':
+        navigate('/pricing')
+        break
       default:
         if (notif.metadata?.url) {
           navigate(notif.metadata.url)
@@ -320,6 +332,24 @@ const NotificationPanel = () => {
         return (
           <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 flex-shrink-0">
             <TrendingUp size={14} />
+          </div>
+        )
+      case 'SUBSCRIPTION_REQUEST':
+        return (
+          <div className="w-7 h-7 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-400 flex-shrink-0">
+            <Zap size={14} />
+          </div>
+        )
+      case 'SUBSCRIPTION_APPROVED':
+        return (
+          <div className="w-7 h-7 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-400 flex-shrink-0">
+            <CheckCircle size={14} />
+          </div>
+        )
+      case 'SUBSCRIPTION_REJECTED':
+        return (
+          <div className="w-7 h-7 rounded-full bg-red-500/10 flex items-center justify-center text-red-500 flex-shrink-0">
+            <XCircle size={14} />
           </div>
         )
       default:
@@ -490,6 +520,18 @@ const NotificationPanel = () => {
           <span>
             {notif.metadata?.message || '🎉 Bài viết của bạn đã được Admin phê duyệt và xuất bản!'}
           </span>
+        )
+      case 'SUBSCRIPTION_REQUEST':
+        return (
+          <span>⚡ {notif.metadata?.message || 'Có yêu cầu nạp gói mới chờ Admin duyệt.'}</span>
+        )
+      case 'SUBSCRIPTION_APPROVED':
+        return (
+          <span>🎉 {notif.metadata?.message || 'Gói của bạn đã được Admin kích hoạt thành công!'}</span>
+        )
+      case 'SUBSCRIPTION_REJECTED':
+        return (
+          <span>❌ {notif.metadata?.message || 'Đơn nạp gói của bạn không được duyệt.'}</span>
         )
       default:
         return (

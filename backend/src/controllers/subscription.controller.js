@@ -1,7 +1,9 @@
 import SubscriptionPlan from '../models/SubscriptionPlan.model.js'
 import User from '../models/User.model.js'
 import TokenTransaction from '../models/TokenTransaction.model.js'
+import SubscriptionOrder from '../models/SubscriptionOrder.model.js'
 import AppError from '../utils/AppError.js'
+import { triggerNotificationEvent } from '../services/notification.service.js'
 
 // Số token cấp cho gói Free (1 lần duy nhất)
 const FREE_TOKEN_GRANT = 100
@@ -148,27 +150,259 @@ export const requestSubscription = async (req, res, next) => {
 
     const priceMap = { weekly: plan.pricing.weekly, monthly: plan.pricing.monthly, yearly: plan.pricing.yearly }
     const price = priceMap[cycle]
+    const priceFormatted = price.toLocaleString('vi-VN') + '₫'
 
-    // Phase 1: trả về thông tin thanh toán thủ công
-    res.json({
-      success: true,
-      paymentRequired: true,
-      instruction: 'Vui lòng chuyển khoản theo thông tin bên dưới và liên hệ admin để kích hoạt gói.',
-      order: {
+    const shortId = userId.toString().slice(-6).toUpperCase()
+    const memoContent = `PICSPY ${planId.toUpperCase()} ${shortId}`
+
+    // Lưu hoặc cập nhật đơn nạp chờ duyệt vào DB
+    const orderDoc = await SubscriptionOrder.findOneAndUpdate(
+      { userId, status: 'pending' },
+      {
+        orderCode: memoContent,
         planId,
         planName: plan.name,
         cycle,
         price,
-        priceFormatted: price.toLocaleString('vi-VN') + '₫',
+        priceFormatted,
+        memoContent,
+        shortId,
+        userConfirmed: false,
+      },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true }
+    )
+
+    // Gửi thông báo đến tất cả Admin — sẽ hiện trong chuông thông báo
+    try {
+      const adminUsers = await User.find({ role: 'admin' }).select('_id').lean()
+      for (const admin of adminUsers) {
+        await triggerNotificationEvent({
+          type: 'SUBSCRIPTION_REQUEST',
+          actorId: userId,
+          recipientId: admin._id,
+          metadata: {
+            message: `⚡ [Đơn Nạp Gói Mới] User @${req.user.username || 'user'} (ID: #${shortId}) vừa tạo hóa đơn gói ${plan.name} (${priceFormatted}). Nội dung: "${memoContent}".`,
+          },
+        })
+      }
+    } catch {
+      // Suppress notification error
+    }
+
+    res.json({
+      success: true,
+      paymentRequired: true,
+      instruction: 'Vui lòng chuyển khoản theo thông tin hóa đơn bên dưới để nâng cấp gói tài khoản.',
+      order: {
+        id: orderDoc._id,
+        planId,
+        planName: plan.name,
+        cycle,
+        price,
+        priceFormatted,
+        user: {
+          id: userId.toString(),
+          shortId,
+          username: req.user.username || 'Creator',
+          displayName: req.user.displayName || req.user.username || 'User',
+          email: req.user.email || ''
+        }
       },
       bankInfo: {
-        bank: 'Vietcombank',
-        accountNumber: '1234567890',    // TODO: cập nhật số tài khoản thật
-        accountName: 'PICSPY PLATFORM',
-        content: `PICSPY ${planId.toUpperCase()} ${userId.toString().slice(-6).toUpperCase()}`,
-        note: 'Nội dung chuyển khoản phải đúng để admin xác nhận',
+        bank: 'VietinBank',
+        bankFullName: 'Ngân hàng TMCP Công thương Việt Nam',
+        branch: 'CN Thái Nguyên - Hội sở',
+        accountNumber: '105870712923',
+        accountName: 'HA MINH DUC',
+        content: memoContent,
+        qrCodeUrl: '/qr-code-viettin.jpg',
+        dynamicQrUrl: `https://img.vietqr.io/image/vietinbank-105870712923-compact2.png?amount=${price}&addInfo=${encodeURIComponent(memoContent)}&accountName=HA%20MINH%20DUC`,
+        note: `⚠️ BẮT BUỘC nhập đúng nội dung chuyển khoản "${memoContent}" khi giao dịch.`
       },
-      contactAdmin: 'Sau khi chuyển khoản, nhắn tin Zalo: 0xxx xxx xxx kèm ảnh chụp giao dịch.',
+      contactAdmin: 'Sau khi chuyển khoản thành công, nhấn "Tôi đã chuyển khoản" để báo admin hỗ trợ kích hoạt nhanh nhất.'
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /v1/subscriptions/confirm-transfer
+ * Auth required — người dùng nhấn "Tôi đã chuyển khoản" trên PayModal
+ */
+export const confirmTransferNotification = async (req, res, next) => {
+  try {
+    const userId = req.user._id
+    const shortId = userId.toString().slice(-6).toUpperCase()
+
+    // Cập nhật đơn hàng gần nhất của user thành userConfirmed
+    const order = await SubscriptionOrder.findOneAndUpdate(
+      { userId, status: 'pending' },
+      { userConfirmed: true, userConfirmedAt: new Date() },
+      { sort: { createdAt: -1 }, returnDocument: 'after' }
+    )
+
+    // Gửi thông báo đến tất cả Admin — sẽ hiện trong chuông thông báo
+    const adminUsers = await User.find({ role: 'admin' }).select('_id').lean()
+    const planTitle = order ? order.planName : 'Nâng cấp Gói'
+    const priceText = order ? order.priceFormatted : ''
+    const memoText = order ? order.memoContent : `PICSPY ${shortId}`
+
+    for (const admin of adminUsers) {
+      await triggerNotificationEvent({
+        type: 'SUBSCRIPTION_REQUEST',
+        actorId: userId,
+        recipientId: admin._id,
+        metadata: {
+          message: `⚡ [CK Xác Nhận] User @${req.user.username || 'user'} (ID: #${shortId}) bấm đã chuyển khoản gói ${planTitle} (${priceText}). Nội dung: "${memoText}".`,
+        },
+      })
+    }
+
+    res.json({
+      success: true,
+      message: 'Đã gửi thông báo cho Admin. Admin sẽ kiểm tra và kích hoạt gói cho bạn trong 5-15 phút!',
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /v1/subscriptions/pending-orders — Admin lấy danh sách các đơn chuyển khoản chờ duyệt
+ * Admin only
+ */
+export const getPendingSubscriptionOrders = async (req, res, next) => {
+  try {
+    const orders = await SubscriptionOrder.find({ status: 'pending' })
+      .populate('userId', 'username displayName email avatar subscriptionTier tokenBalance')
+      .sort({ userConfirmed: -1, createdAt: -1 })
+      .lean()
+
+    res.json({
+      success: true,
+      count: orders.length,
+      orders,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /v1/subscriptions/orders/:orderId/approve — Admin duyệt đơn nạp tiền/gói thủ công
+ * Admin only
+ */
+export const approveSubscriptionOrder = async (req, res, next) => {
+  try {
+    const { orderId } = req.params
+    const order = await SubscriptionOrder.findById(orderId)
+    if (!order) throw new AppError('NOT_FOUND', 'Không tìm thấy đơn nạp', 404)
+
+    if (order.status !== 'pending') {
+      throw new AppError('ORDER_PROCESSED', `Đơn hàng đã ở trạng thái ${order.status}`, 400)
+    }
+
+    const user = await User.findById(order.userId)
+    if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
+
+    const plan = await SubscriptionPlan.findOne({ planId: order.planId }).lean()
+
+    // Tính ngày hết hạn
+    const cycleDays = { weekly: 7, monthly: 30, yearly: 365 }
+    const days = cycleDays[order.cycle] || 30
+    const now = new Date()
+    const base = user.subscriptionExpiry && user.subscriptionExpiry > now ? user.subscriptionExpiry : now
+    const newExpiry = new Date(base.getTime() + days * 86400000)
+
+    user.subscriptionTier = order.planId
+    user.subscriptionCycle = order.cycle
+    user.subscriptionExpiry = newExpiry
+
+    if (order.planId === 'founder') user.founderSlot = true
+
+    // Cấp AI Credits
+    let tokensGranted = 0
+    const planTokenMap = { pro: 1000, founder: 2500, ultimate: 0, free: 0 }
+    const tokensToGrant = plan ? (plan.tokenPerMonth || 0) : (planTokenMap[order.planId] || 0)
+
+    const balanceBefore = typeof user.tokenBalance === 'number' && !isNaN(user.tokenBalance) ? user.tokenBalance : 0
+
+    if (tokensToGrant > 0) {
+      user.tokenBalance = balanceBefore + tokensToGrant
+      tokensGranted = tokensToGrant
+
+      await TokenTransaction.create({
+        userId: user._id,
+        type: 'monthly_grant',
+        amount: tokensGranted,
+        balanceBefore,
+        balanceAfter: user.tokenBalance,
+        description: `Duyệt đơn nạp gói ${order.planName} (${order.cycle || 'monthly'}) — +${tokensGranted} token`,
+        relatedSubscriptionId: order.planId,
+        meta: { adminNote: `Approved by admin ${req.user.username || req.user._id}` },
+      })
+    } else {
+      user.tokenBalance = balanceBefore
+    }
+
+    await user.save()
+
+    // Đánh dấu đơn hàng là đã duyệt
+    order.status = 'approved'
+    order.approvedBy = req.user._id
+    order.approvedAt = new Date()
+    await order.save()
+
+    // Thông báo cho User — sẽ hiện trong chuông thông báo
+    await triggerNotificationEvent({
+      type: 'SUBSCRIPTION_APPROVED',
+      actorId: req.user._id,
+      recipientId: user._id,
+      metadata: {
+        message: `🎉 Gói PicSpy ${order.planName} (${order.cycle || 'monthly'}) đã được Admin kích hoạt thành công! Hạn dùng đến: ${newExpiry.toLocaleDateString('vi-VN')}.`,
+      },
+    })
+
+    res.json({
+      success: true,
+      message: `Đã duyệt & kích hoạt gói ${order.planName} cho @${user.username}!`,
+      order,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * POST /v1/subscriptions/orders/:orderId/reject — Admin từ chối đơn nạp
+ * Admin only
+ */
+export const rejectSubscriptionOrder = async (req, res, next) => {
+  try {
+    const { orderId } = req.params
+    const { reason } = req.body
+
+    const order = await SubscriptionOrder.findById(orderId)
+    if (!order) throw new AppError('NOT_FOUND', 'Không tìm thấy đơn nạp', 404)
+
+    order.status = 'rejected'
+    order.rejectedReason = reason || 'Admin không tìm thấy giao dịch chuyển khoản phù hợp'
+    await order.save()
+
+    // Thông báo cho User — sẽ hiện trong chuông thông báo
+    await triggerNotificationEvent({
+      type: 'SUBSCRIPTION_REJECTED',
+      actorId: req.user._id,
+      recipientId: order.userId,
+      metadata: {
+        message: `❌ Đơn nạp gói PicSpy ${order.planName} (${order.memoContent}) không được duyệt. Lý do: ${order.rejectedReason}.`,
+      },
+    })
+
+    res.json({
+      success: true,
+      message: `Đã từ chối đơn nạp của User`,
     })
   } catch (err) {
     next(err)

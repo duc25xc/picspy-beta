@@ -17,6 +17,7 @@ import {
   Images,
   Users,
   CheckCircle,
+  CheckCircle2,
   XCircle,
   EyeOff,
   Clock,
@@ -7141,6 +7142,62 @@ const UsersTab = () => {
     return null
   }
 
+  const [pendingOrders, setPendingOrders] = useState([])
+  const [pendingOrdersLoading, setPendingOrdersLoading] = useState(false)
+  const prevPendingCountRef = useRef(null)
+
+  const fetchPendingOrders = useCallback(async () => {
+    try {
+      const { data } = await api.get('/subscriptions/pending-orders')
+      if (data.success) {
+        const newOrders = data.orders || []
+        if (
+          prevPendingCountRef.current !== null &&
+          newOrders.length > prevPendingCountRef.current
+        ) {
+          const newest = newOrders[0]
+          toast.success(
+            `⚡ CÓ YÊU CẦU NẠP GÓI MỚI!\nUser @${newest.userId?.username || 'user'} vừa gửi yêu cầu nạp gói PicSpy ${newest.planName} (${newest.priceFormatted}).`,
+            { duration: 8000, icon: '🔔' }
+          )
+        }
+        prevPendingCountRef.current = newOrders.length
+        setPendingOrders(newOrders)
+      }
+    } catch {
+      // Suppress background error
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchPendingOrders()
+    const interval = setInterval(fetchPendingOrders, 10000)
+    return () => clearInterval(interval)
+  }, [fetchPendingOrders])
+
+  const handleApproveOrder = async (orderId) => {
+    try {
+      const { data } = await api.post(`/subscriptions/orders/${orderId}/approve`)
+      toast.success(data.message || 'Đã duyệt gói thành công!')
+      fetchPendingOrders()
+      fetchUsers(true)
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi duyệt đơn')
+    }
+  }
+
+  const handleRejectOrder = async (orderId) => {
+    const reason = window.prompt('Nhập lý do từ chối (hoặc để trống):')
+    if (reason === null) return
+    try {
+      const { data } = await api.post(`/subscriptions/orders/${orderId}/reject`, { reason })
+      toast.success(data.message || 'Đã từ chối đơn')
+      fetchPendingOrders()
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Lỗi từ chối')
+    }
+  }
+
   const fetchUsers = useCallback(
     async (reset = false) => {
       const isCustomSort = sortBy && sortBy !== 'default'
@@ -7162,6 +7219,9 @@ const UsersTab = () => {
         }
         if (avatarFilter !== 'all') {
           params.avatarStatus = avatarFilter
+        }
+        if (hideAiUsers) {
+          params.hideAiUsers = 'true'
         }
         if (search.trim()) params.search = search
         const { data } = await api.get('/admin/users', { params })
@@ -7191,7 +7251,7 @@ const UsersTab = () => {
         setLoading(false)
       }
     },
-    [search, cursor, sortBy, page, avatarFilter]
+    [search, cursor, sortBy, page, avatarFilter, hideAiUsers]
   )
 
   const handleCleanupOrphans = async () => {
@@ -7248,7 +7308,7 @@ const UsersTab = () => {
 
   useEffect(() => {
     fetchUsers(true)
-  }, [sortBy, avatarFilter]) // eslint-disable-line
+  }, [sortBy, avatarFilter, hideAiUsers]) // eslint-disable-line
 
   const scrollLockRef = useRef(null)
   const sortDropdownRef = useRef(null)
@@ -7442,8 +7502,11 @@ const UsersTab = () => {
     }
   }
 
+  const [selectedCycle, setSelectedCycle] = useState('monthly')
+
   const openTierModal = (user) => {
-    setSelectedTier(user.subscriptionTier || 'free')
+    setSelectedTier(user.subscriptionTier || 'pro')
+    setSelectedCycle(user.subscriptionCycle || 'monthly')
     setTierModal(user)
   }
 
@@ -7451,23 +7514,46 @@ const UsersTab = () => {
     if (!tierModal) return
     setTierLoading(true)
     try {
-      const { data } = await api.patch(`/admin/users/${tierModal._id}/tier`, {
-        tier: selectedTier,
-        expireInDays: selectedTier === 'free' ? 0 : 365,
-      })
-      toast.success(data.message)
-      setUsers((prev) =>
-        prev.map((u) =>
-          u._id === tierModal._id
-            ? { ...u, subscriptionTier: data.subscriptionTier }
-            : u
+      if (selectedTier === 'free') {
+        const { data } = await api.patch(`/admin/users/${tierModal._id}/tier`, {
+          tier: 'free',
+          expireInDays: 0,
+        })
+        toast.success(data.message)
+        setUsers((prev) =>
+          prev.map((u) =>
+            u._id === tierModal._id
+              ? { ...u, subscriptionTier: 'free', subscriptionExpiry: null }
+              : u
+          )
         )
-      )
-      // Nếu admin tự đổi tier của mình → reload để update navbar token badge
+      } else {
+        const { data } = await api.post('/subscriptions/activate', {
+          userId: tierModal._id,
+          planId: selectedTier,
+          cycle: selectedCycle,
+        })
+        const activatedUser = data.user
+        toast.success(data.message || 'Duyệt & Kích hoạt gói thành công!')
+        setUsers((prev) =>
+          prev.map((u) =>
+            u._id === tierModal._id
+              ? {
+                  ...u,
+                  subscriptionTier: activatedUser.subscriptionTier,
+                  subscriptionCycle: activatedUser.subscriptionCycle,
+                  subscriptionExpiry: activatedUser.subscriptionExpiry,
+                  tokenBalance: activatedUser.tokenBalance,
+                  founderSlot: activatedUser.founderSlot,
+                }
+              : u
+          )
+        )
+      }
       if (tierModal._id === currentAdminId) window.location.reload()
       setTierModal(null)
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Lỗi đổi tier')
+      toast.error(err.response?.data?.message || 'Lỗi khi kích hoạt gói')
     } finally {
       setTierLoading(false)
     }
@@ -7569,7 +7655,7 @@ const UsersTab = () => {
           </div>
         </div>
 
-        {/* Avatar Filter Switcher */}
+        {/* Avatar & Order Filter Switcher */}
         <div className="flex items-center flex-wrap gap-1 bg-white/5 p-1 rounded-xl border border-white/10 text-xs">
           <button
             onClick={() => setAvatarFilter('all')}
@@ -7586,6 +7672,22 @@ const UsersTab = () => {
               users.length
             ).toLocaleString()}
             )
+          </button>
+          <button
+            onClick={() => setAvatarFilter('pending_orders')}
+            className={`px-3 py-1 rounded-lg font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              avatarFilter === 'pending_orders'
+                ? 'bg-amber-500 text-stone-950 font-bold shadow-md shadow-amber-500/20'
+                : 'text-amber-300/80 hover:text-amber-200 hover:bg-amber-500/10'
+            }`}
+          >
+            <Zap size={12} className={pendingOrders.length > 0 ? 'text-amber-400 animate-pulse' : ''} />
+            <span>⚡ Yêu Cầu Chờ Duyệt</span>
+            {pendingOrders.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-stone-950 text-[10px] font-mono font-bold animate-pulse">
+                {pendingOrders.length}
+              </span>
+            )}
           </button>
           <button
             onClick={() => setAvatarFilter('missing')}
@@ -7780,7 +7882,129 @@ const UsersTab = () => {
         </div>
       </div>
 
-      {loading ? (
+      {avatarFilter === 'pending_orders' ? (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-semibold">
+            <div className="flex items-center gap-2">
+              <Zap size={14} className="text-amber-400 animate-pulse" />
+              <span>
+                Hiện có <b className="font-mono text-amber-200 text-sm">{pendingOrders.length}</b> yêu cầu nạp gói/chuyển khoản chờ Admin duyệt
+              </span>
+            </div>
+            <button
+              onClick={fetchPendingOrders}
+              className="px-3 py-1 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
+            >
+              <RefreshCw size={12} /> Làm mới
+            </button>
+          </div>
+
+          {pendingOrders.length === 0 ? (
+            <div className="card p-12 text-center text-white/40 space-y-2">
+              <CheckCircle2 size={40} className="mx-auto text-emerald-400/50" />
+              <p className="font-bold text-white/80">Không có yêu cầu nạp gói nào đang chờ duyệt</p>
+              <p className="text-xs">Khi có thành viên nâng gói hoặc báo đã chuyển khoản, danh sách sẽ tự động xuất hiện tại đây.</p>
+            </div>
+          ) : (
+            pendingOrders.map((ord) => (
+              <motion.div
+                key={ord._id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="card p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-transparent to-transparent hover:border-amber-500/40 transition-all shadow-xl"
+              >
+                {/* User Info */}
+                <div className="flex items-center gap-3">
+                  <img
+                    src={
+                      ord.userId?.avatar ||
+                      `https://ui-avatars.com/api/?name=${encodeURIComponent(ord.userId?.displayName || ord.userId?.username || 'U')}&background=7c3aed&color=fff&bold=true`
+                    }
+                    alt=""
+                    className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-amber-500/30"
+                  />
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-base">
+                        {ord.userId?.displayName || ord.userId?.username || 'N/A'}
+                      </span>
+                      <span className="text-xs text-white/50">@{ord.userId?.username}</span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white/10 text-amber-300 font-bold border border-amber-500/20">
+                        ID: #{ord.shortId}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/60 mt-0.5">
+                      {ord.userId?.email}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 text-xs">
+                      <span className="text-white/40">Gói yêu cầu:</span>
+                      <span className="font-bold text-[#8b98f8] px-2 py-0.5 rounded bg-[#7986eb]/15 border border-[#7986eb]/30">
+                        PicSpy {ord.planName} ({ord.cycle === 'yearly' ? '1 Năm' : ord.cycle === 'weekly' ? '1 Tuần' : '1 Tháng'})
+                      </span>
+                      <span className="font-black text-amber-300 font-mono text-sm ml-1">
+                        {ord.priceFormatted || `${ord.price?.toLocaleString('vi-VN')}₫`}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Memo & Status */}
+                <div className="flex flex-col sm:flex-row md:flex-col items-start md:items-end justify-between gap-3 shrink-0">
+                  <div className="space-y-1 text-left md:text-right">
+                    <div className="flex items-center gap-1.5 justify-start md:justify-end">
+                      <span className="text-[11px] text-white/40">Nội dung CK:</span>
+                      <span className="font-mono font-black text-amber-300 bg-black/50 px-2 py-0.5 rounded border border-amber-500/30 text-xs tracking-wider">
+                        {ord.memoContent}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(ord.memoContent)
+                          toast.success('Đã sao chép nội dung CK!')
+                        }}
+                        className="p-1 rounded bg-white/10 hover:bg-white/20 text-white transition-all cursor-pointer"
+                        title="Sao chép nội dung"
+                      >
+                        <Copy size={12} />
+                      </button>
+                    </div>
+                    
+                    <div className="flex items-center gap-2 text-[11px] justify-start md:justify-end">
+                      {ord.userConfirmed ? (
+                        <span className="px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 flex items-center gap-1 animate-pulse">
+                          <CheckCircle2 size={11} /> Khách đã bấm "Tôi đã chuyển khoản"
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-0.5 rounded-full font-bold bg-amber-500/15 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                          <Clock size={11} /> Đã tạo hóa đơn thanh toán
+                        </span>
+                      )}
+                      <span className="text-white/40">
+                        {new Date(ord.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Approve / Reject Actions */}
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <button
+                      onClick={() => handleRejectOrder(ord._id)}
+                      className="px-3 py-2 rounded-xl text-xs font-semibold border border-red-500/30 text-red-400 hover:bg-red-500/20 transition-all cursor-pointer"
+                    >
+                      ✕ Từ chối
+                    </button>
+                    <button
+                      onClick={() => handleApproveOrder(ord._id)}
+                      className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-[0_4px_16px_rgba(16,185,129,0.3)] flex items-center justify-center gap-1.5 transition-all cursor-pointer"
+                    >
+                      <Check size={14} /> Duyệt & Kích Hoạt Ngay
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))
+          )}
+        </div>
+      ) : loading ? (
         <div className="space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="card p-4 animate-pulse h-16" />
@@ -8001,14 +8225,18 @@ const UsersTab = () => {
         </div>
       )}
 
-      {hasMore && (
-        <button
-          onClick={() => fetchUsers(false)}
-          className="btn-secondary w-full flex items-center justify-center gap-2 text-sm"
-        >
-          <ChevronDown size={15} /> Tải thêm
-        </button>
-      )}
+      {hasMore &&
+        avatarFilter !== 'pending_orders' &&
+        avatarFilter !== 'missing' &&
+        avatarFilter !== 'orphan' &&
+        users.length > 0 && (
+          <button
+            onClick={() => fetchUsers(false)}
+            className="btn-secondary w-full flex items-center justify-center gap-2 text-sm mt-3"
+          >
+            <ChevronDown size={15} /> Tải thêm
+          </button>
+        )}
 
       {/* Coin modal */}
       <AnimatePresence>
@@ -8223,9 +8451,9 @@ const UsersTab = () => {
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="card p-6 w-full max-w-sm"
+              className="card p-6 w-full max-w-md border border-white/15 shadow-2xl"
             >
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-4 pb-3 border-b border-white/10">
                 <div
                   className="w-11 h-11 rounded-2xl flex items-center justify-center text-2xl"
                   style={{ background: TIER_META[selectedTier]?.bg }}
@@ -8234,93 +8462,133 @@ const UsersTab = () => {
                 </div>
                 <div>
                   <h3 className="font-bold text-lg leading-tight">
-                    Đổi gói đăng ký
+                    Duyệt & Kích hoạt gói
                   </h3>
-                  <p className="text-xs text-white/40">@{tierModal.username}</p>
+                  <p className="text-xs text-white/50">
+                    Tài khoản: <span className="text-violet-400 font-bold">@{tierModal.username}</span> (ID: #{tierModal._id?.slice(-6).toUpperCase()})
+                  </p>
                 </div>
               </div>
 
-              {/* Tier grid */}
-              <div className="grid grid-cols-2 gap-2 mb-5">
-                {Object.entries(TIER_META).map(([key, meta]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedTier(key)}
-                    className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all"
-                    style={{
-                      background:
-                        selectedTier === key
-                          ? meta.bg
-                          : 'rgba(255,255,255,0.03)',
-                      borderColor:
-                        selectedTier === key
-                          ? meta.border
-                          : 'rgba(255,255,255,0.07)',
-                      boxShadow:
-                        selectedTier === key
-                          ? `0 0 0 1.5px ${meta.border}`
-                          : 'none',
-                    }}
-                  >
-                    <span className="text-lg">{meta.icon}</span>
-                    <div>
-                      <p
-                        className="text-xs font-bold"
-                        style={{
-                          color:
-                            selectedTier === key
-                              ? meta.color
-                              : 'rgba(255,255,255,0.5)',
-                        }}
-                      >
-                        {meta.label}
-                      </p>
-                      {key !== 'free' && (
-                        <p className="text-[10px] text-white/25">
-                          {key === 'founder'
-                            ? '200 slot'
-                            : key === 'pro'
-                              ? '1K AI Credits/th'
-                              : 'Unlimited'}
+              {/* 1. Tier selection grid */}
+              <div className="mb-4">
+                <label className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-2 block">
+                  Chọn gói tài khoản
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {Object.entries(TIER_META).map(([key, meta]) => (
+                    <button
+                      key={key}
+                      onClick={() => setSelectedTier(key)}
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left transition-all cursor-pointer"
+                      style={{
+                        background:
+                          selectedTier === key
+                            ? meta.bg
+                            : 'rgba(255,255,255,0.03)',
+                        borderColor:
+                          selectedTier === key
+                            ? meta.border
+                            : 'rgba(255,255,255,0.07)',
+                        boxShadow:
+                          selectedTier === key
+                            ? `0 0 0 1.5px ${meta.border}`
+                            : 'none',
+                      }}
+                    >
+                      <span className="text-lg">{meta.icon}</span>
+                      <div>
+                        <p
+                          className="text-xs font-bold"
+                          style={{
+                            color:
+                              selectedTier === key
+                                ? meta.color
+                                : 'rgba(255,255,255,0.5)',
+                          }}
+                        >
+                          {meta.label}
                         </p>
+                        {key !== 'free' && (
+                          <p className="text-[10px] text-white/30">
+                            {key === 'founder'
+                              ? '200 slot'
+                              : key === 'pro'
+                                ? '1K AI Credits/th'
+                                : 'Unlimited'}
+                          </p>
+                        )}
+                      </div>
+                      {selectedTier === key && (
+                        <Check
+                          size={13}
+                          className="ml-auto flex-shrink-0"
+                          style={{ color: meta.color }}
+                        />
                       )}
-                    </div>
-                    {selectedTier === key && (
-                      <Check
-                        size={13}
-                        className="ml-auto flex-shrink-0"
-                        style={{ color: meta.color }}
-                      />
-                    )}
-                  </button>
-                ))}
+                    </button>
+                  ))}
+                </div>
               </div>
 
-              {/* Current vs Selected */}
-              <div className="flex items-center justify-center gap-2 mb-5 text-xs">
-                <span
-                  className="px-2.5 py-1 rounded-full font-bold"
-                  style={{
-                    background:
-                      TIER_META[tierModal.subscriptionTier || 'free']?.bg,
-                    color:
-                      TIER_META[tierModal.subscriptionTier || 'free']?.color,
-                  }}
-                >
-                  {TIER_META[tierModal.subscriptionTier || 'free']?.label}
-                </span>
-                <span className="text-white/30">→</span>
-                <span
-                  className="px-2.5 py-1 rounded-full font-bold"
-                  style={{
-                    background: TIER_META[selectedTier]?.bg,
-                    color: TIER_META[selectedTier]?.color,
-                    border: `1px solid ${TIER_META[selectedTier]?.border}`,
-                  }}
-                >
-                  {TIER_META[selectedTier]?.label}
-                </span>
-              </div>
+              {/* 2. Cycle selection (If not free) */}
+              {selectedTier !== 'free' && (
+                <div className="mb-4">
+                  <label className="text-[11px] font-bold text-white/40 uppercase tracking-wider mb-2 block">
+                    Chu kỳ kích hoạt
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      ['monthly', '1 Tháng (30 ngày)'],
+                      ['yearly', '1 Năm (365 ngày)'],
+                      ['weekly', '1 Tuần (7 ngày)'],
+                    ].map(([cKey, cLabel]) => (
+                      <button
+                        key={cKey}
+                        onClick={() => setSelectedCycle(cKey)}
+                        className={`py-2 px-2 rounded-xl text-xs font-semibold border transition-all text-center ${
+                          selectedCycle === cKey
+                            ? 'bg-violet-600/30 border-violet-500 text-violet-200 font-bold shadow-md'
+                            : 'bg-white/5 border-white/10 text-white/50 hover:text-white'
+                        }`}
+                      >
+                        {cLabel}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 3. Immediate Activation Info Box */}
+              {selectedTier !== 'free' && (
+                <div className="p-3 rounded-xl bg-white/[0.03] border border-white/10 text-xs space-y-1.5 mb-5">
+                  <div className="flex justify-between text-white/60">
+                    <span>Thời điểm kích hoạt:</span>
+                    <span className="font-bold text-emerald-400">Áp dụng ngay tức thì</span>
+                  </div>
+                  <div className="flex justify-between text-white/60">
+                    <span>Hạn sử dụng mới:</span>
+                    <span className="font-bold text-white">
+                      {new Date(
+                        Date.now() +
+                          (selectedCycle === 'yearly' ? 365 : selectedCycle === 'weekly' ? 7 : 30) * 86400000
+                      ).toLocaleDateString('vi-VN')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-white/60 pt-1 border-t border-white/5">
+                    <span>AI Credits cộng thêm:</span>
+                    <span className="font-bold text-amber-300">
+                      {selectedTier === 'pro'
+                        ? '+1.000 Credits'
+                        : selectedTier === 'ultimate'
+                          ? 'Unlimited AI'
+                          : selectedTier === 'founder'
+                            ? '+2.500 Credits'
+                            : '0'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               <div className="flex gap-3">
                 <button
@@ -8332,12 +8600,8 @@ const UsersTab = () => {
                 <motion.button
                   whileTap={{ scale: 0.97 }}
                   onClick={handleChangeTier}
-                  disabled={
-                    tierLoading ||
-                    selectedTier === (tierModal.subscriptionTier || 'free')
-                  }
-                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2
-                    disabled:opacity-40 transition-all"
+                  disabled={tierLoading}
+                  className="flex-1 py-2.5 px-4 rounded-xl font-bold text-sm flex items-center justify-center gap-2 disabled:opacity-40 transition-all cursor-pointer"
                   style={{
                     background: 'oklch(52% 0.28 285)',
                     color: '#f5f3ff',
@@ -8349,7 +8613,7 @@ const UsersTab = () => {
                     <Loader2 size={15} className="animate-spin" />
                   ) : (
                     <>
-                      <Zap size={14} /> Xác nhận
+                      <Zap size={14} /> Kích Hoạt Ngay
                     </>
                   )}
                 </motion.button>

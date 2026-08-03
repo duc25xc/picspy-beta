@@ -417,7 +417,7 @@ const BROKEN_AVATAR_PATTERN = 'ui-avatars|dicebear'
 
 export const getAllUsers = async (req, res, next) => {
   try {
-    const { cursor, limit = 20, search, sortBy, page = 1, avatarStatus = 'all' } = req.query
+    const { cursor, limit = 20, search, sortBy, page = 1, avatarStatus = 'all', hideAiUsers } = req.query
     // Allow limit='all' when fetching missing avatars for full list view
     const limitNum = limit === 'all' ? 9999 : (parseInt(limit) || 20)
     const pageNum = parseInt(page) || 1
@@ -428,6 +428,14 @@ export const getAllUsers = async (req, res, next) => {
         { username: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } },
         { displayName: { $regex: search, $options: 'i' } },
+      ]
+    }
+
+    if (hideAiUsers === 'true' || hideAiUsers === true) {
+      query.$and = [
+        ...(query.$and || []),
+        { email: { $not: /@picspy\.ai$/i } },
+        { username: { $not: /^_/ } },
       ]
     }
 

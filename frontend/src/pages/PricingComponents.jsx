@@ -16,7 +16,21 @@
  */
 import { useState } from 'react'
 import { motion } from 'framer-motion'
-import { Check, Copy, Loader2, Coins, Gift, ChevronRight } from 'lucide-react'
+import api from '../api/api'
+import {
+  Check,
+  Copy,
+  Loader2,
+  Coins,
+  Gift,
+  ChevronRight,
+  QrCode,
+  ExternalLink,
+  ShieldCheck,
+  X,
+  Sparkles,
+  CheckCircle2,
+} from 'lucide-react'
 import toast from 'react-hot-toast'
 
 // ── Shared tokens ─────────────────────────────────────────────────
@@ -470,162 +484,407 @@ export function PlanCard({
   )
 }
 
-// ── PayModal ──────────────────────────────────────────────────────
+// ── PayModal (Invoice & VietQR Redesign) ──────────────────────────
 export function PayModal({ order, onClose }) {
-  const [cp, setCp] = useState(false)
-  const copy = () => {
-    navigator.clipboard.writeText(order.bankInfo.content)
-    setCp(true)
-    setTimeout(() => setCp(false), 2000)
-    toast.success('Đã copy nội dung chuyển khoản!')
+  const [copiedKey, setCopiedKey] = useState(null)
+  const [qrTab, setQrTab] = useState('vietqr') // 'vietqr' | 'static'
+  const [confirmed, setConfirmed] = useState(false)
+
+  const copyToClipboard = (text, keyName, label) => {
+    navigator.clipboard.writeText(text)
+    setCopiedKey(keyName)
+    toast.success(`Đã sao chép ${label}!`)
+    setTimeout(() => setCopiedKey(null), 2000)
   }
+
+  const handleConfirmPaid = async () => {
+    setConfirmed(true)
+    try {
+      await api.post('/subscriptions/confirm-transfer')
+      toast.success(
+        'Đã gửi thông báo cho Admin! Admin sẽ kiểm tra và kích hoạt gói cho bạn trong 5-15 phút.',
+        {
+          duration: 6000,
+          icon: '🎉',
+        }
+      )
+    } catch {
+      toast.success(
+        'Đã ghi nhận thông báo chuyển khoản của bạn!',
+        {
+          duration: 5000,
+          icon: '🎉',
+        }
+      )
+    }
+  }
+
+  const userObj = order.order?.user || {}
+  const usernameDisplay = userObj.username
+    ? `@${userObj.username}`
+    : userObj.displayName || 'Creator'
+  const userShortId =
+    userObj.shortId || userObj.id?.slice(-6).toUpperCase() || 'USER'
+  const todayDate = new Date().toISOString().slice(0, 10)
+  const invoiceNo = `INV-${todayDate}-${userShortId}`
 
   return (
     <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-[300] flex items-end sm:items-center justify-center p-4"
+      className="fixed inset-0 z-[300] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       style={{
-        background: 'oklch(8% 0.005 285 / 0.78)',
-        backdropFilter: 'blur(14px)',
-        WebkitBackdropFilter: 'blur(14px)',
+        background: 'oklch(8% 0.005 285 / 0.85)',
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
       }}
       onClick={(e) => e.target === e.currentTarget && onClose()}
       role="dialog"
       aria-modal="true"
-      aria-label="Thanh toán thủ công"
+      aria-label="Hóa đơn thanh toán PicSpy"
     >
       <motion.div
-        initial={{ y: 52, scale: 0.94 }}
+        initial={{ y: 40, scale: 0.95 }}
         animate={{ y: 0, scale: 1 }}
-        exit={{ y: 52, scale: 0.94 }}
+        exit={{ y: 40, scale: 0.95 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-        className="max-w-md w-full rounded-3xl p-6"
-        style={glassCard}
+        className="max-w-2xl w-full rounded-3xl overflow-hidden my-auto shadow-2xl relative border border-white/15"
+        style={{
+          background: 'oklch(14% 0.015 285)',
+          boxShadow:
+            'inset 0 1px 0 rgba(255,255,255,0.18), 0 32px 80px rgba(0,0,0,0.65)',
+          fontFamily: '"Outfit", system-ui, sans-serif',
+        }}
       >
-        <div className="text-center mb-5">
-          <div
-            className="w-12 h-12 rounded-2xl mx-auto mb-3 flex items-center justify-center text-xl font-bold"
-            style={{
-              background:
-                'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.18)',
-              border:
-                '1px solid hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.3)',
-              color: 'hsl(var(--color-brand-h), var(--color-brand-s), 70%)',
-            }}
-            aria-hidden="true"
-          >
-            ₫
-          </div>
-          <h3
-            className="text-lg font-extrabold"
-            style={{ ...F.display, color: W }}
-          >
-            Thanh toán thủ công
-          </h3>
-          <p
-            className="text-sm mt-1"
-            style={{ ...F.body, color: 'rgba(255,255,255,0.6)' }}
-          >
-            Chuyển khoản, chụp màn hình, báo admin kích hoạt
-          </p>
-        </div>
-
-        <div
-          className="rounded-2xl p-4 mb-3 space-y-2.5 text-sm"
-          style={{
-            background: 'rgba(255,255,255,0.04)',
-            border: '1px solid rgba(255,255,255,0.09)',
-          }}
-        >
-          <div className="flex justify-between">
-            <span style={{ color: 'oklch(60% 0.01 285)' }}>Gói</span>
-            <span className="font-semibold" style={{ color: W }}>
-              {order.order.planName}
-            </span>
-          </div>
-          <div
-            className="flex justify-between pt-2.5"
-            style={{ borderTop: '1px solid rgba(255,255,255,0.07)' }}
-          >
-            <span style={{ color: 'oklch(60% 0.01 285)' }}>Số tiền</span>
-            <span
-              className="font-black text-base"
-              style={{ color: 'oklch(72% 0.2 145)' }}
-            >
-              {order.order.priceFormatted}
-            </span>
-          </div>
-        </div>
-
-        <div
-          className="rounded-2xl p-4 mb-3 space-y-2 text-sm"
-          style={{
-            background:
-              'hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.09)',
-            border:
-              '1px solid hsla(var(--color-brand-h), var(--color-brand-s), 50%, 0.22)',
-          }}
-        >
-          <p
-            className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2"
-            style={{
-              color: 'hsl(var(--color-brand-h), var(--color-brand-s), 70%)',
-            }}
-          >
-            Thông tin chuyển khoản
-          </p>
-          {[
-            ['Ngân hàng', order.bankInfo.bank],
-            ['Số TK', order.bankInfo.accountNumber],
-            ['Chủ TK', order.bankInfo.accountName],
-          ].map(([k, v]) => (
-            <div key={k} className="flex justify-between">
-              <span style={{ color: 'oklch(60% 0.01 285)' }}>{k}</span>
-              <span className="font-semibold" style={{ color: W }}>
-                {v}
-              </span>
+        {/* Header Ribbon / Status bar */}
+        <div className="px-6 pt-6 pb-4 border-b border-white/10 flex flex-wrap items-center justify-between gap-3 bg-white/[0.02]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl flex items-center justify-center bg-[#7986eb]/15 border border-[#7986eb]/30 text-[#8b98f8]">
+              <Sparkles size={20} />
             </div>
-          ))}
-          <div
-            className="mt-2 p-3 rounded-xl flex items-center justify-between gap-2"
-            style={{
-              background: 'oklch(8% 0.005 285 / 0.5)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }}
-          >
-            <span
-              className="font-black font-mono tracking-wider"
-              style={{ color: 'oklch(78% 0.16 65)' }}
-            >
-              {order.bankInfo.content}
+            <div>
+              <div className="flex items-center gap-2">
+                <h3
+                  className="text-lg font-bold text-white tracking-tight"
+                  style={F.display}
+                >
+                  Hóa đơn chuyển khoản
+                </h3>
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded-md bg-white/5 text-white/40 border border-white/10">
+                  {invoiceNo}
+                </span>
+              </div>
+              <p className="text-xs text-white/50 mt-0.5">
+                Xác nhận kích hoạt cho tài khoản{' '}
+                <span className="text-[#8b98f8] font-semibold">
+                  {usernameDisplay}
+                </span>{' '}
+                (ID: #{userShortId})
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="px-3 py-1 rounded-full text-xs font-bold bg-amber-500/15 border border-amber-500/30 text-amber-300 flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)]">
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+              Chờ thanh toán
             </span>
             <button
-              onClick={copy}
-              className="px-3 rounded-xl text-xs font-bold flex items-center gap-1 transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-              style={{ ...btnGhost, minHeight: '36px' }}
+              onClick={onClose}
+              className="w-8 h-8 rounded-full flex items-center justify-center bg-white/5 text-white/50 hover:text-white hover:bg-white/10 transition-all outline-none"
             >
-              {cp ? <Check size={11} /> : <Copy size={11} />}
-              {cp ? 'Copied' : 'Copy'}
+              <X size={16} />
             </button>
           </div>
         </div>
 
-        <p
-          className="text-xs leading-relaxed mb-4 px-1"
-          style={{ ...F.body, color: 'oklch(62% 0.01 285)' }}
-        >
-          {order.contactAdmin}
-        </p>
+        <div className="p-6 space-y-6 max-h-[80vh] overflow-y-auto scrollbar-thin">
+          {/* 1. HIGHLIGHT AMOUNT BOX (Tương tự bill.jpg) */}
+          <div className="rounded-2xl p-5 bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/10 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <span className="text-xs font-bold uppercase tracking-widest text-white/40 block mb-1">
+                TỔNG PHẢI THÀNH TOÁN
+              </span>
+              <div className="flex items-baseline gap-2">
+                <span
+                  className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight"
+                  style={F.display}
+                >
+                  {order.order?.priceFormatted ||
+                    `${order.order?.price?.toLocaleString('vi-VN')}₫`}
+                </span>
+                <span className="text-xs text-emerald-400 font-semibold px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/20">
+                  Miễn phí phí giao dịch
+                </span>
+              </div>
+            </div>
 
-        <button
-          onClick={onClose}
-          className="w-full rounded-2xl text-sm font-semibold transition-colors duration-150 outline-none focus-visible:ring-2 focus-visible:ring-violet-400"
-          style={{ ...btnGhost, minHeight: '48px' }}
-        >
-          Đóng lại
-        </button>
+            <div className="text-left sm:text-right">
+              <span className="text-xs text-white/50 block">Gói đăng ký</span>
+              <span className="text-sm font-bold text-[#8b98f8] px-3 py-1 rounded-xl bg-[#7986eb]/10 border border-[#7986eb]/25 inline-block mt-1">
+                PicSpy {order.order?.planName} •{' '}
+                {order.order?.cycle === 'yearly'
+                  ? '1 Năm'
+                  : order.order?.cycle === 'weekly'
+                    ? '1 Tuần'
+                    : '1 Tháng'}
+              </span>
+            </div>
+          </div>
+
+          {/* 2. ITEM BREAKDOWN (Chi tiết hóa đơn) */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-white/40 px-1">
+              CHI TIẾT ĐƠN HÀNG
+            </h4>
+            <div className="rounded-2xl border border-white/10 overflow-hidden bg-white/[0.01]">
+              <div className="flex items-center justify-between p-3.5 border-b border-white/5 text-sm">
+                <span className="text-white/60">Sản phẩm / Dịch vụ</span>
+                <span className="font-semibold text-white">
+                  Nâng cấp tài khoản PicSpy {order.order?.planName}
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3.5 border-b border-white/5 text-sm">
+                <span className="text-white/60">Tài khoản nhận nâng cấp</span>
+                <span className="font-semibold text-[#8b98f8]">
+                  {usernameDisplay} ({userObj.email || `ID: #${userShortId}`})
+                </span>
+              </div>
+              <div className="flex items-center justify-between p-3.5 text-sm">
+                <span className="text-white/60">Thời hạn sử dụng</span>
+                <span className="font-semibold text-white">
+                  {order.order?.cycle === 'yearly'
+                    ? '365 Ngày (+ Thưởng Pro)'
+                    : order.order?.cycle === 'weekly'
+                      ? '7 Ngày'
+                      : '30 Ngày'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* 3. PAYMENT METHOD CARD (Tương tự bill.jpg) */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between px-1">
+              <h4 className="text-xs font-bold uppercase tracking-wider text-white/40">
+                CÁCH THANH TOÁN & QUÉT MÃ QR
+              </h4>
+              <span className="text-[11px] text-emerald-400 font-semibold flex items-center gap-1">
+                <ShieldCheck size={13} /> VietinBank Official
+              </span>
+            </div>
+
+            <div className="rounded-2xl border border-white/10 p-5 bg-white/[0.02] grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+              {/* Left Column: Bank Info & Memo (7 Cols) */}
+              <div className="md:col-span-7 space-y-4">
+                {/* Bank Name Header */}
+                <div className="flex items-center gap-3 pb-3 border-b border-white/10">
+                  <div className="w-10 h-10 rounded-xl bg-white p-1.5 flex items-center justify-center shrink-0">
+                    <img
+                      src="/viettin-logo.png"
+                      alt="VietinBank"
+                      className="w-full h-full object-contain"
+                    />
+                  </div>
+                  <div>
+                    <h5 className="font-bold text-white text-base leading-tight">
+                      {order.bankInfo?.bank || 'VietinBank'}
+                    </h5>
+                    <p className="text-xs text-white/50">
+                      {order.bankInfo?.bankFullName ||
+                        'Ngân hàng TMCP Công thương Việt Nam'}
+                    </p>
+                    <p className="text-[11px] text-white/35">
+                      {order.bankInfo?.branch || 'CN Thái Nguyên - Hội sở'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Account Number */}
+                <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <div>
+                    <span className="text-[11px] text-white/40 uppercase font-semibold block">
+                      Số tài khoản
+                    </span>
+                    <span className="font-mono text-lg font-bold text-white tracking-wider">
+                      {order.bankInfo?.accountNumber || '105870712923'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        order.bankInfo?.accountNumber || '105870712923',
+                        'acc',
+                        'Số tài khoản'
+                      )
+                    }
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 transition-all"
+                  >
+                    {copiedKey === 'acc' ? (
+                      <Check size={13} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={13} />
+                    )}
+                    {copiedKey === 'acc' ? 'Đã chép' : 'Sao chép'}
+                  </button>
+                </div>
+
+                {/* Account Name */}
+                <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-white/[0.03] border border-white/10">
+                  <div>
+                    <span className="text-[11px] text-white/40 uppercase font-semibold block">
+                      Chủ tài khoản
+                    </span>
+                    <span className="font-bold text-white text-sm">
+                      {order.bankInfo?.accountName || 'HA MINH DUC'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() =>
+                      copyToClipboard(
+                        order.bankInfo?.accountName || 'HA MINH DUC',
+                        'name',
+                        'Tên chủ tài khoản'
+                      )
+                    }
+                    className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/10 hover:bg-white/20 text-white flex items-center gap-1 transition-all"
+                  >
+                    {copiedKey === 'name' ? (
+                      <Check size={13} className="text-emerald-400" />
+                    ) : (
+                      <Copy size={13} />
+                    )}
+                    {copiedKey === 'name' ? 'Đã chép' : 'Sao chép'}
+                  </button>
+                </div>
+
+                {/* Transfer Content Memo (QUAN TRỌNG NHẤT KHU VỰC NÀY) */}
+                <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1">
+                      ★ NỘI DUNG CHUYỂN KHOẢN (BẮT BUỘC)
+                    </span>
+                    <button
+                      onClick={() =>
+                        copyToClipboard(
+                          order.bankInfo?.content,
+                          'memo',
+                          'Nội dung chuyển khoản'
+                        )
+                      }
+                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-amber-500 text-stone-950 hover:bg-amber-400 flex items-center gap-1 transition-all shadow-md"
+                    >
+                      {copiedKey === 'memo' ? (
+                        <Check size={13} />
+                      ) : (
+                        <Copy size={13} />
+                      )}
+                      {copiedKey === 'memo' ? 'Đã sao chép' : 'Copy Nội Dung'}
+                    </button>
+                  </div>
+                  <div className="p-2.5 rounded-lg bg-black/40 border border-amber-500/20 font-mono text-base font-black text-amber-300 tracking-wider text-center select-all">
+                    {order.bankInfo?.content}
+                  </div>
+                  <p className="text-[11px] text-amber-200/80 font-medium leading-relaxed bg-amber-500/10 p-2 rounded-lg border border-amber-500/20">
+                    ⚠️ <b>QUAN TRỌNG & BẮT BUỘC:</b> Bạn phải dán đúng mã{' '}
+                    <b className="text-white font-mono">
+                      {order.bankInfo?.content}
+                    </b>{' '}
+                    vào Nội dung chuyển khoản khi giao dịch (tránh trường hợp
+                    chuyển tiền mà quên ghi nội dung làm gián đoạn kích hoạt
+                    gói).
+                  </p>
+                </div>
+              </div>
+
+              {/* Right Column: QR Code Display (5 Cols) */}
+              <div className="md:col-span-5 flex flex-col items-center justify-center text-center space-y-3">
+                {/* QR Tab Switcher */}
+                <div className="flex items-center gap-1 p-1 rounded-xl bg-white/5 border border-white/10 text-xs w-full max-w-[220px]">
+                  <button
+                    onClick={() => setQrTab('vietqr')}
+                    className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${
+                      qrTab === 'vietqr'
+                        ? 'bg-[#7986eb] text-white shadow-md'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    Mã VietQR
+                  </button>
+                  <button
+                    onClick={() => setQrTab('static')}
+                    className={`flex-1 py-1.5 rounded-lg font-bold transition-all ${
+                      qrTab === 'static'
+                        ? 'bg-[#7986eb] text-white shadow-md'
+                        : 'text-white/50 hover:text-white'
+                    }`}
+                  >
+                    Ảnh Chuẩn
+                  </button>
+                </div>
+
+                {/* White Container for QR Code (High Contrast for Instant Scanning) */}
+                <div className="p-3 bg-white rounded-2xl shadow-xl border border-white/20 relative group">
+                  <img
+                    src={
+                      qrTab === 'vietqr'
+                        ? order.bankInfo?.dynamicQrUrl || '/qr-code-viettin.jpg'
+                        : '/qr-code-viettin.jpg'
+                    }
+                    alt="VietinBank QR Code"
+                    className="w-48 h-48 object-contain rounded-lg"
+                  />
+                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity rounded-2xl flex items-center justify-center pointer-events-none">
+                    <span className="text-[10px] bg-black/80 text-white px-2 py-1 rounded">
+                      Mở App Ngân hàng để quét
+                    </span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-white/50 max-w-[200px] leading-tight">
+                  Quét mã để tự động điền <b className="text-white">Số tiền</b>{' '}
+                  & <b className="text-white">Nội dung</b> chuyển khoản.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. CONFIRMATION ALERT / ACTION */}
+          {confirmed ? (
+            <div className="p-4 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center gap-3 text-emerald-300">
+              <CheckCircle2 size={24} className="shrink-0 text-emerald-400" />
+              <div>
+                <h5 className="font-bold text-sm">
+                  Đã gửi thông báo chuyển khoản!
+                </h5>
+                <p className="text-xs text-emerald-200/70 mt-0.5">
+                  Hệ thống đang đối soát với tài khoản{' '}
+                  <b className="text-white">{usernameDisplay}</b> (ID: #
+                  {userShortId}). Gói sẽ kích hoạt trong 5-15 phút.
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
+              <button
+                onClick={handleConfirmPaid}
+                className="w-full sm:flex-1 py-3.5 px-6 rounded-2xl text-sm font-bold bg-[#7986eb] hover:bg-[#6876e8] text-white shadow-[0_8px_24px_rgba(121,134,235,0.4)] transition-all flex items-center justify-center gap-2"
+              >
+                <Check size={18} /> Tôi đã chuyển khoản
+              </button>
+
+              <a
+                href="https://zalo.me"
+                target="_blank"
+                rel="noreferrer"
+                className="w-full sm:w-auto py-3.5 px-5 rounded-2xl text-sm font-semibold bg-white/5 hover:bg-white/10 border border-white/10 text-white/80 hover:text-white flex items-center justify-center gap-2 transition-all whitespace-nowrap"
+              >
+                <ExternalLink size={15} /> Báo Admin qua Zalo
+              </a>
+            </div>
+          )}
+        </div>
       </motion.div>
     </motion.div>
   )
