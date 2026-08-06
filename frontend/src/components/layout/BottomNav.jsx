@@ -217,7 +217,11 @@ const BottomNav = () => {
               {/* Balances Grid */}
               <div className="grid grid-cols-2 gap-2">
                 {/* Wallet Balance (VNĐ) */}
-                <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-100 border">
+                <Link
+                  to="/wallet"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center justify-between p-3 rounded-2xl bg-surface-100 border hover:bg-foreground/5 transition-colors cursor-pointer"
+                >
                   <div className="flex items-center gap-1.5 text-foreground/80 font-bold text-[11px] truncate">
                     <Wallet size={14} className="text-emerald-400 flex-shrink-0" />
                     <span>Ví số dư</span>
@@ -225,7 +229,7 @@ const BottomNav = () => {
                   <span className="text-xs font-black text-emerald-400 tabular-nums">
                     {(user.vndBalance || 0).toLocaleString('vi-VN')}đ
                   </span>
-                </div>
+                </Link>
 
                 {/* Coins Balance */}
                 <Link

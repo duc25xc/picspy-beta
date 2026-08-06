@@ -133,15 +133,19 @@ const Header = () => {
               {/* Balances: Wallet (VNĐ) & Tokens */}
               <div className="group/balance-pill flex items-center h-8 rounded-full bg-black/40 hover:bg-black/60 border border-white/10 hover:border-white/15 px-1 select-none shadow-sm flex-shrink-0 transition-all duration-300">
                 {/* Wallet Balance (VNĐ) */}
-                <div className="flex items-center gap-1.5 px-2.5 h-full">
+                <Link
+                  to="/wallet"
+                  className="flex items-center gap-1.5 px-2.5 h-full hover:text-emerald-300 transition-colors group/wallet relative"
+                  title="Ví cá nhân — Nạp & Rút tiền"
+                >
                   <Wallet
                     size={13.5}
-                    className="text-emerald-400 flex-shrink-0 transition-transform group-hover/balance-pill:scale-105 duration-300"
+                    className="text-emerald-400 flex-shrink-0 transition-transform group-hover/wallet:scale-110 duration-300"
                   />
                   <span className="text-xs font-semibold text-emerald-400 tabular-nums">
                     {(user.vndBalance || 0).toLocaleString('vi-VN')}đ
                   </span>
-                </div>
+                </Link>
 
                 {/* Center elegant short divider */}
                 <div className="w-[1px] h-3 bg-white/15" />
@@ -309,6 +313,15 @@ const Header = () => {
                           className="text-[var(--color-text-muted)]"
                         />
                         <span>{t.dropdown.myPosts}</span>
+                      </Link>
+
+                      <Link
+                        to="/wallet"
+                        onClick={() => setIsDropdownOpen(false)}
+                        className="flex items-center gap-2.5 px-3 py-2 text-xs font-semibold rounded-xl text-foreground hover:bg-[var(--color-border)] transition-colors"
+                      >
+                        <Wallet size={14} className="text-emerald-400" />
+                        <span>Ví cá nhân (Nạp/Rút)</span>
                       </Link>
 
                       <Link

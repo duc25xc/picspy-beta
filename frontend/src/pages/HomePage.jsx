@@ -191,7 +191,7 @@ const STATS = [
   { value: '50K+', label: 'Wallpapers', color: '#a78bfa' },
   { value: '12M', label: 'Downloads', color: '#60a5fa' },
   { value: '8.5K', label: 'Creators', color: '#f59e0b' },
-  { value: '2M+', label: 'VNĐ đã trả', color: '#34d399' },
+  { value: '3.4M+', label: 'VNĐ đã trả', color: '#34d399' },
 ]
 
 const CATEGORIES = [

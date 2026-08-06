@@ -7946,9 +7946,11 @@ const UsersTab = () => {
                       {ord.userId?.email}
                     </p>
                     <div className="flex items-center gap-2 mt-1.5 text-xs">
-                      <span className="text-white/40">Gói yêu cầu:</span>
+                      <span className="text-white/40">Gói / Yêu cầu:</span>
                       <span className="font-bold text-[#8b98f8] px-2 py-0.5 rounded bg-[#7986eb]/15 border border-[#7986eb]/30">
-                        PicSpy {ord.planName} ({ord.cycle === 'yearly' ? '1 Năm' : ord.cycle === 'weekly' ? '1 Tuần' : '1 Tháng'})
+                        {ord.planId === 'topup'
+                          ? 'Nạp tiền Ví VNĐ'
+                          : `PicSpy ${ord.planName} (${ord.cycle === 'yearly' ? '1 Năm' : ord.cycle === 'weekly' ? '1 Tuần' : '1 Tháng'})`}
                       </span>
                       <span className="font-black text-amber-300 font-mono text-sm ml-1">
                         {ord.priceFormatted || `${ord.price?.toLocaleString('vi-VN')}₫`}

@@ -158,24 +158,19 @@ export const requestSubscription = async (req, res, next) => {
 
     const plan = await SubscriptionPlan.findOne({ planId }).lean()
     if (!plan) throw new AppError('NOT_FOUND', 'Không tìm thấy gói', 404)
-
-    const priceMap = { weekly: plan.pricing.weekly, monthly: plan.pricing.monthly, yearly: plan.pricing.yearly }
-    const price = priceMap[cycle]
-    const priceFormatted = price.toLocaleString('vi-VN') + '₫'
-
     const shortId = userId.toString().slice(-6).toUpperCase()
     const memoContent = `PICSPY ${planId.toUpperCase()} ${shortId}`
 
-    // Lưu hoặc cập nhật đơn nạp chờ duyệt vào DB
+    // Lưu hoặc cập nhật đơn nạp gói chờ duyệt vào DB (tách biệt hoàn toàn với đơn nạp ví topup)
     const orderDoc = await SubscriptionOrder.findOneAndUpdate(
-      { userId, status: 'pending' },
+      { userId, planId: { $ne: 'topup' }, status: 'pending' },
       {
         orderCode: memoContent,
         planId,
         planName: plan.name,
         cycle,
-        price,
-        priceFormatted,
+        price: plan.pricing[cycle],
+        priceFormatted: plan.pricing[cycle].toLocaleString('vi-VN') + '₫',
         memoContent,
         shortId,
         userConfirmed: false,
@@ -192,7 +187,7 @@ export const requestSubscription = async (req, res, next) => {
           actorId: userId,
           recipientId: admin._id,
           metadata: {
-            message: `⚡ [Đơn Nạp Gói Mới] User @${req.user.username || 'user'} (ID: #${shortId}) vừa tạo hóa đơn gói ${plan.name} (${priceFormatted}). Nội dung: "${memoContent}".`,
+            message: `⚡ [Đơn Nạp Gói Mới] User @${req.user.username || 'user'} (ID: #${shortId}) vừa tạo hóa đơn gói ${plan.name} (${orderDoc.priceFormatted}). Nội dung: "${memoContent}".`,
           },
         })
       }
@@ -209,8 +204,8 @@ export const requestSubscription = async (req, res, next) => {
         planId,
         planName: plan.name,
         cycle,
-        price,
-        priceFormatted,
+        price: orderDoc.price,
+        priceFormatted: orderDoc.priceFormatted,
         user: {
           id: userId.toString(),
           shortId,
@@ -227,7 +222,7 @@ export const requestSubscription = async (req, res, next) => {
         accountName: 'HA MINH DUC',
         content: memoContent,
         qrCodeUrl: '/qr-code-viettin.jpg',
-        dynamicQrUrl: `https://img.vietqr.io/image/vietinbank-105870712923-compact2.png?amount=${price}&addInfo=${encodeURIComponent(memoContent)}&accountName=HA%20MINH%20DUC`,
+        dynamicQrUrl: `https://img.vietqr.io/image/vietinbank-105870712923-compact2.png?amount=${orderDoc.price}&addInfo=${encodeURIComponent(memoContent)}&accountName=HA%20MINH%20DUC`,
         note: `⚠️ BẮT BUỘC nhập đúng nội dung chuyển khoản "${memoContent}" khi giao dịch.`
       },
       contactAdmin: 'Sau khi chuyển khoản thành công, nhấn "Tôi đã chuyển khoản" để báo admin hỗ trợ kích hoạt nhanh nhất.'
@@ -239,23 +234,102 @@ export const requestSubscription = async (req, res, next) => {
 
 /**
  * POST /v1/subscriptions/confirm-transfer
- * Auth required — người dùng nhấn "Tôi đã chuyển khoản" trên PayModal
+ * Auth required — người dùng nhấn "Tôi đã chuyển khoản" trên PayModal hoặc trang Ví /wallet
  */
 export const confirmTransferNotification = async (req, res, next) => {
   try {
     const userId = req.user._id
+    const userDoc = await User.findById(userId).select('username subscriptionTier').lean()
     const shortId = userId.toString().slice(-6).toUpperCase()
+    const amount = Number(req.body?.amount) || 0
+    const isTopup = req.body?.isTopup || amount > 0
+    const tier = userDoc?.subscriptionTier || 'free'
 
-    // Cập nhật đơn hàng gần nhất của user thành userConfirmed
-    const order = await SubscriptionOrder.findOneAndUpdate(
-      { userId, status: 'pending' },
-      { userConfirmed: true, userConfirmedAt: new Date() },
-      { sort: { createdAt: -1 }, returnDocument: 'after' }
-    )
+    const now = new Date()
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000)
+    const twoMinutesAgo = new Date(now.getTime() - 2 * 60 * 1000)
 
-    // Gửi thông báo đến tất cả Admin — sẽ hiện trong chuông thông báo
+    // ── BOT Anti-Spam & Hạn mức Nạp Ví theo Gói ─────────────────────────────
+    if (isTopup) {
+      // 1. Kiểm tra hạn mức nạp/ngày: Free max 5 lượt, Pro/Founder max 10 lượt, Ultimate không giới hạn
+      const dailyQuota = tier === 'ultimate' ? Infinity : tier === 'free' ? 5 : 10
+      const todayTopupCount = await SubscriptionOrder.countDocuments({
+        userId,
+        planId: 'topup',
+        createdAt: { $gte: oneDayAgo },
+      })
+
+      if (todayTopupCount >= dailyQuota) {
+        throw new AppError(
+          'RATE_LIMIT_EXCEEDED',
+          `Tài khoản ${tier.toUpperCase()} tối đa ${dailyQuota} lần gửi yêu cầu nạp tiền trong 24h. Vui lòng chờ Admin xử lý!`,
+          429
+        )
+      }
+
+      // 2. Chống Spam: Nếu vừa bấm xác nhận trong vòng 2 phút gần nhất, không spam thêm đơn & thông báo
+      const recentConfirm = await SubscriptionOrder.findOne({
+        userId,
+        planId: 'topup',
+        userConfirmedAt: { $gte: twoMinutesAgo },
+      })
+
+      if (recentConfirm) {
+        return res.json({
+          success: true,
+          spammed: true,
+          message:
+            'Đã gửi thông báo chuyển khoản! Hệ thống đang đối soát với tài khoản của bạn. Số dư sẽ được cộng vào ví trong 5-15 phút.',
+        })
+      }
+    }
+
+    let order
+    if (isTopup) {
+      // Đơn nạp ví VNĐ
+      order = await SubscriptionOrder.findOne({ userId, planId: 'topup', status: 'pending' }).sort({ createdAt: -1 })
+      const memoContent = `PICSPY ${shortId}`
+      const topupPrice = amount >= 10000 ? amount : 100000
+      const priceFormatted = topupPrice.toLocaleString('vi-VN') + 'đ'
+
+      if (order) {
+        order.userConfirmed = true
+        order.userConfirmedAt = new Date()
+        order.price = topupPrice
+        order.priceFormatted = priceFormatted
+        order.memoContent = memoContent
+        await order.save()
+        console.log(`[CONFIRM_TRANSFER] Updated pending topup order #${order._id} for ${priceFormatted}`)
+      } else {
+        order = await SubscriptionOrder.create({
+          userId,
+          planId: 'topup',
+          planName: 'Nạp tiền Ví VNĐ',
+          cycle: 'one-time',
+          price: topupPrice,
+          priceFormatted,
+          memoContent,
+          shortId,
+          userConfirmed: true,
+          userConfirmedAt: new Date(),
+          status: 'pending',
+        })
+        console.log(`[CONFIRM_TRANSFER] Created new topup order #${order._id} for ${priceFormatted}`)
+      }
+    } else {
+      // Đơn nâng cấp Gói dịch vụ (Pro/Ultimate/Founder)
+      order = await SubscriptionOrder.findOne({ userId, planId: { $ne: 'topup' }, status: 'pending' }).sort({ createdAt: -1 })
+      if (order) {
+        order.userConfirmed = true
+        order.userConfirmedAt = new Date()
+        await order.save()
+        console.log(`[CONFIRM_TRANSFER] Confirmed package order #${order._id} (${order.planName})`)
+      }
+    }
+
+    // Gửi thông báo đến tất cả Admin — hiện trên thanh chuông admin
     const adminUsers = await User.find({ role: 'admin' }).select('_id').lean()
-    const planTitle = order ? order.planName : 'Nâng cấp Gói'
+    const planTitle = order ? order.planName : (isTopup ? 'Nạp tiền Ví VNĐ' : 'Nâng cấp Gói')
     const priceText = order ? order.priceFormatted : ''
     const memoText = order ? order.memoContent : `PICSPY ${shortId}`
 
@@ -265,16 +339,18 @@ export const confirmTransferNotification = async (req, res, next) => {
         actorId: userId,
         recipientId: admin._id,
         metadata: {
-          message: `⚡ [CK Xác Nhận] User @${req.user.username || 'user'} (ID: #${shortId}) bấm đã chuyển khoản gói ${planTitle} (${priceText}). Nội dung: "${memoText}".`,
+          message: `⚡ [CK Xác Nhận] User @${req.user.username || 'user'} (ID: #${shortId}) bấm đã chuyển khoản ${planTitle} (${priceText}). Nội dung: "${memoText}".`,
         },
       })
     }
 
     res.json({
       success: true,
-      message: 'Đã gửi thông báo cho Admin. Admin sẽ kiểm tra và kích hoạt gói cho bạn trong 5-15 phút!',
+      message:
+        'Đã gửi thông báo chuyển khoản! Hệ thống đang đối soát với tài khoản của bạn. Số dư sẽ được cộng vào ví trong 5-15 phút.',
     })
   } catch (err) {
+    console.error('[CONFIRM_TRANSFER_ERROR]', err)
     next(err)
   }
 }
@@ -286,7 +362,7 @@ export const confirmTransferNotification = async (req, res, next) => {
 export const getPendingSubscriptionOrders = async (req, res, next) => {
   try {
     const orders = await SubscriptionOrder.find({ status: 'pending' })
-      .populate('userId', 'username displayName email avatar subscriptionTier tokenBalance')
+      .populate('userId', 'username displayName email avatar subscriptionTier tokenBalance vndBalance')
       .sort({ userConfirmed: -1, createdAt: -1 })
       .lean()
 
@@ -316,6 +392,44 @@ export const approveSubscriptionOrder = async (req, res, next) => {
 
     const user = await User.findById(order.userId)
     if (!user) throw new AppError('NOT_FOUND', 'Không tìm thấy user', 404)
+
+    // Handle Topup Order Approval
+    if (order.planId === 'topup') {
+      const topupAmt = order.price || 0
+      const balanceBefore = typeof user.vndBalance === 'number' && !isNaN(user.vndBalance) ? user.vndBalance : 0
+      user.vndBalance = balanceBefore + topupAmt
+      await user.save()
+
+      const VndTransaction = (await import('../models/VndTransaction.model.js')).default
+      await VndTransaction.create({
+        userId: user._id,
+        type: 'topup',
+        amount: topupAmt,
+        balanceBefore,
+        balanceAfter: user.vndBalance,
+        description: `Nạp tiền vào ví qua VietinBank — ID đơn #${order.shortId}`,
+      })
+
+      order.status = 'approved'
+      order.approvedBy = req.user._id
+      order.approvedAt = new Date()
+      await order.save()
+
+      await triggerNotificationEvent({
+        type: 'SUBSCRIPTION_APPROVED',
+        recipientId: user._id,
+        actorId: req.user._id,
+        metadata: {
+          message: `🎉 [Nạp Ví Thành Công] Đã duyệt đơn nạp tiền! Ví VNĐ của bạn vừa được cộng +${order.priceFormatted}.`,
+        },
+      })
+
+      return res.json({
+        success: true,
+        message: `Đã duyệt nạp ${order.priceFormatted} cho user @${user.username}`,
+        order,
+      })
+    }
 
     const plan = await SubscriptionPlan.findOne({ planId: order.planId }).lean()
 

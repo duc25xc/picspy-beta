@@ -10,7 +10,7 @@ const subscriptionOrderSchema = new mongoose.Schema(
     },
     planId: {
       type: String,
-      enum: ['pro', 'ultimate', 'founder'],
+      enum: ['pro', 'ultimate', 'founder', 'topup'],
       required: true,
     },
     planName: {
@@ -19,7 +19,7 @@ const subscriptionOrderSchema = new mongoose.Schema(
     },
     cycle: {
       type: String,
-      enum: ['weekly', 'monthly', 'yearly'],
+      enum: ['weekly', 'monthly', 'yearly', 'one-time'],
       default: 'monthly',
     },
     price: {

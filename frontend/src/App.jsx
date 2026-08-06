@@ -74,6 +74,7 @@ const PostDetailPage = lazy(() => import('./pages/PostDetailPage'))
 const PricingPage = lazy(() => import('./pages/PricingPage'))
 const StudioPage = lazy(() => import('./pages/StudioPage'))
 const RemixEditorPage = lazy(() => import('./pages/RemixEditorPage'))
+const WalletPage = lazy(() => import('./pages/WalletPage'))
 // PricingComponents.jsx là sub-components, không lazy load riêng — PricingPage import nó
 
 // Animation wrapper cho page transitions
@@ -326,6 +327,19 @@ export default function App() {
                   <MainLayout>
                     <PageTransition>
                       <StudioPage />
+                    </PageTransition>
+                  </MainLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/wallet"
+              element={
+                <ProtectedRoute>
+                  <MainLayout>
+                    <PageTransition>
+                      <WalletPage />
                     </PageTransition>
                   </MainLayout>
                 </ProtectedRoute>

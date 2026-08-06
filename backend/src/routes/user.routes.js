@@ -14,6 +14,7 @@ import {
   topupVnd,
   requestWithdrawal,
   getVndTransactions,
+  getTokenTransactions,
   getMyPurchasedPosts,
   getLeaderboard,
 } from '../controllers/user.controller.js'
@@ -32,6 +33,7 @@ router.post('/me/bank', authenticate, saveBankAccount)
 router.post('/me/topup', authenticate, topupVnd)
 router.post('/me/withdraw', authenticate, requestWithdrawal)
 router.get('/me/transactions', authenticate, getVndTransactions)
+router.get('/me/token-transactions', authenticate, getTokenTransactions)
 
 // Public
 router.get('/leaderboard', optionalAuth, getLeaderboard)

@@ -433,22 +433,46 @@ export const getFollowing = async (req, res, next) => {
  * POST /users/me/bank
  * Cập nhật thông tin tài khoản ngân hàng của Creator
  */
+function removeVietnameseAccents(str) {
+  if (!str) return ''
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/g, 'd')
+    .replace(/Đ/g, 'D')
+}
+
 export const saveBankAccount = async (req, res, next) => {
   try {
-    const { bankName, accountNumber, accountHolder } = req.body
+    const { bankName, accountNumber, accountHolder, isUnlink } = req.body
+
+    if (isUnlink) {
+      const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $unset: { bankAccount: 1 } },
+        { new: true }
+      )
+      return res.json({ message: 'Đã hủy liên kết tài khoản ngân hàng', bankAccount: null })
+    }
+
     if (!bankName || !accountNumber || !accountHolder) {
       throw new AppError('VALIDATION_ERROR', 'Vui lòng điền đầy đủ thông tin tài khoản', 400)
     }
+
+    const formattedBankName = bankName.trim().toUpperCase()
+    const formattedHolder = removeVietnameseAccents(accountHolder.trim()).toUpperCase()
+    const formattedAccNum = accountNumber.trim()
+
     const user = await User.findByIdAndUpdate(
       req.user._id,
       {
-        'bankAccount.bankName': bankName.trim(),
-        'bankAccount.accountNumber': accountNumber.trim(),
-        'bankAccount.accountHolder': accountHolder.trim(),
+        'bankAccount.bankName': formattedBankName,
+        'bankAccount.accountNumber': formattedAccNum,
+        'bankAccount.accountHolder': formattedHolder,
       },
       { new: true }
     )
-    res.json({ message: 'Đã cập nhật thông tin ngân hàng', bankAccount: user.bankAccount })
+    res.json({ message: 'Đã cập nhật thông tin ngân hàng thành công', bankAccount: user.bankAccount })
   } catch (err) {
     next(err)
   }
@@ -501,6 +525,8 @@ export const topupVnd = async (req, res, next) => {
 export const requestWithdrawal = async (req, res, next) => {
   try {
     const amount = Number(req.body.amount)
+    console.log(`💸 [WITHDRAWAL_REQUEST] User ${req.user._id} requesting withdrawal of ${amount} VNĐ`)
+
     const user = await User.findById(req.user._id)
     if (!user) throw new AppError('NOT_FOUND', 'Người dùng không tồn tại', 404)
 
@@ -582,11 +608,62 @@ export const requestWithdrawal = async (req, res, next) => {
 export const getVndTransactions = async (req, res, next) => {
   try {
     const VndTransaction = (await import('../models/VndTransaction.model.js')).default
-    const txns = await VndTransaction.find({ userId: req.user._id })
-      .sort({ createdAt: -1 })
-      .limit(50)
-      .lean()
-    res.json({ transactions: txns })
+    const { page = 1, limit = 20 } = req.query
+    const skip = (Number(page) - 1) * Number(limit)
+    const [txns, total, user] = await Promise.all([
+      VndTransaction.find({ userId: req.user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      VndTransaction.countDocuments({ userId: req.user._id }),
+      User.findById(req.user._id).select('vndBalance holdingBalance totalEarned totalWithdrawn bankAccount').lean(),
+    ])
+    res.json({
+      transactions: txns,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
+      summary: {
+        currentBalance: user?.vndBalance || 0,
+        holdingBalance: user?.holdingBalance || 0,
+        totalEarned: user?.totalEarned || 0,
+        totalWithdrawn: user?.totalWithdrawn || 0,
+      },
+      bankAccount: user?.bankAccount || null,
+    })
+  } catch (err) {
+    next(err)
+  }
+}
+
+/**
+ * GET /users/me/token-transactions?page=1&limit=20
+ * Lịch sử biến động AI Credits (token)
+ */
+export const getTokenTransactions = async (req, res, next) => {
+  try {
+    const TokenTransaction = (await import('../models/TokenTransaction.model.js')).default
+    const { page = 1, limit = 20 } = req.query
+    const skip = (Number(page) - 1) * Number(limit)
+    const [txns, total, user] = await Promise.all([
+      TokenTransaction.find({ userId: req.user._id })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(Number(limit))
+        .lean(),
+      TokenTransaction.countDocuments({ userId: req.user._id }),
+      User.findById(req.user._id).select('tokenBalance subscriptionTier subscriptionExpiry').lean(),
+    ])
+    res.json({
+      transactions: txns,
+      total,
+      page: Number(page),
+      totalPages: Math.ceil(total / Number(limit)),
+      tokenBalance: user?.tokenBalance || 0,
+      subscriptionTier: user?.subscriptionTier || 'free',
+      subscriptionExpiry: user?.subscriptionExpiry || null,
+    })
   } catch (err) {
     next(err)
   }

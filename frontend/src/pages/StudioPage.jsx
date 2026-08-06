@@ -856,6 +856,33 @@ const StudioPage = () => {
             exit={{ opacity: 0 }}
             className="space-y-6"
           >
+            {/* Direct Wallet link banner */}
+            <div className="bg-gradient-to-r from-emerald-950/40 via-surface-100 to-indigo-950/40 border border-emerald-500/20 rounded-3xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-xl">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+                  <Wallet size={22} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-white flex items-center gap-2">
+                    Trang Ví Điện Tử & Nạp/Rút Tiền
+                    <span className="text-[10px] font-black text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full">
+                      Mới
+                    </span>
+                  </h3>
+                  <p className="text-xs text-white/50 mt-0.5">
+                    Nạp tiền VNĐ qua mã QR VietinBank, rút tiền bảo mật PIN và tra cứu toàn bộ lịch sử giao dịch & AI credits.
+                  </p>
+                </div>
+              </div>
+              <Link
+                to="/wallet"
+                className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs uppercase tracking-wider rounded-xl transition-all shadow-lg shadow-emerald-900/30 flex items-center gap-2 flex-shrink-0"
+              >
+                <Wallet size={15} />
+                <span>Mở trang Ví (/wallet)</span>
+              </Link>
+            </div>
+
             {/* Summary cards */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               {[
