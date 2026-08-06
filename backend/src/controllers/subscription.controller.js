@@ -145,6 +145,18 @@ export const requestSubscription = async (req, res, next) => {
       }
     }
 
+    // Chặn tài khoản Tác giả CSV (import hàng loạt) không được đăng ký gói
+    const isAiAccount =
+      (req.user.email && /@picspy\.ai$/i.test(req.user.email)) ||
+      (req.user.username && /^_/.test(req.user.username))
+    if (isAiAccount) {
+      throw new AppError(
+        'FORBIDDEN_CSV_ACCOUNT',
+        'Tài khoản Tác giả CSV không thể đăng ký gói. Vui lòng sử dụng tài khoản cá nhân.',
+        403
+      )
+    }
+
     const plan = await SubscriptionPlan.findOne({ planId }).lean()
     if (!plan) throw new AppError('NOT_FOUND', 'Không tìm thấy gói', 404)
 

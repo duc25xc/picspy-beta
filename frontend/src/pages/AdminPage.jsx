@@ -7913,19 +7913,28 @@ const UsersTab = () => {
                 animate={{ opacity: 1, y: 0 }}
                 className="card p-4 sm:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 border-amber-500/20 bg-gradient-to-r from-amber-500/5 via-transparent to-transparent hover:border-amber-500/40 transition-all shadow-xl"
               >
-                {/* User Info */}
-                <div className="flex items-center gap-3">
-                  <img
-                    src={
-                      ord.userId?.avatar ||
-                      `https://ui-avatars.com/api/?name=${encodeURIComponent(ord.userId?.displayName || ord.userId?.username || 'U')}&background=7c3aed&color=fff&bold=true`
-                    }
-                    alt=""
-                    className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-amber-500/30"
-                  />
+                {/* User Info — click to open detail modal */}
+                <div
+                  className="flex items-center gap-3 cursor-pointer group/user rounded-xl px-2 py-1 -mx-2 -my-1 hover:bg-white/5 transition-all"
+                  onClick={() => ord.userId && setDetailModal(ord.userId)}
+                  title="Nhấp để xem chi tiết user"
+                >
+                  <div className="relative">
+                    <img
+                      src={
+                        ord.userId?.avatar ||
+                        `https://ui-avatars.com/api/?name=${encodeURIComponent(ord.userId?.displayName || ord.userId?.username || 'U')}&background=7c3aed&color=fff&bold=true`
+                      }
+                      alt=""
+                      className="w-12 h-12 rounded-full object-cover shrink-0 border-2 border-amber-500/30 group-hover/user:border-amber-400/60 transition-all"
+                    />
+                    <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full bg-amber-500/90 flex items-center justify-center opacity-0 group-hover/user:opacity-100 transition-all">
+                      <Eye size={9} className="text-stone-950" />
+                    </div>
+                  </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="font-bold text-white text-base">
+                      <span className="font-bold text-white text-base group-hover/user:text-amber-300 transition-colors">
                         {ord.userId?.displayName || ord.userId?.username || 'N/A'}
                       </span>
                       <span className="text-xs text-white/50">@{ord.userId?.username}</span>
