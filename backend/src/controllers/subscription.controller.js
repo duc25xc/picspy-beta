@@ -145,14 +145,13 @@ export const requestSubscription = async (req, res, next) => {
       }
     }
 
-    // Chặn tài khoản Tác giả CSV (import hàng loạt) không được đăng ký gói
-    const isAiAccount =
-      (req.user.email && /@picspy\.ai$/i.test(req.user.email)) ||
-      (req.user.username && /^_/.test(req.user.username))
-    if (isAiAccount) {
+    // Chặn tài khoản Tác giả CSV (import hàng loạt, nhận dạng qua email @picspy.ai)
+    // KHÔNG chặn tài khoản đăng ký thường hoặc Google OAuth dù username có dấu gạch dưới
+    const isCsvAccount = req.user.email && /@picspy\.ai$/i.test(req.user.email)
+    if (isCsvAccount) {
       throw new AppError(
         'FORBIDDEN_CSV_ACCOUNT',
-        'Tài khoản Tác giả CSV không thể đăng ký gói. Vui lòng sử dụng tài khoản cá nhân.',
+        'Tài khoản tác giả nội dung hệ thống không thể đăng ký gói trả phí.',
         403
       )
     }
